@@ -1,0 +1,169 @@
+{
+  "motors": [
+    {
+      "manufacturer": "Reda",
+      "series": "375",
+      "model": "375-25HP-440V",
+      "hp_rating": 25,
+      "voltage": 440,
+      "amperage": 33,
+      "length_ft": 5.5,
+      "max_temp_f": 250,
+      "od_inches": 3.75
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "375",
+      "model": "375-40HP-700V",
+      "hp_rating": 40,
+      "voltage": 700,
+      "amperage": 33,
+      "length_ft": 8.2,
+      "max_temp_f": 250,
+      "od_inches": 3.75
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "375",
+      "model": "375-60HP-1000V",
+      "hp_rating": 60,
+      "voltage": 1000,
+      "amperage": 34,
+      "length_ft": 11.8,
+      "max_temp_f": 250,
+      "od_inches": 3.75
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "456",
+      "model": "456-60HP-860V",
+      "hp_rating": 60,
+      "voltage": 860,
+      "amperage": 40,
+      "length_ft": 8.2,
+      "max_temp_f": 250,
+      "od_inches": 4.56
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "456",
+      "model": "456-80HP-1130V",
+      "hp_rating": 80,
+      "voltage": 1130,
+      "amperage": 40,
+      "length_ft": 10.5,
+      "max_temp_f": 250,
+      "od_inches": 4.56
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "456",
+      "model": "456-100HP-1375V",
+      "hp_rating": 100,
+      "voltage": 1375,
+      "amperage": 41,
+      "length_ft": 12.8,
+      "max_temp_f": 250,
+      "od_inches": 4.56
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "456",
+      "model": "456-130HP-1760V",
+      "hp_rating": 130,
+      "voltage": 1760,
+      "amperage": 42,
+      "length_ft": 16.2,
+      "max_temp_f": 250,
+      "od_inches": 4.56
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "540",
+      "model": "540-150HP-1530V",
+      "hp_rating": 150,
+      "voltage": 1530,
+      "amperage": 57,
+      "length_ft": 14.5,
+      "max_temp_f": 300,
+      "od_inches": 5.40
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "540",
+      "model": "540-200HP-2025V",
+      "hp_rating": 200,
+      "voltage": 2025,
+      "amperage": 57,
+      "length_ft": 18.5,
+      "max_temp_f": 300,
+      "od_inches": 5.40
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "540",
+      "model": "540-250HP-2540V",
+      "hp_rating": 250,
+      "voltage": 2540,
+      "amperage": 57,
+      "length_ft": 22.5,
+      "max_temp_f": 300,
+      "od_inches": 5.40
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "544",
+      "model": "544-175HP-1760V",
+      "hp_rating": 175,
+      "voltage": 1760,
+      "amperage": 58,
+      "length_ft": 16.5,
+      "max_temp_f": 300,
+      "od_inches": 5.44
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "544",
+      "model": "544-230HP-2300V",
+      "hp_rating": 230,
+      "voltage": 2300,
+      "amperage": 58,
+      "length_ft": 21.0,
+      "max_temp_f": 300,
+      "od_inches": 5.44
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "562",
+      "model": "562-350HP-2445V",
+      "hp_rating": 350,
+      "voltage": 2445,
+      "amperage": 83,
+      "length_ft": 28.5,
+      "max_temp_f": 350,
+      "od_inches": 5.62
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "562",
+      "model": "562-450HP-3135V",
+      "hp_rating": 450,
+      "voltage": 3135,
+      "amperage": 83,
+      "length_ft": 36.0,
+      "max_temp_f": 350,
+      "od_inches": 5.62
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "562",
+      "model": "562-600HP-4185V",
+      "hp_rating": 600,
+      "voltage": 4185,
+      "amperage": 83,
+      "length_ft": 46.5,
+      "max_temp_f": 350,
+      "od_inches": 5.62
+    }
+  ]
+}

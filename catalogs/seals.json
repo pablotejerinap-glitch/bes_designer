@@ -1,0 +1,170 @@
+{
+  "_note": "Seal (protector/equalizer) catalog. Thrust capacity covers both upthrust and downthrust loads from the pump string.",
+  "seals": [
+    {
+      "manufacturer": "Reda",
+      "series": "375",
+      "model": "VSEAL-375-LAB",
+      "type": "labyrinth",
+      "compatible_motor_series": ["375"],
+      "od_inches": 3.75,
+      "length_ft": 2.8,
+      "thrust_capacity_lbs": 6500,
+      "max_temp_f": 250
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "375",
+      "model": "VSEAL-375-BAG",
+      "type": "bag",
+      "compatible_motor_series": ["375"],
+      "od_inches": 3.75,
+      "length_ft": 3.2,
+      "thrust_capacity_lbs": 5000,
+      "max_temp_f": 250
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "375",
+      "model": "VSEAL-375-COMB",
+      "type": "combined",
+      "compatible_motor_series": ["375"],
+      "od_inches": 3.75,
+      "length_ft": 4.5,
+      "thrust_capacity_lbs": 8000,
+      "max_temp_f": 250
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "456",
+      "model": "VSEAL-456-LAB",
+      "type": "labyrinth",
+      "compatible_motor_series": ["456"],
+      "od_inches": 4.56,
+      "length_ft": 3.5,
+      "thrust_capacity_lbs": 11000,
+      "max_temp_f": 250
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "456",
+      "model": "VSEAL-456-BAG",
+      "type": "bag",
+      "compatible_motor_series": ["456"],
+      "od_inches": 4.56,
+      "length_ft": 4.0,
+      "thrust_capacity_lbs": 9000,
+      "max_temp_f": 250
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "456",
+      "model": "VSEAL-456-COMB",
+      "type": "combined",
+      "compatible_motor_series": ["456"],
+      "od_inches": 4.56,
+      "length_ft": 5.8,
+      "thrust_capacity_lbs": 15000,
+      "max_temp_f": 250
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "540",
+      "model": "VSEAL-540-LAB",
+      "type": "labyrinth",
+      "compatible_motor_series": ["540"],
+      "od_inches": 5.40,
+      "length_ft": 4.5,
+      "thrust_capacity_lbs": 18000,
+      "max_temp_f": 300
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "540",
+      "model": "VSEAL-540-BAG",
+      "type": "bag",
+      "compatible_motor_series": ["540"],
+      "od_inches": 5.40,
+      "length_ft": 5.0,
+      "thrust_capacity_lbs": 15000,
+      "max_temp_f": 300
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "540",
+      "model": "VSEAL-540-COMB",
+      "type": "combined",
+      "compatible_motor_series": ["540"],
+      "od_inches": 5.40,
+      "length_ft": 7.0,
+      "thrust_capacity_lbs": 22000,
+      "max_temp_f": 300
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "544",
+      "model": "PSEAL-544-LAB",
+      "type": "labyrinth",
+      "compatible_motor_series": ["544"],
+      "od_inches": 5.44,
+      "length_ft": 4.6,
+      "thrust_capacity_lbs": 19000,
+      "max_temp_f": 300
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "544",
+      "model": "PSEAL-544-BAG",
+      "type": "bag",
+      "compatible_motor_series": ["544"],
+      "od_inches": 5.44,
+      "length_ft": 5.2,
+      "thrust_capacity_lbs": 16000,
+      "max_temp_f": 300
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "544",
+      "model": "PSEAL-544-COMB",
+      "type": "combined",
+      "compatible_motor_series": ["544"],
+      "od_inches": 5.44,
+      "length_ft": 7.5,
+      "thrust_capacity_lbs": 24000,
+      "max_temp_f": 300
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "562",
+      "model": "PSEAL-562-LAB",
+      "type": "labyrinth",
+      "compatible_motor_series": ["562"],
+      "od_inches": 5.62,
+      "length_ft": 5.0,
+      "thrust_capacity_lbs": 24000,
+      "max_temp_f": 350
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "562",
+      "model": "PSEAL-562-BAG",
+      "type": "bag",
+      "compatible_motor_series": ["562"],
+      "od_inches": 5.62,
+      "length_ft": 5.8,
+      "thrust_capacity_lbs": 20000,
+      "max_temp_f": 350
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "562",
+      "model": "PSEAL-562-COMB",
+      "type": "combined",
+      "compatible_motor_series": ["562"],
+      "od_inches": 5.62,
+      "length_ft": 8.5,
+      "thrust_capacity_lbs": 30000,
+      "max_temp_f": 350
+    }
+  ]
+}

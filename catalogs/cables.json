@@ -1,0 +1,215 @@
+{
+  "_note": "Voltage drop given as V per amp per 1000 ft (one-way, 3-phase: multiply by sqrt(3) already included). Based on Kermit Brown Table 4.52 and NEMA/API RP 11S6.",
+  "cables": [
+    {
+      "manufacturer": "Reda",
+      "type": "Redalene",
+      "conductor": "CU",
+      "size": "#1",
+      "max_amps": 100,
+      "max_temp_f": 450,
+      "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.235,
+        "150": 0.257,
+        "180": 0.270,
+        "200": 0.281
+      }
+    },
+    {
+      "manufacturer": "Reda",
+      "type": "Redalene",
+      "conductor": "CU",
+      "size": "#2",
+      "max_amps": 88,
+      "max_temp_f": 450,
+      "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.297,
+        "150": 0.324,
+        "180": 0.341,
+        "200": 0.354
+      }
+    },
+    {
+      "manufacturer": "Reda",
+      "type": "Redalene",
+      "conductor": "CU",
+      "size": "#4",
+      "max_amps": 69,
+      "max_temp_f": 450,
+      "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.473,
+        "150": 0.516,
+        "180": 0.543,
+        "200": 0.562
+      }
+    },
+    {
+      "manufacturer": "Reda",
+      "type": "Redalene",
+      "conductor": "CU",
+      "size": "#6",
+      "max_amps": 55,
+      "max_temp_f": 450,
+      "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.752,
+        "150": 0.820,
+        "180": 0.863,
+        "200": 0.894
+      }
+    },
+    {
+      "manufacturer": "Reda",
+      "type": "Redared",
+      "conductor": "CU",
+      "size": "#1",
+      "max_amps": 100,
+      "max_temp_f": 400,
+      "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.235,
+        "150": 0.257,
+        "180": 0.270,
+        "200": 0.281
+      }
+    },
+    {
+      "manufacturer": "Reda",
+      "type": "Redared",
+      "conductor": "CU",
+      "size": "#2",
+      "max_amps": 88,
+      "max_temp_f": 400,
+      "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.297,
+        "150": 0.324,
+        "180": 0.341,
+        "200": 0.354
+      }
+    },
+    {
+      "manufacturer": "Centrilift",
+      "type": "Polyethylene",
+      "conductor": "CU",
+      "size": "#1",
+      "max_amps": 95,
+      "max_temp_f": 300,
+      "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.235,
+        "150": 0.257,
+        "180": 0.270,
+        "200": 0.281
+      }
+    },
+    {
+      "manufacturer": "Centrilift",
+      "type": "Polyethylene",
+      "conductor": "CU",
+      "size": "#2",
+      "max_amps": 83,
+      "max_temp_f": 300,
+      "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.297,
+        "150": 0.324,
+        "180": 0.341,
+        "200": 0.354
+      }
+    },
+    {
+      "manufacturer": "Centrilift",
+      "type": "Polyethylene",
+      "conductor": "CU",
+      "size": "#4",
+      "max_amps": 65,
+      "max_temp_f": 300,
+      "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.473,
+        "150": 0.516,
+        "180": 0.543,
+        "200": 0.562
+      }
+    },
+    {
+      "manufacturer": "Centrilift",
+      "type": "EPDM",
+      "conductor": "CU",
+      "size": "#1",
+      "max_amps": 100,
+      "max_temp_f": 500,
+      "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.235,
+        "150": 0.257,
+        "180": 0.270,
+        "200": 0.281
+      }
+    },
+    {
+      "manufacturer": "Centrilift",
+      "type": "EPDM",
+      "conductor": "CU",
+      "size": "#2",
+      "max_amps": 88,
+      "max_temp_f": 500,
+      "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.297,
+        "150": 0.324,
+        "180": 0.341,
+        "200": 0.354
+      }
+    },
+    {
+      "manufacturer": "Centrilift",
+      "type": "EPDM",
+      "conductor": "CU",
+      "size": "#4",
+      "max_amps": 69,
+      "max_temp_f": 500,
+      "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.473,
+        "150": 0.516,
+        "180": 0.543,
+        "200": 0.562
+      }
+    },
+    {
+      "manufacturer": "Reda",
+      "type": "Redalene",
+      "conductor": "AL",
+      "size": "#1",
+      "max_amps": 78,
+      "max_temp_f": 450,
+      "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.388,
+        "150": 0.424,
+        "180": 0.446,
+        "200": 0.462
+      }
+    },
+    {
+      "manufacturer": "Reda",
+      "type": "Redalene",
+      "conductor": "AL",
+      "size": "#2",
+      "max_amps": 69,
+      "max_temp_f": 450,
+      "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.490,
+        "150": 0.535,
+        "180": 0.563,
+        "200": 0.583
+      }
+    },
+    {
+      "manufacturer": "Reda",
+      "type": "Redalene",
+      "conductor": "AL",
+      "size": "#4",
+      "max_amps": 54,
+      "max_temp_f": 450,
+      "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.779,
+        "150": 0.850,
+        "180": 0.895,
+        "200": 0.927
+      }
+    }
+  ]
+}
