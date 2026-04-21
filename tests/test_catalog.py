@@ -251,6 +251,8 @@ class TestCableQuery:
         with pytest.raises(ValueError):
             manager.get_cable(amps=9999, temp_f=150, voltage=1000)
 
-    def test_high_temp_requires_epdm_or_redalene(self, manager):
-        cable = manager.get_cable(amps=40, temp_f=450, voltage=1000)
-        assert cable["max_temp_f"] >= 450
+    def test_high_temp_requires_epdm(self, manager):
+        # EPDM is the only type rated for 350 °F+ (max_temp_f = 400 °F)
+        cable = manager.get_cable(amps=40, temp_f=350, voltage=1000)
+        assert cable["max_temp_f"] >= 350
+        assert cable["type"] == "EPDM"

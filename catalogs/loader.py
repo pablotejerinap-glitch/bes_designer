@@ -52,21 +52,41 @@ def _parse_pumps(raw: list[dict]) -> list[PumpCurve]:
     return pumps
 
 
-def _interpolate_vdrop_per_amp(cable: dict, temp_f: float) -> float:
-    """Return voltage drop in V per amp per 1000 ft, interpolated to temp_f."""
-    vd_map = cable["voltage_drop_v_per_amp_per_1000ft"]
-    temps = sorted(float(k) for k in vd_map.keys())
-    values = [vd_map[str(int(t))] for t in temps]
+def _interpolate_vdrop(cable: dict, amps: float, temp_f: float) -> float:
+    """Return total voltage drop [V/1000 ft] at *amps* and *temp_f*.
+
+    The JSON stores ``voltage_drop_per_1000ft`` as a dict keyed by temperature
+    strings (e.g. ``"180F"``).  Each entry has parallel ``amps`` and ``volts``
+    arrays.  This function bilinearly interpolates across both axes.
+    """
+    vd_map = cable["voltage_drop_per_1000ft"]
+
+    # Sort available temperature keys numerically
+    temp_pairs = sorted(
+        (float(k.rstrip("F")), k) for k in vd_map.keys()
+    )
+    temps = [t for t, _ in temp_pairs]
+    keys = [k for _, k in temp_pairs]
+
+    def _vdrop_at_key(key: str) -> float:
+        entry = vd_map[key]
+        amp_arr = np.array(entry["amps"], dtype=float)
+        volt_arr = np.array(entry["volts"], dtype=float)
+        f = interp1d(amp_arr, volt_arr, kind="linear",
+                     bounds_error=False, fill_value="extrapolate")
+        return float(f(amps))
 
     if temp_f <= temps[0]:
-        return values[0]
+        return _vdrop_at_key(keys[0])
     if temp_f >= temps[-1]:
-        return values[-1]
+        return _vdrop_at_key(keys[-1])
     for i in range(len(temps) - 1):
         if temps[i] <= temp_f <= temps[i + 1]:
             frac = (temp_f - temps[i]) / (temps[i + 1] - temps[i])
-            return values[i] + frac * (values[i + 1] - values[i])
-    return values[-1]
+            v_lo = _vdrop_at_key(keys[i])
+            v_hi = _vdrop_at_key(keys[i + 1])
+            return v_lo + frac * (v_hi - v_lo)
+    return _vdrop_at_key(keys[-1])
 
 
 class CatalogManager:
@@ -167,7 +187,7 @@ class CatalogManager:
             )
         return min(
             candidates,
-            key=lambda c: _interpolate_vdrop_per_amp(c, temp_f) * amps,
+            key=lambda c: _interpolate_vdrop(c, amps, temp_f),
         )
 
     # ------------------------------------------------------------------
