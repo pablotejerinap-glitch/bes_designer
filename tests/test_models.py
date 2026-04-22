@@ -168,8 +168,8 @@ class TestReservoir:
                 drive_mechanism=DriveMechanism.WATER_DRIVE, datum_depth=8500.0,
             )
 
-    def test_bubble_point_exceeds_static_pressure(self):
-        with pytest.raises(ValueError, match="bubble_point"):
+    def test_bubble_point_exceeds_static_pressure_warns(self):
+        with pytest.warns(UserWarning, match="bubble_point"):
             Reservoir(
                 static_pressure=2000.0, bubble_point=2500.0, productivity_index=1.5,
                 ipr_method=IPRMethod.VOGEL, reservoir_temp=180.0,

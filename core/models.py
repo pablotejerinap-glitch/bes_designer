@@ -52,9 +52,13 @@ class Reservoir:
         if self.bubble_point < 0:
             raise ValueError(f"bubble_point must be >= 0, got {self.bubble_point}")
         if self.bubble_point > self.static_pressure:
-            raise ValueError(
-                f"bubble_point ({self.bubble_point}) cannot exceed "
-                f"static_pressure ({self.static_pressure})"
+            import warnings
+            warnings.warn(
+                f"bubble_point ({self.bubble_point}) exceeds static_pressure "
+                f"({self.static_pressure}). This is normal in depleted "
+                f"reservoirs with solution gas drive (Vogel IPR applies).",
+                UserWarning,
+                stacklevel=2,
             )
         if self.productivity_index <= 0:
             raise ValueError(f"productivity_index must be > 0, got {self.productivity_index}")
