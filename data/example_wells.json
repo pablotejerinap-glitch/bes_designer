@@ -1,0 +1,186 @@
+{
+  "_comment": "Reference examples from Kermit Brown — The Technology of Artificial Lift Methods, Vol. 2b, Ch. 4.5. book_reference values are analytical estimates using the same TDH equations implemented in this application; they serve as approximate benchmarks for integration testing.",
+  "example_1a": {
+    "description": "Brown Vol.2b Example 1A — Water well, no gas, 8-5/8\" casing, 10 000 STB/d",
+    "reservoir": {
+      "static_pressure": 1250.0,
+      "bubble_point": 0.0,
+      "productivity_index": 10.0,
+      "ipr_method": "LINEAR",
+      "reservoir_temp": 120.0,
+      "drive_mechanism": "WATER_DRIVE",
+      "datum_depth": 2200.0
+    },
+    "fluid": {
+      "oil_api": 35.0,
+      "water_cut": 1.0,
+      "gor": 0.0,
+      "gas_sg": 0.65,
+      "water_sg": 1.10,
+      "oil_viscosity_dead": 1.0,
+      "viscosity_temp_ref": 100.0,
+      "bubble_point_pressure": 0.0,
+      "h2s_content": 0.0,
+      "co2_content": 0.0,
+      "sand_production": false
+    },
+    "well": {
+      "total_depth": 2200.0,
+      "casing_od": 8.625,
+      "casing_weight": 24.0,
+      "casing_id": 8.097,
+      "tubing_od": 5.5,
+      "tubing_id": 4.778,
+      "perforations_top": 1900.0,
+      "perforations_bottom": 2200.0,
+      "deviation_max": 0.0,
+      "wellhead_temp": 75.0,
+      "bottom_hole_temp": 120.0
+    },
+    "surface": {
+      "wellhead_pressure_required": 0.0,
+      "flowline_length": 2000.0,
+      "flowline_id": 4.0,
+      "flowline_elevation_change": 30.0,
+      "separator_pressure": 50.0,
+      "power_supply_voltage": 4160.0,
+      "frequency": 60.0
+    },
+    "objectives": {
+      "target_flow_rate": 10000.0,
+      "safety_margin_depth": 100.0,
+      "allow_gas_venting": false,
+      "max_gip": 0.01,
+      "design_life_years": 5.0,
+      "use_vsd": false
+    },
+    "book_reference": {
+      "tdh_ft": 1724,
+      "stages": 29,
+      "total_hp": 217,
+      "notes": "Pump at 80% of total depth (1 760 ft). Pure water (SG=1.10). PIP ≈ 40 psi. I-300 pump expected."
+    }
+  },
+  "example_2a": {
+    "description": "Brown Vol.2b Example 2A — Oil well, no free gas at pump, 15% water cut, 5-1/2\" casing",
+    "reservoir": {
+      "static_pressure": 2000.0,
+      "bubble_point": 400.0,
+      "productivity_index": 0.95,
+      "ipr_method": "LINEAR",
+      "reservoir_temp": 170.0,
+      "drive_mechanism": "WATER_DRIVE",
+      "datum_depth": 5965.0
+    },
+    "fluid": {
+      "oil_api": 30.0,
+      "water_cut": 0.15,
+      "gor": 80.0,
+      "gas_sg": 0.75,
+      "water_sg": 1.02,
+      "oil_viscosity_dead": 5.0,
+      "viscosity_temp_ref": 100.0,
+      "bubble_point_pressure": 400.0,
+      "h2s_content": 0.0,
+      "co2_content": 0.0,
+      "sand_production": false
+    },
+    "well": {
+      "total_depth": 6100.0,
+      "casing_od": 5.5,
+      "casing_weight": 17.0,
+      "casing_id": 4.892,
+      "tubing_od": 2.375,
+      "tubing_id": 1.995,
+      "perforations_top": 5900.0,
+      "perforations_bottom": 6030.0,
+      "deviation_max": 0.0,
+      "wellhead_temp": 120.0,
+      "bottom_hole_temp": 170.0
+    },
+    "surface": {
+      "wellhead_pressure_required": 200.0,
+      "flowline_length": 1000.0,
+      "flowline_id": 3.0,
+      "flowline_elevation_change": 0.0,
+      "separator_pressure": 100.0,
+      "power_supply_voltage": 4160.0,
+      "frequency": 60.0
+    },
+    "objectives": {
+      "target_flow_rate": 1000.0,
+      "safety_margin_depth": 100.0,
+      "allow_gas_venting": false,
+      "max_gip": 0.10,
+      "design_life_years": 5.0,
+      "use_vsd": false
+    },
+    "book_reference": {
+      "tdh_ft": 4174,
+      "stages": 156,
+      "total_hp": 44,
+      "notes": "Pump at 80% depth (4 880 ft). Pb=400 psi < PIP≈525 psi → no free gas. M-34 or D-40 expected."
+    }
+  },
+  "example_3a": {
+    "description": "Brown Vol.2b Example 3A — Oil well WITH free gas, 50% water cut, high GIP, 5-1/2\" casing",
+    "reservoir": {
+      "static_pressure": 1000.0,
+      "bubble_point": 2000.0,
+      "productivity_index": 1.5,
+      "ipr_method": "VOGEL",
+      "reservoir_temp": 160.0,
+      "drive_mechanism": "SOLUTION_GAS",
+      "datum_depth": 6975.0
+    },
+    "fluid": {
+      "oil_api": 35.0,
+      "water_cut": 0.50,
+      "gor": 500.0,
+      "gas_sg": 0.65,
+      "water_sg": 1.07,
+      "oil_viscosity_dead": 5.0,
+      "viscosity_temp_ref": 100.0,
+      "bubble_point_pressure": 2000.0,
+      "h2s_content": 0.0,
+      "co2_content": 0.0,
+      "sand_production": false
+    },
+    "well": {
+      "total_depth": 7000.0,
+      "casing_od": 5.5,
+      "casing_weight": 17.0,
+      "casing_id": 4.892,
+      "tubing_od": 2.375,
+      "tubing_id": 1.995,
+      "perforations_top": 6950.0,
+      "perforations_bottom": 7000.0,
+      "deviation_max": 0.0,
+      "wellhead_temp": 120.0,
+      "bottom_hole_temp": 160.0
+    },
+    "surface": {
+      "wellhead_pressure_required": 200.0,
+      "flowline_length": 1000.0,
+      "flowline_id": 3.0,
+      "flowline_elevation_change": 0.0,
+      "separator_pressure": 100.0,
+      "power_supply_voltage": 4160.0,
+      "frequency": 60.0
+    },
+    "objectives": {
+      "target_flow_rate": 700.0,
+      "safety_margin_depth": 100.0,
+      "allow_gas_venting": true,
+      "max_gip": 0.30,
+      "design_life_years": 5.0,
+      "use_vsd": false
+    },
+    "book_reference": {
+      "tdh_ft": 6060,
+      "stages": 206,
+      "total_hp": 45,
+      "notes": "Pb=2000 > Pr=1000: severely depleted. High free-gas fraction at pump (>30%). M-34 with gas separator expected."
+    }
+  }
+}

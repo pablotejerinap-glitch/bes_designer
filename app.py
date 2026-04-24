@@ -36,6 +36,8 @@ from ui.forms import render_data_forms                                       # n
 from ui.results_view import render_results                                   # noqa: E402
 from ui.comparison_view import render_comparison                             # noqa: E402
 from ui.sensitivity_view import render_sensitivity                           # noqa: E402
+from reports.pdf_generator import generate_design_report                     # noqa: E402
+from reports.excel_exporter import generate_design_excel                     # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Session-state initialisation
@@ -204,6 +206,74 @@ elif section == "⚙️ Diseño BES":
                     render_results(rec)
         else:
             render_results(recs[0])
+
+        # ----------------------------------------------------------------
+        # Download section
+        # ----------------------------------------------------------------
+        st.divider()
+        st.subheader("📥 Descargar Reportes")
+
+        import json as _json
+        import dataclasses as _dc
+
+        selected_dr = recs[min(idx, len(recs) - 1)]["design"]
+        _well_dl = {
+            "reservoir":  st.session_state.reservoir,
+            "fluid":      st.session_state.fluid,
+            "well":       st.session_state.well,
+            "surface":    st.session_state.surface,
+            "objectives": st.session_state.objectives,
+        }
+
+        dl1, dl2, dl3 = st.columns(3)
+
+        with dl1:
+            try:
+                _pdf = generate_design_report(selected_dr, _well_dl)
+                st.download_button(
+                    "📕 Descargar PDF",
+                    data=_pdf,
+                    file_name="reporte_bes.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
+            except Exception as _e:
+                st.error(f"❌ Error generando PDF: {_e}")
+
+        with dl2:
+            try:
+                _xlsx = generate_design_excel(selected_dr, _well_dl)
+                st.download_button(
+                    "📗 Descargar Excel",
+                    data=_xlsx,
+                    file_name="reporte_bes.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+            except Exception as _e:
+                st.error(f"❌ Error generando Excel: {_e}")
+
+        with dl3:
+            try:
+                _case = {
+                    "generated":    str(__import__("datetime").date.today()),
+                    "design_result": _dc.asdict(selected_dr),
+                    "reservoir":    _dc.asdict(st.session_state.reservoir),
+                    "fluid":        _dc.asdict(st.session_state.fluid),
+                    "well":         _dc.asdict(st.session_state.well),
+                    "surface":      _dc.asdict(st.session_state.surface),
+                    "objectives":   _dc.asdict(st.session_state.objectives),
+                }
+                _json_bytes = _json.dumps(_case, default=str, indent=2).encode("utf-8")
+                st.download_button(
+                    "💾 Guardar Caso JSON",
+                    data=_json_bytes,
+                    file_name="caso_bes.json",
+                    mime="application/json",
+                    use_container_width=True,
+                )
+            except Exception as _e:
+                st.error(f"❌ Error generando JSON: {_e}")
 
 # ---------------------------------------------------------------------------
 # Section: Comparación de Opciones

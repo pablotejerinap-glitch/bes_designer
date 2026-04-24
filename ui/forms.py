@@ -126,9 +126,8 @@ def _init_defaults() -> None:
             st.session_state[k] = v
 
 
-def _load_example(data: dict) -> None:
-    for k, v in data.items():
-        st.session_state[k] = v
+def _load_example(example_key: str) -> None:
+    st.session_state["_load_example"] = example_key
     st.rerun()
 
 
@@ -275,6 +274,17 @@ def render_data_forms() -> None:
     """Render the 5-tab well data input form."""
     st.header("📝 Datos del Pozo")
     _init_defaults()
+
+    # Apply pending example BEFORE any widgets are instantiated
+    _ex = st.session_state.pop("_load_example", None)
+    if _ex == "2A":
+        for k, v in _EXAMPLE_2A.items():
+            st.session_state[k] = v
+        st.rerun()
+    elif _ex == "3A":
+        for k, v in _EXAMPLE_3A.items():
+            st.session_state[k] = v
+        st.rerun()
 
     tab_res, tab_flu, tab_geo, tab_sup, tab_obj = st.tabs([
         "🪨 Reservorio", "💧 Fluido", "🔧 Geometría", "🏭 Superficie", "🎯 Objetivos"
@@ -427,11 +437,11 @@ def render_data_forms() -> None:
 
     with bc1:
         if st.button("📥 Cargar Ejemplo 2A", use_container_width=True):
-            _load_example(_EXAMPLE_2A)
+            _load_example("2A")
 
     with bc2:
         if st.button("📥 Cargar Ejemplo 3A", use_container_width=True):
-            _load_example(_EXAMPLE_3A)
+            _load_example("3A")
 
     with bc3:
         if st.button("💾 Guardar Datos", type="primary", use_container_width=True):
