@@ -87,6 +87,7 @@ section = st.sidebar.radio(
         "⚙️ Diseño BES",
         "📊 Comparación de Opciones",
         "📈 Análisis de Sensibilidad",
+        "📐 Análisis Nodal",
         "ℹ️ Acerca de",
     ],
     label_visibility="collapsed",
@@ -299,6 +300,202 @@ elif section == "📊 Comparación de Opciones":
 elif section == "📈 Análisis de Sensibilidad":
     st.header("📈 Análisis de Sensibilidad")
     render_sensitivity()
+
+# ---------------------------------------------------------------------------
+# Section: Análisis Nodal
+# ---------------------------------------------------------------------------
+elif section == "📐 Análisis Nodal":
+    st.header("📐 Análisis Nodal del Sistema")
+
+    if st.session_state.reservoir is None:
+        st.error(
+            "❌ Primero completá y guardá los datos del pozo "
+            "en la sección '📝 Datos del Pozo'."
+        )
+        st.stop()
+
+    reservoir_base = st.session_state.reservoir
+    fluid          = st.session_state.fluid
+    well           = st.session_state.well
+    surface        = st.session_state.surface
+
+    # ── Sidebar controls ─────────────────────────────────────────────────────
+    with st.sidebar:
+        st.divider()
+        st.markdown("**Opciones Nodal**")
+
+        _method_map = {
+            "Hagedorn-Brown":        "hagedorn_brown",
+            "Beggs-Brill":           "beggs_brill",
+            "Duns & Ros":            "duns_ros",
+            "Poettmann & Carpenter": "poettmann_carpenter",
+        }
+        method_choice = st.selectbox(
+            "Correlación multifásica",
+            list(_method_map.keys()),
+            key="nodal_method",
+        )
+        method = _method_map[method_choice]
+
+        compare_all = st.checkbox("Comparar todos los métodos", key="nodal_compare")
+
+        pr_decline = st.slider(
+            "Declinación de Pr (%)",
+            min_value=0, max_value=50, value=0, step=5,
+            key="nodal_pr_decline",
+            help="Simula la caída de presión de reservorio respecto al valor actual.",
+        )
+
+        calc_btn = st.button(
+            "🔍 Calcular Análisis Nodal",
+            type="primary",
+            use_container_width=True,
+            key="nodal_calc_btn",
+        )
+
+    # ── Reservoir with optional decline ──────────────────────────────────────
+    from core.models import Reservoir as _Reservoir
+    if pr_decline > 0:
+        pr_new = reservoir_base.static_pressure * (1.0 - pr_decline / 100.0)
+        pb_new = min(reservoir_base.bubble_point, pr_new)
+        reservoir_eff = _Reservoir(
+            static_pressure=pr_new,
+            bubble_point=pb_new,
+            productivity_index=reservoir_base.productivity_index,
+            ipr_method=reservoir_base.ipr_method,
+            reservoir_temp=reservoir_base.reservoir_temp,
+            drive_mechanism=reservoir_base.drive_mechanism,
+            datum_depth=reservoir_base.datum_depth,
+        )
+    else:
+        reservoir_eff = reservoir_base
+
+    if pr_decline > 0:
+        st.info(
+            f"ℹ️ Simulando Pr = {reservoir_eff.static_pressure:.0f} psi "
+            f"(−{pr_decline} % del original {reservoir_base.static_pressure:.0f} psi)"
+        )
+
+    # ── Get pump from the top design recommendation (if available) ────────────
+    pump_obj   = None
+    stages_val = None
+    pump_depth_val = None
+    if st.session_state.design_results is not None:
+        top_design = st.session_state.design_results["recommendations"][0]["design"]
+        pump_model_name = top_design.pump_model
+        pump_depth_val  = top_design.pump_setting_depth
+        stages_val      = top_design.num_stages
+        pump_obj = next(
+            (p for p in catalog.get_all_pumps() if p.model == pump_model_name),
+            None,
+        )
+        if pump_obj is None:
+            st.warning(
+                f"⚠️ Bomba '{pump_model_name}' no encontrada en catálogo. "
+                "Se mostrará sólo flujo natural."
+            )
+
+    if pump_obj is None:
+        st.info("ℹ️ Sin diseño BES calculado — se muestra sólo el flujo natural.")
+
+    # ── Calculate ─────────────────────────────────────────────────────────────
+    if calc_btn:
+        with st.spinner("Calculando análisis nodal…"):
+            try:
+                from ui.plots import plot_nodal_analysis, plot_nodal_comparison
+                from core.nodal_analysis import find_operating_point, compare_methods
+
+                if not compare_all:
+                    # ── Single-method view ────────────────────────────────────
+                    fig_nodal = plot_nodal_analysis(
+                        reservoir=reservoir_eff,
+                        fluid=fluid,
+                        well=well,
+                        surface=surface,
+                        pump=pump_obj,
+                        stages=stages_val,
+                        pump_depth=pump_depth_val,
+                        method=method,
+                    )
+                    st.plotly_chart(fig_nodal, use_container_width=True)
+
+                    # Metrics
+                    result = find_operating_point(
+                        reservoir_eff, fluid, well, surface,
+                        method=method,
+                        pump=pump_obj, stages=stages_val, pump_depth=pump_depth_val,
+                    )
+                    nat = result["natural_flow"]
+                    pmp = result["pump_flow"]
+                    q_nat  = nat["q"]  if nat  else 0.0
+                    q_pmp  = pmp["q"]  if pmp  else 0.0
+                    pwf_op = pmp["pwf"] if pmp else (nat["pwf"] if nat else 0.0)
+                    incr_pct = (result["incremental_rate"] / max(q_nat, 1.0)) * 100.0
+
+                    mc1, mc2, mc3, mc4 = st.columns(4)
+                    mc1.metric("Caudal Natural",  f"{q_nat:.0f} STB/D")
+                    mc2.metric(
+                        "Caudal con BES",
+                        f"{q_pmp:.0f} STB/D",
+                        delta=f"+{result['incremental_rate']:.0f} STB/D" if q_pmp > 0 else None,
+                    )
+                    mc3.metric("Pwf Operación",   f"{pwf_op:.0f} psi")
+                    mc4.metric(
+                        "Eficiencia BES",
+                        f"{result['pump_efficiency'] * 100:.1f} %",
+                    )
+
+                else:
+                    # ── Comparison view (4 methods) ───────────────────────────
+                    fig_comp = plot_nodal_comparison(
+                        reservoir=reservoir_eff,
+                        fluid=fluid,
+                        well=well,
+                        surface=surface,
+                        pump=pump_obj,
+                        stages=stages_val,
+                        pump_depth=pump_depth_val,
+                    )
+                    st.plotly_chart(fig_comp, use_container_width=True)
+
+                    cmp_results = compare_methods(
+                        reservoir_eff, fluid, well, surface,
+                        pump=pump_obj, stages=stages_val, pump_depth=pump_depth_val,
+                    )
+
+                    import pandas as _pd
+                    _labels = {
+                        "hagedorn_brown":       "Hagedorn-Brown",
+                        "beggs_brill":          "Beggs-Brill",
+                        "duns_ros":             "Duns & Ros",
+                        "poettmann_carpenter":  "Poettmann & Carpenter",
+                    }
+                    table_rows = []
+                    for m_key, m_label in _labels.items():
+                        res = cmp_results[m_key]
+                        q_n = res["natural_flow"]["q"]  if res["natural_flow"] else 0
+                        q_p = res["pump_flow"]["q"]     if res["pump_flow"]    else 0
+                        pwf = res["pump_flow"]["pwf"]   if res["pump_flow"]    else 0
+                        eff = res["pump_efficiency"]
+                        table_rows.append({
+                            "Correlación":            m_label,
+                            "Q Natural (STB/D)":      f"{q_n:.0f}",
+                            "Q con BES (STB/D)":      f"{q_p:.0f}",
+                            "Incremento (STB/D)":     f"{q_p - q_n:.0f}",
+                            "Pwf operación (psi)":    f"{pwf:.0f}",
+                            "Eficiencia bomba (%)":   f"{eff * 100:.1f}",
+                        })
+                    st.subheader("Tabla comparativa")
+                    st.dataframe(
+                        _pd.DataFrame(table_rows),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+            except Exception as _exc:
+                st.error(f"❌ Error en análisis nodal: {_exc}")
+                import traceback as _tb
+                st.expander("Detalle del error").write(_tb.format_exc())
 
 # ---------------------------------------------------------------------------
 # Section: Acerca de
