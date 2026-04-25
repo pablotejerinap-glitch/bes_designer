@@ -494,7 +494,8 @@ def pressure_traverse(
         p_start: Pressure at depth_start [psia].
         t_start: Temperature at depth_start [°F].
         t_end: Temperature at depth_end [°F].
-        method: ``'hagedorn_brown'`` or ``'beggs_brill'``.
+        method: ``'hagedorn_brown'``, ``'beggs_brill'``,
+            ``'poettmann_carpenter'``, or ``'duns_ros'``.
         n_segments: Number of integration steps. Default 50.
         direction: ``'up'`` — fluid flows toward surface (depth_start > depth_end);
             ``'down'`` — injected or discharge side traverse.
@@ -507,10 +508,18 @@ def pressure_traverse(
     Raises:
         ValueError: If method is not recognised.
     """
-    if method not in ("hagedorn_brown", "beggs_brill"):
-        raise ValueError(f"Unknown method '{method}'. Use 'hagedorn_brown' or 'beggs_brill'.")
+    _valid = ("hagedorn_brown", "beggs_brill", "poettmann_carpenter", "duns_ros")
+    if method not in _valid:
+        raise ValueError(f"Unknown method '{method}'. Use one of {_valid}.")
 
-    grad_fn = hagedorn_brown_gradient if method == "hagedorn_brown" else beggs_brill_gradient
+    if method == "hagedorn_brown":
+        grad_fn = hagedorn_brown_gradient
+    elif method == "beggs_brill":
+        grad_fn = beggs_brill_gradient
+    elif method == "poettmann_carpenter":
+        grad_fn = poettmann_carpenter_gradient
+    else:
+        grad_fn = duns_ros_gradient
 
     depths = np.linspace(depth_start, depth_end, n_segments + 1)
     pressures = np.empty(n_segments + 1)
@@ -556,6 +565,214 @@ def pressure_traverse(
         pressures[i + 1] = max(p_next, 14.7)
 
     return depths, pressures
+
+
+# ---------------------------------------------------------------------------
+# Poettmann-Carpenter gradient (1952)
+# ---------------------------------------------------------------------------
+
+def poettmann_carpenter_gradient(
+    q_liq: float,
+    wc: float,
+    gor: float,
+    gas_sg: float,
+    oil_api: float,
+    water_sg: float,
+    p: float,
+    t: float,
+    pipe_id: float,
+    angle: float = 90.0,
+) -> float:
+    """Multiphase pressure gradient by the Poettmann-Carpenter (1952) method.
+
+    Treats the gas-liquid mixture as homogeneous (no-slip).  The empirical
+    Fanning friction factor is correlated against the Reynolds-like group
+    N_rho = rho_mix · v_mix · d  (Brown, 1977, Vol. 1, Table 4-7).
+
+    Gradient equation:
+        dP/dz = rho_mix · sin(theta) / 144
+              + f_PC · rho_mix · vm² / (2 · gc · d · 144)   [psi/ft]
+
+    Reference: Poettmann, F.H. & Carpenter, P.G. (1952).  "The Multiphase
+    Flow of Gas, Oil, and Water Through Vertical Flow Strings".  API Drilling
+    and Production Practice.
+
+    Args:
+        q_liq: Total gross liquid production [STB/d].
+        wc: Water cut [0-1].
+        gor: Total producing GOR [scf/STB].
+        gas_sg: Gas specific gravity (air = 1.0).
+        oil_api: Oil gravity [°API].
+        water_sg: Brine specific gravity.
+        p: Pressure at this point [psia].
+        t: Temperature at this point [°F].
+        pipe_id: Pipe inside diameter [in].
+        angle: Inclination from horizontal [°].  90 = vertical upward.
+
+    Returns:
+        Pressure gradient dP/dz [psi/ft].
+
+    Raises:
+        ValueError: If q_liq <= 0 or pipe_id <= 0.
+    """
+    if q_liq <= 0:
+        raise ValueError(f"q_liq must be > 0, got {q_liq}")
+    if pipe_id <= 0:
+        raise ValueError(f"pipe_id must be > 0, got {pipe_id}")
+
+    sin_theta = np.sin(np.radians(angle))
+
+    fluid = _make_fluid(oil_api, wc, gor, gas_sg, water_sg, p)
+    props = fluid_properties_at_conditions(fluid, p, t)
+
+    rho_l = props["oil_density"] * (1.0 - wc) + props["water_density"] * wc
+    rho_g = props["gas_density"]
+
+    area = _pipe_area(pipe_id)
+    vsl, vsg = _superficial_velocities(q_liq, wc, gor, props, area)
+    vm = vsl + vsg
+    lambda_l = vsl / vm
+
+    D_ft = pipe_id / 12.0
+
+    # P&C assumes no slippage → homogeneous mixture density
+    rho_ns = rho_l * lambda_l + rho_g * (1.0 - lambda_l)
+
+    # Poettmann-Carpenter Fanning friction factor (Brown 1977, Vol.1 Table 4-7).
+    # Log-log fit to the digitised chart: f ≈ 0.030 · N_rho^(−0.19)
+    # where N_rho = rho_mix · vm · d  [lb/ft³ × ft/s × ft]
+    N_rho = max(rho_ns * vm * D_ft, 1e-6)
+    f_pc = 0.030 * N_rho ** (-0.19)
+    f_pc = max(0.005, min(0.065, f_pc))   # physical bounds from original chart
+
+    grad_gravity = rho_ns * sin_theta / _PSI_CONV
+    grad_friction = f_pc * rho_ns * vm ** 2 / (2.0 * _GC * D_ft * _PSI_CONV)
+    return grad_gravity + grad_friction
+
+
+# ---------------------------------------------------------------------------
+# Duns-Ros gradient (1963)
+# ---------------------------------------------------------------------------
+
+def duns_ros_gradient(
+    q_liq: float,
+    wc: float,
+    gor: float,
+    gas_sg: float,
+    oil_api: float,
+    water_sg: float,
+    p: float,
+    t: float,
+    pipe_id: float,
+    angle: float = 90.0,
+) -> float:
+    """Multiphase pressure gradient by the Duns-Ros (1963) method.
+
+    Computes four dimensionless groups (field-unit formulas from Brown 1977,
+    Vol. 1) to identify the flow regime and calculate liquid holdup via a
+    drift-flux model with regime-appropriate slip parameters.
+
+    Dimensionless groups:
+        N_Lv = 1.938 · vsl · (ρl/σ)^0.25   [v ft/s, ρ lb/ft³, σ dyne/cm]
+        N_gv = 1.938 · vsg · (ρl/σ)^0.25
+        N_d  = 120.7 · D   · (ρl/σ)^0.50   [original D&R exponent 0.5 for N_d]
+        N_L  = 0.15726 · μl· (1/(ρl·σ³))^0.25  [μ in cp]
+
+    Flow regimes (algebraic fits to D&R 1963 Figure 4):
+        Bubble:  N_gv < L1  (L1 = 1.0 + 0.4·N_Lv)
+        Slug:    L1 ≤ N_gv < L2
+        Mist:    N_gv ≥ L2  (L2 = max(L1+0.5, 1.5+0.5·N_Lv+0.018·N_d))
+
+    Reference: Duns, H. & Ros, N.C.J. (1963).  "Vertical Flow of Gas and
+    Liquid Mixtures in Wells".  6th World Petroleum Congress, Frankfurt.
+
+    Args:
+        q_liq: Total gross liquid production [STB/d].
+        wc: Water cut [0-1].
+        gor: Total producing GOR [scf/STB].
+        gas_sg: Gas specific gravity (air = 1.0).
+        oil_api: Oil gravity [°API].
+        water_sg: Brine specific gravity.
+        p: Pressure at this point [psia].
+        t: Temperature at this point [°F].
+        pipe_id: Pipe inside diameter [in].
+        angle: Inclination from horizontal [°].  90 = vertical upward.
+
+    Returns:
+        Pressure gradient dP/dz [psi/ft].
+
+    Raises:
+        ValueError: If q_liq <= 0 or pipe_id <= 0.
+    """
+    if q_liq <= 0:
+        raise ValueError(f"q_liq must be > 0, got {q_liq}")
+    if pipe_id <= 0:
+        raise ValueError(f"pipe_id must be > 0, got {pipe_id}")
+
+    sin_theta = np.sin(np.radians(angle))
+
+    fluid = _make_fluid(oil_api, wc, gor, gas_sg, water_sg, p)
+    props = fluid_properties_at_conditions(fluid, p, t)
+
+    rho_l = props["oil_density"] * (1.0 - wc) + props["water_density"] * wc
+    rho_g = props["gas_density"]
+    mu_l = props["mu_oil"]
+
+    area = _pipe_area(pipe_id)
+    vsl, vsg = _superficial_velocities(q_liq, wc, gor, props, area)
+    vm = vsl + vsg
+    lambda_l = vsl / vm
+
+    D_ft = pipe_id / 12.0
+
+    # ── Surface tension [dyne/cm] ────────────────────────────────────────────
+    sigma_oil = _liquid_surface_tension(oil_api, props["rs"], t)
+    sigma_wat = max(1.0, 72.0 - 0.16 * (t - 68.0))     # Baker & Swerdloff water
+    sigma = max(1.0, sigma_oil * (1.0 - wc) + sigma_wat * wc)
+
+    # ── D&R dimensionless groups (Brown 1977 field-unit constants) ───────────
+    rs_025 = max(rho_l / sigma, 1e-10) ** 0.25
+    rs_050 = max(rho_l / sigma, 1e-10) ** 0.50
+    N_Lv = 1.938 * vsl * rs_025
+    N_gv = 1.938 * vsg * rs_025
+    N_d  = 120.7 * D_ft * rs_050           # original D&R definition, exp = 0.5
+    # N_L not used in holdup but kept for completeness / future use
+    # N_L = 0.15726 * mu_l * max(1.0 / (rho_l * sigma ** 3), 1e-30) ** 0.25
+
+    # ── Flow regime boundaries (algebraic fits to D&R 1963 Figure 4) ────────
+    L1 = 1.0 + 0.4 * N_Lv                                  # Bubble / Slug
+    L2 = max(L1 + 0.5, 1.5 + 0.5 * N_Lv + 0.018 * N_d)    # Slug  / Mist
+
+    # ── Liquid holdup via drift-flux (regime-specific slip parameters) ───────
+    if vsg < 1e-9:
+        HL = 1.0
+    elif N_gv < L1:
+        # Bubble flow — small spherical-bubble rise velocity
+        v_d = 0.25 * np.sqrt(_G * D_ft)
+        HL = max(lambda_l, 1.0 - vsg / max(1.2 * vm + v_d, 1e-9))
+    elif N_gv < L2:
+        # Slug flow — Taylor-bubble rise velocity (Nicklin, 1962)
+        v_d = 0.35 * np.sqrt(_G * D_ft * max(rho_l - rho_g, 1.0) / rho_l)
+        HL = max(lambda_l, 1.0 - vsg / max(1.2 * vm + v_d, 1e-9))
+    else:
+        # Mist / annular flow — no slippage
+        HL = lambda_l
+
+    HL = min(HL, 1.0)
+
+    # ── Densities ────────────────────────────────────────────────────────────
+    rho_slip = rho_l * HL + rho_g * (1.0 - HL)          # gravity term
+    rho_ns   = rho_l * lambda_l + rho_g * (1.0 - lambda_l)  # friction term
+
+    # ── Moody friction factor (no-slip mixture) ──────────────────────────────
+    mu_g = 0.013   # cp
+    mu_ns = mu_l ** lambda_l * mu_g ** (1.0 - lambda_l)
+    re_ns = rho_ns * vm * D_ft / (mu_ns * 6.72e-4)
+    f_D = _moody_ff(re_ns)
+
+    grad_gravity = rho_slip * sin_theta / _PSI_CONV
+    grad_friction = f_D * rho_ns * vm ** 2 / (2.0 * _GC * D_ft * _PSI_CONV)
+    return grad_gravity + grad_friction
 
 
 # ---------------------------------------------------------------------------
