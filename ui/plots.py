@@ -49,25 +49,32 @@ def _vogel_pwf(reservoir, q: float) -> float:
 
 
 def _ipr_q(reservoir, pwf: float) -> float:
-    """Flow rate at a given Pwf."""
+    """Flow rate at a given Pwf — delegates to the canonical core.ipr models.
+
+    Avoids re-implementing the IPR equations here (a previous local copy
+    introduced a discontinuity at Pwf = Pb because it used the total AOF
+    as the Vogel multiplier instead of (PI·Pb/1.8)).
+    """
+    from core.ipr import linear_ipr, vogel_ipr, combined_ipr
+    from core.models import IPRMethod
+
     pr = reservoir.static_pressure
     pi = reservoir.productivity_index
     pb = reservoir.bubble_point
+    method = reservoir.ipr_method
 
-    if reservoir.ipr_method.name == "LINEAR":
-        return max(0.0, pi * (pr - pwf))
+    pwf_clamped = max(0.0, min(pwf, pr))
 
-    if pb >= pr:
+    if method is IPRMethod.LINEAR:
+        return max(0.0, linear_ipr(pr, pwf_clamped, pi))
+
+    if method is IPRMethod.VOGEL or pb >= pr:
+        # Pure Vogel — used when reservoir is fully below bubble point too
         qmax = pi * pr / 1.8
-        x = pwf / pr
-    else:
-        q_at_pb = pi * (pr - pb)
-        qmax = q_at_pb + pi * pb / 1.8
-        if pwf >= pb:
-            return pi * (pr - pwf)
-        x = pwf / pb
+        return max(0.0, vogel_ipr(pr, pwf_clamped, qmax))
 
-    return max(0.0, qmax * (1.0 - 0.2 * x - 0.8 * x ** 2))
+    # COMBINED (default for Pr > Pb): linear above Pb, Vogel below — C0 continuous
+    return max(0.0, combined_ipr(pr, pb, pwf_clamped, pi))
 
 
 # ---------------------------------------------------------------------------
