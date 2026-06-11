@@ -66,7 +66,9 @@ def outflow_curve_natural(
 
     Returns:
         Tuple ``(q_array, pwf_array)`` of length *n_points* + 1.
-        Both arrays are non-decreasing.
+        ``q_array`` is increasing; ``pwf_array`` is J-shaped — decreasing
+        in the holdup-dominated region at low rates, increasing once
+        friction dominates (the left branch is the unstable heading region).
     """
     if method not in _METHODS:
         raise ValueError(f"Unknown method '{method}'. Use one of {_METHODS}.")

@@ -153,20 +153,36 @@ def test_duns_ros_gradient_liquid_only():
 # Parte B — outflow curve shape
 # ---------------------------------------------------------------------------
 
-def test_outflow_curve_increasing(fluid, well, surface):
-    """Natural outflow curve Pwf must be non-decreasing with rate."""
+def test_outflow_curve_j_shape(fluid, well, surface):
+    """Multiphase outflow (TPR) curves are J-shaped, not monotonic.
+
+    At low rates the gradient is holdup-dominated (gas slippage) and Pwf
+    decreases with rate; past the minimum, friction dominates and Pwf
+    increases (Brown Vol. 4 — the left branch is the unstable heading
+    region). Only the stable right branch must be monotonically increasing.
+    """
     q_arr, pwf_arr = outflow_curve_natural(
         fluid, well, surface, method="hagedorn_brown", n_points=20
     )
-    # Allow tiny floating-point dips, but the endpoint must exceed the start
-    assert pwf_arr[-1] > pwf_arr[0], (
-        f"Outflow curve not increasing: pwf[0]={pwf_arr[0]:.1f} "
-        f"pwf[-1]={pwf_arr[-1]:.1f} psi"
+    i_min = int(np.argmin(pwf_arr))
+
+    # A friction-dominated branch must exist (minimum not at the right edge)
+    assert i_min < len(pwf_arr) - 2, (
+        f"Outflow minimum at index {i_min}/{len(pwf_arr)-1} — "
+        "no friction-dominated branch found"
     )
-    # Majority of consecutive pairs must be non-decreasing
-    diffs = np.diff(pwf_arr)
-    n_decreasing = np.sum(diffs < -1.0)   # allow <1 psi noise
-    assert n_decreasing <= 2, f"{n_decreasing} decreasing steps found in outflow curve"
+
+    # Right of the minimum the curve must be non-decreasing (1 psi noise)
+    diffs_right = np.diff(pwf_arr[i_min:])
+    assert np.all(diffs_right > -1.0), (
+        "Stable (friction) branch is not monotonically increasing"
+    )
+
+    # The endpoint must clearly exceed the minimum
+    assert pwf_arr[-1] > pwf_arr[i_min] + 50.0, (
+        f"Endpoint pwf={pwf_arr[-1]:.1f} barely above minimum "
+        f"{pwf_arr[i_min]:.1f} psi"
+    )
 
 
 # ---------------------------------------------------------------------------
