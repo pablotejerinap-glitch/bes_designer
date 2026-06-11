@@ -461,6 +461,7 @@ def complete_gas_design(
     target_rate: float,
     catalog_manager: "CatalogManager",
     vent_gas_pct: float = 0.0,
+    wellhead_pressure: float = 100.0,
 ) -> dict:
     """Full gas-handling design workflow (Brown §4.53103, Example 3).
 
@@ -480,6 +481,9 @@ def complete_gas_design(
         catalog_manager: Loaded equipment catalog.
         vent_gas_pct: Fraction of free gas vented at surface [0–1].
             0 = 100 % GIP, 1 = all gas vented (no gas enters pump).
+        wellhead_pressure: Flowing tubing-head pressure [psia] for the
+            discharge traverse — pass
+            ``SurfaceConditions.wellhead_pressure_required`` when available.
 
     Returns:
         dict with keys: ``pip``, ``p_discharge``, ``gip``,
@@ -509,7 +513,7 @@ def complete_gas_design(
         fluid=fluid,
         tubing_id=well.tubing_id,
         pump_depth=pump_depth,
-        wellhead_pressure=well.wellhead_temp,   # placeholder — use surface conditions
+        wellhead_pressure=wellhead_pressure,
         target_rate=target_rate,
         t_pump=t_pump,
         t_wellhead=well.wellhead_temp,
