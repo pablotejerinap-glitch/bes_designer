@@ -58,7 +58,7 @@
       "tdh_ft": 1724,
       "stages": 29,
       "total_hp": 217,
-      "notes": "Pump at 80% of total depth (1 760 ft). Pure water (SG=1.10). PIP ≈ 40 psi. I-300 pump expected."
+      "notes": "Pump at perforations_top − safety_margin (1 800 ft). Pure water (SG=1.10). PIP ≈ 40 psi. I-300 pump expected."
     }
   },
   "example_2a": {
@@ -119,7 +119,7 @@
       "tdh_ft": 4174,
       "stages": 156,
       "total_hp": 44,
-      "notes": "Pump at 80% depth (4 880 ft). Pb=400 psi < PIP≈525 psi → no free gas. M-34 or D-40 expected."
+      "notes": "Pump at perforations_top − safety_margin (5 800 ft). Pb=400 psi < PIP≈525 psi → no free gas. M-34 or D-40 expected."
     }
   },
   "example_3a": {

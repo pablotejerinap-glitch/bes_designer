@@ -206,7 +206,12 @@ def select_top_n_pumps(
     Raises:
         ValueError: If no qualifying pumps are found in the catalog.
     """
-    pump_setting_depth = well.total_depth * 0.80
+    # Pump sits safety_margin_depth above the top perforation (Brown §4.532).
+    # Floor at 100 ft guards against absurd margins producing a surface pump.
+    pump_setting_depth = max(
+        well.perforations_top - objectives.safety_margin_depth,
+        100.0,
+    )
 
     pump_candidates = design_pump_complete(
         reservoir=reservoir,
@@ -262,6 +267,7 @@ def select_top_n_pumps(
                 well=well,
                 fluid=fluid,
                 catalog_manager=catalog,
+                pump_depth=pump_setting_depth,
             )
         except (ValueError, KeyError, StopIteration):
             continue

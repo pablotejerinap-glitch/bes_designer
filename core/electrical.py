@@ -246,6 +246,7 @@ def select_motor(
     pump_od: float,
     bottom_temp: float,
     depth_ft: float,
+    casing_id: float | None = None,
 ) -> dict:
     """Select the best ESP motor for the given power and well conditions.
 
@@ -253,6 +254,9 @@ def select_motor(
 
     - HP rating ≥ hp_required × 1.10  (10 % nameplate margin)
     - Motor OD ≤ pump_od × 1.20  (fits same casing as the pump)
+    - Cable clearance: motor OD + 2 × thinnest flat cable ≤ casing_id,
+      so that at least one catalog cable can physically run past the motor
+      (only checked when *casing_id* is given).
     - Temperature: ``max_temp_f`` ≥ bottom_temp + 25 °F
     - Target voltage (HP-based):
         ≤ 70 HP → ~800 V  |  71–200 HP → ~1 200 V  |  > 200 HP → ~2 000 V
@@ -264,6 +268,9 @@ def select_motor(
         pump_od: Pump outer diameter [in] (constrains motor OD).
         bottom_temp: Bottom-hole temperature [°F].
         depth_ft: Pump setting depth [ft] (informational).
+        casing_id: Casing inner diameter [in]. Enables the cable-clearance
+            check; without it a large-OD motor may pass selection and then
+            leave no annular room for any cable.
 
     Returns:
         Motor catalog dict (hp_rating, voltage, amperage, od_inches, …).
@@ -274,6 +281,7 @@ def select_motor(
     hp_min = hp_required * 1.10
     max_od = pump_od * 1.20
     min_temp = bottom_temp + 25.0
+    min_cable_thk = min(_CABLE_FLAT_THICKNESS_IN.values())
 
     if hp_required <= 70.0:
         target_v = 800.0
@@ -287,6 +295,10 @@ def select_motor(
         if m["hp_rating"] >= hp_min
         and m["od_inches"] <= max_od
         and m["max_temp_f"] >= min_temp
+        and (
+            casing_id is None
+            or m["od_inches"] + 2.0 * min_cable_thk <= casing_id
+        )
     ]
 
     if not candidates:
@@ -306,11 +318,9 @@ def electrical_design_complete(
     well: WellGeometry,
     fluid: Fluid,
     catalog_manager: "CatalogManager",
+    pump_depth: float | None = None,
 ) -> dict:
     """Complete electrical design: motor → cable → voltage drop → transformer.
-
-    Uses pump_depth = 80 % of total well depth as a proxy when the exact
-    pump-setting depth is not provided.
 
     Args:
         motor_hp: Total pump shaft power required [hp].
@@ -318,12 +328,15 @@ def electrical_design_complete(
         well: Well geometry (casing ID, total depth, bottom-hole temperature).
         fluid: Fluid object (reserved for future material-selection logic).
         catalog_manager: Loaded equipment catalog.
+        pump_depth: Pump setting depth [ft MD] — governs cable length and
+            voltage drop. Falls back to 80 % of total depth when omitted.
 
     Returns:
         dict with keys ``motor``, ``cable``, ``cable_voltage_drop_v``,
         ``surface_voltage_v``, ``kva_required``, ``transformer``.
     """
-    pump_depth = well.total_depth * 0.80
+    if pump_depth is None:
+        pump_depth = well.total_depth * 0.80
     bottom_temp = well.bottom_hole_temp
 
     motor = select_motor(
@@ -332,6 +345,7 @@ def electrical_design_complete(
         pump_od=pump_od,
         bottom_temp=bottom_temp,
         depth_ft=pump_depth,
+        casing_id=well.casing_id,
     )
 
     cable = select_cable(
