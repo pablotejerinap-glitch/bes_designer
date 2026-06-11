@@ -4,72 +4,262 @@
       "manufacturer": "Reda",
       "series": "400",
       "model": "D-40",
-      "od_inches": 4.00,
+      "od_inches": 4.0,
       "min_flow_bpd": 1000,
       "max_flow_bpd": 1600,
       "bep_flow_bpd": 1300,
       "max_stages": 250,
-      "housing_options": [50, 75, 100, 125, 150, 175, 200, 225, 250],
+      "housing_options": [
+        50,
+        75,
+        100,
+        125,
+        150,
+        175,
+        200,
+        225,
+        250
+      ],
       "performance_curve": [
-        {"flow_bpd":  800, "head_ft_per_stage": 30.2, "hp_per_stage": 0.282, "efficiency": 0.48},
-        {"flow_bpd":  900, "head_ft_per_stage": 28.5, "hp_per_stage": 0.296, "efficiency": 0.52},
-        {"flow_bpd": 1000, "head_ft_per_stage": 26.8, "hp_per_stage": 0.312, "efficiency": 0.56},
-        {"flow_bpd": 1100, "head_ft_per_stage": 25.2, "hp_per_stage": 0.328, "efficiency": 0.58},
-        {"flow_bpd": 1200, "head_ft_per_stage": 23.8, "hp_per_stage": 0.342, "efficiency": 0.60},
-        {"flow_bpd": 1227, "head_ft_per_stage": 23.0, "hp_per_stage": 0.350, "efficiency": 0.594},
-        {"flow_bpd": 1300, "head_ft_per_stage": 22.0, "hp_per_stage": 0.347, "efficiency": 0.617},
-        {"flow_bpd": 1400, "head_ft_per_stage": 20.4, "hp_per_stage": 0.354, "efficiency": 0.601},
-        {"flow_bpd": 1500, "head_ft_per_stage": 18.5, "hp_per_stage": 0.358, "efficiency": 0.574},
-        {"flow_bpd": 1600, "head_ft_per_stage": 16.5, "hp_per_stage": 0.356, "efficiency": 0.542},
-        {"flow_bpd": 1700, "head_ft_per_stage": 14.0, "hp_per_stage": 0.347, "efficiency": 0.498}
+        {
+          "flow_bpd": 800,
+          "head_ft_per_stage": 30.2,
+          "hp_per_stage": 0.282,
+          "efficiency": 0.48
+        },
+        {
+          "flow_bpd": 900,
+          "head_ft_per_stage": 28.5,
+          "hp_per_stage": 0.296,
+          "efficiency": 0.52
+        },
+        {
+          "flow_bpd": 1000,
+          "head_ft_per_stage": 26.8,
+          "hp_per_stage": 0.312,
+          "efficiency": 0.56
+        },
+        {
+          "flow_bpd": 1100,
+          "head_ft_per_stage": 25.2,
+          "hp_per_stage": 0.328,
+          "efficiency": 0.58
+        },
+        {
+          "flow_bpd": 1200,
+          "head_ft_per_stage": 23.8,
+          "hp_per_stage": 0.342,
+          "efficiency": 0.6
+        },
+        {
+          "flow_bpd": 1227,
+          "head_ft_per_stage": 23.0,
+          "hp_per_stage": 0.35,
+          "efficiency": 0.594
+        },
+        {
+          "flow_bpd": 1300,
+          "head_ft_per_stage": 22.0,
+          "hp_per_stage": 0.347,
+          "efficiency": 0.617
+        },
+        {
+          "flow_bpd": 1400,
+          "head_ft_per_stage": 20.4,
+          "hp_per_stage": 0.354,
+          "efficiency": 0.601
+        },
+        {
+          "flow_bpd": 1500,
+          "head_ft_per_stage": 18.5,
+          "hp_per_stage": 0.358,
+          "efficiency": 0.574
+        },
+        {
+          "flow_bpd": 1600,
+          "head_ft_per_stage": 16.5,
+          "hp_per_stage": 0.356,
+          "efficiency": 0.542
+        },
+        {
+          "flow_bpd": 1700,
+          "head_ft_per_stage": 14.0,
+          "hp_per_stage": 0.347,
+          "efficiency": 0.498
+        }
       ]
     },
     {
       "manufacturer": "Reda",
       "series": "400",
       "model": "D-55",
-      "od_inches": 4.00,
+      "od_inches": 4.0,
       "min_flow_bpd": 1700,
       "max_flow_bpd": 2600,
       "bep_flow_bpd": 2100,
       "max_stages": 200,
-      "housing_options": [50, 75, 100, 125, 150, 175, 200],
+      "housing_options": [
+        50,
+        75,
+        100,
+        125,
+        150,
+        175,
+        200
+      ],
       "performance_curve": [
-        {"flow_bpd": 1400, "head_ft_per_stage": 34.5, "hp_per_stage": 0.540, "efficiency": 0.50},
-        {"flow_bpd": 1600, "head_ft_per_stage": 32.8, "hp_per_stage": 0.562, "efficiency": 0.54},
-        {"flow_bpd": 1700, "head_ft_per_stage": 31.8, "hp_per_stage": 0.572, "efficiency": 0.56},
-        {"flow_bpd": 1900, "head_ft_per_stage": 30.0, "hp_per_stage": 0.590, "efficiency": 0.60},
-        {"flow_bpd": 2000, "head_ft_per_stage": 29.0, "hp_per_stage": 0.598, "efficiency": 0.61},
-        {"flow_bpd": 2100, "head_ft_per_stage": 28.0, "hp_per_stage": 0.602, "efficiency": 0.625},
-        {"flow_bpd": 2200, "head_ft_per_stage": 26.8, "hp_per_stage": 0.606, "efficiency": 0.615},
-        {"flow_bpd": 2400, "head_ft_per_stage": 24.2, "hp_per_stage": 0.608, "efficiency": 0.585},
-        {"flow_bpd": 2600, "head_ft_per_stage": 21.0, "hp_per_stage": 0.602, "efficiency": 0.543},
-        {"flow_bpd": 2800, "head_ft_per_stage": 17.2, "hp_per_stage": 0.585, "efficiency": 0.487},
-        {"flow_bpd": 3000, "head_ft_per_stage": 12.8, "hp_per_stage": 0.558, "efficiency": 0.410}
+        {
+          "flow_bpd": 1400,
+          "head_ft_per_stage": 34.5,
+          "hp_per_stage": 0.54,
+          "efficiency": 0.5
+        },
+        {
+          "flow_bpd": 1600,
+          "head_ft_per_stage": 32.8,
+          "hp_per_stage": 0.562,
+          "efficiency": 0.54
+        },
+        {
+          "flow_bpd": 1700,
+          "head_ft_per_stage": 31.8,
+          "hp_per_stage": 0.572,
+          "efficiency": 0.56
+        },
+        {
+          "flow_bpd": 1900,
+          "head_ft_per_stage": 30.0,
+          "hp_per_stage": 0.59,
+          "efficiency": 0.6
+        },
+        {
+          "flow_bpd": 2000,
+          "head_ft_per_stage": 29.0,
+          "hp_per_stage": 0.598,
+          "efficiency": 0.61
+        },
+        {
+          "flow_bpd": 2100,
+          "head_ft_per_stage": 28.0,
+          "hp_per_stage": 0.602,
+          "efficiency": 0.625
+        },
+        {
+          "flow_bpd": 2200,
+          "head_ft_per_stage": 26.8,
+          "hp_per_stage": 0.606,
+          "efficiency": 0.615
+        },
+        {
+          "flow_bpd": 2400,
+          "head_ft_per_stage": 24.2,
+          "hp_per_stage": 0.608,
+          "efficiency": 0.585
+        },
+        {
+          "flow_bpd": 2600,
+          "head_ft_per_stage": 21.0,
+          "hp_per_stage": 0.602,
+          "efficiency": 0.543
+        },
+        {
+          "flow_bpd": 2800,
+          "head_ft_per_stage": 17.2,
+          "hp_per_stage": 0.585,
+          "efficiency": 0.487
+        },
+        {
+          "flow_bpd": 3000,
+          "head_ft_per_stage": 12.8,
+          "hp_per_stage": 0.558,
+          "efficiency": 0.41
+        }
       ]
     },
     {
       "manufacturer": "Reda",
       "series": "400",
       "model": "D-82",
-      "od_inches": 4.00,
+      "od_inches": 4.0,
       "min_flow_bpd": 2500,
       "max_flow_bpd": 3500,
       "bep_flow_bpd": 3000,
       "max_stages": 175,
-      "housing_options": [50, 75, 100, 125, 150, 175],
+      "housing_options": [
+        50,
+        75,
+        100,
+        125,
+        150,
+        175
+      ],
       "performance_curve": [
-        {"flow_bpd": 2000, "head_ft_per_stage": 44.5, "hp_per_stage": 0.870, "efficiency": 0.50},
-        {"flow_bpd": 2300, "head_ft_per_stage": 42.5, "hp_per_stage": 0.902, "efficiency": 0.54},
-        {"flow_bpd": 2500, "head_ft_per_stage": 41.0, "hp_per_stage": 0.920, "efficiency": 0.57},
-        {"flow_bpd": 2700, "head_ft_per_stage": 39.2, "hp_per_stage": 0.938, "efficiency": 0.59},
-        {"flow_bpd": 2900, "head_ft_per_stage": 37.2, "hp_per_stage": 0.950, "efficiency": 0.61},
-        {"flow_bpd": 3000, "head_ft_per_stage": 36.0, "hp_per_stage": 0.954, "efficiency": 0.625},
-        {"flow_bpd": 3100, "head_ft_per_stage": 34.8, "hp_per_stage": 0.955, "efficiency": 0.618},
-        {"flow_bpd": 3300, "head_ft_per_stage": 31.8, "hp_per_stage": 0.950, "efficiency": 0.596},
-        {"flow_bpd": 3500, "head_ft_per_stage": 28.5, "hp_per_stage": 0.938, "efficiency": 0.565},
-        {"flow_bpd": 3800, "head_ft_per_stage": 23.5, "hp_per_stage": 0.910, "efficiency": 0.508},
-        {"flow_bpd": 4000, "head_ft_per_stage": 19.5, "hp_per_stage": 0.878, "efficiency": 0.458}
+        {
+          "flow_bpd": 2000,
+          "head_ft_per_stage": 44.5,
+          "hp_per_stage": 0.87,
+          "efficiency": 0.5
+        },
+        {
+          "flow_bpd": 2300,
+          "head_ft_per_stage": 42.5,
+          "hp_per_stage": 0.902,
+          "efficiency": 0.54
+        },
+        {
+          "flow_bpd": 2500,
+          "head_ft_per_stage": 41.0,
+          "hp_per_stage": 0.92,
+          "efficiency": 0.57
+        },
+        {
+          "flow_bpd": 2700,
+          "head_ft_per_stage": 39.2,
+          "hp_per_stage": 0.938,
+          "efficiency": 0.59
+        },
+        {
+          "flow_bpd": 2900,
+          "head_ft_per_stage": 37.2,
+          "hp_per_stage": 0.95,
+          "efficiency": 0.61
+        },
+        {
+          "flow_bpd": 3000,
+          "head_ft_per_stage": 36.0,
+          "hp_per_stage": 0.954,
+          "efficiency": 0.625
+        },
+        {
+          "flow_bpd": 3100,
+          "head_ft_per_stage": 34.8,
+          "hp_per_stage": 0.955,
+          "efficiency": 0.618
+        },
+        {
+          "flow_bpd": 3300,
+          "head_ft_per_stage": 31.8,
+          "hp_per_stage": 0.95,
+          "efficiency": 0.596
+        },
+        {
+          "flow_bpd": 3500,
+          "head_ft_per_stage": 28.5,
+          "hp_per_stage": 0.938,
+          "efficiency": 0.565
+        },
+        {
+          "flow_bpd": 3800,
+          "head_ft_per_stage": 23.5,
+          "hp_per_stage": 0.91,
+          "efficiency": 0.508
+        },
+        {
+          "flow_bpd": 4000,
+          "head_ft_per_stage": 19.5,
+          "hp_per_stage": 0.878,
+          "efficiency": 0.458
+        }
       ]
     },
     {
@@ -81,19 +271,82 @@
       "max_flow_bpd": 2200,
       "bep_flow_bpd": 1700,
       "max_stages": 160,
-      "housing_options": [40, 60, 80, 100, 120, 140, 160],
+      "housing_options": [
+        40,
+        60,
+        80,
+        100,
+        120,
+        140,
+        160
+      ],
       "performance_curve": [
-        {"flow_bpd":  900, "head_ft_per_stage": 51.5, "hp_per_stage": 0.620, "efficiency": 0.49},
-        {"flow_bpd": 1100, "head_ft_per_stage": 49.5, "hp_per_stage": 0.645, "efficiency": 0.53},
-        {"flow_bpd": 1200, "head_ft_per_stage": 48.2, "hp_per_stage": 0.658, "efficiency": 0.55},
-        {"flow_bpd": 1400, "head_ft_per_stage": 46.5, "hp_per_stage": 0.678, "efficiency": 0.58},
-        {"flow_bpd": 1600, "head_ft_per_stage": 44.5, "hp_per_stage": 0.695, "efficiency": 0.61},
-        {"flow_bpd": 1700, "head_ft_per_stage": 43.5, "hp_per_stage": 0.702, "efficiency": 0.625},
-        {"flow_bpd": 1800, "head_ft_per_stage": 42.2, "hp_per_stage": 0.706, "efficiency": 0.618},
-        {"flow_bpd": 2000, "head_ft_per_stage": 39.5, "hp_per_stage": 0.710, "efficiency": 0.593},
-        {"flow_bpd": 2200, "head_ft_per_stage": 36.0, "hp_per_stage": 0.706, "efficiency": 0.558},
-        {"flow_bpd": 2400, "head_ft_per_stage": 31.5, "hp_per_stage": 0.692, "efficiency": 0.510},
-        {"flow_bpd": 2600, "head_ft_per_stage": 26.0, "hp_per_stage": 0.668, "efficiency": 0.452}
+        {
+          "flow_bpd": 900,
+          "head_ft_per_stage": 51.5,
+          "hp_per_stage": 0.62,
+          "efficiency": 0.49
+        },
+        {
+          "flow_bpd": 1100,
+          "head_ft_per_stage": 49.5,
+          "hp_per_stage": 0.645,
+          "efficiency": 0.53
+        },
+        {
+          "flow_bpd": 1200,
+          "head_ft_per_stage": 48.2,
+          "hp_per_stage": 0.658,
+          "efficiency": 0.55
+        },
+        {
+          "flow_bpd": 1400,
+          "head_ft_per_stage": 46.5,
+          "hp_per_stage": 0.678,
+          "efficiency": 0.58
+        },
+        {
+          "flow_bpd": 1600,
+          "head_ft_per_stage": 44.5,
+          "hp_per_stage": 0.695,
+          "efficiency": 0.61
+        },
+        {
+          "flow_bpd": 1700,
+          "head_ft_per_stage": 43.5,
+          "hp_per_stage": 0.702,
+          "efficiency": 0.625
+        },
+        {
+          "flow_bpd": 1800,
+          "head_ft_per_stage": 42.2,
+          "hp_per_stage": 0.706,
+          "efficiency": 0.618
+        },
+        {
+          "flow_bpd": 2000,
+          "head_ft_per_stage": 39.5,
+          "hp_per_stage": 0.71,
+          "efficiency": 0.593
+        },
+        {
+          "flow_bpd": 2200,
+          "head_ft_per_stage": 36.0,
+          "hp_per_stage": 0.706,
+          "efficiency": 0.558
+        },
+        {
+          "flow_bpd": 2400,
+          "head_ft_per_stage": 31.5,
+          "hp_per_stage": 0.692,
+          "efficiency": 0.51
+        },
+        {
+          "flow_bpd": 2600,
+          "head_ft_per_stage": 26.0,
+          "hp_per_stage": 0.668,
+          "efficiency": 0.452
+        }
       ]
     },
     {
@@ -105,19 +358,84 @@
       "max_flow_bpd": 11500,
       "bep_flow_bpd": 10000,
       "max_stages": 120,
-      "housing_options": [20, 30, 40, 50, 60, 70, 80, 100, 120],
+      "housing_options": [
+        20,
+        30,
+        40,
+        50,
+        60,
+        70,
+        80,
+        100,
+        120
+      ],
       "performance_curve": [
-        {"flow_bpd":  6500, "head_ft_per_stage": 70.5, "hp_per_stage": 5.82, "efficiency": 0.55},
-        {"flow_bpd":  7500, "head_ft_per_stage": 67.0, "hp_per_stage": 6.08, "efficiency": 0.59},
-        {"flow_bpd":  8000, "head_ft_per_stage": 65.2, "hp_per_stage": 6.22, "efficiency": 0.61},
-        {"flow_bpd":  9000, "head_ft_per_stage": 62.5, "hp_per_stage": 6.48, "efficiency": 0.63},
-        {"flow_bpd":  9500, "head_ft_per_stage": 61.0, "hp_per_stage": 6.60, "efficiency": 0.64},
-        {"flow_bpd": 10000, "head_ft_per_stage": 59.5, "hp_per_stage": 6.80, "efficiency": 0.648},
-        {"flow_bpd": 10500, "head_ft_per_stage": 57.5, "hp_per_stage": 6.92, "efficiency": 0.638},
-        {"flow_bpd": 11000, "head_ft_per_stage": 55.0, "hp_per_stage": 7.02, "efficiency": 0.618},
-        {"flow_bpd": 11500, "head_ft_per_stage": 52.0, "hp_per_stage": 7.08, "efficiency": 0.592},
-        {"flow_bpd": 12000, "head_ft_per_stage": 48.0, "hp_per_stage": 7.05, "efficiency": 0.552},
-        {"flow_bpd": 12500, "head_ft_per_stage": 43.0, "hp_per_stage": 6.92, "efficiency": 0.502}
+        {
+          "flow_bpd": 6500,
+          "head_ft_per_stage": 70.5,
+          "hp_per_stage": 5.82,
+          "efficiency": 0.55
+        },
+        {
+          "flow_bpd": 7500,
+          "head_ft_per_stage": 67.0,
+          "hp_per_stage": 6.08,
+          "efficiency": 0.59
+        },
+        {
+          "flow_bpd": 8000,
+          "head_ft_per_stage": 65.2,
+          "hp_per_stage": 6.22,
+          "efficiency": 0.61
+        },
+        {
+          "flow_bpd": 9000,
+          "head_ft_per_stage": 62.5,
+          "hp_per_stage": 6.48,
+          "efficiency": 0.63
+        },
+        {
+          "flow_bpd": 9500,
+          "head_ft_per_stage": 61.0,
+          "hp_per_stage": 6.6,
+          "efficiency": 0.64
+        },
+        {
+          "flow_bpd": 10000,
+          "head_ft_per_stage": 59.5,
+          "hp_per_stage": 6.8,
+          "efficiency": 0.648
+        },
+        {
+          "flow_bpd": 10500,
+          "head_ft_per_stage": 57.5,
+          "hp_per_stage": 6.92,
+          "efficiency": 0.638
+        },
+        {
+          "flow_bpd": 11000,
+          "head_ft_per_stage": 55.0,
+          "hp_per_stage": 7.02,
+          "efficiency": 0.618
+        },
+        {
+          "flow_bpd": 11500,
+          "head_ft_per_stage": 52.0,
+          "hp_per_stage": 7.08,
+          "efficiency": 0.592
+        },
+        {
+          "flow_bpd": 12000,
+          "head_ft_per_stage": 48.0,
+          "hp_per_stage": 7.05,
+          "efficiency": 0.552
+        },
+        {
+          "flow_bpd": 12500,
+          "head_ft_per_stage": 43.0,
+          "hp_per_stage": 6.92,
+          "efficiency": 0.502
+        }
       ]
     },
     {
@@ -129,18 +447,75 @@
       "max_flow_bpd": 2200,
       "bep_flow_bpd": 1900,
       "max_stages": 140,
-      "housing_options": [40, 60, 80, 100, 120, 140],
+      "housing_options": [
+        40,
+        60,
+        80,
+        100,
+        120,
+        140
+      ],
       "performance_curve": [
-        {"flow_bpd": 1300, "head_ft_per_stage": 40.5, "hp_per_stage": 0.710, "efficiency": 0.50},
-        {"flow_bpd": 1500, "head_ft_per_stage": 38.5, "hp_per_stage": 0.728, "efficiency": 0.54},
-        {"flow_bpd": 1700, "head_ft_per_stage": 36.8, "hp_per_stage": 0.742, "efficiency": 0.58},
-        {"flow_bpd": 1900, "head_ft_per_stage": 35.0, "hp_per_stage": 0.750, "efficiency": 0.620},
-        {"flow_bpd": 2000, "head_ft_per_stage": 33.8, "hp_per_stage": 0.751, "efficiency": 0.612},
-        {"flow_bpd": 2200, "head_ft_per_stage": 31.2, "hp_per_stage": 0.748, "efficiency": 0.580},
-        {"flow_bpd": 2400, "head_ft_per_stage": 27.8, "hp_per_stage": 0.738, "efficiency": 0.538},
-        {"flow_bpd": 2600, "head_ft_per_stage": 23.5, "hp_per_stage": 0.720, "efficiency": 0.487},
-        {"flow_bpd": 2800, "head_ft_per_stage": 18.5, "hp_per_stage": 0.690, "efficiency": 0.422},
-        {"flow_bpd": 3000, "head_ft_per_stage": 13.0, "hp_per_stage": 0.645, "efficiency": 0.340}
+        {
+          "flow_bpd": 1300,
+          "head_ft_per_stage": 40.5,
+          "hp_per_stage": 0.71,
+          "efficiency": 0.5
+        },
+        {
+          "flow_bpd": 1500,
+          "head_ft_per_stage": 38.5,
+          "hp_per_stage": 0.728,
+          "efficiency": 0.54
+        },
+        {
+          "flow_bpd": 1700,
+          "head_ft_per_stage": 36.8,
+          "hp_per_stage": 0.742,
+          "efficiency": 0.58
+        },
+        {
+          "flow_bpd": 1900,
+          "head_ft_per_stage": 35.0,
+          "hp_per_stage": 0.75,
+          "efficiency": 0.62
+        },
+        {
+          "flow_bpd": 2000,
+          "head_ft_per_stage": 33.8,
+          "hp_per_stage": 0.751,
+          "efficiency": 0.612
+        },
+        {
+          "flow_bpd": 2200,
+          "head_ft_per_stage": 31.2,
+          "hp_per_stage": 0.748,
+          "efficiency": 0.58
+        },
+        {
+          "flow_bpd": 2400,
+          "head_ft_per_stage": 27.8,
+          "hp_per_stage": 0.738,
+          "efficiency": 0.538
+        },
+        {
+          "flow_bpd": 2600,
+          "head_ft_per_stage": 23.5,
+          "hp_per_stage": 0.72,
+          "efficiency": 0.487
+        },
+        {
+          "flow_bpd": 2800,
+          "head_ft_per_stage": 18.5,
+          "hp_per_stage": 0.69,
+          "efficiency": 0.422
+        },
+        {
+          "flow_bpd": 3000,
+          "head_ft_per_stage": 13.0,
+          "hp_per_stage": 0.645,
+          "efficiency": 0.34
+        }
       ]
     },
     {
@@ -152,19 +527,81 @@
       "max_flow_bpd": 3520,
       "bep_flow_bpd": 2500,
       "max_stages": 130,
-      "housing_options": [30, 50, 70, 90, 110, 130],
+      "housing_options": [
+        30,
+        50,
+        70,
+        90,
+        110,
+        130
+      ],
       "performance_curve": [
-        {"flow_bpd": 1300, "head_ft_per_stage": 62.0, "hp_per_stage": 1.080, "efficiency": 0.49},
-        {"flow_bpd": 1590, "head_ft_per_stage": 59.5, "hp_per_stage": 1.115, "efficiency": 0.53},
-        {"flow_bpd": 1800, "head_ft_per_stage": 57.5, "hp_per_stage": 1.142, "efficiency": 0.56},
-        {"flow_bpd": 2000, "head_ft_per_stage": 55.5, "hp_per_stage": 1.165, "efficiency": 0.59},
-        {"flow_bpd": 2200, "head_ft_per_stage": 53.5, "hp_per_stage": 1.182, "efficiency": 0.61},
-        {"flow_bpd": 2500, "head_ft_per_stage": 50.8, "hp_per_stage": 1.198, "efficiency": 0.632},
-        {"flow_bpd": 2800, "head_ft_per_stage": 47.5, "hp_per_stage": 1.205, "efficiency": 0.618},
-        {"flow_bpd": 3000, "head_ft_per_stage": 44.5, "hp_per_stage": 1.202, "efficiency": 0.598},
-        {"flow_bpd": 3200, "head_ft_per_stage": 41.0, "hp_per_stage": 1.192, "efficiency": 0.571},
-        {"flow_bpd": 3520, "head_ft_per_stage": 35.5, "hp_per_stage": 1.168, "efficiency": 0.528},
-        {"flow_bpd": 3800, "head_ft_per_stage": 29.0, "hp_per_stage": 1.125, "efficiency": 0.468}
+        {
+          "flow_bpd": 1300,
+          "head_ft_per_stage": 62.0,
+          "hp_per_stage": 1.08,
+          "efficiency": 0.49
+        },
+        {
+          "flow_bpd": 1590,
+          "head_ft_per_stage": 59.5,
+          "hp_per_stage": 1.115,
+          "efficiency": 0.53
+        },
+        {
+          "flow_bpd": 1800,
+          "head_ft_per_stage": 57.5,
+          "hp_per_stage": 1.142,
+          "efficiency": 0.56
+        },
+        {
+          "flow_bpd": 2000,
+          "head_ft_per_stage": 55.5,
+          "hp_per_stage": 1.165,
+          "efficiency": 0.59
+        },
+        {
+          "flow_bpd": 2200,
+          "head_ft_per_stage": 53.5,
+          "hp_per_stage": 1.182,
+          "efficiency": 0.61
+        },
+        {
+          "flow_bpd": 2500,
+          "head_ft_per_stage": 50.8,
+          "hp_per_stage": 1.198,
+          "efficiency": 0.632
+        },
+        {
+          "flow_bpd": 2800,
+          "head_ft_per_stage": 47.5,
+          "hp_per_stage": 1.205,
+          "efficiency": 0.618
+        },
+        {
+          "flow_bpd": 3000,
+          "head_ft_per_stage": 44.5,
+          "hp_per_stage": 1.202,
+          "efficiency": 0.598
+        },
+        {
+          "flow_bpd": 3200,
+          "head_ft_per_stage": 41.0,
+          "hp_per_stage": 1.192,
+          "efficiency": 0.571
+        },
+        {
+          "flow_bpd": 3520,
+          "head_ft_per_stage": 35.5,
+          "hp_per_stage": 1.168,
+          "efficiency": 0.528
+        },
+        {
+          "flow_bpd": 3800,
+          "head_ft_per_stage": 29.0,
+          "hp_per_stage": 1.125,
+          "efficiency": 0.468
+        }
       ]
     },
     {
@@ -176,68 +613,867 @@
       "max_flow_bpd": 2600,
       "bep_flow_bpd": 2100,
       "max_stages": 120,
-      "housing_options": [30, 50, 70, 90, 110, 120],
+      "housing_options": [
+        30,
+        50,
+        70,
+        90,
+        110,
+        120
+      ],
       "performance_curve": [
-        {"flow_bpd": 1400, "head_ft_per_stage": 63.5, "hp_per_stage": 1.010, "efficiency": 0.51},
-        {"flow_bpd": 1600, "head_ft_per_stage": 61.5, "hp_per_stage": 1.035, "efficiency": 0.54},
-        {"flow_bpd": 1700, "head_ft_per_stage": 60.5, "hp_per_stage": 1.048, "efficiency": 0.56},
-        {"flow_bpd": 1900, "head_ft_per_stage": 58.5, "hp_per_stage": 1.068, "efficiency": 0.59},
-        {"flow_bpd": 2100, "head_ft_per_stage": 56.2, "hp_per_stage": 1.082, "efficiency": 0.622},
-        {"flow_bpd": 2200, "head_ft_per_stage": 55.0, "hp_per_stage": 1.085, "efficiency": 0.617},
-        {"flow_bpd": 2400, "head_ft_per_stage": 52.0, "hp_per_stage": 1.085, "efficiency": 0.598},
-        {"flow_bpd": 2600, "head_ft_per_stage": 48.5, "hp_per_stage": 1.078, "efficiency": 0.570},
-        {"flow_bpd": 2800, "head_ft_per_stage": 43.5, "hp_per_stage": 1.062, "efficiency": 0.530},
-        {"flow_bpd": 3000, "head_ft_per_stage": 37.5, "hp_per_stage": 1.035, "efficiency": 0.480},
-        {"flow_bpd": 3200, "head_ft_per_stage": 30.0, "hp_per_stage": 0.995, "efficiency": 0.415}
+        {
+          "flow_bpd": 1400,
+          "head_ft_per_stage": 63.5,
+          "hp_per_stage": 1.01,
+          "efficiency": 0.51
+        },
+        {
+          "flow_bpd": 1600,
+          "head_ft_per_stage": 61.5,
+          "hp_per_stage": 1.035,
+          "efficiency": 0.54
+        },
+        {
+          "flow_bpd": 1700,
+          "head_ft_per_stage": 60.5,
+          "hp_per_stage": 1.048,
+          "efficiency": 0.56
+        },
+        {
+          "flow_bpd": 1900,
+          "head_ft_per_stage": 58.5,
+          "hp_per_stage": 1.068,
+          "efficiency": 0.59
+        },
+        {
+          "flow_bpd": 2100,
+          "head_ft_per_stage": 56.2,
+          "hp_per_stage": 1.082,
+          "efficiency": 0.622
+        },
+        {
+          "flow_bpd": 2200,
+          "head_ft_per_stage": 55.0,
+          "hp_per_stage": 1.085,
+          "efficiency": 0.617
+        },
+        {
+          "flow_bpd": 2400,
+          "head_ft_per_stage": 52.0,
+          "hp_per_stage": 1.085,
+          "efficiency": 0.598
+        },
+        {
+          "flow_bpd": 2600,
+          "head_ft_per_stage": 48.5,
+          "hp_per_stage": 1.078,
+          "efficiency": 0.57
+        },
+        {
+          "flow_bpd": 2800,
+          "head_ft_per_stage": 43.5,
+          "hp_per_stage": 1.062,
+          "efficiency": 0.53
+        },
+        {
+          "flow_bpd": 3000,
+          "head_ft_per_stage": 37.5,
+          "hp_per_stage": 1.035,
+          "efficiency": 0.48
+        },
+        {
+          "flow_bpd": 3200,
+          "head_ft_per_stage": 30.0,
+          "hp_per_stage": 0.995,
+          "efficiency": 0.415
+        }
       ]
     },
     {
       "manufacturer": "Reda",
       "series": "540",
       "model": "G-52E",
-      "od_inches": 5.40,
+      "od_inches": 5.4,
       "min_flow_bpd": 2000,
       "max_flow_bpd": 3200,
       "bep_flow_bpd": 2600,
       "max_stages": 120,
-      "housing_options": [30, 50, 70, 90, 110, 120],
+      "housing_options": [
+        30,
+        50,
+        70,
+        90,
+        110,
+        120
+      ],
       "performance_curve": [
-        {"flow_bpd": 1600, "head_ft_per_stage": 62.5, "hp_per_stage": 1.145, "efficiency": 0.49},
-        {"flow_bpd": 1800, "head_ft_per_stage": 60.5, "hp_per_stage": 1.172, "efficiency": 0.52},
-        {"flow_bpd": 2000, "head_ft_per_stage": 58.5, "hp_per_stage": 1.198, "efficiency": 0.55},
-        {"flow_bpd": 2200, "head_ft_per_stage": 56.5, "hp_per_stage": 1.220, "efficiency": 0.57},
-        {"flow_bpd": 2400, "head_ft_per_stage": 54.0, "hp_per_stage": 1.238, "efficiency": 0.60},
-        {"flow_bpd": 2600, "head_ft_per_stage": 51.5, "hp_per_stage": 1.248, "efficiency": 0.625},
-        {"flow_bpd": 2700, "head_ft_per_stage": 50.0, "hp_per_stage": 1.250, "efficiency": 0.618},
-        {"flow_bpd": 2900, "head_ft_per_stage": 47.0, "hp_per_stage": 1.245, "efficiency": 0.597},
-        {"flow_bpd": 3100, "head_ft_per_stage": 43.0, "hp_per_stage": 1.232, "efficiency": 0.566},
-        {"flow_bpd": 3400, "head_ft_per_stage": 36.5, "hp_per_stage": 1.202, "efficiency": 0.516},
-        {"flow_bpd": 3600, "head_ft_per_stage": 30.0, "hp_per_stage": 1.158, "efficiency": 0.455}
+        {
+          "flow_bpd": 1600,
+          "head_ft_per_stage": 62.5,
+          "hp_per_stage": 1.145,
+          "efficiency": 0.49
+        },
+        {
+          "flow_bpd": 1800,
+          "head_ft_per_stage": 60.5,
+          "hp_per_stage": 1.172,
+          "efficiency": 0.52
+        },
+        {
+          "flow_bpd": 2000,
+          "head_ft_per_stage": 58.5,
+          "hp_per_stage": 1.198,
+          "efficiency": 0.55
+        },
+        {
+          "flow_bpd": 2200,
+          "head_ft_per_stage": 56.5,
+          "hp_per_stage": 1.22,
+          "efficiency": 0.57
+        },
+        {
+          "flow_bpd": 2400,
+          "head_ft_per_stage": 54.0,
+          "hp_per_stage": 1.238,
+          "efficiency": 0.6
+        },
+        {
+          "flow_bpd": 2600,
+          "head_ft_per_stage": 51.5,
+          "hp_per_stage": 1.248,
+          "efficiency": 0.625
+        },
+        {
+          "flow_bpd": 2700,
+          "head_ft_per_stage": 50.0,
+          "hp_per_stage": 1.25,
+          "efficiency": 0.618
+        },
+        {
+          "flow_bpd": 2900,
+          "head_ft_per_stage": 47.0,
+          "hp_per_stage": 1.245,
+          "efficiency": 0.597
+        },
+        {
+          "flow_bpd": 3100,
+          "head_ft_per_stage": 43.0,
+          "hp_per_stage": 1.232,
+          "efficiency": 0.566
+        },
+        {
+          "flow_bpd": 3400,
+          "head_ft_per_stage": 36.5,
+          "hp_per_stage": 1.202,
+          "efficiency": 0.516
+        },
+        {
+          "flow_bpd": 3600,
+          "head_ft_per_stage": 30.0,
+          "hp_per_stage": 1.158,
+          "efficiency": 0.455
+        }
       ]
     },
     {
       "manufacturer": "Centrilift",
       "series": "400",
       "model": "M-34",
-      "od_inches": 4.00,
+      "od_inches": 4.0,
       "min_flow_bpd": 600,
       "max_flow_bpd": 1100,
       "bep_flow_bpd": 850,
       "max_stages": 300,
-      "housing_options": [75, 100, 125, 150, 200, 250, 300],
+      "housing_options": [
+        75,
+        100,
+        125,
+        150,
+        200,
+        250,
+        300
+      ],
       "performance_curve": [
-        {"flow_bpd":  400, "head_ft_per_stage": 34.5, "hp_per_stage": 0.198, "efficiency": 0.44},
-        {"flow_bpd":  500, "head_ft_per_stage": 32.8, "hp_per_stage": 0.208, "efficiency": 0.48},
-        {"flow_bpd":  600, "head_ft_per_stage": 31.2, "hp_per_stage": 0.218, "efficiency": 0.52},
-        {"flow_bpd":  700, "head_ft_per_stage": 29.5, "hp_per_stage": 0.226, "efficiency": 0.55},
-        {"flow_bpd":  800, "head_ft_per_stage": 28.0, "hp_per_stage": 0.232, "efficiency": 0.57},
-        {"flow_bpd":  850, "head_ft_per_stage": 27.2, "hp_per_stage": 0.234, "efficiency": 0.582},
-        {"flow_bpd":  900, "head_ft_per_stage": 26.5, "hp_per_stage": 0.236, "efficiency": 0.578},
-        {"flow_bpd": 1000, "head_ft_per_stage": 24.8, "hp_per_stage": 0.238, "efficiency": 0.558},
-        {"flow_bpd": 1100, "head_ft_per_stage": 22.5, "hp_per_stage": 0.237, "efficiency": 0.524},
-        {"flow_bpd": 1200, "head_ft_per_stage": 19.8, "hp_per_stage": 0.233, "efficiency": 0.481},
-        {"flow_bpd": 1300, "head_ft_per_stage": 16.5, "hp_per_stage": 0.224, "efficiency": 0.422}
+        {
+          "flow_bpd": 400,
+          "head_ft_per_stage": 34.5,
+          "hp_per_stage": 0.198,
+          "efficiency": 0.44
+        },
+        {
+          "flow_bpd": 500,
+          "head_ft_per_stage": 32.8,
+          "hp_per_stage": 0.208,
+          "efficiency": 0.48
+        },
+        {
+          "flow_bpd": 600,
+          "head_ft_per_stage": 31.2,
+          "hp_per_stage": 0.218,
+          "efficiency": 0.52
+        },
+        {
+          "flow_bpd": 700,
+          "head_ft_per_stage": 29.5,
+          "hp_per_stage": 0.226,
+          "efficiency": 0.55
+        },
+        {
+          "flow_bpd": 800,
+          "head_ft_per_stage": 28.0,
+          "hp_per_stage": 0.232,
+          "efficiency": 0.57
+        },
+        {
+          "flow_bpd": 850,
+          "head_ft_per_stage": 27.2,
+          "hp_per_stage": 0.234,
+          "efficiency": 0.582
+        },
+        {
+          "flow_bpd": 900,
+          "head_ft_per_stage": 26.5,
+          "hp_per_stage": 0.236,
+          "efficiency": 0.578
+        },
+        {
+          "flow_bpd": 1000,
+          "head_ft_per_stage": 24.8,
+          "hp_per_stage": 0.238,
+          "efficiency": 0.558
+        },
+        {
+          "flow_bpd": 1100,
+          "head_ft_per_stage": 22.5,
+          "hp_per_stage": 0.237,
+          "efficiency": 0.524
+        },
+        {
+          "flow_bpd": 1200,
+          "head_ft_per_stage": 19.8,
+          "hp_per_stage": 0.233,
+          "efficiency": 0.481
+        },
+        {
+          "flow_bpd": 1300,
+          "head_ft_per_stage": 16.5,
+          "hp_per_stage": 0.224,
+          "efficiency": 0.422
+        }
+      ]
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "400",
+      "model": "D-20",
+      "od_inches": 4.0,
+      "min_flow_bpd": 350,
+      "max_flow_bpd": 800,
+      "bep_flow_bpd": 600,
+      "max_stages": 300,
+      "housing_options": [
+        50,
+        100,
+        150,
+        200,
+        250,
+        300
+      ],
+      "_source": "Brown Vol. 2b Ex. #3B (hp/stage anchor); curve synthesized",
+      "performance_curve": [
+        {
+          "flow_bpd": 300,
+          "head_ft_per_stage": 22.6,
+          "hp_per_stage": 0.138,
+          "efficiency": 0.362
+        },
+        {
+          "flow_bpd": 360,
+          "head_ft_per_stage": 21.8,
+          "hp_per_stage": 0.145,
+          "efficiency": 0.397
+        },
+        {
+          "flow_bpd": 410,
+          "head_ft_per_stage": 21.0,
+          "hp_per_stage": 0.151,
+          "efficiency": 0.421
+        },
+        {
+          "flow_bpd": 470,
+          "head_ft_per_stage": 20.0,
+          "hp_per_stage": 0.157,
+          "efficiency": 0.442
+        },
+        {
+          "flow_bpd": 530,
+          "head_ft_per_stage": 18.9,
+          "hp_per_stage": 0.163,
+          "efficiency": 0.455
+        },
+        {
+          "flow_bpd": 580,
+          "head_ft_per_stage": 17.9,
+          "hp_per_stage": 0.167,
+          "efficiency": 0.46
+        },
+        {
+          "flow_bpd": 640,
+          "head_ft_per_stage": 16.6,
+          "hp_per_stage": 0.171,
+          "efficiency": 0.458
+        },
+        {
+          "flow_bpd": 700,
+          "head_ft_per_stage": 15.2,
+          "hp_per_stage": 0.174,
+          "efficiency": 0.449
+        },
+        {
+          "flow_bpd": 760,
+          "head_ft_per_stage": 13.6,
+          "hp_per_stage": 0.177,
+          "efficiency": 0.432
+        },
+        {
+          "flow_bpd": 810,
+          "head_ft_per_stage": 12.3,
+          "hp_per_stage": 0.178,
+          "efficiency": 0.412
+        },
+        {
+          "flow_bpd": 870,
+          "head_ft_per_stage": 10.5,
+          "hp_per_stage": 0.177,
+          "efficiency": 0.381
+        }
+      ]
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "540",
+      "model": "GN-4000",
+      "od_inches": 5.4,
+      "min_flow_bpd": 3000,
+      "max_flow_bpd": 5200,
+      "bep_flow_bpd": 4000,
+      "max_stages": 140,
+      "housing_options": [
+        30,
+        50,
+        70,
+        90,
+        110,
+        140
+      ],
+      "_source": "Representative — REDA GN-series style",
+      "performance_curve": [
+        {
+          "flow_bpd": 2000,
+          "head_ft_per_stage": 54.2,
+          "hp_per_stage": 1.469,
+          "efficiency": 0.543
+        },
+        {
+          "flow_bpd": 2400,
+          "head_ft_per_stage": 52.3,
+          "hp_per_stage": 1.55,
+          "efficiency": 0.596
+        },
+        {
+          "flow_bpd": 2750,
+          "head_ft_per_stage": 50.4,
+          "hp_per_stage": 1.613,
+          "efficiency": 0.633
+        },
+        {
+          "flow_bpd": 3150,
+          "head_ft_per_stage": 48.0,
+          "hp_per_stage": 1.678,
+          "efficiency": 0.664
+        },
+        {
+          "flow_bpd": 3500,
+          "head_ft_per_stage": 45.7,
+          "hp_per_stage": 1.729,
+          "efficiency": 0.681
+        },
+        {
+          "flow_bpd": 3900,
+          "head_ft_per_stage": 42.8,
+          "hp_per_stage": 1.781,
+          "efficiency": 0.69
+        },
+        {
+          "flow_bpd": 4300,
+          "head_ft_per_stage": 39.6,
+          "hp_per_stage": 1.826,
+          "efficiency": 0.687
+        },
+        {
+          "flow_bpd": 4650,
+          "head_ft_per_stage": 36.6,
+          "hp_per_stage": 1.858,
+          "efficiency": 0.675
+        },
+        {
+          "flow_bpd": 5050,
+          "head_ft_per_stage": 32.9,
+          "hp_per_stage": 1.885,
+          "efficiency": 0.65
+        },
+        {
+          "flow_bpd": 5400,
+          "head_ft_per_stage": 29.5,
+          "hp_per_stage": 1.897,
+          "efficiency": 0.618
+        },
+        {
+          "flow_bpd": 5800,
+          "head_ft_per_stage": 25.3,
+          "hp_per_stage": 1.891,
+          "efficiency": 0.571
+        }
+      ]
+    },
+    {
+      "manufacturer": "Reda",
+      "series": "540",
+      "model": "GN-5600",
+      "od_inches": 5.4,
+      "min_flow_bpd": 4200,
+      "max_flow_bpd": 7200,
+      "bep_flow_bpd": 5600,
+      "max_stages": 120,
+      "housing_options": [
+        30,
+        50,
+        70,
+        90,
+        110,
+        120
+      ],
+      "_source": "Representative — REDA GN-series style",
+      "performance_curve": [
+        {
+          "flow_bpd": 2800,
+          "head_ft_per_stage": 60.6,
+          "hp_per_stage": 2.236,
+          "efficiency": 0.559
+        },
+        {
+          "flow_bpd": 3350,
+          "head_ft_per_stage": 58.5,
+          "hp_per_stage": 2.358,
+          "efficiency": 0.613
+        },
+        {
+          "flow_bpd": 3850,
+          "head_ft_per_stage": 56.4,
+          "hp_per_stage": 2.456,
+          "efficiency": 0.651
+        },
+        {
+          "flow_bpd": 4400,
+          "head_ft_per_stage": 53.8,
+          "hp_per_stage": 2.554,
+          "efficiency": 0.682
+        },
+        {
+          "flow_bpd": 4950,
+          "head_ft_per_stage": 50.8,
+          "hp_per_stage": 2.641,
+          "efficiency": 0.702
+        },
+        {
+          "flow_bpd": 5450,
+          "head_ft_per_stage": 47.9,
+          "hp_per_stage": 2.711,
+          "efficiency": 0.71
+        },
+        {
+          "flow_bpd": 6000,
+          "head_ft_per_stage": 44.4,
+          "hp_per_stage": 2.778,
+          "efficiency": 0.707
+        },
+        {
+          "flow_bpd": 6500,
+          "head_ft_per_stage": 41.0,
+          "hp_per_stage": 2.828,
+          "efficiency": 0.694
+        },
+        {
+          "flow_bpd": 7050,
+          "head_ft_per_stage": 37.0,
+          "hp_per_stage": 2.868,
+          "efficiency": 0.67
+        },
+        {
+          "flow_bpd": 7600,
+          "head_ft_per_stage": 32.7,
+          "hp_per_stage": 2.888,
+          "efficiency": 0.633
+        },
+        {
+          "flow_bpd": 8100,
+          "head_ft_per_stage": 28.5,
+          "hp_per_stage": 2.881,
+          "efficiency": 0.59
+        }
+      ]
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "513",
+      "model": "GC-6100",
+      "od_inches": 5.13,
+      "min_flow_bpd": 4600,
+      "max_flow_bpd": 7900,
+      "bep_flow_bpd": 6100,
+      "max_stages": 160,
+      "housing_options": [
+        40,
+        60,
+        80,
+        100,
+        120,
+        140,
+        160
+      ],
+      "_source": "Representative — Centrilift GC-series style",
+      "performance_curve": [
+        {
+          "flow_bpd": 3050,
+          "head_ft_per_stage": 43.9,
+          "hp_per_stage": 1.787,
+          "efficiency": 0.551
+        },
+        {
+          "flow_bpd": 3650,
+          "head_ft_per_stage": 42.4,
+          "hp_per_stage": 1.885,
+          "efficiency": 0.604
+        },
+        {
+          "flow_bpd": 4200,
+          "head_ft_per_stage": 40.8,
+          "hp_per_stage": 1.964,
+          "efficiency": 0.642
+        },
+        {
+          "flow_bpd": 4800,
+          "head_ft_per_stage": 38.9,
+          "hp_per_stage": 2.042,
+          "efficiency": 0.673
+        },
+        {
+          "flow_bpd": 5350,
+          "head_ft_per_stage": 36.9,
+          "hp_per_stage": 2.106,
+          "efficiency": 0.691
+        },
+        {
+          "flow_bpd": 5950,
+          "head_ft_per_stage": 34.6,
+          "hp_per_stage": 2.168,
+          "efficiency": 0.7
+        },
+        {
+          "flow_bpd": 6550,
+          "head_ft_per_stage": 32.1,
+          "hp_per_stage": 2.222,
+          "efficiency": 0.697
+        },
+        {
+          "flow_bpd": 7100,
+          "head_ft_per_stage": 29.6,
+          "hp_per_stage": 2.262,
+          "efficiency": 0.684
+        },
+        {
+          "flow_bpd": 7700,
+          "head_ft_per_stage": 26.7,
+          "hp_per_stage": 2.293,
+          "efficiency": 0.659
+        },
+        {
+          "flow_bpd": 8250,
+          "head_ft_per_stage": 23.8,
+          "hp_per_stage": 2.308,
+          "efficiency": 0.626
+        },
+        {
+          "flow_bpd": 8850,
+          "head_ft_per_stage": 20.4,
+          "hp_per_stage": 2.302,
+          "efficiency": 0.579
+        }
+      ]
+    },
+    {
+      "manufacturer": "Weatherford",
+      "series": "400",
+      "model": "WE-1350",
+      "od_inches": 4.0,
+      "min_flow_bpd": 1050,
+      "max_flow_bpd": 1750,
+      "bep_flow_bpd": 1350,
+      "max_stages": 240,
+      "housing_options": [
+        50,
+        75,
+        100,
+        125,
+        150,
+        200,
+        240
+      ],
+      "_source": "Representative — Weatherford ESP style",
+      "performance_curve": [
+        {
+          "flow_bpd": 680,
+          "head_ft_per_stage": 30.3,
+          "hp_per_stage": 0.32,
+          "efficiency": 0.474
+        },
+        {
+          "flow_bpd": 800,
+          "head_ft_per_stage": 29.3,
+          "hp_per_stage": 0.335,
+          "efficiency": 0.515
+        },
+        {
+          "flow_bpd": 930,
+          "head_ft_per_stage": 28.2,
+          "hp_per_stage": 0.351,
+          "efficiency": 0.551
+        },
+        {
+          "flow_bpd": 1060,
+          "head_ft_per_stage": 26.9,
+          "hp_per_stage": 0.364,
+          "efficiency": 0.576
+        },
+        {
+          "flow_bpd": 1190,
+          "head_ft_per_stage": 25.5,
+          "hp_per_stage": 0.376,
+          "efficiency": 0.593
+        },
+        {
+          "flow_bpd": 1320,
+          "head_ft_per_stage": 23.9,
+          "hp_per_stage": 0.387,
+          "efficiency": 0.6
+        },
+        {
+          "flow_bpd": 1440,
+          "head_ft_per_stage": 22.3,
+          "hp_per_stage": 0.396,
+          "efficiency": 0.598
+        },
+        {
+          "flow_bpd": 1570,
+          "head_ft_per_stage": 20.5,
+          "hp_per_stage": 0.404,
+          "efficiency": 0.586
+        },
+        {
+          "flow_bpd": 1700,
+          "head_ft_per_stage": 18.5,
+          "hp_per_stage": 0.409,
+          "efficiency": 0.566
+        },
+        {
+          "flow_bpd": 1830,
+          "head_ft_per_stage": 16.4,
+          "hp_per_stage": 0.412,
+          "efficiency": 0.536
+        },
+        {
+          "flow_bpd": 1960,
+          "head_ft_per_stage": 14.1,
+          "hp_per_stage": 0.411,
+          "efficiency": 0.496
+        }
+      ]
+    },
+    {
+      "manufacturer": "Weatherford",
+      "series": "513",
+      "model": "WE-2400",
+      "od_inches": 5.13,
+      "min_flow_bpd": 1800,
+      "max_flow_bpd": 3100,
+      "bep_flow_bpd": 2400,
+      "max_stages": 130,
+      "housing_options": [
+        30,
+        50,
+        70,
+        90,
+        110,
+        130
+      ],
+      "_source": "Representative — Weatherford ESP style",
+      "performance_curve": [
+        {
+          "flow_bpd": 1200,
+          "head_ft_per_stage": 38.7,
+          "hp_per_stage": 0.658,
+          "efficiency": 0.52
+        },
+        {
+          "flow_bpd": 1430,
+          "head_ft_per_stage": 37.4,
+          "hp_per_stage": 0.693,
+          "efficiency": 0.568
+        },
+        {
+          "flow_bpd": 1660,
+          "head_ft_per_stage": 35.9,
+          "hp_per_stage": 0.724,
+          "efficiency": 0.607
+        },
+        {
+          "flow_bpd": 1880,
+          "head_ft_per_stage": 34.4,
+          "hp_per_stage": 0.751,
+          "efficiency": 0.634
+        },
+        {
+          "flow_bpd": 2100,
+          "head_ft_per_stage": 32.6,
+          "hp_per_stage": 0.775,
+          "efficiency": 0.651
+        },
+        {
+          "flow_bpd": 2350,
+          "head_ft_per_stage": 30.5,
+          "hp_per_stage": 0.799,
+          "efficiency": 0.66
+        },
+        {
+          "flow_bpd": 2550,
+          "head_ft_per_stage": 28.6,
+          "hp_per_stage": 0.816,
+          "efficiency": 0.658
+        },
+        {
+          "flow_bpd": 2800,
+          "head_ft_per_stage": 26.0,
+          "hp_per_stage": 0.833,
+          "efficiency": 0.644
+        },
+        {
+          "flow_bpd": 3000,
+          "head_ft_per_stage": 23.8,
+          "hp_per_stage": 0.843,
+          "efficiency": 0.625
+        },
+        {
+          "flow_bpd": 3250,
+          "head_ft_per_stage": 20.9,
+          "hp_per_stage": 0.85,
+          "efficiency": 0.59
+        },
+        {
+          "flow_bpd": 3500,
+          "head_ft_per_stage": 17.8,
+          "hp_per_stage": 0.847,
+          "efficiency": 0.542
+        }
+      ]
+    },
+    {
+      "manufacturer": "Weatherford",
+      "series": "538",
+      "model": "WE-5000",
+      "od_inches": 5.38,
+      "min_flow_bpd": 3800,
+      "max_flow_bpd": 6400,
+      "bep_flow_bpd": 5000,
+      "max_stages": 130,
+      "housing_options": [
+        30,
+        50,
+        70,
+        90,
+        110,
+        130
+      ],
+      "_source": "Representative — Weatherford ESP style",
+      "performance_curve": [
+        {
+          "flow_bpd": 2500,
+          "head_ft_per_stage": 56.8,
+          "hp_per_stage": 1.896,
+          "efficiency": 0.551
+        },
+        {
+          "flow_bpd": 3000,
+          "head_ft_per_stage": 54.8,
+          "hp_per_stage": 2.001,
+          "efficiency": 0.605
+        },
+        {
+          "flow_bpd": 3450,
+          "head_ft_per_stage": 52.7,
+          "hp_per_stage": 2.085,
+          "efficiency": 0.643
+        },
+        {
+          "flow_bpd": 3900,
+          "head_ft_per_stage": 50.5,
+          "hp_per_stage": 2.16,
+          "efficiency": 0.671
+        },
+        {
+          "flow_bpd": 4400,
+          "head_ft_per_stage": 47.7,
+          "hp_per_stage": 2.236,
+          "efficiency": 0.691
+        },
+        {
+          "flow_bpd": 4900,
+          "head_ft_per_stage": 44.6,
+          "hp_per_stage": 2.303,
+          "efficiency": 0.7
+        },
+        {
+          "flow_bpd": 5350,
+          "head_ft_per_stage": 41.7,
+          "hp_per_stage": 2.354,
+          "efficiency": 0.697
+        },
+        {
+          "flow_bpd": 5800,
+          "head_ft_per_stage": 38.4,
+          "hp_per_stage": 2.397,
+          "efficiency": 0.685
+        },
+        {
+          "flow_bpd": 6300,
+          "head_ft_per_stage": 34.6,
+          "hp_per_stage": 2.432,
+          "efficiency": 0.66
+        },
+        {
+          "flow_bpd": 6800,
+          "head_ft_per_stage": 30.5,
+          "hp_per_stage": 2.449,
+          "efficiency": 0.623
+        },
+        {
+          "flow_bpd": 7250,
+          "head_ft_per_stage": 26.5,
+          "hp_per_stage": 2.442,
+          "efficiency": 0.58
+        }
       ]
     }
-  ]
+  ],
+  "_note": "Two data classes: (1) pumps digitized from Kermit Brown Vol. 2b Ch. 4.5 examples; (2) pumps generated by scripts/generate_pump_curves.py (marked with _source) — representative curves with standard centrifugal shape, HP derived from hydraulic horsepower for thermodynamic consistency. Representative data: NOT for real field design."
 }
