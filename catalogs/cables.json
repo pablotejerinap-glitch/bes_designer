@@ -11,7 +11,7 @@
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.235,
         "150": 0.257,
-        "180": 0.270,
+        "180": 0.27,
         "200": 0.281
       }
     },
@@ -52,7 +52,7 @@
       "max_temp_f": 450,
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.752,
-        "150": 0.820,
+        "150": 0.82,
         "180": 0.863,
         "200": 0.894
       }
@@ -67,7 +67,7 @@
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.235,
         "150": 0.257,
-        "180": 0.270,
+        "180": 0.27,
         "200": 0.281
       }
     },
@@ -95,7 +95,7 @@
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.235,
         "150": 0.257,
-        "180": 0.270,
+        "180": 0.27,
         "200": 0.281
       }
     },
@@ -137,7 +137,7 @@
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.235,
         "150": 0.257,
-        "180": 0.270,
+        "180": 0.27,
         "200": 0.281
       }
     },
@@ -191,7 +191,7 @@
       "max_amps": 69,
       "max_temp_f": 450,
       "voltage_drop_v_per_amp_per_1000ft": {
-        "100": 0.490,
+        "100": 0.49,
         "150": 0.535,
         "180": 0.563,
         "200": 0.583
@@ -206,10 +206,55 @@
       "max_temp_f": 450,
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.779,
-        "150": 0.850,
+        "150": 0.85,
         "180": 0.895,
         "200": 0.927
       }
+    },
+    {
+      "manufacturer": "ChampionX",
+      "type": "EPDM",
+      "conductor": "CU",
+      "size": "#2",
+      "max_amps": 88,
+      "max_temp_f": 400,
+      "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.297,
+        "150": 0.324,
+        "180": 0.341,
+        "200": 0.354
+      },
+      "_source": "ChampionX CAVALCADE data sheet (EPDM/lead, 400°F); ampacity & vdrop per-AWG std (API RP 11S6)"
+    },
+    {
+      "manufacturer": "ChampionX",
+      "type": "EPDM",
+      "conductor": "CU",
+      "size": "#4",
+      "max_amps": 69,
+      "max_temp_f": 400,
+      "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.473,
+        "150": 0.516,
+        "180": 0.543,
+        "200": 0.562
+      },
+      "_source": "ChampionX CAVALCADE data sheet (EPDM/lead, 400°F); ampacity & vdrop per-AWG std (API RP 11S6)"
+    },
+    {
+      "manufacturer": "ChampionX",
+      "type": "EPDM",
+      "conductor": "CU",
+      "size": "#6",
+      "max_amps": 55,
+      "max_temp_f": 400,
+      "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.752,
+        "150": 0.82,
+        "180": 0.863,
+        "200": 0.894
+      },
+      "_source": "ChampionX CAVALCADE data sheet (EPDM/lead, 400°F); ampacity & vdrop per-AWG std (API RP 11S6)"
     }
   ]
 }

@@ -152,9 +152,9 @@ Cobertura continua de caudal: **350 a 7 900 bpd**, más el tramo de alto caudal 
 
 Cada bomba almacena: fabricante, serie (diámetro), modelo, OD, rango recomendado de caudal, BEP, número máximo de etapas, opciones de housing (cuerpos comerciales con cantidades fijas de etapas) y su **curva de rendimiento** de 10–11 puntos (caudal, altura/etapa, HP/etapa, eficiencia). El sistema lee la curva por **interpolación lineal** entre puntos.
 
-### 4.3 Catálogo de motores (`motors.json`) — 15 modelos
+### 4.3 Catálogo de motores (`motors.json`) — 48 modelos
 
-Motores Reda (series 375, 456 y 540 — el número indica el diámetro en centésimas de pulgada) y Centrilift (series 544 y 562), de **25 a 600 HP** y voltajes nominales de 440 a 4 185 V. Cada entrada almacena potencia, voltaje, corriente, diámetro, largo y temperatura máxima admisible.
+Motores Reda (series 375, 456 y 540 — el número indica el diámetro en centésimas de pulgada), Centrilift (series 544 y 562) y **ChampionX AFFIRMED** (serie 400, OD 4.00 in), de **24 a 600 HP** y voltajes nominales de 415 a 4 185 V. Cada entrada almacena potencia, voltaje, corriente, diámetro, largo y temperatura máxima admisible.
 
 | Fabricante | Serie | Potencias (HP) |
 |------------|-------|----------------|
@@ -163,10 +163,13 @@ Motores Reda (series 375, 456 y 540 — el número indica el diámetro en centé
 | Reda | 540 | 150 · 200 · 250 |
 | Centrilift | 544 | 175 · 230 |
 | Centrilift | 562 | 350 · 450 · 600 |
+| ChampionX (AFFIRMED) | 400 | 24 · 36 · 48 · 60 · 72 · 84 · 96 · 108 · 120 · 132 · 144 · 156 · 168 · 180 · 192 · 204 · 216 (33 variantes HP/voltaje) |
 
-### 4.4 Catálogo de cables (`cables.json`) — 15 modelos
+Los motores AFFIRMED (digitalizados de la hoja de datos de ChampionX / UNBRIDLED ESP) aportan una granularidad de HP mucho más fina (pasos de 12 HP), lo que permite ajustar la carga del motor más ajustadamente al requerimiento de la bomba. Ver [CHAMPIONX_INGESTION_REPORT.md](CHAMPIONX_INGESTION_REPORT.md).
 
-Cables de potencia trifásicos Reda (Redalene, Redared) y Centrilift (EPDM, polietileno), conductor de cobre, calibres **#1, #2, #4 y #6 AWG**, temperaturas nominales de 300 a 500 °F. Para cada cable se tabula la **caída de tensión por amperio por cada 1 000 ft** a cuatro temperaturas (100/150/180/200 °F), valores tomados de la Tabla 4.52 de Brown y de API RP 11S6; el sistema interpola a la temperatura de fondo del pozo.
+### 4.4 Catálogo de cables (`cables.json`) — 18 modelos
+
+Cables de potencia trifásicos Reda (Redalene, Redared), Centrilift (EPDM, polietileno) y **ChampionX CAVALCADE** (EPDM/lead), conductor de cobre, calibres **#1, #2, #4 y #6 AWG**, temperaturas nominales de 300 a 500 °F. Para cada cable se tabula la **caída de tensión por amperio por cada 1 000 ft** a cuatro temperaturas (100/150/180/200 °F), valores tomados de la Tabla 4.52 de Brown y de API RP 11S6; el sistema interpola a la temperatura de fondo del pozo. Los cables CAVALCADE (400 °F) se incluyen por diversificación de fabricante; quedan dominados por los cables existentes de mayor temperatura, por lo que rara vez resultan seleccionados.
 
 ### 4.5 Catálogo de sellos/protectores (`seals.json`) — 15 modelos
 
