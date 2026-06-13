@@ -157,7 +157,7 @@ Las opciones se presentan en **tabs** rankeadas de mayor a menor score.
 **Criterios de scoring:**
 - Eficiencia hidráulica de la bomba (40 %)
 - Flexibilidad operativa (distancia al BEP) (30 %)
-- Costo relativo (HP, número de etapas, tamaño de casing) (30 %)
+- Preferencia de proveedor (30 %): elegí un proveedor preferido en la pestaña Objetivos y sus equipos puntúan más alto
 
 ---
 
@@ -226,7 +226,7 @@ Al final de la sección **Diseño BES**, aparecen tres botones de descarga:
 | **Cable** | Selección por AWG, longitud, tipo (EPDM/Polypro) |
 | **Transformador** | Potencia en kVA con factor de servicio 1.25 |
 | **Gas en bomba (GIP)** | Método de volumenes a condiciones de admisión (Brown §4.53103) |
-| **Scoring** | Multi-criterio: eficiencia 40 %, flexibilidad 30 %, costo 30 % |
+| **Scoring** | Multi-criterio: eficiencia 40 %, flexibilidad 30 %, preferencia de proveedor 30 % |
 
 ---
 

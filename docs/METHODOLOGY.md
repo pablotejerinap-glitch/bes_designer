@@ -196,7 +196,7 @@ Score global = Σ wᵢ · sᵢ / Σ wᵢ
 |---|---|---|
 | Eficiencia | 0.40 | s_eff = η_bomba × 10 (0–1 → 0–10) |
 | Flexibilidad | 0.30 | Distancia normalizada al BEP (10 en BEP, 0 en extremos) |
-| Costo | 0.30 | Función inversa de HP total y número de etapas |
+| Preferencia de proveedor | 0.30 | 10 si la bomba es del proveedor preferido; 5 el resto; 10 para todas si no hay preferencia |
 
 ---
 
@@ -317,7 +317,7 @@ Entrada: Reservoir · Fluid · WellGeometry · SurfaceConditions · DesignObject
     Diseño eléctrico: Motor → Cable → Transformador
         │
         ▼
-    Scoring (eficiencia · flexibilidad · costo)
+    Scoring (eficiencia · flexibilidad · preferencia de proveedor)
         │
         ▼
     Top-3 recomendaciones (con diversificación de fabricante)

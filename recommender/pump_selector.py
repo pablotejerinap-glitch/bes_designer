@@ -24,7 +24,7 @@ from core.pvt import standing_rs, gas_z_factor, gas_bg, standing_bo, water_bw
 from recommender.scoring import (
     efficiency_score,
     flexibility_score,
-    cost_score,
+    provider_score,
     overall_score,
 )
 
@@ -208,7 +208,7 @@ def select_top_n_pumps(
     Steps:
     1. Run full hydraulic design for all catalog pumps that fit the well.
     2. Run electrical design (motor + cable + transformer) for each candidate.
-    3. Score each design on efficiency, flexibility, and cost.
+    3. Score each design on efficiency, flexibility, and provider preference.
     4. Optionally reorder to guarantee at least one pump per manufacturer.
     5. Return top N as DesignResult dataclass instances.
 
@@ -263,10 +263,12 @@ def select_top_n_pumps(
 
         eff_s  = efficiency_score(cand["efficiency"])
         flex_s = flexibility_score(pump_obj, objectives.target_flow_rate)
-        cost_s = cost_score(cand["total_pump_hp"], cand["stages"], well.casing_id)
+        prov_s = provider_score(
+            cand["pump_manufacturer"], objectives.preferred_manufacturer
+        )
 
         score = overall_score(
-            {"efficiency": eff_s, "flexibility": flex_s, "cost": cost_s}
+            {"efficiency": eff_s, "flexibility": flex_s, "provider": prov_s}
         )
         scored.append((score, cand, pump_obj))
 

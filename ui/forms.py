@@ -70,7 +70,11 @@ _EXAMPLE_2A: dict = {
     "frm_target_q": 1200.0, "frm_safety_depth": 100.0,
     "frm_allow_vent": False, "frm_max_gip": 0.10,
     "frm_design_life": 5.0, "frm_vsd": False,
+    "frm_preferred_mfr": "Sin preferencia",
 }
+
+# Option shown for "no provider preference"
+_NO_PREFERENCE = "Sin preferencia"
 
 _EXAMPLE_3A: dict = {
     # Reservoir (depleted gassy — Pb > Pr, warns but valid)
@@ -208,6 +212,7 @@ def _build_models() -> tuple:
         frequency=float(ss["frm_freq"]),
     )
 
+    _mfr = ss.get("frm_preferred_mfr", _NO_PREFERENCE)
     objectives = DesignObjectives(
         target_flow_rate=float(ss["frm_target_q"]),
         safety_margin_depth=float(ss["frm_safety_depth"]),
@@ -215,6 +220,7 @@ def _build_models() -> tuple:
         max_gip=float(ss["frm_max_gip"]),
         design_life_years=float(ss["frm_design_life"]),
         use_vsd=bool(ss["frm_vsd"]),
+        preferred_manufacturer=("" if _mfr == _NO_PREFERENCE else str(_mfr)),
     )
 
     return reservoir, fluid, well, surface, objectives
@@ -423,6 +429,19 @@ def render_data_forms() -> None:
                       key="frm_max_gip")
             st.checkbox("Permitir venteo de gas", key="frm_allow_vent")
             st.checkbox("Usar variador de velocidad (VSD)", key="frm_vsd")
+
+            # Provider preference — populated from the loaded catalog
+            _cat = st.session_state.get("catalog")
+            _mfrs = []
+            if _cat is not None:
+                _mfrs = sorted({p.manufacturer for p in _cat.get_all_pumps()})
+            st.selectbox(
+                "Proveedor preferido",
+                [_NO_PREFERENCE] + _mfrs,
+                key="frm_preferred_mfr",
+                help="Si elegís un proveedor, sus equipos puntúan más alto en el ranking "
+                     "(30 % del score). 'Sin preferencia' no sesga la selección.",
+            )
 
     # ------------------------------------------------------------------
     # Validation warnings (live)

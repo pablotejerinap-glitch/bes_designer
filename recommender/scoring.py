@@ -5,7 +5,7 @@ All scores are on a 0–10 scale (10 = best). Overall score is a
 weighted average of individual dimension scores.
 
 Reference: Brown, "The Technology of Artificial Lift Methods",
-Vol. 2b, Table 4.51 (cost factors) and Section 4.5325 (selection criteria).
+Vol. 2b, Section 4.5325 (selection criteria).
 """
 from __future__ import annotations
 
@@ -18,11 +18,8 @@ if TYPE_CHECKING:
 DEFAULT_WEIGHTS: dict[str, float] = {
     "efficiency": 0.40,
     "flexibility": 0.30,
-    "cost": 0.30,
+    "provider": 0.30,
 }
-
-# Cost normalisation ceiling — approximate high-end ESP installation cost [USD proxy]
-_COST_CEILING = 80_000.0
 
 
 def efficiency_score(efficiency: float) -> float:
@@ -63,30 +60,25 @@ def flexibility_score(pump: "PumpCurve", flow: float) -> float:
     return max(0.0, min(10.0, 10.0 * (1.0 - deviation)))
 
 
-def cost_score(hp: float, stages: int, casing_id: float) -> float:
-    """Estimate relative equipment cost and invert to a 0–10 score.
+def provider_score(manufacturer: str, preferred: str | None = None) -> float:
+    """Score a design by manufacturer (provider) preference.
 
-    Cost proxy (Brown Table 4.51 simplified):
-        cost_index = hp × 150  +  stages × 20
-
-    Larger casing permits more compact (shorter) pump strings, granting a
-    small credit that reduces the effective cost index.
-
-    Lower cost → higher score (10 = cheapest, 0 = most expensive).
+    When no provider is preferred, every design scores full marks so the
+    dimension does not bias the ranking. When a preferred provider is given,
+    designs from that manufacturer score 10 and the rest score 5 (a moderate
+    nudge, not a veto — efficiency and flexibility can still prevail).
 
     Args:
-        hp: Total required shaft power [hp].
-        stages: Total pump stage count.
-        casing_id: Casing inner diameter [in] — larger ID allows more
-            compact equipment.
+        manufacturer: Manufacturer of the design's pump.
+        preferred: Preferred manufacturer name (case-insensitive). Empty or
+            ``None`` means no preference.
 
     Returns:
         Score [0–10].
     """
-    casing_credit = max(0.0, (casing_id - 4.0) * 500.0)   # bonus for larger casing
-    cost_index = hp * 150.0 + stages * 20.0 - casing_credit
-    cost_index = max(0.0, cost_index)
-    return max(0.0, min(10.0, 10.0 * (1.0 - cost_index / _COST_CEILING)))
+    if not preferred or not preferred.strip():
+        return 10.0
+    return 10.0 if manufacturer.strip().lower() == preferred.strip().lower() else 5.0
 
 
 def overall_score(
@@ -99,7 +91,7 @@ def overall_score(
         metrics: Dict of dimension name → score (0–10).
         weights: Dict of dimension name → weight. Defaults to
             ``DEFAULT_WEIGHTS`` (efficiency 40 %, flexibility 30 %,
-            cost 30 %).
+            provider 30 %).
 
     Returns:
         Weighted overall score [0–10].

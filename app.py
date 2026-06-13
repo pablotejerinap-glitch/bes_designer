@@ -290,7 +290,7 @@ elif section == "📊 Comparación de Opciones":
         recs = st.session_state.design_results["recommendations"]
         st.caption(
             f"{len(recs)} opción(es) evaluadas  |  "
-            f"Pesos de scoring: eficiencia 40 % · flexibilidad 30 % · costo 30 %"
+            f"Pesos de scoring: eficiencia 40 % · flexibilidad 30 % · proveedor 30 %"
         )
         render_comparison(recs)
 

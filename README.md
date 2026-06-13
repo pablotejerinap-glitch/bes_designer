@@ -15,7 +15,7 @@ A partir de los datos del pozo (reservorio, fluido, geometría, superficie y obj
 - **TDH por Hazen-Williams** + perfil hidrostático
 - **Manejo de gas (GIP)** siguiendo Brown §4.53103
 - **Corrección por viscosidad** según el estándar Hydraulic Institute
-- **Scoring multi-criterio**: eficiencia 40 % · flexibilidad 30 % · costo 30 %
+- **Scoring multi-criterio**: eficiencia 40 % · flexibilidad 30 % · preferencia de proveedor 30 %
 - **Top-3 recomendaciones** con diversificación de fabricante
 - **Reportes** PDF, Excel y JSON descargables desde la app
 - **Análisis de sensibilidad** sobre parámetros clave
@@ -49,7 +49,7 @@ bes_designer/
 │
 ├── recommender/            # Selección y ranking de equipos
 │   ├── pump_selector.py    # select_top_n_pumps
-│   ├── scoring.py          # Scores de eficiencia, flexibilidad, costo
+│   ├── scoring.py          # Scores de eficiencia, flexibilidad, preferencia de proveedor
 │   └── recommendation_engine.py  # generate_recommendations (API pública)
 │
 ├── reports/                # Generación de reportes

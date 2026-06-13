@@ -44,7 +44,7 @@ User inputs (Reservoir, Fluid, WellGeometry, SurfaceConditions, DesignObjectives
     │
     └─ recommender/
            pump_selector.py        → select_top_n_pumps() — runs hydraulic + electrical, scores all
-           scoring.py              → efficiency / flexibility / cost scores (0–10, weighted 40/30/30)
+           scoring.py              → efficiency / flexibility / provider-preference scores (0–10, weighted 40/30/30)
            recommendation_engine.py → generate_recommendations() — top-level API called by app.py
 ```
 
@@ -92,7 +92,7 @@ Wellhead Pressure Head = Pwh × 2.31 / SG_liquid
 
 ### Scoring weights
 
-`recommender/scoring.py`: efficiency 40 %, flexibility (BEP proximity) 30 %, cost 30 %. Scores are 0–10; `overall_score()` returns the weighted average.
+`recommender/scoring.py`: efficiency 40 %, flexibility (BEP proximity) 30 %, provider preference 30 %. Scores are 0–10; `overall_score()` returns the weighted average. Provider preference is driven by `DesignObjectives.preferred_manufacturer` (empty = no preference → all designs score 10 on that dimension; set = the preferred manufacturer's pumps score 10, others 5). The economic/cost dimension was removed.
 
 ### Book examples used as regression tests
 

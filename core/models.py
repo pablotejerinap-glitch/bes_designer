@@ -249,6 +249,9 @@ class DesignObjectives:
             as a fraction [0–1]. Values > 0.10 risk pump cavitation.
         design_life_years: Expected run-life for equipment sizing and MTBF targets [years].
         use_vsd: If True, design includes a Variable Speed Drive (VSD/VFD).
+        preferred_manufacturer: Preferred equipment provider for ranking. When
+            set, designs whose pump is from this manufacturer score higher on
+            the provider-preference dimension. Empty means no preference.
     """
     target_flow_rate: float
     safety_margin_depth: float
@@ -256,6 +259,7 @@ class DesignObjectives:
     max_gip: float
     design_life_years: float
     use_vsd: bool
+    preferred_manufacturer: str = ""
 
     def __post_init__(self) -> None:
         if self.target_flow_rate <= 0:

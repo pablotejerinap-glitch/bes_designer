@@ -50,8 +50,8 @@ def render_comparison(recommendations: list[dict]) -> None:
                         text=f"Eficiencia: {m['efficiency']:.1f}/10")
             st.progress(m["flexibility"] / 10.0,
                         text=f"Flexibilidad (BEP): {m['flexibility']:.1f}/10")
-            st.progress(m["cost"] / 10.0,
-                        text=f"Costo estimado: {m['cost']:.1f}/10")
+            st.progress(m["provider"] / 10.0,
+                        text=f"Preferencia de proveedor: {m['provider']:.1f}/10")
 
             st.divider()
 

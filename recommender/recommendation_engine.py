@@ -19,7 +19,7 @@ from core.models import (
 from recommender.pump_selector import select_top_n_pumps
 from recommender.scoring import (
     DEFAULT_WEIGHTS,
-    cost_score,
+    provider_score,
     efficiency_score,
     flexibility_score,
     overall_score,
@@ -38,12 +38,13 @@ def _score_design(
     pump_obj,
     target_flow: float,
     casing_id: float,
+    preferred_manufacturer: str = "",
 ) -> tuple[float, dict[str, float]]:
     """Re-compute all scoring dimensions for a DesignResult."""
     eff_s  = efficiency_score(dr.pump_efficiency)
     flex_s = flexibility_score(pump_obj, target_flow)
-    cost_s = cost_score(dr.total_pump_hp, dr.num_stages, casing_id)
-    metrics = {"efficiency": eff_s, "flexibility": flex_s, "cost": cost_s}
+    prov_s = provider_score(dr.pump_manufacturer, preferred_manufacturer)
+    metrics = {"efficiency": eff_s, "flexibility": flex_s, "provider": prov_s}
     return overall_score(metrics), metrics
 
 
@@ -151,7 +152,7 @@ def generate_recommendations(
 
             - ``rank``       : 1-based position (1 = best).
             - ``score``      : Overall score [0–10].
-            - ``metrics``    : Per-dimension scores (efficiency, flexibility, cost).
+            - ``metrics``    : Per-dimension scores (efficiency, flexibility, provider).
             - ``design``     : :class:`~core.models.DesignResult` object.
             - ``rationale``  : Plain-English selection rationale [str].
             - ``warnings``   : Design flags inherited from hydraulic design.
@@ -197,6 +198,7 @@ def generate_recommendations(
             pump_obj=pump_obj,
             target_flow=objectives.target_flow_rate,
             casing_id=well.casing_id,
+            preferred_manufacturer=objectives.preferred_manufacturer,
         )
         rationale = _build_rationale(dr, metrics, score, rank)
 

@@ -29,7 +29,7 @@ La interfaz (web, desarrollada con Streamlit) se organiza en seis secciones que 
 |---|---------|-----------------------------------|
 | 1 | **Datos del Pozo** | Carga los datos en cinco pestañas: reservorio, fluido, geometría del pozo, condiciones de superficie y objetivos de diseño. Puede cargar un ejemplo del libro con un clic. Todos los datos se validan al guardar (rangos físicos, consistencia geométrica). |
 | 2 | **Diseño BES** | Con un botón se ejecuta el diseño completo. Muestra las 3 mejores opciones en pestañas: equipo seleccionado, etapas, TDH, diseño eléctrico, fracción de gas en la admisión, advertencias y justificación en texto. Desde aquí se descargan los reportes PDF, Excel y el caso en JSON. |
-| 3 | **Comparación de Opciones** | Gráfico radar y tabla comparativa de las opciones (eficiencia, flexibilidad, costo, puntaje global). |
+| 3 | **Comparación de Opciones** | Gráfico radar y tabla comparativa de las opciones (eficiencia, flexibilidad, preferencia de proveedor, puntaje global). |
 | 4 | **Análisis de Sensibilidad** | Evalúa cómo cambia el diseño ante variaciones de presión de reservorio, corte de agua y GOR. |
 | 5 | **Análisis Nodal** | Construye las curvas de oferta (IPR) y demanda (outflow) del sistema, encuentra el punto de operación natural y con BES, y permite comparar las cuatro correlaciones multifásicas disponibles y simular la declinación de presión del reservorio. |
 | 6 | **Acerca de** | Metodología, referencias bibliográficas y créditos. |
@@ -104,7 +104,9 @@ Cada diseño completo recibe tres puntajes de 0 a 10, combinados con pesos fijos
 |----------|------|----------|
 | Eficiencia | 40 % | Eficiencia hidráulica de la bomba en el punto de operación |
 | Flexibilidad | 30 % | Cercanía del punto de operación al punto de mejor eficiencia (BEP): operar cerca del BEP maximiza la vida útil |
-| Costo | 30 % | Aproximación por potencia total y número de etapas |
+| Preferencia de proveedor | 30 % | Si el usuario elige un proveedor preferido, sus bombas puntúan 10 y el resto 5; sin preferencia, todas puntúan 10 (no sesga) |
+
+> **Nota:** versiones anteriores incluían un criterio de *costo* (estimado por potencia y etapas). Se reemplazó por la preferencia de proveedor a pedido del proyecto; el sistema ya no estima ni pondera costo.
 
 El sistema devuelve las 3 mejores opciones, garantizando cuando es posible al menos una por fabricante (diversificación), cada una con una justificación generada en texto.
 

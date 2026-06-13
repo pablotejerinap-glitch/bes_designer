@@ -22,7 +22,7 @@ from core.models import (
 )
 from recommender.scoring import (
     DEFAULT_WEIGHTS,
-    cost_score,
+    provider_score,
     efficiency_score,
     flexibility_score,
     overall_score,
@@ -174,65 +174,59 @@ class TestFlexibilityScore:
             assert 0.0 <= s <= 10.0
 
 
-class TestCostScore:
+class TestProviderScore:
 
-    def test_low_hp_low_stages_high_score(self):
-        assert cost_score(30.0, 50, 6.366) > 7.0
+    def test_no_preference_full_marks(self):
+        assert provider_score("Reda", "") == pytest.approx(10.0)
+        assert provider_score("Reda", None) == pytest.approx(10.0)
 
-    def test_high_hp_high_stages_low_score(self):
-        assert cost_score(400.0, 300, 6.366) < 5.0
+    def test_preferred_match_full_marks(self):
+        assert provider_score("ChampionX", "ChampionX") == pytest.approx(10.0)
 
-    def test_higher_hp_lower_score(self):
-        s_low = cost_score(50.0, 100, 6.366)
-        s_high = cost_score(300.0, 100, 6.366)
-        assert s_low > s_high
+    def test_preferred_match_case_insensitive(self):
+        assert provider_score("ChampionX", "championx") == pytest.approx(10.0)
 
-    def test_more_stages_lower_score(self):
-        s_few = cost_score(100.0, 50, 6.366)
-        s_many = cost_score(100.0, 250, 6.366)
-        assert s_few > s_many
+    def test_non_preferred_lower(self):
+        s_match = provider_score("ChampionX", "ChampionX")
+        s_other = provider_score("Reda", "ChampionX")
+        assert s_other < s_match
 
     def test_score_in_range(self):
-        for hp in (30, 100, 400):
-            for stages in (50, 150, 300):
-                s = cost_score(hp, stages, 6.366)
+        for mfr in ("Reda", "ChampionX", "SLB"):
+            for pref in ("", "Reda", "SLB", None):
+                s = provider_score(mfr, pref)
                 assert 0.0 <= s <= 10.0
-
-    def test_larger_casing_slightly_better(self):
-        s_small = cost_score(100.0, 100, 4.5)
-        s_large = cost_score(100.0, 100, 9.0)
-        assert s_large >= s_small
 
 
 class TestOverallScore:
 
     def test_equal_perfect_scores(self):
-        metrics = {"efficiency": 10.0, "flexibility": 10.0, "cost": 10.0}
+        metrics = {"efficiency": 10.0, "flexibility": 10.0, "provider": 10.0}
         assert overall_score(metrics) == pytest.approx(10.0)
 
     def test_equal_zero_scores(self):
-        metrics = {"efficiency": 0.0, "flexibility": 0.0, "cost": 0.0}
+        metrics = {"efficiency": 0.0, "flexibility": 0.0, "provider": 0.0}
         assert overall_score(metrics) == pytest.approx(0.0)
 
     def test_default_weights_sum_to_1(self):
         assert sum(DEFAULT_WEIGHTS.values()) == pytest.approx(1.0)
 
     def test_custom_weights(self):
-        metrics = {"efficiency": 10.0, "flexibility": 0.0, "cost": 0.0}
+        metrics = {"efficiency": 10.0, "flexibility": 0.0, "provider": 0.0}
         # Weight only efficiency
-        score = overall_score(metrics, {"efficiency": 1.0, "flexibility": 0.0, "cost": 0.0})
+        score = overall_score(metrics, {"efficiency": 1.0, "flexibility": 0.0, "provider": 0.0})
         assert score == pytest.approx(10.0)
 
     def test_mixed_scores(self):
-        metrics = {"efficiency": 6.0, "flexibility": 8.0, "cost": 4.0}
+        metrics = {"efficiency": 6.0, "flexibility": 8.0, "provider": 4.0}
         # With default weights: (6×0.4 + 8×0.3 + 4×0.3) / 1.0 = (2.4+2.4+1.2)/1.0 = 6.0
         assert overall_score(metrics) == pytest.approx(6.0, rel=0.01)
 
     def test_score_in_range(self):
         for eff in (0, 5, 10):
             for flex in (0, 5, 10):
-                for cost in (0, 5, 10):
-                    s = overall_score({"efficiency": eff, "flexibility": flex, "cost": cost})
+                for prov in (0, 5, 10):
+                    s = overall_score({"efficiency": eff, "flexibility": flex, "provider": prov})
                     assert 0.0 <= s <= 10.0
 
 
@@ -417,7 +411,7 @@ class TestGenerateRecommendations:
         for rec in recs["recommendations"]:
             assert "efficiency" in rec["metrics"]
             assert "flexibility" in rec["metrics"]
-            assert "cost" in rec["metrics"]
+            assert "provider" in rec["metrics"]
 
     def test_design_basis_present(self, recs):
         basis = recs["design_basis"]
@@ -449,6 +443,29 @@ class TestGenerateRecommendations:
 
     def test_n_candidates_evaluated_positive(self, recs):
         assert recs["n_candidates_evaluated"] >= 1
+
+    def test_preferred_provider_boosts_its_score(
+        self, manager, reservoir, fluid, well, surface
+    ):
+        """A design from the preferred provider must score its provider
+        dimension at 10, above the 5 it gets without the preference."""
+        import dataclasses
+        base_obj = DesignObjectives(
+            target_flow_rate=1200.0, safety_margin_depth=100.0,
+            allow_gas_venting=False, max_gip=0.10, design_life_years=5.0,
+            use_vsd=False,
+        )
+        neutral = generate_recommendations(
+            reservoir, fluid, well, surface, base_obj, manager, n=5
+        )
+        target_mfr = neutral["recommendations"][0]["design"].pump_manufacturer
+        pref_obj = dataclasses.replace(base_obj, preferred_manufacturer=target_mfr)
+        preferred = generate_recommendations(
+            reservoir, fluid, well, surface, pref_obj, manager, n=5
+        )
+        top = preferred["recommendations"][0]
+        assert top["design"].pump_manufacturer == target_mfr
+        assert top["metrics"]["provider"] == pytest.approx(10.0)
 
     def test_n3_request_returns_at_most_3(
         self, manager, reservoir, fluid, well, surface, objectives
