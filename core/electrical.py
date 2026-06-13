@@ -39,6 +39,18 @@ _CABLE_FLAT_THICKNESS_IN: dict[str, float] = {
 # Standard 3-phase transformer ratings [kVA]
 _TRANSFORMER_SIZES_KVA = (25.0, 37.5, 50.0, 75.0, 100.0, 150.0, 200.0, 300.0)
 
+# Representative pump-shaft diameters [in] by pump series, for axial-thrust
+# estimation (industry-typical; not a per-model catalog value).
+_SHAFT_DIAMETER_IN = {
+    "400": 0.62, "420": 0.62, "456": 0.69, "513": 0.69, "538": 0.69,
+    "540": 0.88, "544": 0.88, "562": 0.88, "738": 1.19,
+}
+_DEFAULT_SHAFT_DIAMETER_IN = 0.69
+_THRUST_MARGIN = 1.20   # design margin on estimated axial load
+# Wellbore inclination above which a labyrinth seal loses effectiveness and a
+# bag (positive-seal) protector is preferred (Brown §4.5325).
+_SEAL_DEVIATION_THRESHOLD_DEG = 30.0
+
 # NEC/API RP 11S6 continuous-load derating for cable ampacity selection
 _CABLE_DERATING = 1.25
 
@@ -48,12 +60,40 @@ _CABLE_DERATING = 1.25
 # ---------------------------------------------------------------------------
 
 def _interp_vdrop_per_amp(conductor: str, size: str, temp_f: float) -> float:
-    """V per amp per 1 000 ft, linearly interpolated at *temp_f*."""
+    """V per amp per 1 000 ft, linearly interpolated at *temp_f*.
+
+    Legacy fallback table (only #1–#6). Prefer ``_vdrop_per_amp_from_cable``,
+    which reads each cable's own voltage-drop data from the catalog.
+    """
     key = (conductor.upper(), size)
     if key not in _VDROP_PER_AMP_PER_1000FT:
         raise ValueError(f"No voltage-drop data for {size} {conductor}")
     vals = _VDROP_PER_AMP_PER_1000FT[key]
     temps = _VDROP_TEMPS_F
+    if temp_f <= temps[0]:
+        return vals[0]
+    if temp_f >= temps[-1]:
+        return vals[-1]
+    for i in range(len(temps) - 1):
+        if temps[i] <= temp_f <= temps[i + 1]:
+            frac = (temp_f - temps[i]) / (temps[i + 1] - temps[i])
+            return vals[i] + frac * (vals[i + 1] - vals[i])
+    return vals[-1]
+
+
+def _vdrop_per_amp_from_cable(cable: dict, temp_f: float) -> float:
+    """V per amp per 1 000 ft for a catalog cable, interpolated at *temp_f*.
+
+    Reads the cable's own ``voltage_drop_v_per_amp_per_1000ft`` table (keyed by
+    temperature) so any conductor size in the catalog is supported — including
+    sizes absent from the legacy hardcoded table (e.g. 1/0). Falls back to the
+    legacy table only when the cable entry carries no voltage-drop data.
+    """
+    vd_map = cable.get("voltage_drop_v_per_amp_per_1000ft")
+    if not vd_map:
+        return _interp_vdrop_per_amp(cable["conductor"], cable["size"], temp_f)
+    temps = sorted(float(k) for k in vd_map)
+    vals = [vd_map[str(int(t))] for t in temps]
     if temp_f <= temps[0]:
         return vals[0]
     if temp_f >= temps[-1]:
@@ -127,7 +167,7 @@ def select_cable(
     pool.sort(key=lambda c: c["max_amps"])
     best = pool[0]
 
-    vdrop_per_amp = _interp_vdrop_per_amp(best["conductor"], best["size"], bottom_temp)
+    vdrop_per_amp = _vdrop_per_amp_from_cable(best, bottom_temp)
 
     return {
         "cable_size": best["size"],
@@ -312,6 +352,31 @@ def select_motor(
     return min(candidates, key=lambda m: abs(m["voltage"] - target_v))
 
 
+def estimate_axial_thrust(tdh_ft: float, sg_fluid: float, pump_series: str) -> float:
+    """Estimate the axial (downthrust) load the protector must carry [lbs].
+
+    Approximates the hydraulic downthrust as the pump differential pressure
+    acting on the shaft cross-section, with a design margin (Takacs, *ESP
+    Manual*):
+
+        ΔP_pump [psi] = TDH × 0.433 × SG
+        F_axial [lbs] = ΔP_pump × (π/4 · d_shaft²) × margin
+
+    Args:
+        tdh_ft: Total dynamic head developed by the pump [ft].
+        sg_fluid: Produced-fluid specific gravity.
+        pump_series: Pump series (selects a representative shaft diameter).
+
+    Returns:
+        Estimated axial thrust load [lbs].
+    """
+    import math
+    d_shaft = _SHAFT_DIAMETER_IN.get(str(pump_series), _DEFAULT_SHAFT_DIAMETER_IN)
+    dp_psi = tdh_ft * 0.433 * sg_fluid
+    area = math.pi / 4.0 * d_shaft ** 2
+    return dp_psi * area * _THRUST_MARGIN
+
+
 def electrical_design_complete(
     motor_hp: float,
     pump_od: float,
@@ -319,8 +384,11 @@ def electrical_design_complete(
     fluid: Fluid,
     catalog_manager: "CatalogManager",
     pump_depth: float | None = None,
+    tdh_ft: float | None = None,
+    sg_fluid: float = 1.0,
+    pump_series: str | None = None,
 ) -> dict:
-    """Complete electrical design: motor → cable → voltage drop → transformer.
+    """Complete electrical design: motor → seal → cable → voltage drop → transformer.
 
     Args:
         motor_hp: Total pump shaft power required [hp].
@@ -330,10 +398,17 @@ def electrical_design_complete(
         catalog_manager: Loaded equipment catalog.
         pump_depth: Pump setting depth [ft MD] — governs cable length and
             voltage drop. Falls back to 80 % of total depth when omitted.
+        tdh_ft: Total dynamic head [ft], used to estimate axial thrust for the
+            protector. When omitted, the seal is selected on series and
+            temperature only (no thrust check).
+        sg_fluid: Produced-fluid specific gravity (for the thrust estimate).
+        pump_series: Pump series, used both for the thrust shaft diameter and
+            (with the motor series) to find a compatible protector.
 
     Returns:
-        dict with keys ``motor``, ``cable``, ``cable_voltage_drop_v``,
-        ``surface_voltage_v``, ``kva_required``, ``transformer``.
+        dict with keys ``motor``, ``seal`` (may be ``None``), ``cable``,
+        ``cable_voltage_drop_v``, ``surface_voltage_v``, ``kva_required``,
+        ``transformer``, ``axial_thrust_lbs``, ``seal_warning`` (may be ``None``).
     """
     if pump_depth is None:
         pump_depth = well.total_depth * 0.80
@@ -348,6 +423,29 @@ def electrical_design_complete(
         casing_id=well.casing_id,
     )
 
+    # --- Protector / seal (non-fatal: a missing match warns, does not abort) ---
+    thrust_lbs = (
+        estimate_axial_thrust(tdh_ft, sg_fluid, pump_series or motor["series"])
+        if tdh_ft is not None else 0.0
+    )
+    prefer_type = (
+        "bag" if well.deviation_max > _SEAL_DEVIATION_THRESHOLD_DEG else "labyrinth"
+    )
+    seal: dict | None = None
+    seal_warning: str | None = None
+    try:
+        seal = catalog_manager.get_seal(
+            motor_series=str(motor["series"]),
+            temp_f=bottom_temp,
+            thrust_lbs=thrust_lbs,
+            prefer_type=prefer_type,
+        )
+    except ValueError:
+        seal_warning = (
+            f"Sin protector compatible en catálogo para motor serie "
+            f"{motor['series']} ({bottom_temp:.0f} °F, {thrust_lbs:.0f} lbs de empuje)."
+        )
+
     cable = select_cable(
         motor_amps=motor["amperage"],
         pump_depth=pump_depth,
@@ -357,13 +455,7 @@ def electrical_design_complete(
         catalog_manager=catalog_manager,
     )
 
-    cable_drop = voltage_drop(
-        cable_size=cable["cable_size"],
-        cable_type=cable["conductor"],
-        amps=motor["amperage"],
-        temp_f=bottom_temp,
-        length_ft=cable["length_ft"],
-    )
+    cable_drop = cable["voltage_drop_per_1000ft"] * cable["length_ft"] / 1000.0
 
     surface_v = calculate_surface_voltage(motor["voltage"], cable_drop)
     kva = calculate_kva(surface_v, motor["amperage"])
@@ -371,9 +463,12 @@ def electrical_design_complete(
 
     return {
         "motor": motor,
+        "seal": seal,
         "cable": cable,
         "cable_voltage_drop_v": cable_drop,
         "surface_voltage_v": surface_v,
         "kva_required": kva,
         "transformer": transformer,
+        "axial_thrust_lbs": thrust_lbs,
+        "seal_warning": seal_warning,
     }

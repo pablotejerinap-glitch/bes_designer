@@ -19,6 +19,7 @@ from core.models import (
 )
 from core.pump_design import design_pump_complete
 from core.electrical import electrical_design_complete
+from core.tdh import _sg_liquid
 from core.pvt import standing_rs, gas_z_factor, gas_bg, standing_bo, water_bw
 from recommender.scoring import (
     efficiency_score,
@@ -136,6 +137,12 @@ def _build_design_result(
         0.99,
     )
 
+    seal = elec.get("seal")
+    seal_warning = elec.get("seal_warning")
+    warnings = list(pump_dict.get("warnings", []))
+    if seal_warning:
+        warnings.append(seal_warning)
+
     return DesignResult(
         pump_manufacturer=pump_dict["pump_manufacturer"],
         pump_series=pump_obj.series,
@@ -165,8 +172,13 @@ def _build_design_result(
         flow_rate_achieved=target_rate,
         operating_frequency=surface.frequency,
         gip_fraction=max(0.0, min(1.0, gip)),
-        warnings=list(pump_dict.get("warnings", [])),
+        warnings=warnings,
         alternatives=[],
+        seal_manufacturer=(seal["manufacturer"] if seal else ""),
+        seal_model=(seal["model"] if seal else ""),
+        seal_type=(seal["type"] if seal else ""),
+        seal_thrust_capacity_lbs=(float(seal["thrust_capacity_lbs"]) if seal else 0.0),
+        axial_thrust_lbs=float(elec.get("axial_thrust_lbs", 0.0)),
     )
 
 
@@ -268,6 +280,9 @@ def select_top_n_pumps(
                 fluid=fluid,
                 catalog_manager=catalog,
                 pump_depth=pump_setting_depth,
+                tdh_ft=cand["tdh_ft"],
+                sg_fluid=_sg_liquid(fluid),
+                pump_series=pump_obj.series,
             )
         except (ValueError, KeyError, StopIteration):
             continue

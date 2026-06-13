@@ -1,0 +1,65 @@
+{
+  "_note": "Downhole ESP sensor (gauge) catalog. Digitized from the ACE Downhole ESP Sensor Systems data sheet (acedownhole.com). These are monitoring devices; they do not participate in the hydraulic/electrical sizing, but the catalog lets the design recommend a sensor whose pressure/temperature ranges cover the well's bottomhole conditions. Pressures in psi, temperatures in °F, dimensions in inches.",
+  "sensors": [
+    {
+      "manufacturer": "ACE Downhole",
+      "model": "ACE Standard",
+      "intake_pressure_max_psi": 5000,
+      "intake_temp_max_f": 257,
+      "discharge_pressure_max_psi": null,
+      "motor_winding_temp_max_f": 600,
+      "vibration_monitoring": false,
+      "vibration_max_g": null,
+      "od_inches": 3.72,
+      "length_in": 18.5,
+      "weight_lbs": 35,
+      "max_motor_voltage": 4160,
+      "_source": "ACE Downhole data sheet, ACE Standard model"
+    },
+    {
+      "manufacturer": "ACE Downhole",
+      "model": "ACE Mid Range",
+      "intake_pressure_max_psi": 5000,
+      "intake_temp_max_f": 302,
+      "discharge_pressure_max_psi": null,
+      "motor_winding_temp_max_f": 600,
+      "vibration_monitoring": true,
+      "vibration_max_g": 10,
+      "od_inches": 3.72,
+      "length_in": 18.5,
+      "weight_lbs": 35,
+      "max_motor_voltage": 4160,
+      "_source": "ACE Downhole data sheet, ACE Mid Range model"
+    },
+    {
+      "manufacturer": "ACE Downhole",
+      "model": "ACE Xtreme Temperature",
+      "intake_pressure_max_psi": 8000,
+      "intake_temp_max_f": 350,
+      "discharge_pressure_max_psi": null,
+      "motor_winding_temp_max_f": 600,
+      "vibration_monitoring": true,
+      "vibration_max_g": 10,
+      "od_inches": 3.94,
+      "length_in": 18.5,
+      "weight_lbs": 42,
+      "max_motor_voltage": 4160,
+      "_source": "ACE Downhole data sheet, ACE Xtreme Temperature model"
+    },
+    {
+      "manufacturer": "ACE Downhole",
+      "model": "ACE Xtreme Temperature Dual",
+      "intake_pressure_max_psi": 6000,
+      "intake_temp_max_f": 350,
+      "discharge_pressure_max_psi": 6000,
+      "motor_winding_temp_max_f": 600,
+      "vibration_monitoring": true,
+      "vibration_max_g": 10,
+      "od_inches": 3.94,
+      "length_in": 23.0,
+      "weight_lbs": 44,
+      "max_motor_voltage": 4160,
+      "_source": "ACE Downhole data sheet, ACE Xtreme Temperature Dual model (intake + discharge pressure)"
+    }
+  ]
+}

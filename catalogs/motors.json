@@ -560,6 +560,30 @@
       "max_temp_f": 325,
       "od_inches": 4.0,
       "_source": "ChampionX AFFIRMED data sheet (UNBRIDLED ESP); OD cross-ref VIGIL/WHIRLAWAY 400-series = 4.00 in"
+    },
+    {
+      "manufacturer": "SLB",
+      "series": "420",
+      "model": "PowerFit-420-208HP-1664V",
+      "hp_rating": 208,
+      "voltage": 1664,
+      "amperage": 78.5,
+      "length_ft": 29.9,
+      "max_temp_f": 400,
+      "od_inches": 4.2,
+      "_source": "SLB Affirmed PowerFit data sheet (OD 4.20\"/208HP/400°F); voltage & amperage ESTIMATED from AFFIRMED 204HP row"
+    },
+    {
+      "manufacturer": "SLB",
+      "series": "420",
+      "model": "PowerFit-420-208HP-2695V",
+      "hp_rating": 208,
+      "voltage": 2695,
+      "amperage": 48.5,
+      "length_ft": 29.9,
+      "max_temp_f": 400,
+      "od_inches": 4.2,
+      "_source": "SLB Affirmed PowerFit data sheet (OD 4.20\"/208HP/400°F); voltage & amperage ESTIMATED from AFFIRMED 204HP row"
     }
   ]
 }

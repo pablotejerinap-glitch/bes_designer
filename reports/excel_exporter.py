@@ -314,6 +314,26 @@ def _build_electrico(ws, dr: DesignResult) -> None:
         row += 1
 
     row += 1
+    _section_title(ws, row, "SELLO / PROTECTOR", 3)
+    row += 1
+    _header_row(ws, row, ["Parámetro", "Valor", "Unidad"])
+    row += 1
+
+    if dr.seal_model:
+        seal_rows = [
+            ("Fabricante",             dr.seal_manufacturer,                 "—"),
+            ("Modelo",                 dr.seal_model,                        "—"),
+            ("Tipo",                   dr.seal_type,                         "—"),
+            ("Capacidad de empuje",    round(dr.seal_thrust_capacity_lbs, 0), "lbs"),
+            ("Empuje axial estimado",  round(dr.axial_thrust_lbs, 0),        "lbs"),
+        ]
+    else:
+        seal_rows = [("Protector", "Sin opción compatible en catálogo", "—")]
+    for i, (label, value, unit) in enumerate(seal_rows):
+        _data_row(ws, row, label, value, unit, alt=(i % 2 == 1))
+        row += 1
+
+    row += 1
     _section_title(ws, row, "CABLE ELÉCTRICO", 3)
     row += 1
     _header_row(ws, row, ["Parámetro", "Valor", "Unidad"])

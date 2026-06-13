@@ -96,6 +96,57 @@ GENERATED_SPECS: list[dict] = [
         "max_stages": 130, "housing_options": [30, 50, 70, 90, 110, 130],
         "source": "Representative — Weatherford ESP style",
     },
+    # SLB High Rise (Oculus tech) — model names and flow ranges from the data
+    # sheet; head/HP/efficiency curves SYNTHESIZED (the sheet has no curves).
+    # min/max are the near-BEP recommended band (subset of the data-sheet range).
+    {
+        "manufacturer": "SLB", "series": "400", "model": "HighRise-UNB7.5",
+        "od_inches": 4.00, "bep_flow_bpd": 700,
+        "min_flow_bpd": 525, "max_flow_bpd": 910,
+        "head_bep": 24.0, "eff_bep": 0.62,
+        "max_stages": 300, "housing_options": [50, 100, 150, 200, 250, 300],
+        "source": "SLB High Rise data sheet (flow range real; curve synthesized)",
+    },
+    {
+        "manufacturer": "SLB", "series": "400", "model": "HighRise-UNB17.5",
+        "od_inches": 4.00, "bep_flow_bpd": 1600,
+        "min_flow_bpd": 1200, "max_flow_bpd": 2080,
+        "head_bep": 30.0, "eff_bep": 0.68,
+        "max_stages": 250, "housing_options": [50, 100, 150, 200, 250],
+        "source": "SLB High Rise data sheet (flow range real; curve synthesized)",
+    },
+    {
+        "manufacturer": "SLB", "series": "400", "model": "HighRise-Kronos",
+        "od_inches": 4.00, "bep_flow_bpd": 1700,
+        "min_flow_bpd": 1275, "max_flow_bpd": 2210,
+        "head_bep": 31.0, "eff_bep": 0.68,
+        "max_stages": 250, "housing_options": [50, 100, 150, 200, 250],
+        "source": "SLB High Rise data sheet (flow range real; curve synthesized)",
+    },
+    {
+        "manufacturer": "SLB", "series": "513", "model": "HighRise-UNB35",
+        "od_inches": 5.13, "bep_flow_bpd": 2600,
+        "min_flow_bpd": 1950, "max_flow_bpd": 3380,
+        "head_bep": 38.0, "eff_bep": 0.71,
+        "max_stages": 160, "housing_options": [40, 60, 80, 100, 120, 140, 160],
+        "source": "SLB High Rise data sheet (flow range real; curve synthesized)",
+    },
+    {
+        "manufacturer": "SLB", "series": "538", "model": "HighRise-UNB43",
+        "od_inches": 5.38, "bep_flow_bpd": 3900,
+        "min_flow_bpd": 2925, "max_flow_bpd": 5070,
+        "head_bep": 44.0, "eff_bep": 0.72,
+        "max_stages": 140, "housing_options": [30, 50, 70, 90, 110, 140],
+        "source": "SLB High Rise data sheet (flow range real; curve synthesized)",
+    },
+    {
+        "manufacturer": "SLB", "series": "538", "model": "HighRise-UNB60",
+        "od_inches": 5.38, "bep_flow_bpd": 5200,
+        "min_flow_bpd": 3900, "max_flow_bpd": 6760,
+        "head_bep": 49.0, "eff_bep": 0.73,
+        "max_stages": 120, "housing_options": [30, 50, 70, 90, 110, 120],
+        "source": "SLB High Rise data sheet (flow range real; curve synthesized)",
+    },
 ]
 
 _X_MIN, _X_MAX, _N_POINTS = 0.50, 1.45, 11

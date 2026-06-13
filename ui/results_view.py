@@ -141,6 +141,20 @@ def render_results(rec: dict) -> None:
 | Longitud | {dr.motor_length:.1f} ft |
 """)
 
+            st.markdown("**Sello / Protector**")
+            if dr.seal_model:
+                st.markdown(f"""
+| Campo | Valor |
+|---|---|
+| Fabricante | {dr.seal_manufacturer} |
+| Modelo | {dr.seal_model} |
+| Tipo | {dr.seal_type} |
+| Capacidad de empuje | {dr.seal_thrust_capacity_lbs:.0f} lbs |
+| Empuje axial estimado | {dr.axial_thrust_lbs:.0f} lbs |
+""")
+            else:
+                st.caption("Sin protector compatible en catálogo para esta serie de motor.")
+
         with s2:
             st.markdown("**Cable eléctrico**")
             st.markdown(f"""

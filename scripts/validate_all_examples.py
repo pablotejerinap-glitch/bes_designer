@@ -192,7 +192,15 @@ def main() -> None:
             })
             continue
 
-        dr = results["recommendations"][0]["design"]
+        # Validate against the book's pump (not the beauty-contest winner): as
+        # the catalog grows with modern pumps a newer model may out-rank the
+        # 1980 textbook pump; the engine's correctness is checked on Brown's pump.
+        _want = ref.get("expected_pump")
+        dr = next(
+            (rec["design"] for rec in results["recommendations"]
+             if rec["design"].pump_model == _want),
+            results["recommendations"][0]["design"],
+        )
         tdh_app    = dr.total_head_required
         stages_app = dr.num_stages
         hp_app     = dr.total_pump_hp

@@ -58,6 +58,7 @@
       "tdh_ft": 1724,
       "stages": 29,
       "total_hp": 217,
+      "expected_pump": "I-300",
       "notes": "Pump at perforations_top − safety_margin (1 800 ft). Pure water (SG=1.10). PIP ≈ 40 psi. I-300 pump expected."
     }
   },
@@ -119,6 +120,7 @@
       "tdh_ft": 4174,
       "stages": 156,
       "total_hp": 44,
+      "expected_pump": "M-34",
       "notes": "Pump at perforations_top − safety_margin (5 800 ft). Pb=400 psi < PIP≈525 psi → no free gas. M-34 or D-40 expected."
     }
   },
@@ -180,6 +182,7 @@
       "tdh_ft": 6060,
       "stages": 206,
       "total_hp": 45,
+      "expected_pump": "M-34",
       "notes": "Pb=2000 > Pr=1000: severely depleted. High free-gas fraction at pump (>30%). M-34 with gas separator expected."
     }
   }

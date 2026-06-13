@@ -157,9 +157,25 @@ def _run_example(name: str, examples: dict, catalog: CatalogManager) -> tuple[di
         surface=sur,
         objectives=obj,
         catalog=catalog,
-        n=3,
+        n=5,
     )
     return results, ex["book_reference"]
+
+
+def _book_design(recs: dict, ref: dict):
+    """Return the recommendation design matching the book's expected pump.
+
+    Book-validation checks Brown's published TDH/stages/HP for *Brown's* pump.
+    As the catalog grows with modern (post-1980) pumps, a newer pump may
+    out-rank the textbook one in the beauty contest; that does not invalidate
+    the engine. Pin the numeric validation to the expected pump; fall back to
+    the top recommendation if it is absent.
+    """
+    want = ref.get("expected_pump")
+    for rec in recs["recommendations"]:
+        if rec["design"].pump_model == want:
+            return rec["design"]
+    return recs["recommendations"][0]["design"]
 
 
 # ===========================================================================
@@ -223,7 +239,7 @@ class TestExample1A:
 
     def test_tdh_within_tolerance_of_book(self, result):
         recs, ref = result
-        dr = recs["recommendations"][0]["design"]
+        dr = _book_design(recs, ref)
         assert _within(dr.total_head_required, ref["tdh_ft"], 0.20), (
             f"TDH {dr.total_head_required:.0f} ft is more than 20% from "
             f"book reference {ref['tdh_ft']} ft"
@@ -231,7 +247,7 @@ class TestExample1A:
 
     def test_stages_within_tolerance_of_book(self, result):
         recs, ref = result
-        dr = recs["recommendations"][0]["design"]
+        dr = _book_design(recs, ref)
         assert _within(dr.num_stages, ref["stages"], 0.30), (
             f"Stages {dr.num_stages} is more than 30% from "
             f"book reference {ref['stages']}"
@@ -239,7 +255,7 @@ class TestExample1A:
 
     def test_hp_within_tolerance_of_book(self, result):
         recs, ref = result
-        dr = recs["recommendations"][0]["design"]
+        dr = _book_design(recs, ref)
         assert _within(dr.total_pump_hp, ref["total_hp"], 0.30), (
             f"Total pump HP {dr.total_pump_hp:.1f} is more than 30% from "
             f"book reference {ref['total_hp']}"
@@ -322,7 +338,7 @@ class TestExample2A:
 
     def test_tdh_within_tolerance_of_book(self, result):
         recs, ref = result
-        dr = recs["recommendations"][0]["design"]
+        dr = _book_design(recs, ref)
         assert _within(dr.total_head_required, ref["tdh_ft"], 0.20), (
             f"TDH {dr.total_head_required:.0f} ft is more than 20% from "
             f"book reference {ref['tdh_ft']} ft"
@@ -330,7 +346,7 @@ class TestExample2A:
 
     def test_stages_within_tolerance_of_book(self, result):
         recs, ref = result
-        dr = recs["recommendations"][0]["design"]
+        dr = _book_design(recs, ref)
         assert _within(dr.num_stages, ref["stages"], 0.30), (
             f"Stages {dr.num_stages} is more than 30% from "
             f"book reference {ref['stages']}"
@@ -338,7 +354,7 @@ class TestExample2A:
 
     def test_hp_within_tolerance_of_book(self, result):
         recs, ref = result
-        dr = recs["recommendations"][0]["design"]
+        dr = _book_design(recs, ref)
         assert _within(dr.total_pump_hp, ref["total_hp"], 0.30), (
             f"Total pump HP {dr.total_pump_hp:.1f} is more than 30% from "
             f"book reference {ref['total_hp']}"
@@ -415,7 +431,7 @@ class TestExample3A:
 
     def test_tdh_within_tolerance_of_book(self, result):
         recs, ref = result
-        dr = recs["recommendations"][0]["design"]
+        dr = _book_design(recs, ref)
         assert _within(dr.total_head_required, ref["tdh_ft"], 0.25), (
             f"TDH {dr.total_head_required:.0f} ft is more than 25% from "
             f"book reference {ref['tdh_ft']} ft  "
@@ -424,7 +440,7 @@ class TestExample3A:
 
     def test_stages_within_tolerance_of_book(self, result):
         recs, ref = result
-        dr = recs["recommendations"][0]["design"]
+        dr = _book_design(recs, ref)
         assert _within(dr.num_stages, ref["stages"], 0.35), (
             f"Stages {dr.num_stages} is more than 35% from "
             f"book reference {ref['stages']}"
@@ -432,7 +448,7 @@ class TestExample3A:
 
     def test_hp_within_tolerance_of_book(self, result):
         recs, ref = result
-        dr = recs["recommendations"][0]["design"]
+        dr = _book_design(recs, ref)
         assert _within(dr.total_pump_hp, ref["total_hp"], 0.35), (
             f"Total pump HP {dr.total_pump_hp:.1f} is more than 35% from "
             f"book reference {ref['total_hp']}"

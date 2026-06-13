@@ -323,6 +323,26 @@ def generate_design_report(
     story.append(Spacer(1, 14))
 
     # ------------------------------------------------------------------
+    # 4b. Seal / protector
+    # ------------------------------------------------------------------
+    story.append(Paragraph("4b. Sello / Protector", section_s))
+    if dr.seal_model:
+        story.append(_make_table([
+            ["Parámetro",              "Valor",                                "Unidad"],
+            ["Fabricante",              dr.seal_manufacturer,                   "—"],
+            ["Modelo",                  dr.seal_model,                          "—"],
+            ["Tipo",                    dr.seal_type,                           "—"],
+            ["Capacidad de empuje",    f"{dr.seal_thrust_capacity_lbs:.0f}",   "lbs"],
+            ["Empuje axial estimado",  f"{dr.axial_thrust_lbs:.0f}",           "lbs"],
+        ], col_widths=col_w))
+    else:
+        story.append(Paragraph(
+            "Sin protector compatible en catálogo para esta serie de motor.",
+            caption_s,
+        ))
+    story.append(Spacer(1, 14))
+
+    # ------------------------------------------------------------------
     # 5. Electrical
     # ------------------------------------------------------------------
     story.append(Paragraph("5. Diseño Eléctrico", section_s))

@@ -6,7 +6,9 @@
       "series": "375",
       "model": "VSEAL-375-LAB",
       "type": "labyrinth",
-      "compatible_motor_series": ["375"],
+      "compatible_motor_series": [
+        "375"
+      ],
       "od_inches": 3.75,
       "length_ft": 2.8,
       "thrust_capacity_lbs": 6500,
@@ -17,7 +19,9 @@
       "series": "375",
       "model": "VSEAL-375-BAG",
       "type": "bag",
-      "compatible_motor_series": ["375"],
+      "compatible_motor_series": [
+        "375"
+      ],
       "od_inches": 3.75,
       "length_ft": 3.2,
       "thrust_capacity_lbs": 5000,
@@ -28,7 +32,9 @@
       "series": "375",
       "model": "VSEAL-375-COMB",
       "type": "combined",
-      "compatible_motor_series": ["375"],
+      "compatible_motor_series": [
+        "375"
+      ],
       "od_inches": 3.75,
       "length_ft": 4.5,
       "thrust_capacity_lbs": 8000,
@@ -39,7 +45,9 @@
       "series": "456",
       "model": "VSEAL-456-LAB",
       "type": "labyrinth",
-      "compatible_motor_series": ["456"],
+      "compatible_motor_series": [
+        "456"
+      ],
       "od_inches": 4.56,
       "length_ft": 3.5,
       "thrust_capacity_lbs": 11000,
@@ -50,7 +58,9 @@
       "series": "456",
       "model": "VSEAL-456-BAG",
       "type": "bag",
-      "compatible_motor_series": ["456"],
+      "compatible_motor_series": [
+        "456"
+      ],
       "od_inches": 4.56,
       "length_ft": 4.0,
       "thrust_capacity_lbs": 9000,
@@ -61,7 +71,9 @@
       "series": "456",
       "model": "VSEAL-456-COMB",
       "type": "combined",
-      "compatible_motor_series": ["456"],
+      "compatible_motor_series": [
+        "456"
+      ],
       "od_inches": 4.56,
       "length_ft": 5.8,
       "thrust_capacity_lbs": 15000,
@@ -72,8 +84,10 @@
       "series": "540",
       "model": "VSEAL-540-LAB",
       "type": "labyrinth",
-      "compatible_motor_series": ["540"],
-      "od_inches": 5.40,
+      "compatible_motor_series": [
+        "540"
+      ],
+      "od_inches": 5.4,
       "length_ft": 4.5,
       "thrust_capacity_lbs": 18000,
       "max_temp_f": 300
@@ -83,8 +97,10 @@
       "series": "540",
       "model": "VSEAL-540-BAG",
       "type": "bag",
-      "compatible_motor_series": ["540"],
-      "od_inches": 5.40,
+      "compatible_motor_series": [
+        "540"
+      ],
+      "od_inches": 5.4,
       "length_ft": 5.0,
       "thrust_capacity_lbs": 15000,
       "max_temp_f": 300
@@ -94,8 +110,10 @@
       "series": "540",
       "model": "VSEAL-540-COMB",
       "type": "combined",
-      "compatible_motor_series": ["540"],
-      "od_inches": 5.40,
+      "compatible_motor_series": [
+        "540"
+      ],
+      "od_inches": 5.4,
       "length_ft": 7.0,
       "thrust_capacity_lbs": 22000,
       "max_temp_f": 300
@@ -105,7 +123,9 @@
       "series": "544",
       "model": "PSEAL-544-LAB",
       "type": "labyrinth",
-      "compatible_motor_series": ["544"],
+      "compatible_motor_series": [
+        "544"
+      ],
       "od_inches": 5.44,
       "length_ft": 4.6,
       "thrust_capacity_lbs": 19000,
@@ -116,7 +136,9 @@
       "series": "544",
       "model": "PSEAL-544-BAG",
       "type": "bag",
-      "compatible_motor_series": ["544"],
+      "compatible_motor_series": [
+        "544"
+      ],
       "od_inches": 5.44,
       "length_ft": 5.2,
       "thrust_capacity_lbs": 16000,
@@ -127,7 +149,9 @@
       "series": "544",
       "model": "PSEAL-544-COMB",
       "type": "combined",
-      "compatible_motor_series": ["544"],
+      "compatible_motor_series": [
+        "544"
+      ],
       "od_inches": 5.44,
       "length_ft": 7.5,
       "thrust_capacity_lbs": 24000,
@@ -138,7 +162,9 @@
       "series": "562",
       "model": "PSEAL-562-LAB",
       "type": "labyrinth",
-      "compatible_motor_series": ["562"],
+      "compatible_motor_series": [
+        "562"
+      ],
       "od_inches": 5.62,
       "length_ft": 5.0,
       "thrust_capacity_lbs": 24000,
@@ -149,7 +175,9 @@
       "series": "562",
       "model": "PSEAL-562-BAG",
       "type": "bag",
-      "compatible_motor_series": ["562"],
+      "compatible_motor_series": [
+        "562"
+      ],
       "od_inches": 5.62,
       "length_ft": 5.8,
       "thrust_capacity_lbs": 20000,
@@ -160,11 +188,166 @@
       "series": "562",
       "model": "PSEAL-562-COMB",
       "type": "combined",
-      "compatible_motor_series": ["562"],
+      "compatible_motor_series": [
+        "562"
+      ],
       "od_inches": 5.62,
       "length_ft": 8.5,
       "thrust_capacity_lbs": 30000,
       "max_temp_f": 350
+    },
+    {
+      "manufacturer": "ChampionX",
+      "series": "300",
+      "model": "VIGIL-300-LABY",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "375"
+      ],
+      "od_inches": 3.75,
+      "length_ft": 3.8,
+      "thrust_capacity_lbs": 6500,
+      "max_temp_f": 400,
+      "shaft_hp_standard": 256,
+      "shaft_hp_high_strength": 410,
+      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED"
+    },
+    {
+      "manufacturer": "ChampionX",
+      "series": "300",
+      "model": "VIGIL-300-BAG",
+      "type": "bag",
+      "compatible_motor_series": [
+        "375"
+      ],
+      "od_inches": 3.75,
+      "length_ft": 4.2,
+      "thrust_capacity_lbs": 5000,
+      "max_temp_f": 400,
+      "shaft_hp_standard": 256,
+      "shaft_hp_high_strength": 410,
+      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED"
+    },
+    {
+      "manufacturer": "ChampionX",
+      "series": "300",
+      "model": "VIGIL-300-COMB",
+      "type": "combined",
+      "compatible_motor_series": [
+        "375"
+      ],
+      "od_inches": 3.75,
+      "length_ft": 5.5,
+      "thrust_capacity_lbs": 8000,
+      "max_temp_f": 400,
+      "shaft_hp_standard": 256,
+      "shaft_hp_high_strength": 410,
+      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED"
+    },
+    {
+      "manufacturer": "ChampionX",
+      "series": "400",
+      "model": "VIGIL-400-LABY",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "400"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 3.8,
+      "thrust_capacity_lbs": 9000,
+      "max_temp_f": 400,
+      "shaft_hp_standard": 256,
+      "shaft_hp_high_strength": 410,
+      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED"
+    },
+    {
+      "manufacturer": "ChampionX",
+      "series": "400",
+      "model": "VIGIL-400-BAG",
+      "type": "bag",
+      "compatible_motor_series": [
+        "400"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 4.2,
+      "thrust_capacity_lbs": 7500,
+      "max_temp_f": 400,
+      "shaft_hp_standard": 256,
+      "shaft_hp_high_strength": 410,
+      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED"
+    },
+    {
+      "manufacturer": "ChampionX",
+      "series": "400",
+      "model": "VIGIL-400-COMB",
+      "type": "combined",
+      "compatible_motor_series": [
+        "400"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 5.5,
+      "thrust_capacity_lbs": 12000,
+      "max_temp_f": 400,
+      "shaft_hp_standard": 256,
+      "shaft_hp_high_strength": 410,
+      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED"
+    },
+    {
+      "manufacturer": "ChampionX",
+      "series": "500",
+      "model": "VIGIL-500-LABY",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "540",
+        "544",
+        "562",
+        "513"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 3.8,
+      "thrust_capacity_lbs": 18000,
+      "max_temp_f": 400,
+      "shaft_hp_standard": 637,
+      "shaft_hp_high_strength": 1019,
+      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED"
+    },
+    {
+      "manufacturer": "ChampionX",
+      "series": "500",
+      "model": "VIGIL-500-BAG",
+      "type": "bag",
+      "compatible_motor_series": [
+        "540",
+        "544",
+        "562",
+        "513"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 4.2,
+      "thrust_capacity_lbs": 15000,
+      "max_temp_f": 400,
+      "shaft_hp_standard": 637,
+      "shaft_hp_high_strength": 1019,
+      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED"
+    },
+    {
+      "manufacturer": "ChampionX",
+      "series": "500",
+      "model": "VIGIL-500-COMB",
+      "type": "combined",
+      "compatible_motor_series": [
+        "540",
+        "544",
+        "562",
+        "513"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 5.5,
+      "thrust_capacity_lbs": 22000,
+      "max_temp_f": 400,
+      "shaft_hp_standard": 637,
+      "shaft_hp_high_strength": 1019,
+      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED"
     }
   ]
 }

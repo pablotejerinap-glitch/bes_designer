@@ -1473,6 +1473,527 @@
           "efficiency": 0.58
         }
       ]
+    },
+    {
+      "manufacturer": "SLB",
+      "series": "400",
+      "model": "HighRise-UNB7.5",
+      "od_inches": 4.0,
+      "min_flow_bpd": 525,
+      "max_flow_bpd": 910,
+      "bep_flow_bpd": 700,
+      "max_stages": 300,
+      "housing_options": [
+        50,
+        100,
+        150,
+        200,
+        250,
+        300
+      ],
+      "_source": "SLB High Rise data sheet (flow range real; curve synthesized)",
+      "performance_curve": [
+        {
+          "flow_bpd": 350,
+          "head_ft_per_stage": 31.0,
+          "hp_per_stage": 0.163,
+          "efficiency": 0.488
+        },
+        {
+          "flow_bpd": 420,
+          "head_ft_per_stage": 29.9,
+          "hp_per_stage": 0.173,
+          "efficiency": 0.536
+        },
+        {
+          "flow_bpd": 480,
+          "head_ft_per_stage": 28.8,
+          "hp_per_stage": 0.179,
+          "efficiency": 0.568
+        },
+        {
+          "flow_bpd": 550,
+          "head_ft_per_stage": 27.5,
+          "hp_per_stage": 0.187,
+          "efficiency": 0.596
+        },
+        {
+          "flow_bpd": 620,
+          "head_ft_per_stage": 25.9,
+          "hp_per_stage": 0.193,
+          "efficiency": 0.613
+        },
+        {
+          "flow_bpd": 680,
+          "head_ft_per_stage": 24.5,
+          "hp_per_stage": 0.198,
+          "efficiency": 0.62
+        },
+        {
+          "flow_bpd": 750,
+          "head_ft_per_stage": 22.7,
+          "hp_per_stage": 0.203,
+          "efficiency": 0.617
+        },
+        {
+          "flow_bpd": 820,
+          "head_ft_per_stage": 20.7,
+          "hp_per_stage": 0.207,
+          "efficiency": 0.605
+        },
+        {
+          "flow_bpd": 880,
+          "head_ft_per_stage": 18.9,
+          "hp_per_stage": 0.21,
+          "efficiency": 0.585
+        },
+        {
+          "flow_bpd": 950,
+          "head_ft_per_stage": 16.7,
+          "hp_per_stage": 0.211,
+          "efficiency": 0.553
+        },
+        {
+          "flow_bpd": 1020,
+          "head_ft_per_stage": 14.3,
+          "hp_per_stage": 0.21,
+          "efficiency": 0.51
+        }
+      ]
+    },
+    {
+      "manufacturer": "SLB",
+      "series": "400",
+      "model": "HighRise-UNB17.5",
+      "od_inches": 4.0,
+      "min_flow_bpd": 1200,
+      "max_flow_bpd": 2080,
+      "bep_flow_bpd": 1600,
+      "max_stages": 250,
+      "housing_options": [
+        50,
+        100,
+        150,
+        200,
+        250
+      ],
+      "_source": "SLB High Rise data sheet (flow range real; curve synthesized)",
+      "performance_curve": [
+        {
+          "flow_bpd": 800,
+          "head_ft_per_stage": 38.7,
+          "hp_per_stage": 0.426,
+          "efficiency": 0.535
+        },
+        {
+          "flow_bpd": 950,
+          "head_ft_per_stage": 37.4,
+          "hp_per_stage": 0.448,
+          "efficiency": 0.585
+        },
+        {
+          "flow_bpd": 1100,
+          "head_ft_per_stage": 36.0,
+          "hp_per_stage": 0.468,
+          "efficiency": 0.624
+        },
+        {
+          "flow_bpd": 1260,
+          "head_ft_per_stage": 34.3,
+          "hp_per_stage": 0.487,
+          "efficiency": 0.654
+        },
+        {
+          "flow_bpd": 1410,
+          "head_ft_per_stage": 32.5,
+          "hp_per_stage": 0.502,
+          "efficiency": 0.672
+        },
+        {
+          "flow_bpd": 1560,
+          "head_ft_per_stage": 30.5,
+          "hp_per_stage": 0.516,
+          "efficiency": 0.68
+        },
+        {
+          "flow_bpd": 1710,
+          "head_ft_per_stage": 28.4,
+          "hp_per_stage": 0.529,
+          "efficiency": 0.677
+        },
+        {
+          "flow_bpd": 1860,
+          "head_ft_per_stage": 26.1,
+          "hp_per_stage": 0.539,
+          "efficiency": 0.665
+        },
+        {
+          "flow_bpd": 2000,
+          "head_ft_per_stage": 23.8,
+          "hp_per_stage": 0.546,
+          "efficiency": 0.644
+        },
+        {
+          "flow_bpd": 2150,
+          "head_ft_per_stage": 21.2,
+          "hp_per_stage": 0.55,
+          "efficiency": 0.612
+        },
+        {
+          "flow_bpd": 2300,
+          "head_ft_per_stage": 18.4,
+          "hp_per_stage": 0.549,
+          "efficiency": 0.569
+        }
+      ]
+    },
+    {
+      "manufacturer": "SLB",
+      "series": "400",
+      "model": "HighRise-Kronos",
+      "od_inches": 4.0,
+      "min_flow_bpd": 1275,
+      "max_flow_bpd": 2210,
+      "bep_flow_bpd": 1700,
+      "max_stages": 250,
+      "housing_options": [
+        50,
+        100,
+        150,
+        200,
+        250
+      ],
+      "_source": "SLB High Rise data sheet (flow range real; curve synthesized)",
+      "performance_curve": [
+        {
+          "flow_bpd": 850,
+          "head_ft_per_stage": 40.0,
+          "hp_per_stage": 0.468,
+          "efficiency": 0.535
+        },
+        {
+          "flow_bpd": 1010,
+          "head_ft_per_stage": 38.7,
+          "hp_per_stage": 0.492,
+          "efficiency": 0.585
+        },
+        {
+          "flow_bpd": 1170,
+          "head_ft_per_stage": 37.2,
+          "hp_per_stage": 0.514,
+          "efficiency": 0.624
+        },
+        {
+          "flow_bpd": 1330,
+          "head_ft_per_stage": 35.5,
+          "hp_per_stage": 0.533,
+          "efficiency": 0.653
+        },
+        {
+          "flow_bpd": 1500,
+          "head_ft_per_stage": 33.6,
+          "hp_per_stage": 0.552,
+          "efficiency": 0.672
+        },
+        {
+          "flow_bpd": 1660,
+          "head_ft_per_stage": 31.5,
+          "hp_per_stage": 0.567,
+          "efficiency": 0.68
+        },
+        {
+          "flow_bpd": 1820,
+          "head_ft_per_stage": 29.3,
+          "hp_per_stage": 0.581,
+          "efficiency": 0.677
+        },
+        {
+          "flow_bpd": 1980,
+          "head_ft_per_stage": 27.0,
+          "hp_per_stage": 0.592,
+          "efficiency": 0.664
+        },
+        {
+          "flow_bpd": 2150,
+          "head_ft_per_stage": 24.2,
+          "hp_per_stage": 0.6,
+          "efficiency": 0.64
+        },
+        {
+          "flow_bpd": 2300,
+          "head_ft_per_stage": 21.7,
+          "hp_per_stage": 0.604,
+          "efficiency": 0.608
+        },
+        {
+          "flow_bpd": 2450,
+          "head_ft_per_stage": 18.9,
+          "hp_per_stage": 0.603,
+          "efficiency": 0.568
+        }
+      ]
+    },
+    {
+      "manufacturer": "SLB",
+      "series": "513",
+      "model": "HighRise-UNB35",
+      "od_inches": 5.13,
+      "min_flow_bpd": 1950,
+      "max_flow_bpd": 3380,
+      "bep_flow_bpd": 2600,
+      "max_stages": 160,
+      "housing_options": [
+        40,
+        60,
+        80,
+        100,
+        120,
+        140,
+        160
+      ],
+      "_source": "SLB High Rise data sheet (flow range real; curve synthesized)",
+      "performance_curve": [
+        {
+          "flow_bpd": 1300,
+          "head_ft_per_stage": 49.0,
+          "hp_per_stage": 0.839,
+          "efficiency": 0.559
+        },
+        {
+          "flow_bpd": 1550,
+          "head_ft_per_stage": 47.4,
+          "hp_per_stage": 0.884,
+          "efficiency": 0.612
+        },
+        {
+          "flow_bpd": 1790,
+          "head_ft_per_stage": 45.6,
+          "hp_per_stage": 0.922,
+          "efficiency": 0.651
+        },
+        {
+          "flow_bpd": 2050,
+          "head_ft_per_stage": 43.4,
+          "hp_per_stage": 0.96,
+          "efficiency": 0.683
+        },
+        {
+          "flow_bpd": 2300,
+          "head_ft_per_stage": 41.1,
+          "hp_per_stage": 0.991,
+          "efficiency": 0.702
+        },
+        {
+          "flow_bpd": 2550,
+          "head_ft_per_stage": 38.5,
+          "hp_per_stage": 1.02,
+          "efficiency": 0.71
+        },
+        {
+          "flow_bpd": 2800,
+          "head_ft_per_stage": 35.8,
+          "hp_per_stage": 1.044,
+          "efficiency": 0.706
+        },
+        {
+          "flow_bpd": 3050,
+          "head_ft_per_stage": 32.8,
+          "hp_per_stage": 1.064,
+          "efficiency": 0.692
+        },
+        {
+          "flow_bpd": 3300,
+          "head_ft_per_stage": 29.5,
+          "hp_per_stage": 1.078,
+          "efficiency": 0.666
+        },
+        {
+          "flow_bpd": 3500,
+          "head_ft_per_stage": 26.8,
+          "hp_per_stage": 1.084,
+          "efficiency": 0.638
+        },
+        {
+          "flow_bpd": 3750,
+          "head_ft_per_stage": 23.2,
+          "hp_per_stage": 1.082,
+          "efficiency": 0.592
+        }
+      ]
+    },
+    {
+      "manufacturer": "SLB",
+      "series": "538",
+      "model": "HighRise-UNB43",
+      "od_inches": 5.38,
+      "min_flow_bpd": 2925,
+      "max_flow_bpd": 5070,
+      "bep_flow_bpd": 3900,
+      "max_stages": 140,
+      "housing_options": [
+        30,
+        50,
+        70,
+        90,
+        110,
+        140
+      ],
+      "_source": "SLB High Rise data sheet (flow range real; curve synthesized)",
+      "performance_curve": [
+        {
+          "flow_bpd": 1950,
+          "head_ft_per_stage": 56.8,
+          "hp_per_stage": 1.438,
+          "efficiency": 0.567
+        },
+        {
+          "flow_bpd": 2300,
+          "head_ft_per_stage": 55.0,
+          "hp_per_stage": 1.51,
+          "efficiency": 0.617
+        },
+        {
+          "flow_bpd": 2700,
+          "head_ft_per_stage": 52.7,
+          "hp_per_stage": 1.583,
+          "efficiency": 0.662
+        },
+        {
+          "flow_bpd": 3050,
+          "head_ft_per_stage": 50.4,
+          "hp_per_stage": 1.64,
+          "efficiency": 0.691
+        },
+        {
+          "flow_bpd": 3450,
+          "head_ft_per_stage": 47.6,
+          "hp_per_stage": 1.698,
+          "efficiency": 0.712
+        },
+        {
+          "flow_bpd": 3800,
+          "head_ft_per_stage": 44.8,
+          "hp_per_stage": 1.743,
+          "efficiency": 0.72
+        },
+        {
+          "flow_bpd": 4150,
+          "head_ft_per_stage": 41.9,
+          "hp_per_stage": 1.783,
+          "efficiency": 0.717
+        },
+        {
+          "flow_bpd": 4550,
+          "head_ft_per_stage": 38.2,
+          "hp_per_stage": 1.82,
+          "efficiency": 0.703
+        },
+        {
+          "flow_bpd": 4900,
+          "head_ft_per_stage": 34.7,
+          "hp_per_stage": 1.844,
+          "efficiency": 0.68
+        },
+        {
+          "flow_bpd": 5300,
+          "head_ft_per_stage": 30.5,
+          "hp_per_stage": 1.857,
+          "efficiency": 0.641
+        },
+        {
+          "flow_bpd": 5650,
+          "head_ft_per_stage": 26.6,
+          "hp_per_stage": 1.852,
+          "efficiency": 0.597
+        }
+      ]
+    },
+    {
+      "manufacturer": "SLB",
+      "series": "538",
+      "model": "HighRise-UNB60",
+      "od_inches": 5.38,
+      "min_flow_bpd": 3900,
+      "max_flow_bpd": 6760,
+      "bep_flow_bpd": 5200,
+      "max_stages": 120,
+      "housing_options": [
+        30,
+        50,
+        70,
+        90,
+        110,
+        120
+      ],
+      "_source": "SLB High Rise data sheet (flow range real; curve synthesized)",
+      "performance_curve": [
+        {
+          "flow_bpd": 2600,
+          "head_ft_per_stage": 63.2,
+          "hp_per_stage": 2.106,
+          "efficiency": 0.575
+        },
+        {
+          "flow_bpd": 3100,
+          "head_ft_per_stage": 61.1,
+          "hp_per_stage": 2.218,
+          "efficiency": 0.629
+        },
+        {
+          "flow_bpd": 3600,
+          "head_ft_per_stage": 58.7,
+          "hp_per_stage": 2.318,
+          "efficiency": 0.671
+        },
+        {
+          "flow_bpd": 4100,
+          "head_ft_per_stage": 56.0,
+          "hp_per_stage": 2.407,
+          "efficiency": 0.702
+        },
+        {
+          "flow_bpd": 4600,
+          "head_ft_per_stage": 53.0,
+          "hp_per_stage": 2.487,
+          "efficiency": 0.722
+        },
+        {
+          "flow_bpd": 5050,
+          "head_ft_per_stage": 50.0,
+          "hp_per_stage": 2.551,
+          "efficiency": 0.729
+        },
+        {
+          "flow_bpd": 5550,
+          "head_ft_per_stage": 46.5,
+          "hp_per_stage": 2.613,
+          "efficiency": 0.727
+        },
+        {
+          "flow_bpd": 6050,
+          "head_ft_per_stage": 42.7,
+          "hp_per_stage": 2.664,
+          "efficiency": 0.713
+        },
+        {
+          "flow_bpd": 6550,
+          "head_ft_per_stage": 38.5,
+          "hp_per_stage": 2.701,
+          "efficiency": 0.688
+        },
+        {
+          "flow_bpd": 7050,
+          "head_ft_per_stage": 34.1,
+          "hp_per_stage": 2.719,
+          "efficiency": 0.651
+        },
+        {
+          "flow_bpd": 7550,
+          "head_ft_per_stage": 29.4,
+          "hp_per_stage": 2.711,
+          "efficiency": 0.603
+        }
+      ]
     }
   ],
   "_note": "Two data classes: (1) pumps digitized from Kermit Brown Vol. 2b Ch. 4.5 examples; (2) pumps generated by scripts/generate_pump_curves.py (marked with _source) — representative curves with standard centrifugal shape, HP derived from hydraulic horsepower for thermodynamic consistency. Representative data: NOT for real field design."

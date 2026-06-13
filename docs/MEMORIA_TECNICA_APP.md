@@ -171,11 +171,19 @@ Los motores AFFIRMED (digitalizados de la hoja de datos de ChampionX / UNBRIDLED
 
 Cables de potencia trifásicos Reda (Redalene, Redared), Centrilift (EPDM, polietileno) y **ChampionX CAVALCADE** (EPDM/lead), conductor de cobre, calibres **#1, #2, #4 y #6 AWG**, temperaturas nominales de 300 a 500 °F. Para cada cable se tabula la **caída de tensión por amperio por cada 1 000 ft** a cuatro temperaturas (100/150/180/200 °F), valores tomados de la Tabla 4.52 de Brown y de API RP 11S6; el sistema interpola a la temperatura de fondo del pozo. Los cables CAVALCADE (400 °F) se incluyen por diversificación de fabricante; quedan dominados por los cables existentes de mayor temperatura, por lo que rara vez resultan seleccionados.
 
-### 4.5 Catálogo de sellos/protectores (`seals.json`) — 15 modelos
+### 4.5 Catálogo de sellos/protectores (`seals.json`) — 24 modelos
 
-Sellos Reda (series 375/456/540) y Centrilift (series 544/562) en las tres configuraciones típicas (laberinto, bolsa y combinada), con su capacidad de carga axial (de 5 000 a 30 000 lbs) y temperatura máxima. **Estado actual:** el catálogo está digitalizado y cargado por el gestor, pero la selección automática del sello todavía no está integrada al flujo de diseño (queda como trabajo futuro; ver §7).
+Sellos Reda (series 375/456/540), Centrilift (series 544/562) y **ChampionX VIGIL** (series 300/400/500), en las tres configuraciones típicas (laberinto, bolsa y combinada), con su capacidad de carga axial (de 5 000 a 30 000 lbs) y temperatura máxima. **La selección automática del sello está integrada al flujo de diseño:** para cada diseño se estima el empuje axial (ΔP de bomba × área del eje × margen, según Takacs) y se elige el protector de la serie del motor que soporta esa carga y la temperatura de fondo, prefiriendo laberinto en pozos verticales y bolsa en desviados (>30°). El sello aparece en la interfaz y en los reportes PDF/Excel. Los protectores VIGIL serie 400 son los compatibles con los motores AFFIRMED serie 400.
 
-### 4.6 Cómo consulta el sistema los catálogos
+### 4.6 Catálogo de gas handlers (`gas_handlers.json`) — 12 modelos
+
+Separadores y acondicionadores de gas **ChampionX WHIRLAWAY** (digitalizados de la hoja de datos): separadores rotativos y de vórtice (eficiencia hasta 97 %) y dispositivos GKX para >40 % de gas libre, en series 338/400/513-538, con su rango de caudal (75–6 500 bpd), HP, diámetro y eficiencia. Se consultan con `CatalogManager.select_gas_handler(caudal, casing_id)`.
+
+### 4.7 Catálogo de sensores (`sensors.json`) — 4 modelos
+
+Sensores de fondo **ACE Downhole** (Standard, Mid Range, Xtreme Temperature, Xtreme Temperature Dual) con sus rangos de presión de admisión (5 000–8 000 psi), temperatura (257–350 °F), monitoreo de vibración y voltaje máximo de motor. Son equipos de monitoreo (no intervienen en el dimensionamiento), pero el catálogo permite recomendar el sensor cuyo rango cubre las condiciones del pozo (`select_sensor`).
+
+### 4.8 Cómo consulta el sistema los catálogos
 
 | Consulta | Uso en el diseño |
 |----------|------------------|
@@ -183,8 +191,10 @@ Sellos Reda (series 375/456/540) y Centrilift (series 544/562) en las tres confi
 | Bombas cuyo rango recomendado contiene el caudal objetivo | Filtro hidráulico inicial |
 | Interpolación de la curva al caudal de operación | Altura/etapa, HP/etapa y eficiencia usados en los Pasos 5–8 |
 | Motor de menor HP que cubre la demanda, que cabe con cable en el anular | Paso 6 |
-| Cable apto por ampacidad, temperatura y geometría, de menor caída | Paso 6 |
+| Protector de la serie del motor que soporta empuje y temperatura | Paso 6 |
+| Cable apto por ampacidad, temperatura y geometría, de menor caída (caída leída del propio catálogo) | Paso 6 |
 | Transformador estándar inmediato superior al kVA requerido | Paso 6 |
+| Gas handler / sensor cuyo rango cubre las condiciones del pozo | Consultable (no adjuntado aún al resultado) |
 
 ---
 
@@ -200,7 +210,7 @@ El criterio rector del proyecto es que **cada resultado sea trazable a Brown**. 
 | 2A | Petróleo sin gas libre, 1 000 STB/d, casing 5½" | 4 249 / 4 174 ft (+1.8 %) | 172 / 156 (+10.3 %) | 36.7 / 44 (−16.5 %) | M-34 |
 | 3A | Petróleo con gas libre (GIP alto), 700 STB/d | 6 713 / 6 060 ft (+10.8 %) | 228 / 206 (+10.7 %) | 49.5 / 45 (+9.9 %) | M-34 |
 
-Las diferencias provienen principalmente de que la app integra el gradiente multifásico con Hagedorn-Brown mientras las referencias usan columna hidrostática simple, y del redondeo de etapas a los housings comerciales del catálogo.
+Las diferencias provienen principalmente de que la app integra el gradiente multifásico con Hagedorn-Brown mientras las referencias usan columna hidrostática simple, y del redondeo de etapas a los housings comerciales del catálogo. Como el catálogo incorpora bombas modernas (post-1980) que pueden superar en el ranking a las del libro, la validación se fija explícitamente a la **bomba esperada de Brown** (campo `expected_pump`): se verifica que el motor de cálculo reproduce los números del libro para la bomba del libro, independientemente de cuál bomba encabece la recomendación con el catálogo ampliado.
 
 Además, los cálculos unitarios (fricción de Hazen-Williams, etapas del Ejemplo 2A con la D-40 a la profundidad exacta del libro, Ejemplo 2B con la I-42B, etc.) se validan en tests dedicados con los valores puntuales del libro.
 
@@ -240,10 +250,12 @@ Para una lectura honesta de los resultados, el sistema asume y se limita a lo si
 3. **Profundidad de instalación** fijada en el tope de perforaciones menos el margen de seguridad. No se modela la instalación bajo perforaciones con shroud.
 4. **Eficiencia del sistema** aproximada como eficiencia de bomba × 0.92 (proxy de eficiencia de motor); no usa la eficiencia real del motor seleccionado.
 5. **Transformadores** acotados a tamaños estándar de hasta 300 kVA; diseños de alta potencia pueden quedar fuera de ese tope.
-6. **Selección de sello/protector no integrada** (catálogo digitalizado, lógica pendiente).
-7. **Campos cargados pero aún sin efecto en el cálculo:** H₂S, CO₂ y producción de arena (selección de metalurgia), desviación máxima del pozo (las correlaciones se aplican en vertical), límite de GIP del usuario y uso de VSD. Se registran para el reporte y para extensiones futuras.
-8. **Validez de las correlaciones:** las correlaciones PVT y multifásicas tienen los rangos de validez de sus publicaciones originales; fuera de ellos (crudos extrapesados, pozos muy desviados, alta presencia de H₂S/CO₂) los resultados deben tomarse con cautela.
-9. El sistema produce **prediseños**: la decisión final de campo requiere verificación con catálogos certificados, análisis de empuje axial, y criterios operativos de la empresa.
+6. **Empuje axial estimado.** La selección de protector usa un empuje axial *estimado* (ΔP de bomba × área del eje × margen 1.2, con diámetros de eje típicos por serie), no el empuje real catalogado por modelo. Para los protectores VIGIL, la capacidad de empuje y la temperatura son valores estimados (la hoja de datos solo publica HP de eje y diámetros).
+7. **Gas handler y sensor consultables pero no adjuntados.** Sus catálogos están cargados y hay lógica de selección (`select_gas_handler`, `select_sensor`), pero el diseño no los incorpora todavía al `DesignResult` ni al puntaje.
+8. **Campos cargados pero aún sin efecto en el cálculo:** H₂S, CO₂ y producción de arena (selección de metalurgia), límite de GIP del usuario y uso de VSD. La desviación máxima del pozo sí se usa ahora para elegir el tipo de protector (laberinto vs. bolsa).
+9. **Validez de las correlaciones:** las correlaciones PVT y multifásicas tienen los rangos de validez de sus publicaciones originales; fuera de ellos (crudos extrapesados, pozos muy desviados, alta presencia de H₂S/CO₂) los resultados deben tomarse con cautela.
+10. **Datos sintéticos/estimados marcados.** Las curvas de las bombas no provenientes del libro (representativas y High Rise), la capacidad/temperatura de los protectores VIGIL y los valores eléctricos del motor PowerFit son estimados; cada entrada lo declara en `_source` y no debe usarse para diseño de campo real.
+11. El sistema produce **prediseños**: la decisión final de campo requiere verificación con catálogos certificados, análisis de empuje axial detallado, y criterios operativos de la empresa.
 
 ---
 

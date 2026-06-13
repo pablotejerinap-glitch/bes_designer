@@ -20,6 +20,7 @@ from core.electrical import (
     calculate_kva,
     calculate_surface_voltage,
     electrical_design_complete,
+    estimate_axial_thrust,
     select_cable,
     select_motor,
     select_transformer,
@@ -160,6 +161,47 @@ class TestVoltageDrop:
         h_al = voltage_drop("#2", "Redalene AL", 50.0, 150.0, 1000.0)
         h_explicit = voltage_drop("#2", "AL", 50.0, 150.0, 1000.0)
         assert h_al == pytest.approx(h_explicit, rel=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# Cable selection reads voltage drop from the catalog (supports 1/0)
+# ---------------------------------------------------------------------------
+
+class TestCableVdropFromCatalog:
+    def test_one_zero_cable_selectable(self, manager):
+        # The CAVALCADE 1/0 cable (absent from the legacy hardcoded table) must
+        # be selectable and yield a finite voltage drop from its own JSON data.
+        cable = select_cable(
+            motor_amps=90.0, pump_depth=6000.0, bottom_temp=180.0,
+            casing_id=7.0, motor_od=4.0, catalog_manager=manager,
+        )
+        assert cable["voltage_drop_per_1000ft"] > 0
+
+
+# ---------------------------------------------------------------------------
+# Axial-thrust estimate (for protector selection)
+# ---------------------------------------------------------------------------
+
+class TestAxialThrust:
+    def test_hand_calc_series_400(self):
+        # TDH 4000 ft, SG 1.0, series 400 (d_shaft 0.62"):
+        #   dP = 4000·0.433·1.0 = 1732 psi
+        #   A  = pi/4·0.62² = 0.3019 in²
+        #   F  = 1732·0.3019·1.20 ≈ 627 lbs
+        f = estimate_axial_thrust(4000.0, 1.0, "400")
+        assert f == pytest.approx(627.0, rel=0.02)
+
+    def test_scales_with_tdh(self):
+        assert estimate_axial_thrust(8000.0, 1.0, "400") > estimate_axial_thrust(4000.0, 1.0, "400")
+
+    def test_design_complete_includes_seal(self, manager, well_7in, base_fluid):
+        elec = electrical_design_complete(
+            motor_hp=60.0, pump_od=4.0, well=well_7in, fluid=base_fluid,
+            catalog_manager=manager, pump_depth=4000.0, tdh_ft=4000.0,
+            sg_fluid=1.0, pump_series="456",
+        )
+        assert "seal" in elec
+        assert elec["axial_thrust_lbs"] > 0
 
 
 # ---------------------------------------------------------------------------

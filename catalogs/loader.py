@@ -23,6 +23,13 @@ def _load_json(path: Path) -> dict:
         return json.load(f)
 
 
+def _load_optional(path: Path, key: str) -> list[dict]:
+    """Load an optional catalog file; return [] if it is absent."""
+    if not path.exists():
+        return []
+    return _load_json(path).get(key, [])
+
+
 def _parse_pumps(raw: list[dict]) -> list[PumpCurve]:
     pumps: list[PumpCurve] = []
     for entry in raw:
@@ -85,6 +92,14 @@ class CatalogManager:
         self._motors: list[dict] = _load_json(base / "motors.json")["motors"]
         self._cables: list[dict] = _load_json(base / "cables.json")["cables"]
         self._seals: list[dict] = _load_json(base / "seals.json")["seals"]
+        # Optional catalogs (added later; load defensively so older deployments
+        # without these files still construct a working manager).
+        self._gas_handlers: list[dict] = _load_optional(
+            base / "gas_handlers.json", "gas_handlers"
+        )
+        self._sensors: list[dict] = _load_optional(
+            base / "sensors.json", "sensors"
+        )
 
     # ------------------------------------------------------------------
     # Pump queries
@@ -202,3 +217,125 @@ class CatalogManager:
             "hp_per_stage": float(f_hp(flow_bpd)),
             "efficiency": float(f_eff(flow_bpd)),
         }
+
+    # ------------------------------------------------------------------
+    # Seal / protector queries
+    # ------------------------------------------------------------------
+
+    def get_all_seals(self) -> list[dict]:
+        """Return every seal/protector in the catalog."""
+        return list(self._seals)
+
+    def get_seal(
+        self,
+        motor_series: str,
+        temp_f: float,
+        thrust_lbs: float,
+        prefer_type: str = "labyrinth",
+    ) -> dict:
+        """Select the most economical protector for the given conditions.
+
+        Selection criteria (Brown §4.5325; ChampionX VIGIL / Reda VSEAL):
+
+        1. Compatibility : ``motor_series`` listed in ``compatible_motor_series``.
+        2. Temperature   : ``max_temp_f`` >= ``temp_f``.
+        3. Thrust        : ``thrust_capacity_lbs`` >= ``thrust_lbs``.
+        4. Type          : prefer *prefer_type*; if none of that type carries the
+           load, fall back to any qualifying type.
+        5. Economy       : smallest qualifying thrust capacity.
+
+        Args:
+            motor_series: Series string of the selected motor (e.g. ``"456"``).
+            temp_f: Required temperature rating [°F] (use bottomhole temp).
+            thrust_lbs: Estimated axial thrust load [lbs].
+            prefer_type: Preferred seal type (``"labyrinth"``/``"bag"``/``"combined"``).
+
+        Returns:
+            Seal catalog dict.
+
+        Raises:
+            ValueError: If no compatible seal carries the load at temperature.
+        """
+        compatible = [
+            s for s in self._seals
+            if motor_series in s.get("compatible_motor_series", [])
+            and s.get("max_temp_f", 0) >= temp_f
+            and s.get("thrust_capacity_lbs", 0) >= thrust_lbs
+        ]
+        if not compatible:
+            raise ValueError(
+                f"No protector for motor series {motor_series} carrying "
+                f"{thrust_lbs:.0f} lbs at {temp_f:.0f} °F"
+            )
+        preferred = [s for s in compatible if s.get("type") == prefer_type]
+        pool = preferred if preferred else compatible
+        return min(pool, key=lambda s: s["thrust_capacity_lbs"])
+
+    # ------------------------------------------------------------------
+    # Gas-handler queries
+    # ------------------------------------------------------------------
+
+    def get_all_gas_handlers(self) -> list[dict]:
+        """Return every gas handler/separator in the catalog."""
+        return list(self._gas_handlers)
+
+    def select_gas_handler(
+        self,
+        flow_bpd: float,
+        casing_id_in: float,
+        prefer_type: str = "vortex",
+    ) -> Optional[dict]:
+        """Select a gas handler for the flow that fits the casing.
+
+        Filters by flow range (``min_flow_bpd <= flow <= max_flow_bpd``) and
+        casing fit (``od_inches < casing_id_in``), prefers *prefer_type*
+        (vortex separators are highest efficiency), then picks the highest
+        ``max_efficiency``. Returns ``None`` if nothing qualifies.
+        """
+        candidates = [
+            g for g in self._gas_handlers
+            if g["min_flow_bpd"] <= flow_bpd <= g["max_flow_bpd"]
+            and g["od_inches"] < casing_id_in
+        ]
+        if not candidates:
+            return None
+        preferred = [g for g in candidates if g.get("type") == prefer_type]
+        pool = preferred if preferred else candidates
+        return max(pool, key=lambda g: g.get("max_efficiency") or 0.0)
+
+    # ------------------------------------------------------------------
+    # Sensor queries
+    # ------------------------------------------------------------------
+
+    def get_all_sensors(self) -> list[dict]:
+        """Return every downhole sensor in the catalog."""
+        return list(self._sensors)
+
+    def select_sensor(
+        self,
+        intake_pressure_psi: float,
+        bottom_temp_f: float,
+        motor_voltage: float,
+        need_discharge_pressure: bool = False,
+    ) -> Optional[dict]:
+        """Select the smallest-range sensor that covers the well conditions.
+
+        Filters by intake-pressure range, intake-temperature range, motor
+        voltage, and (optionally) the presence of a discharge-pressure
+        transducer. Among qualifying models, picks the one with the tightest
+        pressure range (best resolution). Returns ``None`` if none qualify.
+        """
+        candidates = []
+        for s in self._sensors:
+            if s["intake_pressure_max_psi"] < intake_pressure_psi:
+                continue
+            if s["intake_temp_max_f"] < bottom_temp_f:
+                continue
+            if motor_voltage > s.get("max_motor_voltage", 0):
+                continue
+            if need_discharge_pressure and not s.get("discharge_pressure_max_psi"):
+                continue
+            candidates.append(s)
+        if not candidates:
+            return None
+        return min(candidates, key=lambda s: s["intake_pressure_max_psi"])

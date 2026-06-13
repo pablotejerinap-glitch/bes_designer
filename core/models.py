@@ -415,6 +415,12 @@ class DesignResult:
     gip_fraction: float
     warnings: list[str] = field(default_factory=list)
     alternatives: list[str] = field(default_factory=list)
+    # Seal / protector (optional; populated by the electrical design)
+    seal_manufacturer: str = ""
+    seal_model: str = ""
+    seal_type: str = ""
+    seal_thrust_capacity_lbs: float = 0.0
+    axial_thrust_lbs: float = 0.0
 
     def __post_init__(self) -> None:
         if self.num_stages <= 0:

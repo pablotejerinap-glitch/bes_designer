@@ -1,7 +1,21 @@
 # Informe de Ingestión de Catálogos ChampionX / SLB / ACE Downhole
 
 **Fecha:** 13 de junio de 2026 · **Autor:** Pablo Tejerina
-**Alcance ejecutado:** Fase A — motores AFFIRMED y cables CAVALCADE integrados al flujo de selección.
+**Alcance ejecutado:** Integración completa (Fases A + B + C) — los 7 PDF digitalizados y subidos a la capa de catálogos; sellos integrados al flujo de diseño; gas handlers y sensores cargados y consultables.
+
+> **Actualización (integración completa).** Este informe describía originalmente solo la Fase A (motores + cables). Tras el pedido de subir *todos* los catálogos, se completó la ingestión de los 7 PDF. El resumen de qué quedó es:
+>
+> | Componente | Cat. destino | Estado |
+> |---|---|---|
+> | Motores AFFIRMED (ChampionX) | `motors.json` | Integrado al flujo (se seleccionan) |
+> | Motor PowerFit (SLB) | `motors.json` | Cargado (electricals estimados) |
+> | Cables CAVALCADE incl. 1/0 (ChampionX) | `cables.json` | Cargados; 1/0 habilitado por refactor de caída de tensión |
+> | Protectores VIGIL (ChampionX) | `seals.json` | Integrados al flujo (selección de sello operativa) |
+> | Bombas High Rise (SLB) | `pumps.json` | Cargadas (curvas sintetizadas) |
+> | Gas handlers WHIRLAWAY (ChampionX) | `gas_handlers.json` (nuevo) | Cargados + consultables (`select_gas_handler`) |
+> | Sensores ACE (ACE Downhole) | `sensors.json` (nuevo) | Cargados + consultables (`select_sensor`) |
+>
+> Suite: 541 tests en verde. Regresión contra Brown intacta (validación fijada a la bomba del libro — ver §8).
 
 Este informe documenta la incorporación de equipos al catálogo de BES Designer a partir de 7 hojas de datos en PDF provistas por el usuario (carpeta `TESIS/ChampionX/`). Cumple el punto 8 del pedido: qué se extrajo, qué se digitalizó, qué no pudo interpretarse, qué quedó incompleto y qué decisiones se tomaron.
 
@@ -89,6 +103,23 @@ Quedan documentados acá para retomarlos; no se crearon archivos vacíos.
 
 ## 7. Estado y trabajo futuro
 
-- **Hecho (Fase A):** 33 motores AFFIRMED + 3 cables CAVALCADE integrados y funcionando en el flujo. Suite: 522 tests en verde. Regresión contra Brown intacta.
-- **Pendiente (Fase B):** catálogos de referencia `gas_handlers.json` (WHIRLAWAY) y `sensors.json` (ACE) con sus tablas completas.
-- **Pendiente (Fase C / decisión de trazabilidad):** bombas High Rise (requieren síntesis de curvas) y protectores VIGIL (requieren empuje/temperatura y la integración de selección de sello, aún no construida); cable 1/0 (requiere refactor del cálculo de caída de tensión).
+Integración completa ejecutada. Todos los catálogos están subidos:
+
+- 35 motores (33 AFFIRMED ChampionX + 2 PowerFit SLB), 19 cables (incl. CAVALCADE 1/0), 24 sellos (incl. 9 VIGIL ChampionX), 23 bombas (incl. 6 High Rise SLB), 12 gas handlers WHIRLAWAY, 4 sensores ACE.
+- Sellos integrados al flujo (cada diseño selecciona protector por serie/temperatura/empuje y aparece en UI y reportes PDF/Excel).
+- Gas handlers y sensores cargados y consultables (`CatalogManager.select_gas_handler`, `select_sensor`).
+
+**Trabajo futuro restante:**
+- Surtir gas handler y sensor recomendados dentro del `DesignResult`/recomendador (hoy son consultables vía el catálogo, pero el diseño no los adjunta automáticamente al resultado ni los puntúa).
+- Validar las curvas sintéticas de High Rise contra datos reales del fabricante si se consiguen.
+
+---
+
+## 8. Decisiones de la integración completa (Fases B + C)
+
+1. **Catálogos nuevos como archivos propios.** `gas_handlers.json` y `sensors.json` se escribieron directamente (con `_note` y `_source` por entrada para trazabilidad) y se cargan de forma **defensiva** en `CatalogManager` (si el archivo falta, lista vacía) para no romper despliegues sin ellos.
+2. **Selección de sello, no fatal.** `electrical_design_complete` estima el empuje axial (ΔP·área de eje·margen 1.2, Takacs) y elige protector por serie compatible + temperatura + empuje, prefiriendo laberinto en pozos verticales y bag en desviados (>30°, usa `WellGeometry.deviation_max`, antes sin uso). Si no hay protector compatible, **no aborta** el diseño: deja el sello vacío y agrega una advertencia. Esto hace que la serie 420 (PowerFit) y cualquier motor sin sello sigan produciendo diseño.
+3. **VIGIL serie 400 = clave de coherencia.** Es el único protector compatible con los motores AFFIRMED serie 400; sin él, los motores ChampionX (que ganan la selección en 2A/3A) quedarían sin sello.
+4. **Refactor de caída de tensión (mata el hardcode).** `select_cable` ahora lee la caída de tensión del propio JSON del cable (`_vdrop_per_amp_from_cable`), no de la tabla fija de `core/electrical.py`. Esto habilita el calibre 1/0 y cualquier calibre futuro sin tocar código. La tabla fija queda solo como respaldo legacy.
+5. **Datos sintéticos marcados.** Curvas de High Rise, empuje/temperatura de VIGIL y electricals de PowerFit son estimados/sintetizados — cada entrada lo declara en `_source`. **No usar para diseño de campo real.**
+6. **Validación desacoplada del ranking.** Como el catálogo ahora tiene bombas modernas que superan a las del libro de 1980, los tests de validación y el script `validate_all_examples.py` fijan la comparación a la **bomba esperada del libro** (`expected_pump` en `example_wells.json`), no al rank #1. La corrección del motor de cálculo se valida sobre la bomba de Brown; cuál bomba "gana" es una cuestión separada del recomendador.
