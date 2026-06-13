@@ -129,6 +129,8 @@ def _build_design_result(
     surface: "SurfaceConditions",
     target_rate: float,
     gip: float,
+    gas_handler: dict | None = None,
+    sensor: dict | None = None,
 ) -> DesignResult:
     """Assemble a DesignResult from pump and electrical design dicts."""
     cable_awg = _parse_awg(elec["cable"]["cable_size"])
@@ -179,6 +181,15 @@ def _build_design_result(
         seal_type=(seal["type"] if seal else ""),
         seal_thrust_capacity_lbs=(float(seal["thrust_capacity_lbs"]) if seal else 0.0),
         axial_thrust_lbs=float(elec.get("axial_thrust_lbs", 0.0)),
+        gas_handler_manufacturer=(gas_handler["manufacturer"] if gas_handler else ""),
+        gas_handler_model=(gas_handler["model"] if gas_handler else ""),
+        gas_handler_type=(gas_handler["type"] if gas_handler else ""),
+        gas_handler_efficiency=(
+            float(gas_handler["max_efficiency"])
+            if gas_handler and gas_handler.get("max_efficiency") else 0.0
+        ),
+        sensor_manufacturer=(sensor["manufacturer"] if sensor else ""),
+        sensor_model=(sensor["model"] if sensor else ""),
     )
 
 
@@ -295,6 +306,22 @@ def select_top_n_pumps(
             well=well,
         )
 
+        # Gas handler recommended only when free gas at intake is non-trivial.
+        gas_handler = None
+        if gip > 0.10:
+            gas_handler = catalog.select_gas_handler(
+                flow_bpd=objectives.target_flow_rate,
+                casing_id_in=well.casing_id,
+                prefer_type="vortex",
+            )
+
+        # Downhole sensor: always recommend a model covering well conditions.
+        sensor = catalog.select_sensor(
+            intake_pressure_psi=cand["pip_psi"],
+            bottom_temp_f=bottom_temp,
+            motor_voltage=float(elec["motor"]["voltage"]),
+        )
+
         try:
             dr = _build_design_result(
                 pump_dict=cand,
@@ -305,6 +332,8 @@ def select_top_n_pumps(
                 surface=surface,
                 target_rate=objectives.target_flow_rate,
                 gip=gip,
+                gas_handler=gas_handler,
+                sensor=sensor,
             )
         except (ValueError, TypeError):
             continue

@@ -421,6 +421,14 @@ class DesignResult:
     seal_type: str = ""
     seal_thrust_capacity_lbs: float = 0.0
     axial_thrust_lbs: float = 0.0
+    # Gas handler / separator (optional; recommended only when free gas warrants)
+    gas_handler_manufacturer: str = ""
+    gas_handler_model: str = ""
+    gas_handler_type: str = ""
+    gas_handler_efficiency: float = 0.0
+    # Downhole sensor (optional; recommended for monitoring)
+    sensor_manufacturer: str = ""
+    sensor_model: str = ""
 
     def __post_init__(self) -> None:
         if self.num_stages <= 0:

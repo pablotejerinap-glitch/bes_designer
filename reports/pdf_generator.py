@@ -359,6 +359,26 @@ def generate_design_report(
     story.append(Spacer(1, 14))
 
     # ------------------------------------------------------------------
+    # 5b. Accessories (gas handling + monitoring)
+    # ------------------------------------------------------------------
+    story.append(Paragraph("5b. Manejo de Gas y Monitoreo", section_s))
+    _gh = (
+        f"{dr.gas_handler_manufacturer} {dr.gas_handler_model} "
+        f"({dr.gas_handler_type}, η {dr.gas_handler_efficiency:.0%})"
+        if dr.gas_handler_model else "No requerido (GIP bajo)"
+    )
+    _sn = (
+        f"{dr.sensor_manufacturer} {dr.sensor_model}"
+        if dr.sensor_model else "No disponible en catálogo"
+    )
+    story.append(_make_table([
+        ["Parámetro",          "Valor",  "Unidad"],
+        ["Separador de gas",    _gh,      "—"],
+        ["Sensor de fondo",     _sn,      "—"],
+    ], col_widths=col_w))
+    story.append(Spacer(1, 14))
+
+    # ------------------------------------------------------------------
     # 6. Warnings
     # ------------------------------------------------------------------
     all_w = list(dr.warnings)

@@ -521,6 +521,24 @@ class TestPipelineInvariants:
             assert 0.0 < dr.system_efficiency <= 1.0
 
     @pytest.mark.parametrize("name", _INVARIANT_EXAMPLES)
+    def test_recommendations_have_sensor(self, name, examples, catalog):
+        ex = examples[name]
+        res, flu, wel, sur, obj = _build_dataclasses(ex)
+        result = generate_recommendations(res, flu, wel, sur, obj, catalog, n=3)
+        for rec in result["recommendations"]:
+            dr: DesignResult = rec["design"]
+            assert dr.sensor_model, "expected a recommended downhole sensor"
+
+    def test_high_gip_example_gets_gas_handler(self, examples, catalog):
+        """Example 3A (GIP > 30 %) should attach a gas handler."""
+        ex = examples["example_3a"]
+        res, flu, wel, sur, obj = _build_dataclasses(ex)
+        result = generate_recommendations(res, flu, wel, sur, obj, catalog, n=3)
+        dr = result["recommendations"][0]["design"]
+        assert dr.gip_fraction > 0.10
+        assert dr.gas_handler_model, "high-GIP design should recommend a gas handler"
+
+    @pytest.mark.parametrize("name", _INVARIANT_EXAMPLES)
     def test_scores_between_0_and_10(self, name, examples, catalog):
         ex = examples[name]
         res, flu, wel, sur, obj = _build_dataclasses(ex)

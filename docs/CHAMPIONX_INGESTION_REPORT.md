@@ -107,10 +107,10 @@ Integración completa ejecutada. Todos los catálogos están subidos:
 
 - 35 motores (33 AFFIRMED ChampionX + 2 PowerFit SLB), 19 cables (incl. CAVALCADE 1/0), 24 sellos (incl. 9 VIGIL ChampionX), 23 bombas (incl. 6 High Rise SLB), 12 gas handlers WHIRLAWAY, 4 sensores ACE.
 - Sellos integrados al flujo (cada diseño selecciona protector por serie/temperatura/empuje y aparece en UI y reportes PDF/Excel).
-- Gas handlers y sensores cargados y consultables (`CatalogManager.select_gas_handler`, `select_sensor`).
+- Gas handlers y sensores integrados al flujo: cada diseño adjunta un separador de gas (si GIP > 10 %) y un sensor de fondo, visibles en `DesignResult`, UI y reportes.
 
 **Trabajo futuro restante:**
-- Surtir gas handler y sensor recomendados dentro del `DesignResult`/recomendador (hoy son consultables vía el catálogo, pero el diseño no los adjunta automáticamente al resultado ni los puntúa).
+- Incorporar el gas handler y el sensor al puntaje del recomendador (hoy se adjuntan al resultado pero no afectan el ranking).
 - Validar las curvas sintéticas de High Rise contra datos reales del fabricante si se consiguen.
 
 ---

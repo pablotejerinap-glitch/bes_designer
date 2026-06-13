@@ -361,6 +361,28 @@ def _build_electrico(ws, dr: DesignResult) -> None:
         _data_row(ws, row, label, value, unit, alt=(i % 2 == 1))
         row += 1
 
+    row += 1
+    _section_title(ws, row, "MANEJO DE GAS Y MONITOREO", 3)
+    row += 1
+    _header_row(ws, row, ["Parámetro", "Valor", "Unidad"])
+    row += 1
+
+    gh_val = (
+        f"{dr.gas_handler_manufacturer} {dr.gas_handler_model} "
+        f"({dr.gas_handler_type}, η {dr.gas_handler_efficiency:.0%})"
+        if dr.gas_handler_model else "No requerido (GIP bajo)"
+    )
+    sn_val = (
+        f"{dr.sensor_manufacturer} {dr.sensor_model}"
+        if dr.sensor_model else "No disponible en catálogo"
+    )
+    for i, (label, value, unit) in enumerate([
+        ("Separador de gas", gh_val, "—"),
+        ("Sensor de fondo",  sn_val, "—"),
+    ]):
+        _data_row(ws, row, label, value, unit, alt=(i % 2 == 1))
+        row += 1
+
 
 def _build_warnings(ws, dr: DesignResult) -> None:
     ws.title = "Warnings"

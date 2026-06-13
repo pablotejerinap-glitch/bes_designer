@@ -194,7 +194,7 @@ Sensores de fondo **ACE Downhole** (Standard, Mid Range, Xtreme Temperature, Xtr
 | Protector de la serie del motor que soporta empuje y temperatura | Paso 6 |
 | Cable apto por ampacidad, temperatura y geometría, de menor caída (caída leída del propio catálogo) | Paso 6 |
 | Transformador estándar inmediato superior al kVA requerido | Paso 6 |
-| Gas handler / sensor cuyo rango cubre las condiciones del pozo | Consultable (no adjuntado aún al resultado) |
+| Gas handler (si GIP > 10 %) y sensor cuyo rango cubre las condiciones del pozo | Paso 6 — adjuntados al resultado y a los reportes |
 
 ---
 
@@ -251,7 +251,7 @@ Para una lectura honesta de los resultados, el sistema asume y se limita a lo si
 4. **Eficiencia del sistema** aproximada como eficiencia de bomba × 0.92 (proxy de eficiencia de motor); no usa la eficiencia real del motor seleccionado.
 5. **Transformadores** acotados a tamaños estándar de hasta 300 kVA; diseños de alta potencia pueden quedar fuera de ese tope.
 6. **Empuje axial estimado.** La selección de protector usa un empuje axial *estimado* (ΔP de bomba × área del eje × margen 1.2, con diámetros de eje típicos por serie), no el empuje real catalogado por modelo. Para los protectores VIGIL, la capacidad de empuje y la temperatura son valores estimados (la hoja de datos solo publica HP de eje y diámetros).
-7. **Gas handler y sensor consultables pero no adjuntados.** Sus catálogos están cargados y hay lógica de selección (`select_gas_handler`, `select_sensor`), pero el diseño no los incorpora todavía al `DesignResult` ni al puntaje.
+7. **Gas handler y sensor recomendados pero sin puntaje.** Cada diseño adjunta un separador de gas (cuando el GIP supera 10 %) y un sensor de fondo, visibles en la interfaz y los reportes; todavía no influyen en el puntaje de ranking.
 8. **Campos cargados pero aún sin efecto en el cálculo:** H₂S, CO₂ y producción de arena (selección de metalurgia), límite de GIP del usuario y uso de VSD. La desviación máxima del pozo sí se usa ahora para elegir el tipo de protector (laberinto vs. bolsa).
 9. **Validez de las correlaciones:** las correlaciones PVT y multifásicas tienen los rangos de validez de sus publicaciones originales; fuera de ellos (crudos extrapesados, pozos muy desviados, alta presencia de H₂S/CO₂) los resultados deben tomarse con cautela.
 10. **Datos sintéticos/estimados marcados.** Las curvas de las bombas no provenientes del libro (representativas y High Rise), la capacidad/temperatura de los protectores VIGIL y los valores eléctricos del motor PowerFit son estimados; cada entrada lo declara en `_source` y no debe usarse para diseño de campo real.

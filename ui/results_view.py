@@ -177,6 +177,23 @@ def render_results(rec: dict) -> None:
 | Tasa alcanzada | {dr.flow_rate_achieved:.0f} STB/d |
 """)
 
+            st.markdown("**Manejo de gas y monitoreo**")
+            _gh = (
+                f"{dr.gas_handler_manufacturer} {dr.gas_handler_model} "
+                f"({dr.gas_handler_type}, η {dr.gas_handler_efficiency:.0%})"
+                if dr.gas_handler_model else "No requerido (GIP bajo)"
+            )
+            _sn = (
+                f"{dr.sensor_manufacturer} {dr.sensor_model}"
+                if dr.sensor_model else "—"
+            )
+            st.markdown(f"""
+| Campo | Valor |
+|---|---|
+| Separador de gas | {_gh} |
+| Sensor de fondo | {_sn} |
+""")
+
     # ------------------------------------------------------------------
     # 4. Rationale
     # ------------------------------------------------------------------
