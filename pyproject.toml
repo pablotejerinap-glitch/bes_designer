@@ -18,7 +18,10 @@ dependencies = { file = ["requirements.txt"] }
 [tool.setuptools]
 # Paquetes de dominio/UI existentes (top-level). El editable install pone la raíz
 # del proyecto en sys.path, reemplazando los sys.path.insert manuales.
-packages = ["core", "recommender", "reports", "catalogs", "ui", "services"]
+packages = [
+    "core", "recommender", "reports", "catalogs", "ui", "services",
+    "api", "api.routers", "api.schemas",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
