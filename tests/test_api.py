@@ -92,3 +92,73 @@ def test_design_domain_cross_field_422(client: TestClient) -> None:
     r = client.post("/api/design", json=bad)
     assert r.status_code == 422
     assert "casing_id" in r.json()["detail"]
+
+
+def _nodal_payload(**over) -> dict:
+    p = _payload()
+    body = {"reservoir": p["reservoir"], "fluid": p["fluid"],
+            "well": p["well"], "surface": p["surface"]}
+    body.update(over)
+    return body
+
+
+def _assert_figure(fig: dict) -> None:
+    assert "data" in fig and "layout" in fig  # valid Plotly figure JSON
+
+
+def test_nodal_single(client: TestClient) -> None:
+    r = client.post("/api/nodal", json=_nodal_payload(method="hagedorn_brown"))
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["mode"] == "single"
+    assert set(body["metrics"]) == {
+        "q_natural", "q_pump", "incremental_rate", "pwf_operating", "pump_efficiency"
+    }
+    _assert_figure(body["figure"])
+
+
+def test_nodal_compare(client: TestClient) -> None:
+    r = client.post("/api/nodal", json=_nodal_payload(compare_all=True))
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["mode"] == "compare"
+    assert len(body["comparison"]) == 4
+    _assert_figure(body["figure"])
+
+
+def test_nodal_unknown_pump_422(client: TestClient) -> None:
+    r = client.post("/api/nodal", json=_nodal_payload(pump_model="NO-EXISTE", stages=50, pump_depth=4000))
+    assert r.status_code == 422
+    assert "NO-EXISTE" in r.json()["detail"]
+
+
+def test_sensitivity(client: TestClient) -> None:
+    p = _payload()
+    body = {"reservoir": p["reservoir"], "fluid": p["fluid"], "well": p["well"],
+            "surface": p["surface"], "objectives": p["objectives"],
+            "param": "water_cut", "pct_range_pct": 30, "n_points": 5}
+    r = client.post("/api/sensitivity", json=body)
+    assert r.status_code == 200, r.text
+    b = r.json()
+    assert b["param"] == "water_cut"
+    assert len(b["param_values"]) >= 1
+    assert set(b["metrics"]) == {"HP", "Etapas", "Eficiencia (%)", "TDH (ft)"}
+    _assert_figure(b["figure"])
+
+
+def test_report_pdf(client: TestClient) -> None:
+    r = client.post("/api/reports/pdf", json=_payload())
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.content[:4] == b"%PDF"
+
+
+def test_report_xlsx(client: TestClient) -> None:
+    r = client.post("/api/reports/xlsx", json=_payload())
+    assert r.status_code == 200, r.text
+    assert r.content[:2] == b"PK"  # xlsx is a zip container
+
+
+def test_report_bad_format_404(client: TestClient) -> None:
+    r = client.post("/api/reports/txt", json=_payload())
+    assert r.status_code == 404
