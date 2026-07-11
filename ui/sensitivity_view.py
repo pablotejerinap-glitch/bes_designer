@@ -4,52 +4,19 @@ to variations in a single input parameter.
 """
 from __future__ import annotations
 
-from dataclasses import replace
-
-import numpy as np
 import streamlit as st
 
-from recommender.recommendation_engine import generate_recommendations
+from services.sensitivity_service import (
+    DEFAULT_N_POINTS,
+    PARAM_LABELS,
+    base_value,
+    run_sensitivity,
+    sweep_range,
+)
 from ui.plots import plot_sensitivity_analysis
 
-_PARAM_LABELS = {
-    "water_cut":       "Corte de agua (WC)",
-    "gor":             "GOR (scf/STB)",
-    "static_pressure": "Presión de reservorio (psi)",
-    "target_flow_rate":"Tasa objetivo (STB/d)",
-}
-
-_N_POINTS = 7   # number of evaluation points
-
-
-def _get_varied_inputs(param: str, value: float):
-    """Return (reservoir, fluid, objectives) with *param* set to *value*.
-
-    Reads the base objects from session_state and uses dataclasses.replace()
-    to substitute the chosen parameter.
-    """
-    import warnings as _warnings
-    reservoir  = st.session_state.reservoir
-    fluid      = st.session_state.fluid
-    objectives = st.session_state.objectives
-
-    with _warnings.catch_warnings():
-        _warnings.simplefilter("ignore", UserWarning)
-
-        if param == "water_cut":
-            v = float(np.clip(value, 0.0, 0.99))
-            fluid = replace(fluid, water_cut=v)
-        elif param == "gor":
-            v = max(0.0, float(value))
-            fluid = replace(fluid, gor=v)
-        elif param == "static_pressure":
-            v = max(50.0, float(value))
-            reservoir = replace(reservoir, static_pressure=v)
-        elif param == "target_flow_rate":
-            v = max(10.0, float(value))
-            objectives = replace(objectives, target_flow_rate=v)
-
-    return reservoir, fluid, objectives
+_PARAM_LABELS = PARAM_LABELS
+_N_POINTS = DEFAULT_N_POINTS
 
 
 def render_sensitivity() -> None:
@@ -84,13 +51,7 @@ def render_sensitivity() -> None:
         )
 
     # Base value for the selected parameter
-    base_values = {
-        "water_cut":        fluid.water_cut,
-        "gor":              fluid.gor,
-        "static_pressure":  reservoir.static_pressure,
-        "target_flow_rate": objectives.target_flow_rate,
-    }
-    base_val = base_values[param]
+    base_val = base_value(reservoir, fluid, objectives, param)
 
     with ctrl_col2:
         pct_range = st.slider(
@@ -98,16 +59,7 @@ def render_sensitivity() -> None:
             value=40, step=5, key="sens_pct_range"
         )
 
-    lo = base_val * (1.0 - pct_range / 100.0)
-    hi = base_val * (1.0 + pct_range / 100.0)
-
-    # Clamp to physically valid ranges
-    if param == "water_cut":
-        lo, hi = max(lo, 0.01), min(hi, 0.99)
-    elif param in ("gor", "static_pressure", "target_flow_rate"):
-        lo = max(lo, 1.0)
-
-    param_values = np.linspace(lo, hi, _N_POINTS)
+    lo, hi = sweep_range(base_val, param, pct_range)
 
     st.info(
         f"Rango: {lo:.3g} → {hi:.3g}  |  "
@@ -119,55 +71,25 @@ def render_sensitivity() -> None:
     # Run analysis
     # ------------------------------------------------------------------
     if st.button("▶ Correr análisis", type="primary"):
-        hp_vals:   list[float] = []
-        stage_vals: list[float] = []
-        eff_vals:  list[float] = []
-        tdh_vals:  list[float] = []
-        valid_xs:  list[float] = []
-
         progress_bar = st.progress(0.0, text="Calculando...")
 
-        for idx, val in enumerate(param_values):
+        def _progress(idx: int, total: int, val: float) -> None:
             progress_bar.progress(
-                (idx + 1) / _N_POINTS,
-                text=f"Punto {idx + 1}/{_N_POINTS} — {_PARAM_LABELS[param]} = {val:.3g}",
+                (idx + 1) / total,
+                text=f"Punto {idx + 1}/{total} — {_PARAM_LABELS[param]} = {val:.3g}",
             )
-            try:
-                res_v, flu_v, obj_v = _get_varied_inputs(param, val)
-                recs = generate_recommendations(
-                    reservoir=res_v,
-                    fluid=flu_v,
-                    well=well,
-                    surface=surface,
-                    objectives=obj_v,
-                    catalog=catalog,
-                    n=1,
-                )
-                dr = recs["recommendations"][0]["design"]
-                hp_vals.append(dr.motor_hp)
-                stage_vals.append(float(dr.num_stages))
-                eff_vals.append(dr.pump_efficiency * 100.0)
-                tdh_vals.append(dr.total_head_required)
-                valid_xs.append(float(val))
-            except Exception:
-                pass  # skip points where no design is feasible
 
+        sens = run_sensitivity(
+            reservoir, fluid, well, surface, objectives, catalog, param,
+            pct_range_pct=pct_range, n_points=_N_POINTS, progress=_progress,
+        )
         progress_bar.empty()
 
-        if not valid_xs:
+        if not sens["param_values"]:
             st.error("❌ No se encontraron diseños válidos en el rango seleccionado.")
             return
 
-        st.session_state["sens_results"] = {
-            "param_values": valid_xs,
-            "metrics": {
-                "HP":            hp_vals,
-                "Etapas":        stage_vals,
-                "Eficiencia (%)": eff_vals,
-                "TDH (ft)":      tdh_vals,
-            },
-            "param_label": _PARAM_LABELS[param],
-        }
+        st.session_state["sens_results"] = sens
 
     # ------------------------------------------------------------------
     # Show results (persists after button press)

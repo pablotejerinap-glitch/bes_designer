@@ -2,9 +2,29 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Rediseño de arquitectura en curso (rama refactor/architecture-redesign)
+
+Estamos migrando el monolito Streamlit a una arquitectura de tres capas
+(frontend React / backend FastAPI / DB SQLite). Reglas y convenciones del
+rediseño (leerlas antes de tocar código de arquitectura):
+
+@.claude/rules/architecture.md
+@.claude/rules/domain.md
+@.claude/rules/api-contract.md
+@.claude/rules/frontend.md
+
+Skills del proyecto (invocables): `run`, `add-endpoint`, `add-domain-function`.
+Plan completo: `C:\Users\maria\.claude\plans\quiet-stargazing-scott.md`.
+
+**Entorno:** venv en `.venv` (Python 3.14). Usar `.venv\Scripts\python.exe`
+(no hay `python`/`pip` en PATH). El proyecto está instalado editable
+(`pip install -e .`) — imports absolutos, **sin `sys.path.insert`**.
+
 ## Commands
 
 ```bash
+# Todos los comandos usan el intérprete del venv: .venv\Scripts\python.exe
+
 # Run all tests
 pytest
 
@@ -42,11 +62,19 @@ User inputs (Reservoir, Fluid, WellGeometry, SurfaceConditions, DesignObjectives
     ├─ core/electrical.py   → electrical_design_complete() — motor → cable → transformer
     ├─ core/gas_handling.py → complete_gas_design() — GIP, pressure-increment design, separator rec.
     │
-    └─ recommender/
-           pump_selector.py        → select_top_n_pumps() — runs hydraulic + electrical, scores all
-           scoring.py              → efficiency / flexibility / provider-preference scores (0–10, weighted 40/30/30)
-           recommendation_engine.py → generate_recommendations() — top-level API called by app.py
+    ├─ recommender/
+    │      pump_selector.py        → select_top_n_pumps() — runs hydraulic + electrical, scores all
+    │      scoring.py              → efficiency / flexibility / provider-preference scores (0–10, weighted 40/30/30)
+    │      recommendation_engine.py → generate_recommendations() — top-level API called by app.py
+    │
+    └─ services/                   → orquestación agnóstica de framework (números crudos, no UI)
+           nodal_service.py        → run_nodal_analysis() — extraído de app.py
+           sensitivity_service.py  → run_sensitivity() — extraído de ui/sensitivity_view.py
+           case_bundle.py          → case_bundle_json() — formato guardar/abrir (futuro DB)
 ```
+
+La capa `services/` es la fuente única de verdad que comparten Streamlit y la
+futura API FastAPI. No importa ningún framework. Ver `.claude/rules/architecture.md`.
 
 `app.py` calls only `generate_recommendations()` from the recommender layer. The UI layer (`ui/`) renders the results; `reports/` generates PDF and Excel outputs.
 

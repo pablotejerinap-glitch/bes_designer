@@ -11,8 +11,6 @@ from typing import Optional
 import numpy as np
 from scipy.interpolate import interp1d
 
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
 from core.models import PumpCurve, PumpPerformancePoint
 
 _CATALOG_DIR = Path(__file__).parent

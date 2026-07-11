@@ -7,15 +7,7 @@ Run with:
 """
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 import streamlit as st
-
-# Ensure project root is importable
-_ROOT = Path(__file__).parent
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
 
 # ---------------------------------------------------------------------------
 # Page configuration (must be first Streamlit call)
@@ -28,7 +20,8 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------------------------
-# Lazy imports (after sys.path is set)
+# Imports (deferred until after st.set_page_config, which must be the first
+# Streamlit call). Package is editable-installed, so no sys.path juggling.
 # ---------------------------------------------------------------------------
 from catalogs.loader import CatalogManager                                  # noqa: E402
 from recommender.recommendation_engine import generate_recommendations       # noqa: E402
@@ -38,6 +31,8 @@ from ui.comparison_view import render_comparison                             # n
 from ui.sensitivity_view import render_sensitivity                           # noqa: E402
 from reports.pdf_generator import generate_design_report                     # noqa: E402
 from reports.excel_exporter import generate_design_excel                     # noqa: E402
+from services.nodal_service import apply_reservoir_decline, run_nodal_analysis  # noqa: E402
+from services.case_bundle import case_bundle_json                            # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Session-state initialisation
@@ -214,9 +209,6 @@ elif section == "⚙️ Diseño BES":
         st.divider()
         st.subheader("📥 Descargar Reportes")
 
-        import json as _json
-        import dataclasses as _dc
-
         selected_dr = recs[min(idx, len(recs) - 1)]["design"]
         _well_dl = {
             "reservoir":  st.session_state.reservoir,
@@ -256,16 +248,16 @@ elif section == "⚙️ Diseño BES":
 
         with dl3:
             try:
-                _case = {
-                    "generated":    str(__import__("datetime").date.today()),
-                    "design_result": _dc.asdict(selected_dr),
-                    "reservoir":    _dc.asdict(st.session_state.reservoir),
-                    "fluid":        _dc.asdict(st.session_state.fluid),
-                    "well":         _dc.asdict(st.session_state.well),
-                    "surface":      _dc.asdict(st.session_state.surface),
-                    "objectives":   _dc.asdict(st.session_state.objectives),
-                }
-                _json_bytes = _json.dumps(_case, default=str, indent=2).encode("utf-8")
+                from datetime import date as _date
+                _json_bytes = case_bundle_json(
+                    selected_dr,
+                    st.session_state.reservoir,
+                    st.session_state.fluid,
+                    st.session_state.well,
+                    st.session_state.surface,
+                    st.session_state.objectives,
+                    generated=str(_date.today()),
+                )
                 st.download_button(
                     "💾 Guardar Caso JSON",
                     data=_json_bytes,
@@ -354,21 +346,7 @@ elif section == "📐 Análisis Nodal":
         )
 
     # ── Reservoir with optional decline ──────────────────────────────────────
-    from core.models import Reservoir as _Reservoir
-    if pr_decline > 0:
-        pr_new = reservoir_base.static_pressure * (1.0 - pr_decline / 100.0)
-        pb_new = min(reservoir_base.bubble_point, pr_new)
-        reservoir_eff = _Reservoir(
-            static_pressure=pr_new,
-            bubble_point=pb_new,
-            productivity_index=reservoir_base.productivity_index,
-            ipr_method=reservoir_base.ipr_method,
-            reservoir_temp=reservoir_base.reservoir_temp,
-            drive_mechanism=reservoir_base.drive_mechanism,
-            datum_depth=reservoir_base.datum_depth,
-        )
-    else:
-        reservoir_eff = reservoir_base
+    reservoir_eff = apply_reservoir_decline(reservoir_base, pr_decline)
 
     if pr_decline > 0:
         st.info(
@@ -403,7 +381,15 @@ elif section == "📐 Análisis Nodal":
         with st.spinner("Calculando análisis nodal…"):
             try:
                 from ui.plots import plot_nodal_analysis, plot_nodal_comparison
-                from core.nodal_analysis import find_operating_point, compare_methods
+
+                # Service computes all raw numbers; the view only formats/renders.
+                nodal = run_nodal_analysis(
+                    reservoir_base, fluid, well, surface,
+                    method=method,
+                    pr_decline_pct=pr_decline,
+                    compare_all=compare_all,
+                    pump=pump_obj, stages=stages_val, pump_depth=pump_depth_val,
+                )
 
                 if not compare_all:
                     # ── Single-method view ────────────────────────────────────
@@ -419,30 +405,18 @@ elif section == "📐 Análisis Nodal":
                     )
                     st.plotly_chart(fig_nodal, use_container_width=True)
 
-                    # Metrics
-                    result = find_operating_point(
-                        reservoir_eff, fluid, well, surface,
-                        method=method,
-                        pump=pump_obj, stages=stages_val, pump_depth=pump_depth_val,
-                    )
-                    nat = result["natural_flow"]
-                    pmp = result["pump_flow"]
-                    q_nat  = nat["q"]  if nat  else 0.0
-                    q_pmp  = pmp["q"]  if pmp  else 0.0
-                    pwf_op = pmp["pwf"] if pmp else (nat["pwf"] if nat else 0.0)
-                    incr_pct = (result["incremental_rate"] / max(q_nat, 1.0)) * 100.0
-
+                    m = nodal["metrics"]
                     mc1, mc2, mc3, mc4 = st.columns(4)
-                    mc1.metric("Caudal Natural",  f"{q_nat:.0f} STB/D")
+                    mc1.metric("Caudal Natural",  f"{m['q_natural']:.0f} STB/D")
                     mc2.metric(
                         "Caudal con BES",
-                        f"{q_pmp:.0f} STB/D",
-                        delta=f"+{result['incremental_rate']:.0f} STB/D" if q_pmp > 0 else None,
+                        f"{m['q_pump']:.0f} STB/D",
+                        delta=f"+{m['incremental_rate']:.0f} STB/D" if m['q_pump'] > 0 else None,
                     )
-                    mc3.metric("Pwf Operación",   f"{pwf_op:.0f} psi")
+                    mc3.metric("Pwf Operación",   f"{m['pwf_operating']:.0f} psi")
                     mc4.metric(
                         "Eficiencia BES",
-                        f"{result['pump_efficiency'] * 100:.1f} %",
+                        f"{m['pump_efficiency'] * 100:.1f} %",
                     )
 
                 else:
@@ -458,33 +432,18 @@ elif section == "📐 Análisis Nodal":
                     )
                     st.plotly_chart(fig_comp, use_container_width=True)
 
-                    cmp_results = compare_methods(
-                        reservoir_eff, fluid, well, surface,
-                        pump=pump_obj, stages=stages_val, pump_depth=pump_depth_val,
-                    )
-
                     import pandas as _pd
-                    _labels = {
-                        "hagedorn_brown":       "Hagedorn-Brown",
-                        "beggs_brill":          "Beggs-Brill",
-                        "duns_ros":             "Duns & Ros",
-                        "poettmann_carpenter":  "Poettmann & Carpenter",
-                    }
-                    table_rows = []
-                    for m_key, m_label in _labels.items():
-                        res = cmp_results[m_key]
-                        q_n = res["natural_flow"]["q"]  if res["natural_flow"] else 0
-                        q_p = res["pump_flow"]["q"]     if res["pump_flow"]    else 0
-                        pwf = res["pump_flow"]["pwf"]   if res["pump_flow"]    else 0
-                        eff = res["pump_efficiency"]
-                        table_rows.append({
-                            "Correlación":            m_label,
-                            "Q Natural (STB/D)":      f"{q_n:.0f}",
-                            "Q con BES (STB/D)":      f"{q_p:.0f}",
-                            "Incremento (STB/D)":     f"{q_p - q_n:.0f}",
-                            "Pwf operación (psi)":    f"{pwf:.0f}",
-                            "Eficiencia bomba (%)":   f"{eff * 100:.1f}",
-                        })
+                    table_rows = [
+                        {
+                            "Correlación":            r["method_label"],
+                            "Q Natural (STB/D)":      f"{r['q_natural']:.0f}",
+                            "Q con BES (STB/D)":      f"{r['q_pump']:.0f}",
+                            "Incremento (STB/D)":     f"{r['incremental']:.0f}",
+                            "Pwf operación (psi)":    f"{r['pwf_operating']:.0f}",
+                            "Eficiencia bomba (%)":   f"{r['pump_efficiency'] * 100:.1f}",
+                        }
+                        for r in nodal["comparison"]
+                    ]
                     st.subheader("Tabla comparativa")
                     st.dataframe(
                         _pd.DataFrame(table_rows),

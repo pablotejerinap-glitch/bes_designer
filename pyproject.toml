@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bes-designer"
+version = "1.0.0"
+description = "Herramienta de diseño automatizado para sistemas de Bombeo Electrosumergible (BES/ESP), metodología Kermit Brown Vol. 2b Cap. 4.5."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Pablo Tejerina" }]
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools]
+# Paquetes de dominio/UI existentes (top-level). El editable install pone la raíz
+# del proyecto en sys.path, reemplazando los sys.path.insert manuales.
+packages = ["core", "recommender", "reports", "catalogs", "ui", "services"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
