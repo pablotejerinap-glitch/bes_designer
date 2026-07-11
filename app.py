@@ -24,13 +24,11 @@ st.set_page_config(
 # Streamlit call). Package is editable-installed, so no sys.path juggling.
 # ---------------------------------------------------------------------------
 from catalogs.loader import CatalogManager                                  # noqa: E402
-from recommender.recommendation_engine import generate_recommendations       # noqa: E402
 from ui.forms import render_data_forms                                       # noqa: E402
 from ui.results_view import render_results                                   # noqa: E402
 from ui.comparison_view import render_comparison                             # noqa: E402
 from ui.sensitivity_view import render_sensitivity                           # noqa: E402
-from reports.pdf_generator import generate_design_report                     # noqa: E402
-from reports.excel_exporter import generate_design_excel                     # noqa: E402
+from ui import api_client                                                    # noqa: E402
 from services.nodal_service import apply_reservoir_decline, run_nodal_analysis  # noqa: E402
 from services.case_bundle import case_bundle_json                            # noqa: E402
 
@@ -161,13 +159,14 @@ elif section == "⚙️ Diseño BES":
     ):
         with st.spinner("Calculando diseño óptimo — evaluando catálogo completo..."):
             try:
-                results = generate_recommendations(
-                    reservoir=st.session_state.reservoir,
-                    fluid=st.session_state.fluid,
-                    well=st.session_state.well,
-                    surface=st.session_state.surface,
-                    objectives=st.session_state.objectives,
-                    catalog=catalog,
+                # Streamlit consume el backend FastAPI (api_client reconstruye
+                # los DesignResult, así estas vistas quedan sin cambios).
+                results = api_client.design(
+                    st.session_state.reservoir,
+                    st.session_state.fluid,
+                    st.session_state.well,
+                    st.session_state.surface,
+                    st.session_state.objectives,
                     n=3,
                 )
                 st.session_state.design_results = results
@@ -178,8 +177,8 @@ elif section == "⚙️ Diseño BES":
                     f"✅ Diseño completado: {n_recs} opción(es) seleccionada(s) "
                     f"de {n_cand} candidato(s) evaluado(s)."
                 )
-            except ValueError as exc:
-                st.error(f"❌ No se encontró diseño válido: {exc}")
+            except api_client.ApiError as exc:
+                st.error(f"❌ {exc}")
                 st.stop()
             except Exception as exc:
                 st.error(f"❌ Error inesperado en el cálculo: {exc}")
@@ -209,20 +208,21 @@ elif section == "⚙️ Diseño BES":
         st.divider()
         st.subheader("📥 Descargar Reportes")
 
-        selected_dr = recs[min(idx, len(recs) - 1)]["design"]
-        _well_dl = {
-            "reservoir":  st.session_state.reservoir,
-            "fluid":      st.session_state.fluid,
-            "well":       st.session_state.well,
-            "surface":    st.session_state.surface,
-            "objectives": st.session_state.objectives,
-        }
+        rank_dl = min(idx, len(recs) - 1)
+        selected_dr = recs[rank_dl]["design"]
+        _dl_inputs = (
+            st.session_state.reservoir,
+            st.session_state.fluid,
+            st.session_state.well,
+            st.session_state.surface,
+            st.session_state.objectives,
+        )
 
         dl1, dl2, dl3 = st.columns(3)
 
         with dl1:
             try:
-                _pdf = generate_design_report(selected_dr, _well_dl)
+                _pdf = api_client.report("pdf", *_dl_inputs, rank=rank_dl)
                 st.download_button(
                     "📕 Descargar PDF",
                     data=_pdf,
@@ -230,12 +230,12 @@ elif section == "⚙️ Diseño BES":
                     mime="application/pdf",
                     use_container_width=True,
                 )
-            except Exception as _e:
+            except api_client.ApiError as _e:
                 st.error(f"❌ Error generando PDF: {_e}")
 
         with dl2:
             try:
-                _xlsx = generate_design_excel(selected_dr, _well_dl)
+                _xlsx = api_client.report("xlsx", *_dl_inputs, rank=rank_dl)
                 st.download_button(
                     "📗 Descargar Excel",
                     data=_xlsx,
@@ -243,7 +243,7 @@ elif section == "⚙️ Diseño BES":
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
                 )
-            except Exception as _e:
+            except api_client.ApiError as _e:
                 st.error(f"❌ Error generando Excel: {_e}")
 
         with dl3:
