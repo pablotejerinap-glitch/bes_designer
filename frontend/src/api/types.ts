@@ -89,6 +89,12 @@ export interface DesignRequest extends DesignInputs {
   n: number;
 }
 
+export interface ExampleWell {
+  key: string;
+  label: string;
+  inputs: DesignInputs;
+}
+
 export interface DesignResult {
   pump_manufacturer: string;
   pump_series: string;

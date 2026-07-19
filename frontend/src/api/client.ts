@@ -6,8 +6,10 @@ import type {
   CatalogSummary,
   DesignRequest,
   DesignResponse,
+  ExampleWell,
   NodalRequest,
   NodalResponse,
+  PlotlyFigure,
   SensitivityRequest,
   SensitivityResponse,
 } from "./types";
@@ -72,8 +74,17 @@ async function requestBlob(path: string, body: unknown): Promise<Blob> {
 export const api = {
   health: () => request<{ status: string }>("/api/health"),
   catalogs: () => request<CatalogSummary>("/api/catalogs"),
+  examples: () => request<ExampleWell[]>("/api/examples"),
   design: (req: DesignRequest) => request<DesignResponse>("/api/design", req),
   nodal: (req: NodalRequest) => request<NodalResponse>("/api/nodal", req),
+  pumpCurve: (p: { pump_model: string; operating_flow: number; stages: number }) =>
+    request<{ figure: PlotlyFigure }>(
+      `/api/plots/pump-curve?${new URLSearchParams({
+        pump_model: p.pump_model,
+        operating_flow: String(p.operating_flow),
+        stages: String(p.stages),
+      })}`
+    ),
   sensitivity: (req: SensitivityRequest) =>
     request<SensitivityResponse>("/api/sensitivity", req),
   report: (fmt: "pdf" | "xlsx", req: DesignRequest & { rank?: number }) =>
