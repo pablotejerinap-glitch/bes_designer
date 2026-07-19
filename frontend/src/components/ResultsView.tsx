@@ -14,6 +14,7 @@ import {
 import { api, ApiError, downloadBlob } from "../api/client";
 import type { DesignInputs, DesignResponse, Recommendation } from "../api/types";
 import { DesignCharts } from "./DesignCharts";
+import { ComparisonView } from "./ComparisonView";
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
@@ -149,12 +150,18 @@ export function ResultsView({
               {medal(r.rank)} Opción {r.rank}: {r.design.pump_model}
             </Tabs.Tab>
           ))}
+          {recs.length > 1 && <Tabs.Tab value="compare">⚖️ Comparar</Tabs.Tab>}
         </Tabs.List>
         {recs.map((r, i) => (
           <Tabs.Panel key={r.rank} value={String(i)}>
             <RecPanel rec={r} inputs={inputs} />
           </Tabs.Panel>
         ))}
+        {recs.length > 1 && (
+          <Tabs.Panel value="compare">
+            <ComparisonView recommendations={recs} />
+          </Tabs.Panel>
+        )}
       </Tabs>
     </Card>
   );

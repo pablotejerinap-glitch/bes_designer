@@ -9,6 +9,7 @@ import {
   Loader,
   Select,
   Stack,
+  Tabs,
   Text,
   Title,
 } from "@mantine/core";
@@ -17,6 +18,7 @@ import { api, ApiError } from "./api/client";
 import type { DesignInputs, DesignResponse, ExampleWell } from "./api/types";
 import { WellForm } from "./components/WellForm";
 import { ResultsView } from "./components/ResultsView";
+import { SensitivityView } from "./components/SensitivityView";
 
 type Health = "checking" | "ok" | "error";
 
@@ -105,40 +107,55 @@ export function App() {
               <Text c="dimmed">Metodología Kermit Brown Vol. 2b Cap. 4.5.</Text>
             </div>
 
-            <Card withBorder radius="md" padding="lg">
-              <Group justify="space-between" align="flex-end" mb="md">
-                <Select
-                  label="Cargar ejemplo del libro"
-                  placeholder="Elegí un ejemplo…"
-                  data={examples.map((e) => ({ value: e.key, label: e.label }))}
-                  onChange={loadExample}
-                  disabled={examples.length === 0}
-                  w={420}
-                  searchable
-                />
-                <Button
-                  onClick={calculate}
-                  loading={calculating}
-                  disabled={!inputs || health !== "ok"}
-                  size="md"
-                >
-                  🚀 Calcular Diseño BES
-                </Button>
-              </Group>
+            <Tabs defaultValue="design">
+              <Tabs.List>
+                <Tabs.Tab value="design">⚙️ Diseño</Tabs.Tab>
+                <Tabs.Tab value="sensitivity">📊 Sensibilidad</Tabs.Tab>
+              </Tabs.List>
 
-              {inputs ? (
-                <WellForm value={inputs} onChange={setInputs} />
-              ) : (
-                <Group>
-                  <Loader size="sm" />
-                  <Text>Cargando…</Text>
-                </Group>
-              )}
-            </Card>
+              <Tabs.Panel value="design" pt="md">
+                <Card withBorder radius="md" padding="lg">
+                  <Group justify="space-between" align="flex-end" mb="md">
+                    <Select
+                      label="Cargar ejemplo del libro"
+                      placeholder="Elegí un ejemplo…"
+                      data={examples.map((e) => ({ value: e.key, label: e.label }))}
+                      onChange={loadExample}
+                      disabled={examples.length === 0}
+                      w={420}
+                      searchable
+                    />
+                    <Button
+                      onClick={calculate}
+                      loading={calculating}
+                      disabled={!inputs || health !== "ok"}
+                      size="md"
+                    >
+                      🚀 Calcular Diseño BES
+                    </Button>
+                  </Group>
 
-            {result && (
-              <ResultsView response={result.response} inputs={result.inputs} />
-            )}
+                  {inputs ? (
+                    <WellForm value={inputs} onChange={setInputs} />
+                  ) : (
+                    <Group>
+                      <Loader size="sm" />
+                      <Text>Cargando…</Text>
+                    </Group>
+                  )}
+                </Card>
+
+                {result && (
+                  <ResultsView response={result.response} inputs={result.inputs} />
+                )}
+              </Tabs.Panel>
+
+              <Tabs.Panel value="sensitivity" pt="md">
+                {/* Corre sobre los inputs actuales del formulario: a diferencia
+                    de los resultados, no depende de un diseño previo. */}
+                <SensitivityView inputs={inputs} />
+              </Tabs.Panel>
+            </Tabs>
           </Stack>
         </Container>
       </AppShell.Main>
