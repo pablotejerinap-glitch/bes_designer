@@ -13,8 +13,8 @@ Numerical references
 import numpy as np
 import pytest
 
-from core.models import Fluid
-from core.pvt import (
+from bes.core.models import Fluid
+from bes.core.pvt import (
     fluid_properties_at_conditions,
     gas_bg,
     gas_z_factor,

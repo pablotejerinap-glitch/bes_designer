@@ -27,10 +27,9 @@ A partir de los datos del pozo (reservorio, fluido, geometría, superficie y obj
 
 ```
 bes_designer/
-├── app.py                  # Punto de entrada Streamlit
-├── requirements.txt
-│
-├── core/                   # Motor de cálculo
+├── src/bes/                # Paquete instalable (pip install -e .)
+│   │
+│   ├── core/               # Motor de cálculo
 │   ├── models.py           # Dataclasses y validación de datos
 │   ├── ipr.py              # IPR: Vogel, Linear, Fetkovich, Combined
 │   ├── pvt.py              # PVT: Standing, DAK z-factor, Beggs-Robinson
@@ -40,28 +39,37 @@ bes_designer/
 │   ├── electrical.py       # Motor, cable, transformador
 │   └── gas_handling.py     # GIP (Brown §4.53103)
 │
-├── catalogs/               # Catálogos de equipos (JSON)
+│   ├── catalogs/           # Catálogos de equipos (JSON)
 │   ├── pumps.json          # Curvas de rendimiento de bombas
 │   ├── motors.json         # Catálogo de motores
 │   ├── cables.json         # Catálogo de cables
 │   ├── seals.json          # Catálogo de sellos/protectores
 │   └── loader.py           # CatalogManager
 │
-├── recommender/            # Selección y ranking de equipos
+│   ├── recommender/        # Selección y ranking de equipos
 │   ├── pump_selector.py    # select_top_n_pumps
 │   ├── scoring.py          # Scores de eficiencia, flexibilidad, preferencia de proveedor
 │   └── recommendation_engine.py  # generate_recommendations (API pública)
 │
-├── reports/                # Generación de reportes
+│   ├── reports/            # Generación de reportes
 │   ├── pdf_generator.py    # generate_design_report → bytes PDF (ReportLab)
 │   └── excel_exporter.py   # generate_design_excel → bytes XLSX (openpyxl)
 │
-├── ui/                     # Componentes Streamlit
+│   ├── services/           # Orquestación agnóstica de framework
+│   ├── plotting/           # Gráficos Plotly (agnósticos, los usa la API)
+│   └── api/                # Backend FastAPI (routers, schemas, mappers)
+│
+├── streamlit_app/          # App Streamlit (red de seguridad)
+│   ├── app.py              # Punto de entrada
 │   ├── forms.py            # Formulario de datos del pozo (5 tabs)
 │   ├── results_view.py     # Vista de resultados de diseño
 │   ├── comparison_view.py  # Comparación de opciones
 │   ├── sensitivity_view.py # Análisis de sensibilidad
-│   └── plots.py            # Gráficos Plotly
+│   └── api_client.py       # Cliente HTTP hacia la API
+│
+├── frontend/               # SPA React (Vite + TS + Mantine)
+│
+├── requirements.txt
 │
 ├── tests/                  # Suite de tests pytest
 │   ├── test_ipr.py
@@ -102,8 +110,9 @@ source .venv/bin/activate        # Linux / macOS
 .venv\Scripts\activate           # Windows (cmd)
 .venv\Scripts\Activate.ps1      # Windows (PowerShell)
 
-# 3. Instalar dependencias
+# 3. Instalar dependencias + el paquete en editable
 pip install -r requirements.txt
+pip install -e .
 ```
 
 Requiere **Python 3.10 o superior**.
@@ -115,8 +124,15 @@ Requiere **Python 3.10 o superior**.
 ### Interfaz gráfica (Streamlit)
 
 ```bash
-streamlit run app.py
+# 1. Backend (requerido)
+uvicorn bes.api.main:app --reload --port 8000
+
+# 2. Streamlit
+streamlit run streamlit_app/app.py
 ```
+
+O todo junto con Docker: `docker compose up --build`
+(frontend :8080 · api :8000 · streamlit :8501)
 
 La app abre en `http://localhost:8501`. Flujo típico:
 
@@ -129,11 +145,12 @@ La app abre en `http://localhost:8501`. Flujo típico:
 ### API Python
 
 ```python
-from catalogs.loader import CatalogManager
-from core.models import Reservoir, Fluid, WellGeometry, SurfaceConditions, DesignObjectives, IPRMethod, DriveMechanism
-from recommender.recommendation_engine import generate_recommendations
+from bes.catalogs.loader import CatalogManager
+from bes.core.models import Reservoir, Fluid, WellGeometry, SurfaceConditions, DesignObjectives, IPRMethod, DriveMechanism
+from bes.recommender.recommendation_engine import generate_recommendations
 
-catalog = CatalogManager("catalogs/")
+# Sin argumento: resuelve los JSON desde el paquete, sea cual sea el CWD.
+catalog = CatalogManager()
 
 reservoir = Reservoir(
     static_pressure=2500.0,

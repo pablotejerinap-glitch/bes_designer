@@ -12,8 +12,8 @@ from __future__ import annotations
 import pytest
 from pathlib import Path
 
-from catalogs.loader import CatalogManager
-from core.models import (
+from bes.catalogs.loader import CatalogManager
+from bes.core.models import (
     DesignObjectives,
     DriveMechanism,
     Fluid,
@@ -23,8 +23,8 @@ from core.models import (
     SurfaceConditions,
     WellGeometry,
 )
-from core.tdh import calculate_tdh, friction_loss_hazen_williams
-from core.pump_design import (
+from bes.core.tdh import calculate_tdh, friction_loss_hazen_williams
+from bes.core.pump_design import (
     apply_viscosity_correction,
     calculate_motor_hp,
     calculate_stages,
@@ -32,7 +32,6 @@ from core.pump_design import (
     design_pump_complete,
 )
 
-CATALOG_DIR = str(Path(__file__).parent.parent / "catalogs")
 
 
 # ---------------------------------------------------------------------------
@@ -41,7 +40,7 @@ CATALOG_DIR = str(Path(__file__).parent.parent / "catalogs")
 
 @pytest.fixture(scope="module")
 def manager() -> CatalogManager:
-    return CatalogManager(CATALOG_DIR)
+    return CatalogManager()
 
 
 @pytest.fixture(scope="module")

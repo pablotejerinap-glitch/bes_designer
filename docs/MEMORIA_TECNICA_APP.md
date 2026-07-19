@@ -232,14 +232,14 @@ core/   │  ipr.py → pvt.py → multiphase.py → tdh.py → pump_design.py
         ▼
 recommender/  pump_selector.py → scoring.py → recommendation_engine.py
         ▼
-ui/ (Streamlit + Plotly)        reports/ (PDF ReportLab · Excel openpyxl · JSON)
+streamlit_app/ + bes.plotting        bes.reports/ (PDF ReportLab · Excel openpyxl · JSON)
 ```
 
 - **Lenguaje:** Python 3.14. **Dependencias** (versiones fijadas en `requirements.txt`): numpy, scipy, pandas, plotly, streamlit, reportlab, openpyxl, pytest.
 - **Separación estricta de capas:** la interfaz no calcula nada; llama a una única función pública (`generate_recommendations`) y muestra el resultado. Esto permite usar el motor de cálculo también desde scripts o notebooks, sin interfaz.
 - **Modelos de datos validados:** todas las entradas son `dataclasses` con validación física al construirse (presiones positivas, water cut en [0,1], diámetros consistentes, etc.), de modo que los errores de carga se detectan antes de calcular.
 - **Unidades** (consistentes en todo el sistema): psia/psi, °F, STB/d, ft, pulgadas, HP, V/A.
-- **Ejecución:** `python -m streamlit run app.py` · **Tests:** `pytest` · **Validación:** `python scripts/validate_all_examples.py`.
+- **Ejecución:** `python -m streamlit run streamlit_app/app.py` · **Tests:** `pytest` · **Validación:** `python scripts/validate_all_examples.py`.
 
 ---
 

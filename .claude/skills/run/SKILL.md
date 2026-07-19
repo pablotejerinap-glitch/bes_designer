@@ -21,17 +21,17 @@ así que los imports funcionan desde cualquier CWD, sin `sys.path`.
 ## Backend FastAPI (requerido por Streamlit desde Semana 2)
 
 ```powershell
-& ".\.venv\Scripts\python.exe" -m uvicorn api.main:app --reload --port 8000
+& ".\.venv\Scripts\python.exe" -m uvicorn bes.api.main:app --reload --port 8000
 ```
 Docs OpenAPI en http://localhost:8000/docs. Salud: `Invoke-WebRequest http://localhost:8000/api/health`.
 
 ## Streamlit (respaldo, consume la API)
 
 **Requiere el backend corriendo** (Streamlit repunta `/api/design` y las descargas
-PDF/Excel por HTTP vía `ui/api_client.py`). Levantá primero uvicorn, después:
+PDF/Excel por HTTP vía `streamlit_app/api_client.py`). Levantá primero uvicorn, después:
 
 ```powershell
-& ".\.venv\Scripts\python.exe" -m streamlit run app.py --server.headless true --server.port 8501
+& ".\.venv\Scripts\python.exe" -m streamlit run streamlit_app/app.py --server.headless true --server.port 8501
 ```
 Abre en http://localhost:8501. Salud: `Invoke-WebRequest http://localhost:8501/healthz`.
 URL del backend configurable con `$env:BES_API_URL` (default http://localhost:8000).
@@ -42,7 +42,7 @@ Las secciones Nodal y Sensibilidad siguen calculando in-process (no requieren la
 ```powershell
 & ".\.venv\Scripts\python.exe" -m pytest -q
 ```
-Deben pasar los 557 tests (545 dominio + 12 API). Ver `.claude/rules/domain.md`.
+Deben pasar los 562 tests (545 dominio + 17 API). Ver `.claude/rules/domain.md`.
 
 ## Frontend React (Semana 3+)
 
@@ -50,9 +50,12 @@ Deben pasar los 557 tests (545 dominio + 12 API). Ver `.claude/rules/domain.md`.
 cd frontend; npm install; npm run dev
 ```
 
-## Todo junto (Semana 4)
+## Todo junto (Docker)
 
-Script `run.ps1` (sin Docker) que levanta backend + frontend con un comando.
+```powershell
+docker compose up --build
+```
+frontend http://localhost:8080 · api http://localhost:8000 · streamlit http://localhost:8501
 
 ## Notas
 - En PowerShell, para pasar scripts multilínea a Python, escribí el script a un

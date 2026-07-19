@@ -7,15 +7,14 @@ from __future__ import annotations
 import pytest
 from pathlib import Path
 
-from catalogs.loader import CatalogManager
-from core.models import PumpCurve
+from bes.catalogs.loader import CatalogManager
+from bes.core.models import PumpCurve
 
-CATALOG_DIR = str(Path(__file__).parent.parent / "catalogs")
 
 
 @pytest.fixture(scope="module")
 def manager() -> CatalogManager:
-    return CatalogManager(CATALOG_DIR)
+    return CatalogManager()
 
 
 @pytest.fixture(scope="module")

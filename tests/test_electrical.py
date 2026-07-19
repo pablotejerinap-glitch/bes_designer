@@ -14,9 +14,9 @@ import math
 import pytest
 from pathlib import Path
 
-from catalogs.loader import CatalogManager
-from core.models import Fluid, IPRMethod, DriveMechanism, WellGeometry
-from core.electrical import (
+from bes.catalogs.loader import CatalogManager
+from bes.core.models import Fluid, IPRMethod, DriveMechanism, WellGeometry
+from bes.core.electrical import (
     calculate_kva,
     calculate_surface_voltage,
     electrical_design_complete,
@@ -27,7 +27,6 @@ from core.electrical import (
     voltage_drop,
 )
 
-CATALOG_DIR = str(Path(__file__).parent.parent / "catalogs")
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +35,7 @@ CATALOG_DIR = str(Path(__file__).parent.parent / "catalogs")
 
 @pytest.fixture(scope="module")
 def manager() -> CatalogManager:
-    return CatalogManager(CATALOG_DIR)
+    return CatalogManager()
 
 
 @pytest.fixture(scope="module")

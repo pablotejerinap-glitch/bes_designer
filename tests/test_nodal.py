@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 import numpy as np
 
-from core.models import (
+from bes.core.models import (
     DriveMechanism,
     Fluid,
     IPRMethod,
@@ -19,8 +19,8 @@ from core.models import (
     SurfaceConditions,
     WellGeometry,
 )
-from core.multiphase import poettmann_carpenter_gradient, duns_ros_gradient
-from core.nodal_analysis import (
+from bes.core.multiphase import poettmann_carpenter_gradient, duns_ros_gradient
+from bes.core.nodal_analysis import (
     compare_methods,
     find_operating_point,
     outflow_curve_natural,

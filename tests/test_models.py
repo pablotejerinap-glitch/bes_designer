@@ -1,7 +1,7 @@
 """Unit tests for core/models.py — valid construction and validation errors."""
 
 import pytest
-from core.models import (
+from bes.core.models import (
     IPRMethod,
     DriveMechanism,
     Reservoir,

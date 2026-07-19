@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from api.main import app
+from bes.api.main import app
 
 _EXAMPLES = json.loads(
     (Path(__file__).resolve().parent.parent / "data" / "example_wells.json").read_text(encoding="utf-8")
@@ -162,3 +162,67 @@ def test_report_xlsx(client: TestClient) -> None:
 def test_report_bad_format_404(client: TestClient) -> None:
     r = client.post("/api/reports/txt", json=_payload())
     assert r.status_code == 404
+
+
+def test_examples(client: TestClient) -> None:
+    r = client.get("/api/examples")
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body) >= 1
+    ex = body[0]
+    assert {"key", "label", "inputs"} <= set(ex)
+    assert ex["inputs"]["reservoir"]["ipr_method"] in {
+        "linear", "vogel", "fetkovich", "combined"
+    }
+    # Los inputs de un ejemplo deben ser válidos para un diseño.
+    r2 = client.post("/api/design", json={**ex["inputs"], "n": 1})
+    assert r2.status_code == 200, r2.text
+
+
+# --------------------------------------------------------------------------- #
+# Gráficos sueltos
+# --------------------------------------------------------------------------- #
+def test_pump_curve_figure(client: TestClient) -> None:
+    """La curva de bomba se pide con un modelo real del catálogo."""
+    model = client.get("/api/catalogs").json()["pumps"][0]["model"]
+    r = client.get(
+        "/api/plots/pump-curve",
+        params={"pump_model": model, "operating_flow": 1500, "stages": 100},
+    )
+    assert r.status_code == 200, r.text
+    _assert_figure(r.json()["figure"])
+
+
+def test_pump_curve_unknown_model_422(client: TestClient) -> None:
+    r = client.get(
+        "/api/plots/pump-curve",
+        params={"pump_model": "NO-EXISTE-XYZ", "operating_flow": 1500, "stages": 100},
+    )
+    assert r.status_code == 422
+    assert "NO-EXISTE-XYZ" in r.json()["detail"]
+
+
+def test_pump_curve_rejects_nonpositive_stages(client: TestClient) -> None:
+    model = client.get("/api/catalogs").json()["pumps"][0]["model"]
+    r = client.get(
+        "/api/plots/pump-curve",
+        params={"pump_model": model, "operating_flow": 1500, "stages": 0},
+    )
+    assert r.status_code == 422
+
+
+def test_pump_curve_matches_design_recommendation(client: TestClient) -> None:
+    """El front pide la curva con los valores que devuelve /api/design:
+    ese par (modelo, etapas) siempre tiene que graficar."""
+    design = client.post("/api/design", json=_payload(n=1)).json()
+    top = design["recommendations"][0]["design"]
+    r = client.get(
+        "/api/plots/pump-curve",
+        params={
+            "pump_model": top["pump_model"],
+            "operating_flow": top["flow_rate_achieved"],
+            "stages": top["num_stages"],
+        },
+    )
+    assert r.status_code == 200, r.text
+    _assert_figure(r.json()["figure"])

@@ -10,8 +10,8 @@ Numerical references:
 import numpy as np
 import pytest
 
-from core.models import DriveMechanism, IPRMethod, Reservoir
-from core.ipr import (
+from bes.core.models import DriveMechanism, IPRMethod, Reservoir
+from bes.core.ipr import (
     calculate_pwf_for_target_rate,
     combined_ipr,
     fetkovich_ipr,

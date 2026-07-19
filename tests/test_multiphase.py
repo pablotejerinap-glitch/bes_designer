@@ -19,8 +19,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from core.models import DriveMechanism, Fluid, IPRMethod, Reservoir, WellGeometry
-from core.multiphase import (
+from bes.core.models import DriveMechanism, Fluid, IPRMethod, Reservoir, WellGeometry
+from bes.core.multiphase import (
     beggs_brill_gradient,
     calculate_discharge_pressure,
     calculate_pip,
@@ -448,7 +448,7 @@ class TestCalculateDischarge:
 class TestCalculatePIP:
     def test_pip_less_than_pwf(self, reservoir, base_fluid, well):
         """PIP must be below Pwf — pressure drops from perforations to pump."""
-        from core.ipr import calculate_pwf_for_target_rate
+        from bes.core.ipr import calculate_pwf_for_target_rate
         target = 1200.0
         pwf = calculate_pwf_for_target_rate(reservoir, target)
         pip = calculate_pip(reservoir, base_fluid, well, pump_setting_depth=8400,

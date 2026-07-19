@@ -26,8 +26,8 @@ if str(_ROOT) not in sys.path:
 # Windows consoles default to cp1252, which cannot print ✅/❌
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-from catalogs.loader import CatalogManager                          # noqa: E402
-from core.models import (                                            # noqa: E402
+from bes.catalogs.loader import CatalogManager                          # noqa: E402
+from bes.core.models import (                                            # noqa: E402
     DesignObjectives,
     DriveMechanism,
     Fluid,
@@ -36,13 +36,12 @@ from core.models import (                                            # noqa: E40
     SurfaceConditions,
     WellGeometry,
 )
-from recommender.recommendation_engine import generate_recommendations  # noqa: E402
+from bes.recommender.recommendation_engine import generate_recommendations  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 _EXAMPLES_JSON = _ROOT / "data" / "example_wells.json"
-_CATALOG_DIR   = str(_ROOT / "catalogs")
 _DOCS_DIR      = _ROOT / "docs"
 _OUTPUT_MD     = _DOCS_DIR / "VALIDATION.md"
 
@@ -149,7 +148,7 @@ def main() -> None:
     print("BES Designer — Validation against book examples")
     print("=" * 60)
 
-    catalog = CatalogManager(_CATALOG_DIR)
+    catalog = CatalogManager()
     examples = _load_examples()
 
     rows: list[dict] = []

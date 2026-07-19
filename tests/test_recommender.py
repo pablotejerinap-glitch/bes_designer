@@ -9,8 +9,8 @@ from __future__ import annotations
 import pytest
 from pathlib import Path
 
-from catalogs.loader import CatalogManager
-from core.models import (
+from bes.catalogs.loader import CatalogManager
+from bes.core.models import (
     DesignObjectives,
     DesignResult,
     DriveMechanism,
@@ -20,17 +20,16 @@ from core.models import (
     SurfaceConditions,
     WellGeometry,
 )
-from recommender.scoring import (
+from bes.recommender.scoring import (
     DEFAULT_WEIGHTS,
     provider_score,
     efficiency_score,
     flexibility_score,
     overall_score,
 )
-from recommender.pump_selector import select_top_n_pumps
-from recommender.recommendation_engine import generate_recommendations
+from bes.recommender.pump_selector import select_top_n_pumps
+from bes.recommender.recommendation_engine import generate_recommendations
 
-CATALOG_DIR = str(Path(__file__).parent.parent / "catalogs")
 
 
 # ---------------------------------------------------------------------------
@@ -39,7 +38,7 @@ CATALOG_DIR = str(Path(__file__).parent.parent / "catalogs")
 
 @pytest.fixture(scope="module")
 def manager() -> CatalogManager:
-    return CatalogManager(CATALOG_DIR)
+    return CatalogManager()
 
 
 @pytest.fixture(scope="module")

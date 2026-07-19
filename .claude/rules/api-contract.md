@@ -2,9 +2,9 @@
 
 ## Esquemas: separados, no convertir el dominio
 
-- Se **mantienen** las dataclasses de `core/models.py`. Se crean **esquemas
-  Pydantic separados** (`api/schemas/`) que las espejan, más mappers
-  (`api/mappers.py`).
+- Se **mantienen** las dataclasses de `bes/core/models.py`. Se crean **esquemas
+  Pydantic separados** (`bes/api/schemas/`) que las espejan, más mappers
+  (`bes/api/mappers.py`).
 - **NO** convertir las dataclasses a Pydantic: rompería los 545 tests (que
   esperan `ValueError` con mensajes específicos) y el `warnings.warn` "soft" de
   `Reservoir` (bubble_point > static_pressure es válido en reservorios depletados).
@@ -19,7 +19,7 @@
 - La API habla enums **string** (`"vogel"`, `"linear"`, `"solution_gas"`, ...).
   El mapper hace el lookup explícito string↔enum. Testear ida y vuelta.
 
-## Contrato de errores (central, en `api/main.py`)
+## Contrato de errores (central, en `bes/api/main.py`)
 
 - `ValueError` del dominio (diseño inviable / validación) → **HTTP 422** con el
   mensaje del error.
@@ -30,7 +30,7 @@
 ## Gráficos
 
 - Los endpoints devuelven los gráficos como **Plotly figure JSON** llamando a los
-  builders de `ui/plots.py` (`fig.to_json()`). El front los renderiza con
+  builders de `bes.plotting` (`fig.to_json()`). El front los renderiza con
   `react-plotly.js`. No reimplementar gráficos en JS.
 
 ## Endpoints previstos

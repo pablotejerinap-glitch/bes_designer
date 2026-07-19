@@ -19,8 +19,8 @@ from pathlib import Path
 
 import pytest
 
-from catalogs.loader import CatalogManager
-from core.models import (
+from bes.catalogs.loader import CatalogManager
+from bes.core.models import (
     DesignObjectives,
     DesignResult,
     DriveMechanism,
@@ -30,13 +30,12 @@ from core.models import (
     SurfaceConditions,
     WellGeometry,
 )
-from recommender.recommendation_engine import generate_recommendations
+from bes.recommender.recommendation_engine import generate_recommendations
 
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
 _ROOT = Path(__file__).parent.parent
-_CATALOG_DIR = str(_ROOT / "catalogs")
 _EXAMPLES_JSON = _ROOT / "data" / "example_wells.json"
 
 # ---------------------------------------------------------------------------
@@ -134,7 +133,7 @@ def _within(actual: float, reference: float, pct: float) -> bool:
 
 @pytest.fixture(scope="module")
 def catalog() -> CatalogManager:
-    return CatalogManager(_CATALOG_DIR)
+    return CatalogManager()
 
 
 @pytest.fixture(scope="module")

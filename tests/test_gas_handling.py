@@ -14,8 +14,8 @@ from __future__ import annotations
 import pytest
 from pathlib import Path
 
-from catalogs.loader import CatalogManager
-from core.models import (
+from bes.catalogs.loader import CatalogManager
+from bes.core.models import (
     DesignObjectives,
     DriveMechanism,
     Fluid,
@@ -23,7 +23,7 @@ from core.models import (
     Reservoir,
     WellGeometry,
 )
-from core.gas_handling import (
+from bes.core.gas_handling import (
     check_gas_lock_risk,
     complete_gas_design,
     gas_ingestion_percentage,
@@ -32,7 +32,6 @@ from core.gas_handling import (
     recommend_gas_separator,
 )
 
-CATALOG_DIR = str(Path(__file__).parent.parent / "catalogs")
 
 
 # ---------------------------------------------------------------------------
@@ -41,7 +40,7 @@ CATALOG_DIR = str(Path(__file__).parent.parent / "catalogs")
 
 @pytest.fixture(scope="module")
 def manager() -> CatalogManager:
-    return CatalogManager(CATALOG_DIR)
+    return CatalogManager()
 
 
 @pytest.fixture(scope="module")

@@ -16,12 +16,18 @@ dynamic = ["dependencies"]
 dependencies = { file = ["requirements.txt"] }
 
 [tool.setuptools]
-# Paquetes de dominio/UI existentes (top-level). El editable install pone la raíz
-# del proyecto en sys.path, reemplazando los sys.path.insert manuales.
-packages = [
-    "core", "recommender", "reports", "catalogs", "ui", "services",
-    "api", "api.routers", "api.schemas",
-]
+# Layout src/: el único paquete distribuible es `bes` (dominio + capa API).
+# `streamlit_app/` y `frontend/` son adaptadores de entrega, no librería, y
+# quedan fuera de la distribución a propósito.
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+# Los catálogos de equipos son datos del paquete: `catalogs/loader.py` los
+# resuelve con Path(__file__).parent, así que viajan con él.
+"bes.catalogs" = ["*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
