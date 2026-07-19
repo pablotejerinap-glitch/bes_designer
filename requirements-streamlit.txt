@@ -1,0 +1,5 @@
+# Imagen de la red de seguridad Streamlit (Dockerfile.streamlit).
+# Dominio + Streamlit + httpx (consume la API vía ui/api_client.py, BES_API_URL).
+-r requirements-base.txt
+streamlit==1.56.0
+httpx==0.28.1
