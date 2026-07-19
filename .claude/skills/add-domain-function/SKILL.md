@@ -14,7 +14,7 @@ Leé primero `.claude/rules/domain.md`.
    `gas_handling`, `nodal_analysis`). Si necesita catálogo, recibí
    `catalog_manager` como argumento (inyección, solo lectura).
 2. **Pureza**: función pura, sin estado ni side-effects, sin imports de framework
-   (ni streamlit ni fastapi). Opera sobre las dataclasses de `core/models.py`.
+   (ni streamlit ni fastapi). Opera sobre las dataclasses de `bes/core/models.py`.
 3. **Unidades**: respetá la convención (psia, °F, STB/d, ft, in, hp, V/A). Documentá
    las unidades de cada argumento y del retorno en el docstring.
 4. **Validación**: si agregás un modelo nuevo a `models.py`, poné validación en

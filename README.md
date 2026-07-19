@@ -1,7 +1,7 @@
 # BES Designer
 
 Herramienta de diseño automatizado para sistemas de Bombeo Electrosumergible (BES/ESP).
-Implementa la metodología completa de Kermit Brown — *The Technology of Artificial Lift Methods*, Vol. 2b, Cap. 4.5 — en 10 módulos Python con más de 400 tests automatizados y una interfaz Streamlit lista para usar.
+Implementa la metodología completa de Kermit Brown — *The Technology of Artificial Lift Methods*, Vol. 2b, Cap. 4.5 — en 10 módulos Python con más de 570 tests automatizados, una API FastAPI y una SPA React.
 
 A partir de los datos del pozo (reservorio, fluido, geometría, superficie y objetivos de producción), la herramienta selecciona y dimensiona el sistema completo: bomba + número de etapas, motor, cable, transformador y voltaje en superficie.
 
@@ -59,14 +59,6 @@ bes_designer/
 │   ├── plotting/           # Gráficos Plotly (agnósticos, los usa la API)
 │   └── api/                # Backend FastAPI (routers, schemas, mappers)
 │
-├── streamlit_app/          # App Streamlit (red de seguridad)
-│   ├── app.py              # Punto de entrada
-│   ├── forms.py            # Formulario de datos del pozo (5 tabs)
-│   ├── results_view.py     # Vista de resultados de diseño
-│   ├── comparison_view.py  # Comparación de opciones
-│   ├── sensitivity_view.py # Análisis de sensibilidad
-│   └── api_client.py       # Cliente HTTP hacia la API
-│
 ├── frontend/               # SPA React (Vite + TS + Mantine)
 │
 ├── requirements.txt
@@ -121,18 +113,18 @@ Requiere **Python 3.10 o superior**.
 
 ## Uso
 
-### Interfaz gráfica (Streamlit)
+### Interfaz gráfica (React)
 
 ```bash
 # 1. Backend (requerido)
 uvicorn bes.api.main:app --reload --port 8000
 
-# 2. Streamlit
-streamlit run streamlit_app/app.py
+# 2. Frontend
+cd frontend && npm install && npm run dev
 ```
 
 O todo junto con Docker: `docker compose up --build`
-(frontend :8080 · api :8000 · streamlit :8501)
+(frontend :8080 · api :8000)
 
 La app abre en `http://localhost:8501`. Flujo típico:
 

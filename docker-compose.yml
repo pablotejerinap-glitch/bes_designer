@@ -1,7 +1,6 @@
 # Orquestación de las tres capas. Levantar todo:  docker compose up --build
 #   frontend  → http://localhost:8080   (SPA React, proxya /api al backend)
 #   api       → http://localhost:8000   (FastAPI, /api/health, /docs)
-#   streamlit → http://localhost:8501   (red de seguridad, consume la API)
 services:
   api:
     build:
@@ -31,15 +30,3 @@ services:
       api:
         condition: service_healthy
 
-  # Red de seguridad para la defensa. Consume la MISMA API que el frontend.
-  streamlit:
-    build:
-      context: .
-      dockerfile: Dockerfile.streamlit
-    environment:
-      - BES_API_URL=http://api:8000
-    ports:
-      - "8501:8501"
-    depends_on:
-      api:
-        condition: service_healthy

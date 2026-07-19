@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Rediseño de arquitectura en curso (rama refactor/architecture-redesign)
 
-Estamos migrando el monolito Streamlit a una arquitectura de tres capas
+Migramos el monolito Streamlit a una arquitectura de tres capas
 (frontend React / backend FastAPI / DB SQLite). Reglas y convenciones del
 rediseño (leerlas antes de tocar código de arquitectura):
 
@@ -35,11 +35,8 @@ pytest tests/test_pump_design.py
 pytest tests/test_pump_design.py::TestCalculateStages
 pytest tests/test_pump_design.py::TestCalculateStages::test_example_2a_d40_254_stages
 
-# Launch the FastAPI backend (required by both the SPA and Streamlit)
+# Launch the FastAPI backend (required by the SPA)
 python -m uvicorn bes.api.main:app --reload --port 8000
-
-# Launch the Streamlit app (safety net; needs the backend running)
-python -m streamlit run streamlit_app/app.py
 
 # Launch the React SPA (dev)
 cd frontend && npm run dev
@@ -51,7 +48,7 @@ docker compose up --build
 python scripts/validate_all_examples.py
 ```
 
-No linter or formatter is configured. `requirements.txt` lists all dependencies (numpy, scipy, pandas, matplotlib, plotly, streamlit, reportlab, openpyxl, pytest).
+No linter or formatter is configured. `requirements.txt` lists all dependencies (numpy, scipy, pandas, matplotlib, plotly, reportlab, openpyxl, pytest).
 
 ## Architecture
 
@@ -70,13 +67,12 @@ src/bes/            pip install -e .  → import bes.*
   services/         orquestación agnóstica de framework
   plotting/         builders Plotly — agnósticos, los consume la API
   api/              capa de entrega HTTP (FastAPI)
-streamlit_app/      app Streamlit (red de seguridad) — fuera del paquete
 frontend/           SPA React (Vite + TS + Mantine)
 tests/ data/ docs/ scripts/
 ```
 
-`bes.api`, `streamlit_app/` y `frontend/` son **adaptadores de entrega**
-equivalentes; el dominio vive debajo de los tres y no depende de ninguno.
+`bes.api` y `frontend/` son **adaptadores de entrega**; el dominio vive debajo
+y no depende de ninguno. La app Streamlit se retiró al alcanzar React paridad.
 
 ### Data flow
 
@@ -103,11 +99,10 @@ User inputs (Reservoir, Fluid, WellGeometry, SurfaceConditions, DesignObjectives
            case_bundle.py          → case_bundle_json() — formato guardar/abrir (futuro DB)
 ```
 
-La capa `bes.services` es la fuente única de verdad que comparten Streamlit y la
-API FastAPI. No importa ningún framework. Ver `.claude/rules/architecture.md`.
+La capa `bes.services` es la fuente única de verdad detrás de la API FastAPI.
+No importa ningún framework. Ver `.claude/rules/architecture.md`.
 
-`bes.api` y `streamlit_app/` llaman a `generate_recommendations()`; las vistas
-solo renderizan. `bes.reports` genera PDF y Excel, `bes.plotting` las figuras.
+`bes.api` llama a `generate_recommendations()`; el front solo renderiza. `bes.reports` genera PDF y Excel, `bes.plotting` las figuras.
 
 ### Key models (`bes/core/models.py`)
 

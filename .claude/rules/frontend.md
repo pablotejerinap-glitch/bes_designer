@@ -9,6 +9,7 @@
   El front formatea y renderiza.
 - **Orden de construcción (money-shot primero):** form 5-tabs → `/api/design` →
   vista de resultados → gráficos (curva de bomba + nodal) → descarga PDF/Excel.
-  Comparación y sensibilidad son *stretch* (Streamlit las cubre para la defensa).
-- **Red de seguridad:** `streamlit_app/` consume la MISMA API y es la demo
-  garantizada para la defensa. Mantenerla viva.
+  Comparación y sensibilidad ya están cubiertas (tabs de resultados y de
+  nivel superior respectivamente).
+- **UI única:** React es la única interfaz. La app Streamlit se retiró al
+  alcanzar paridad; si hace falta una vista nueva, va acá, no a otra UI.

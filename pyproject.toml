@@ -17,8 +17,8 @@ dependencies = { file = ["requirements.txt"] }
 
 [tool.setuptools]
 # Layout src/: el único paquete distribuible es `bes` (dominio + capa API).
-# `streamlit_app/` y `frontend/` son adaptadores de entrega, no librería, y
-# quedan fuera de la distribución a propósito.
+# `frontend/` es el adaptador de entrega (SPA React), no librería, y queda
+# fuera de la distribución a propósito.
 package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]

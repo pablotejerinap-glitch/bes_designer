@@ -146,11 +146,13 @@ def test_core_is_the_bottom_layer() -> None:
     )
 
 
-def test_streamlit_app_is_not_part_of_the_package() -> None:
-    """`streamlit_app/` es un adaptador de entrega, no librería: vive fuera de
-    src/ para que no entre en la distribución ni lo pueda importar el dominio."""
+def test_no_streamlit_app_left_behind() -> None:
+    """Streamlit se retiró cuando React alcanzó paridad (comparación y
+    sensibilidad). `streamlit` sigue en FORBIDDEN_FRAMEWORKS a propósito: es lo
+    que impide que vuelva a filtrarse en el dominio, sobre todo en
+    `bes.plotting`, que lo consume la API.
+    """
     root = _SRC.parent.parent
-    assert (root / "streamlit_app").is_dir(), "falta streamlit_app/ en la raíz"
-    assert not (_SRC / "streamlit_app").exists(), (
-        "streamlit_app no debe vivir dentro del paquete bes"
+    assert not (root / "streamlit_app").exists(), (
+        "streamlit_app/ volvió a aparecer: la UI es frontend/ (React)"
     )

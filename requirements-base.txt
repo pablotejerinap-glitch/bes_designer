@@ -1,6 +1,6 @@
-# Dependencias del dominio (core/ services/ recommender/ reports/ catalogs/ ui.plots).
-# Compartidas por la imagen de la API y la de Streamlit. Versiones alineadas con
-# requirements.txt (que sigue siendo la instalación completa para dev/venv local).
+# Dependencias del dominio (bes.core, services, recommender, reports, catalogs,
+# plotting). Las usa la imagen de la API. Versiones alineadas con requirements.txt
+# (que sigue siendo la instalación completa para dev/venv local).
 numpy==2.4.4
 scipy==1.17.1
 pandas==3.0.2

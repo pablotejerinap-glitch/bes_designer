@@ -1,15 +1,15 @@
 # Reglas de arquitectura — BES Designer
 
-Estamos migrando de un monolito Streamlit a una arquitectura de tres capas
+Migramos de un monolito Streamlit a una arquitectura de tres capas
 (frontend React / backend FastAPI / DB SQLite). Ver el plan en
 `C:\Users\maria\.claude\plans\quiet-stargazing-scott.md`.
 
 ## Capas y dependencias permitidas
 
 ```
-frontend/        ──HTTP/JSON──▶  bes.api (FastAPI) ──▶ bes.services ──▶ bes.core (dominio)
-streamlit_app/   ──HTTP/JSON──▶  bes.api                              bes.catalogs · bes.recommender
-                                                                      bes.reports · bes.plotting
+frontend/ (React) ──HTTP/JSON──▶ bes.api (FastAPI) ──▶ bes.services ──▶ bes.core (dominio)
+                                                                       bes.catalogs · bes.recommender
+                                                                       bes.reports · bes.plotting
                                             bes.services ──▶ bes.db (SQLAlchemy, Semana 4)
 ```
 
@@ -24,20 +24,18 @@ src/bes/            paquete único distribuible (pip install -e .)
   services/         orquestación agnóstica de framework
   plotting/         builders Plotly — agnósticos, los consume la API
   api/              capa de entrega HTTP (FastAPI)
-streamlit_app/      app Streamlit (red de seguridad) — NO es parte del paquete
 frontend/           SPA React
 tests/ data/ docs/ scripts/
 ```
 
-`streamlit_app/` y `frontend/` son **adaptadores de entrega**, igual que
-`bes.api`. Ninguno de los tres es "el backend": el dominio vive debajo de los
-tres y no depende de ninguno. Por eso `core/` y `services/` **no** viven dentro
-de `api/` — si lo hicieran, Streamlit tendría que importar del paquete de
-FastAPI para poder calcular.
+`frontend/` y `bes.api` son **adaptadores de entrega**: ninguno es "el
+backend". El dominio vive debajo y no depende de ninguno. Por eso `core/` y
+`services/` **no** viven dentro de `api/` — si lo hicieran, cualquier otra UI
+(o un job batch, o un script) tendría que importar el paquete de FastAPI sólo
+para poder calcular.
 
-Los módulos de `streamlit_app/` se importan entre sí como hermanos
-(`from forms import ...`) porque `streamlit run` pone el directorio del script
-en `sys.path[0]`. No es un `sys.path.insert`: sigue siendo import absoluto.
+Hubo una tercera UI (`streamlit_app/`), retirada cuando React alcanzó paridad.
+`streamlit` sigue prohibido en el dominio: ver `tests/test_architecture.py`.
 
 **Regla de dirección de dependencias (no negociable):**
 
@@ -47,18 +45,18 @@ en `sys.path[0]`. No es un `sys.path.insert`: sigue siendo import absoluto.
 2. `bes.services` orquesta el dominio. Es **agnóstico de framework**: no importa
    `streamlit` ni `fastapi`. Devuelve **números crudos**, nunca strings
    formateados ni objetos de UI. Para progreso usa un callback, no la UI.
-3. `bes.api` y las vistas (Streamlit/React) **dependen** de `bes.services`,
+3. `bes.api` y la UI (React) **dependen** de `bes.services`,
    nunca al revés. La UI solo formatea y renderiza.
 4. `bes.plotting` construye figuras Plotly y **no importa streamlit** — es
    reusable por la API (`fig.to_json()`). Mantenerlo así: es la razón por la
-   que vive en el paquete y no en `streamlit_app/`.
+   que vive en el paquete y no en la carpeta de la UI.
 
 ## Fuente única de verdad
 
 - La lógica de negocio vive en `bes.core` (cálculo) o `bes.services`
   (orquestación), **nunca inline en una vista**. Si aparece lógica en
-  `streamlit_app/`, extraerla.
-- Streamlit y React llaman a la **misma** capa de servicios → no duplicar lógica.
+  la UI, extraerla.
+- Toda UI llama a la **misma** capa de servicios vía la API → no duplicar lógica.
 
 ## Packaging
 
