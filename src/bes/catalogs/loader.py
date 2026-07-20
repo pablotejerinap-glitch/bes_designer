@@ -13,7 +13,9 @@ from scipy.interpolate import interp1d
 
 from bes.core.models import PumpCurve, PumpPerformancePoint
 
-_CATALOG_DIR = Path(__file__).parent
+CATALOG_DIR = Path(__file__).parent
+"""Directorio de los JSON de catalogo. Viaja con el paquete: no depende del
+CWD ni de la raiz del repo. Unico lugar de verdad — usarlo desde los scripts."""
 
 
 def _load_json(path: Path) -> dict:
@@ -83,7 +85,7 @@ class CatalogManager:
     """
 
     def __init__(self, catalog_dir: Optional[str] = None) -> None:
-        base = Path(catalog_dir) if catalog_dir else _CATALOG_DIR
+        base = Path(catalog_dir) if catalog_dir else CATALOG_DIR
         self._pumps: list[PumpCurve] = _parse_pumps(
             _load_json(base / "pumps.json")["pumps"]
         )

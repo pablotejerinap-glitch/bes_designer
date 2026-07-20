@@ -42,10 +42,12 @@ import json
 import sys
 from pathlib import Path
 
+from bes.catalogs import CATALOG_DIR
+
 _ROOT = Path(__file__).parent.parent
-_MOTORS_JSON = _ROOT / "catalogs" / "motors.json"
-_CABLES_JSON = _ROOT / "catalogs" / "cables.json"
-_SEALS_JSON = _ROOT / "catalogs" / "seals.json"
+_MOTORS_JSON = CATALOG_DIR / "motors.json"
+_CABLES_JSON = CATALOG_DIR / "cables.json"
+_SEALS_JSON = CATALOG_DIR / "seals.json"
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
