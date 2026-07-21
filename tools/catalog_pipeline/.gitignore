@@ -1,0 +1,7 @@
+.venv/
+.env
+output/
+__pycache__/
+*.pyc
+manifest.json
+install.log

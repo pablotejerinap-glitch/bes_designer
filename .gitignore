@@ -8,6 +8,8 @@ env/
 *.egg-info/
 .DS_Store
 Thumbs.db
+# Archivos de bloqueo que Word deja al abrir un .docx
+~$*
 build/
 dist/
 htmlcov/

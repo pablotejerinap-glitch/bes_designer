@@ -1,0 +1,211 @@
+erDiagram
+    %% ============ ESQUEMA v3 (post-auditoria) ============
+    %% DOMINIO: CATALOGOS DE EQUIPOS
+    manufacturers {
+        string manufacturer_id PK
+        string full_name
+        string country
+    }
+    equipment_series {
+        string series_id PK
+        float od_nominal_inches
+        string used_in
+        string notes
+    }
+    data_sources {
+        string source_id PK
+        string type
+        string citation
+    }
+    pumps {
+        string pump_id PK
+        string manufacturer_id FK
+        string series FK
+        string model
+        float od_inches
+        float min_flow_bpd
+        float max_flow_bpd
+        float bep_flow_bpd
+        int max_stages
+        string source_id FK
+    }
+    pump_curves {
+        string pump_id PK, FK
+        float flow_bpd PK
+        float head_ft_per_stage
+        float hp_per_stage
+        float efficiency
+    }
+    pump_housings {
+        string pump_id PK, FK
+        int stages PK
+    }
+    motors {
+        string motor_id PK
+        string manufacturer_id FK
+        string series FK
+        int hp_rating
+        int voltage
+        int amperage
+        string source_id FK
+    }
+    cables {
+        string cable_id PK
+        string manufacturer_id FK
+        string type
+        string conductor FK
+        string size FK
+        int max_amps
+        float max_temp_f
+        string source_id FK
+    }
+    conductor_voltage_drop {
+        string conductor PK
+        string size PK
+        float temp_f PK
+        float v_per_amp_per_1000ft
+    }
+    seals {
+        string seal_id PK
+        string manufacturer_id FK
+        string series FK
+        string type
+        float thrust_capacity_lbs
+        string source_id FK
+    }
+    seal_motor_compatibility {
+        string seal_id PK, FK
+        string motor_series PK, FK
+    }
+    gas_handlers {
+        string gas_handler_id PK
+        string manufacturer_id FK
+        string source_id FK
+        string range_source_id FK
+    }
+    sensors {
+        string sensor_id PK
+        string manufacturer_id FK
+        string source_id FK
+    }
+    transformers {
+        string transformer_id PK
+        string manufacturer_id FK
+        float kva_rating
+        int phases
+        string source_id FK
+    }
+    vsds {
+        string vsd_id PK
+        string manufacturer_id FK
+        float kva_rating
+        string drive_type
+        string source_id FK
+    }
+    switchboards {
+        string switchboard_id PK
+        string manufacturer_id FK
+        float max_voltage_v
+        float max_hp
+        string source_id FK
+    }
+
+    %% DOMINIO: POZOS Y CASOS (wells unificada, H4)
+    wells {
+        string well_id PK
+        string well_type "example | real (discriminador H4)"
+        string description
+        string source_id FK
+    }
+    reservoir {
+        string well_id PK, FK
+    }
+    fluid {
+        string well_id PK, FK
+    }
+    well_geometry {
+        string well_id PK, FK
+    }
+    surface_conditions {
+        string well_id PK, FK
+    }
+    design_objectives {
+        string well_id PK, FK
+    }
+    book_reference {
+        string well_id PK, FK
+    }
+    book_reference_details {
+        string well_id PK, FK
+        string detail_group PK
+        string item PK
+        string value
+    }
+    field_cases {
+        string case_id PK
+        string well_id FK
+        string install_date
+        float operating_frequency_hz
+        float measured_flow_bpd
+        string status
+        string source_id FK
+    }
+    installation_components {
+        string case_id PK, FK
+        int position PK
+        string equipment_type "sensor|motor|seal|gas_handler|pump|cable|transformer|vsd|switchboard"
+        string equipment_id "PK del catalogo correspondiente"
+        int quantity
+    }
+    fluid_samples {
+        string well_id PK, FK
+        string sample_id PK
+        float pressure_psia
+        float rs_scf_stb
+        float bo_rb_stb
+    }
+
+    %% ===== fabricante -> equipos (1:N) =====
+    manufacturers ||--o{ pumps : "fabrica"
+    manufacturers ||--o{ motors : "fabrica"
+    manufacturers ||--o{ cables : "fabrica"
+    manufacturers ||--o{ seals : "fabrica"
+    manufacturers ||--o{ gas_handlers : "fabrica"
+    manufacturers ||--o{ sensors : "fabrica"
+    manufacturers ||--o{ transformers : "fabrica"
+    manufacturers ||--o{ vsds : "fabrica"
+    manufacturers ||--o{ switchboards : "fabrica"
+
+    %% ===== series (H2) =====
+    equipment_series ||--o{ pumps : "clase de diametro"
+    equipment_series ||--o{ motors : "clase de diametro"
+    equipment_series ||--o{ seals : "clase de diametro"
+    equipment_series ||--o{ seal_motor_compatibility : "FK real (v3)"
+
+    %% ===== maestro -> detalle (1:N) =====
+    pumps ||--|{ pump_curves : "curva 60 Hz, agua"
+    pumps ||--|{ pump_housings : "housings"
+    conductor_voltage_drop }|--|| cables : "fisica del conductor (H1)"
+    seals ||--|{ seal_motor_compatibility : ""
+    motors }|--o{ seal_motor_compatibility : "N:M via series"
+
+    %% ===== pozos (wells unificada H4) =====
+    wells ||--|| reservoir : "1:1"
+    wells ||--|| fluid : "1:1"
+    wells ||--|| well_geometry : "1:1"
+    wells ||--|| surface_conditions : "1:1"
+    wells ||--|| design_objectives : "1:1"
+    wells ||--o| book_reference : "solo examples"
+    wells ||--o{ book_reference_details : "solo examples"
+    wells ||--o{ field_cases : "instalaciones"
+    wells ||--o{ fluid_samples : "muestras PVT"
+
+    %% ===== ensamble real (H3) =====
+    field_cases ||--|{ installation_components : "componentes del string"
+    pumps |o--o{ installation_components : "equipment_id (segun tipo)"
+    motors |o--o{ installation_components : ""
+    switchboards |o--o{ installation_components : ""
+
+    %% ===== bibliografia (H6) =====
+    data_sources ||--o{ pumps : "toda columna source_id"
+    data_sources ||--o{ field_cases : ""
