@@ -16,7 +16,7 @@
       "water_cut": 1.0,
       "gor": 0.0,
       "gas_sg": 0.65,
-      "water_sg": 1.10,
+      "water_sg": 1.1,
       "oil_viscosity_dead": 1.0,
       "viscosity_temp_ref": 100.0,
       "bubble_point_pressure": 0.0,
@@ -62,7 +62,7 @@
       "notes": "Pump at perforations_top − safety_margin (1 800 ft). Pure water (SG=1.10). PIP ≈ 40 psi. I-300 pump expected."
     }
   },
-  "example_2a": {
+  "example_2a_internal": {
     "description": "Brown Vol.2b Example 2A — Oil well, no free gas at pump, 15% water cut, 5-1/2\" casing",
     "reservoir": {
       "static_pressure": 2000.0,
@@ -112,7 +112,7 @@
       "target_flow_rate": 1000.0,
       "safety_margin_depth": 100.0,
       "allow_gas_venting": false,
-      "max_gip": 0.10,
+      "max_gip": 0.1,
       "design_life_years": 5.0,
       "use_vsd": false
     },
@@ -122,9 +122,76 @@
       "total_hp": 44,
       "expected_pump": "M-34",
       "notes": "Pump at perforations_top − safety_margin (5 800 ft). Pb=400 psi < PIP≈525 psi → no free gas. M-34 or D-40 expected."
+    },
+    "source": "Escenario interno del proyecto (no es el #2A impreso de Brown); 1000 bpd, M-34"
+  },
+  "example_2a_brown": {
+    "description": "Brown Vol.2b Seccion 4.538 Ejemplo #2A (impreso) - Petroleo sin gas libre, casing 5 1/2\", 1227 BFPD",
+    "source": "Brown, K.E. (1980) The Technology of Artificial Lift Methods, Vol. 2b, Seccion 4.538 (valores impresos del libro)",
+    "reservoir": {
+      "static_pressure": 2000.0,
+      "bubble_point": 2000.0,
+      "productivity_index": 1.2,
+      "ipr_method": "VOGEL",
+      "reservoir_temp": 170.0,
+      "drive_mechanism": "SOLUTION_GAS",
+      "datum_depth": 5950.0
+    },
+    "fluid": {
+      "oil_api": 30.0,
+      "water_cut": 0.15,
+      "gor": 350.0,
+      "gas_sg": 0.75,
+      "water_sg": 1.02,
+      "oil_viscosity_dead": 5.0,
+      "viscosity_temp_ref": 100.0,
+      "bubble_point_pressure": 2000.0,
+      "h2s_content": 0.0,
+      "co2_content": 0.0,
+      "sand_production": false
+    },
+    "well": {
+      "total_depth": 6150.0,
+      "casing_od": 5.5,
+      "casing_weight": 17.0,
+      "casing_id": 4.892,
+      "tubing_od": 2.375,
+      "tubing_id": 1.995,
+      "perforations_top": 5900.0,
+      "perforations_bottom": 6030.0,
+      "deviation_max": 0.0,
+      "wellhead_temp": 120.0,
+      "bottom_hole_temp": 170.0
+    },
+    "surface": {
+      "wellhead_pressure_required": 200.0,
+      "flowline_length": 1000.0,
+      "flowline_id": 3.0,
+      "flowline_elevation_change": 0.0,
+      "separator_pressure": 100.0,
+      "power_supply_voltage": 7200.0,
+      "frequency": 60.0
+    },
+    "objectives": {
+      "target_flow_rate": 1227.0,
+      "safety_margin_depth": 50.0,
+      "allow_gas_venting": false,
+      "max_gip": 0.7,
+      "design_life_years": 5.0,
+      "use_vsd": false
+    },
+    "book_reference": {
+      "tdh_ft": 5830,
+      "stages": 254,
+      "total_hp": 79,
+      "expected_pump": "D-40",
+      "motor_hp": 90,
+      "head_per_stage": 23.0,
+      "hp_per_stage": 0.35,
+      "notes": "Valores impresos de Brown 4.538: TDH=5830 ft (incluye 250 ft de perdidas de check/bleeder NO modeladas por el codigo), D-40 400 series, 254 etapas @ 23 ft/stage, 79 HP, motor 90 HP 456 series. Caudal en bomba 1227 BFPD (1125 superficie x Bo 1.075). PIP diseno 300 psi."
     }
   },
-  "example_3a": {
+  "example_3a_internal": {
     "description": "Brown Vol.2b Example 3A — Oil well WITH free gas, 50% water cut, high GIP, 5-1/2\" casing",
     "reservoir": {
       "static_pressure": 1000.0,
@@ -137,7 +204,7 @@
     },
     "fluid": {
       "oil_api": 35.0,
-      "water_cut": 0.50,
+      "water_cut": 0.5,
       "gor": 500.0,
       "gas_sg": 0.65,
       "water_sg": 1.07,
@@ -174,7 +241,7 @@
       "target_flow_rate": 700.0,
       "safety_margin_depth": 100.0,
       "allow_gas_venting": true,
-      "max_gip": 0.30,
+      "max_gip": 0.3,
       "design_life_years": 5.0,
       "use_vsd": false
     },
@@ -184,6 +251,311 @@
       "total_hp": 45,
       "expected_pump": "M-34",
       "notes": "Pb=2000 > Pr=1000: severely depleted. High free-gas fraction at pump (>30%). M-34 with gas separator expected."
+    },
+    "source": "Escenario interno del proyecto (no es el #3A impreso de Brown); 700 bpd"
+  },
+  "example_3a_brown": {
+    "description": "Brown Vol.2b Seccion 4.53103 Ejemplo #3A (impreso) - Pumping gas, metodo de incrementos, 500 b/d 50/50",
+    "source": "Brown, K.E. (1980) The Technology of Artificial Lift Methods, Vol. 2b, Seccion 4.53103 (valores impresos del libro)",
+    "reservoir": {
+      "static_pressure": 1000.0,
+      "bubble_point": 2000.0,
+      "productivity_index": 1.5,
+      "ipr_method": "VOGEL",
+      "reservoir_temp": 160.0,
+      "drive_mechanism": "SOLUTION_GAS",
+      "datum_depth": 6975.0
+    },
+    "fluid": {
+      "oil_api": 35.0,
+      "water_cut": 0.5,
+      "gor": 500.0,
+      "gas_sg": 0.65,
+      "water_sg": 1.07,
+      "oil_viscosity_dead": 5.0,
+      "viscosity_temp_ref": 100.0,
+      "bubble_point_pressure": 2000.0,
+      "h2s_content": 0.0,
+      "co2_content": 0.0,
+      "sand_production": false
+    },
+    "well": {
+      "total_depth": 7000.0,
+      "casing_od": 5.5,
+      "casing_weight": 17.0,
+      "casing_id": 4.892,
+      "tubing_od": 2.375,
+      "tubing_id": 1.995,
+      "perforations_top": 6950.0,
+      "perforations_bottom": 7000.0,
+      "deviation_max": 0.0,
+      "wellhead_temp": 120.0,
+      "bottom_hole_temp": 160.0
+    },
+    "surface": {
+      "wellhead_pressure_required": 200.0,
+      "flowline_length": 1000.0,
+      "flowline_id": 3.0,
+      "flowline_elevation_change": 0.0,
+      "separator_pressure": 100.0,
+      "power_supply_voltage": 4160.0,
+      "frequency": 60.0
+    },
+    "objectives": {
+      "target_flow_rate": 500.0,
+      "safety_margin_depth": 50.0,
+      "allow_gas_venting": false,
+      "max_gip": 0.7,
+      "design_life_years": 5.0,
+      "use_vsd": false
+    },
+    "book_reference": {
+      "validation_type": "increment_method",
+      "note": "Brown 4.53103 valida el metodo de incrementos de presion, no un diseno whole-well; validate_all_examples lo saltea (sin tdh_ft). Validado por unidad en test_integration.TestExample3ABrownIncrements.",
+      "increment_500_700_psi": {
+        "p_lo": 500,
+        "p_hi": 700,
+        "temp_f": 160,
+        "rs_500": 80,
+        "bo_500": 1.08,
+        "free_gas_500": 420,
+        "bg_500": 0.00577,
+        "gradient_500": 0.1913,
+        "rs_700": 120,
+        "bo_700": 1.094,
+        "free_gas_700": 380,
+        "gradient_700": 0.2474,
+        "avg_gradient": 0.2143,
+        "head_per_stage_ft": 25.0,
+        "psi_per_stage": 5.36,
+        "stages_for_200psi": 38,
+        "pump": "D-40"
+      }
+    }
+  },
+  "example_3b_brown": {
+    "description": "Brown Vol.2b Secciones 4.53104-4.53107 Ejemplo #3B (impreso) - Diseno completo con gas, metodo de incrementos, 500 b/d, GOR 500, 7000 ft",
+    "source": "Brown, K.E. (1980) The Technology of Artificial Lift Methods, Vol. 2b, Sections 4.53104-4.53107, Tables 4.53-4.512 (valores impresos del libro)",
+    "reservoir": {
+      "static_pressure": 1000.0,
+      "bubble_point": 2000.0,
+      "productivity_index": 1.0,
+      "ipr_method": "VOGEL",
+      "reservoir_temp": 160.0,
+      "drive_mechanism": "SOLUTION_GAS",
+      "datum_depth": 6975.0
+    },
+    "fluid": {
+      "oil_api": 35.0,
+      "water_cut": 0.0,
+      "gor": 500.0,
+      "gas_sg": 0.65,
+      "water_sg": 1.07,
+      "oil_viscosity_dead": 5.0,
+      "viscosity_temp_ref": 100.0,
+      "bubble_point_pressure": 2000.0,
+      "h2s_content": 0.0,
+      "co2_content": 0.0,
+      "sand_production": false
+    },
+    "well": {
+      "total_depth": 7000.0,
+      "casing_od": 5.5,
+      "casing_weight": 17.0,
+      "casing_id": 4.892,
+      "tubing_od": 2.375,
+      "tubing_id": 1.995,
+      "perforations_top": 6950.0,
+      "perforations_bottom": 7000.0,
+      "deviation_max": 0.0,
+      "wellhead_temp": 120.0,
+      "bottom_hole_temp": 160.0
+    },
+    "surface": {
+      "wellhead_pressure_required": 200.0,
+      "flowline_length": 1000.0,
+      "flowline_id": 3.0,
+      "flowline_elevation_change": 0.0,
+      "separator_pressure": 100.0,
+      "power_supply_voltage": 4160.0,
+      "frequency": 60.0
+    },
+    "objectives": {
+      "target_flow_rate": 500.0,
+      "safety_margin_depth": 50.0,
+      "allow_gas_venting": false,
+      "max_gip": 1.0,
+      "design_life_years": 5.0,
+      "use_vsd": false
+    },
+    "book_reference": {
+      "validation_type": "increment_method_full_design",
+      "note": "Brown 4.53104-4.53107 corre 5+ variantes del metodo de incrementos. El caso 1 (long-hand Hagedorn & Brown, 100% gas, 0% agua, D-40 unica) es el mas comparable con nuestro codigo (usamos H&B). validate_all_examples lo saltea (sin tdh_ft). Validado por unidad en test_integration.TestExample3BBrown.",
+      "p_intake_psi": 500,
+      "p_discharge_case1_psi": 1300,
+      "delta_p_case1_psi": 800,
+      "case_1_hagedorn_no_deterioration": {
+        "correlation": "Hagedorn-Brown long-hand",
+        "gas_pct": 100,
+        "water_pct": 0,
+        "intake_vol_bpd": 1752,
+        "discharge_vol_bpd": 897,
+        "discharge_pressure_psi": 1300,
+        "delta_p_psi": 800,
+        "stages": 209,
+        "pump": "D-40",
+        "hp": 27
+      },
+      "case_2_orkiszewski_no_deterioration": {
+        "correlation": "Orkiszewski computer",
+        "gas_pct": 100,
+        "water_pct": 0,
+        "intake_vol_bpd": 1750.6,
+        "discharge_vol_bpd": 902,
+        "discharge_pressure_psi": 1214,
+        "tdh_ft": 3302,
+        "delta_p_psi": 714,
+        "stages": 194,
+        "pump": "D-55 21stg + D-40 173stg",
+        "hp": 27.8
+      },
+      "case_3_d40_fixed_no_deterioration": {
+        "correlation": "Orkiszewski computer",
+        "gas_pct": 100,
+        "water_pct": 0,
+        "stages": 206,
+        "pump": "D-40",
+        "tdh_ft": 3302,
+        "hp": 28.2
+      },
+      "case_4_50pct_gas_no_deterioration": {
+        "correlation": "Orkiszewski computer",
+        "gas_pct": 50,
+        "water_pct": 0,
+        "intake_vol_bpd": 1145,
+        "discharge_vol_bpd": 583,
+        "discharge_pressure_psi": 1832,
+        "tdh_ft": 4142,
+        "delta_p_psi": 1332,
+        "stages": 211,
+        "pump": "D-40 60stg + D-20 152stg",
+        "hp": 31.56
+      },
+      "case_5_50pct_water_no_deterioration": {
+        "correlation": "Orkiszewski computer",
+        "gas_pct": 50,
+        "water_pct": 50,
+        "intake_vol_bpd": 822,
+        "discharge_vol_bpd": 542,
+        "discharge_pressure_psi": 2628,
+        "tdh_ft": 5391,
+        "delta_p_psi": 2128,
+        "stages": 231,
+        "pump": "D-20",
+        "hp": 41.25
+      },
+      "case_6_100pct_gas_with_deterioration": {
+        "correlation": "Orkiszewski computer + pump deterioration",
+        "gas_pct": 100,
+        "water_pct": 0,
+        "stages": 263,
+        "pump": "D-55 34stg + D-40 229stg",
+        "tdh_ft": 3299,
+        "hp": 28
+      },
+      "pvt_table_4_53": {
+        "temp_f": 160,
+        "gor_scf_stb": 500,
+        "p500": {
+          "z": 0.951,
+          "bbl_free": 2.4235,
+          "scf_free": 419.8332,
+          "rs": 80.1668,
+          "bo": 1.0778,
+          "bg": 0.00577
+        },
+        "p700": {
+          "z": 0.9322,
+          "bbl_free": 1.5476,
+          "scf_free": 379.759,
+          "rs": 120.241,
+          "bo": 1.0941
+        },
+        "p1000": {
+          "z": 0.908,
+          "bbl_free": 0.8812,
+          "scf_free": 315.2087,
+          "rs": 184.7913,
+          "bo": 1.121
+        },
+        "p2000": {
+          "z": 0.8532,
+          "bbl_free": 0.098,
+          "scf_free": 74.0406,
+          "rs": 425.9594,
+          "bo": 1.2277
+        }
+      }
+    }
+  },
+  "ejercicio_esp_neuquen": {
+    "description": "Ejercicio de diseno ESP en unidades metricas (pozo argentino) - alto corte de agua 91%, reservorio saturado Pb=Pr=170 kg/cm2, objetivo 300 m3/d",
+    "source": "Ejercicio de catedra / pozo real. Datos originales en metrico convertidos a unidades de campo. NO es un ejemplo impreso de Brown.",
+    "reservoir": {
+      "static_pressure": 2418.0,
+      "bubble_point": 2418.0,
+      "productivity_index": 3.24,
+      "ipr_method": "VOGEL",
+      "reservoir_temp": 203.0,
+      "drive_mechanism": "SOLUTION_GAS",
+      "datum_depth": 7874.0
+    },
+    "fluid": {
+      "oil_api": 28.0,
+      "water_cut": 0.91,
+      "gor": 281.0,
+      "gas_sg": 0.65,
+      "water_sg": 1.08,
+      "oil_viscosity_dead": 7.0,
+      "viscosity_temp_ref": 203.0,
+      "bubble_point_pressure": 2418.0,
+      "h2s_content": 0.0,
+      "co2_content": 0.0,
+      "sand_production": false
+    },
+    "well": {
+      "total_depth": 8530.0,
+      "casing_od": 5.5,
+      "casing_weight": 20.0,
+      "casing_id": 4.778,
+      "tubing_od": 2.875,
+      "tubing_id": 2.441,
+      "perforations_top": 7546.0,
+      "perforations_bottom": 8202.0,
+      "deviation_max": 0.0,
+      "wellhead_temp": 100.0,
+      "bottom_hole_temp": 203.0
+    },
+    "surface": {
+      "wellhead_pressure_required": 142.0,
+      "flowline_length": 1000.0,
+      "flowline_id": 3.0,
+      "flowline_elevation_change": 0.0,
+      "separator_pressure": 100.0,
+      "power_supply_voltage": 4160.0,
+      "frequency": 50.0
+    },
+    "objectives": {
+      "target_flow_rate": 1887.0,
+      "safety_margin_depth": 100.0,
+      "allow_gas_venting": false,
+      "max_gip": 0.1,
+      "design_life_years": 5.0,
+      "use_vsd": false
+    },
+    "book_reference": {
+      "validation_type": "design_scenario",
+      "note": "Escenario de diseno sin valores impresos de referencia (no es un ejemplo de Brown); validate_all_examples lo saltea al no tener tdh_ft. Conversiones metrico->campo: Pr=Pb=170 kg/cm2=2418 psi; T=95 C=203 F; datum=2400 m=7874 ft; WHP min=10 kg/cm2=142 psi; objetivo=300 m3/d=1887 STB/d. PI=3.24 STB/d/psi es el valor dado por el enunciado; ATENCION: derivarlo de Q=260 m3/d y dP=120 kg/cm2 da ~0.96 STB/d/psi (inconsistencia a verificar contra el enunciado original). Supuestos por dato no disponible: wellhead_temp=100 F, separator_pressure=100 psi, flowline=1000 ft/3 in, power_supply=4160 V, frequency=50 Hz (red argentina), safety_margin_depth=100 ft, design_life=5 anios. El 'margen de seguridad 10%' del enunciado es un margen de diseno general, no representable como campo del modelo."
     }
   }
 }

@@ -251,6 +251,8 @@ def pressure_increment_design(
     gip: float = 1.0,
     water_cut: float = 0.0,
     increment_psi: float = 200.0,
+    apply_deterioration: bool = False,
+    fixed_pump_model: str | None = None,
 ) -> dict:
     """Pressure-increment pump design for gassy wells (Brown §4.53103).
 
@@ -269,6 +271,16 @@ def pressure_increment_design(
         gip: Gas ingestion fraction entering the pump [0–1]. Default 1.0.
         water_cut: Produced water fraction [0–1]. Default 0 (pure oil).
         increment_psi: Pressure step size [psi]. Default 200.
+        apply_deterioration: When True, the head developed by each stage is
+            derated by ``pump_deterioration_factor`` evaluated at the local
+            free-gas volume fraction (Brown §4.53102). A degraded head means
+            fewer psi gained per stage, so more stages are required — this
+            reproduces the book's "with pump deterioration" variants of #3B.
+            Default False (no derating).
+        fixed_pump_model: When set, every increment uses this exact pump model
+            instead of re-selecting per increment by reservoir-condition rate.
+            Use it to reproduce the book's single-pump cases (e.g. #3B case 1,
+            all D-40). If the model is not found, falls back to auto-selection.
 
     Returns:
         dict with keys:
@@ -284,6 +296,15 @@ def pressure_increment_design(
             f"p_discharge ({p_discharge}) must be greater than "
             f"p_intake ({p_intake})"
         )
+
+    # Resolve a forced pump once if requested (book single-pump cases)
+    forced_pump = None
+    if fixed_pump_model:
+        matches = [
+            p for p in catalog_manager.get_all_pumps()
+            if p.model == fixed_pump_model
+        ]
+        forced_pump = matches[0] if matches else None
 
     temp = reservoir.reservoir_temp
 
@@ -313,16 +334,23 @@ def pressure_increment_design(
         gradient = props["gradient"]
         sg_mix   = props["sg_mix"]
 
+        # Free-gas volume fraction at this increment (drives deterioration)
+        fg_ratio = props["v_gas"] / v_total if v_total > 0.0 else 0.0
+
         # Reservoir volumetric flow through the pump at this increment
         q_res = target_rate * v_total   # bpd reservoir
 
-        pump = _select_pump_for_flow(q_res, catalog_manager)
+        pump = forced_pump or _select_pump_for_flow(q_res, catalog_manager)
         curve = _pump_perf_clamped(pump, q_res, catalog_manager)
 
         head_per_stage = curve["head_per_stage"]
         hp_per_stage_w = curve["hp_per_stage"]   # rated for water
 
-        psi_per_stage = head_per_stage * gradient
+        # Pump-deterioration derating of the head (Brown §4.53102).
+        det_factor = pump_deterioration_factor(fg_ratio) if apply_deterioration else 1.0
+        head_effective = head_per_stage * det_factor
+
+        psi_per_stage = head_effective * gradient
         if psi_per_stage <= 0.0:
             continue
 
@@ -353,9 +381,12 @@ def pressure_increment_design(
             "rho_mix":          rho_mix,
             "gradient":         gradient,
             "sg_mix":           sg_mix,
+            "fg_ratio":         fg_ratio,
             "q_res_bpd":        q_res,
             "pump_model":       model,
             "head_per_stage":   head_per_stage,
+            "det_factor":       det_factor,
+            "head_effective":   head_effective,
             "hp_per_stage_w":   hp_per_stage_w,
             "psi_per_stage":    psi_per_stage,
             "stages":           n_stages,
@@ -375,6 +406,8 @@ def pressure_increment_design(
         "n_increments":      len(increment_table),
         "gip":               gip,
         "water_cut":         water_cut,
+        "apply_deterioration": apply_deterioration,
+        "fixed_pump_model":  fixed_pump_model,
     }
 
 
@@ -462,6 +495,8 @@ def complete_gas_design(
     catalog_manager: "CatalogManager",
     vent_gas_pct: float = 0.0,
     wellhead_pressure: float = 100.0,
+    apply_deterioration: bool = False,
+    fixed_pump_model: str | None = None,
 ) -> dict:
     """Full gas-handling design workflow (Brown §4.53103, Example 3).
 
@@ -570,13 +605,23 @@ def complete_gas_design(
         gip=gip,
         water_cut=wc,
         increment_psi=200.0,
+        apply_deterioration=apply_deterioration,
+        fixed_pump_model=fixed_pump_model,
     )
+
+    # --- 7. In-pump intake / discharge volumetric rates [bpd reservoir] ---
+    intake_props = _mixture_volumes_and_density(pip, t, fluid, wc, gip)
+    discharge_props = _mixture_volumes_and_density(p_discharge, t, fluid, wc, gip)
+    intake_volume_bpd = target_rate * intake_props["v_total"]
+    discharge_volume_bpd = target_rate * discharge_props["v_total"]
 
     return {
         "pip":                       pip,
         "p_discharge":               p_discharge,
         "gip":                       gip,
         "free_gas_ratio_at_intake":  fg_ratio,
+        "intake_volume_bpd":         intake_volume_bpd,
+        "discharge_volume_bpd":      discharge_volume_bpd,
         "gas_lock_risk":             gas_risk,
         "deterioration_factor":      det_factor,
         "separator_recommendation":  sep_rec,

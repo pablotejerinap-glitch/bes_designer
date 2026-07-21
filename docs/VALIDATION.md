@@ -1,6 +1,6 @@
 # BES Designer — Validación contra Ejemplos del Libro
 
-**Generado:** 2026-07-20  
+**Generado:** 2026-07-21  
 **Referencia:** Kermit Brown, *The Technology of Artificial Lift Methods*, Vol. 2b, Ch. 4.5
 
 > Los valores de referencia son estimaciones analíticas basadas en las mismas ecuaciones
@@ -17,8 +17,9 @@
 | Ejemplo | TDH Libro (ft) | TDH App (ft) | Δ TDH | Etapas Libro | Etapas App | Δ Etapas | HP Libro | HP App | Δ HP | Bomba Seleccionada | Status |
 |---------|---------------|-------------|-------|------------|-----------|----------|---------|--------|------|-------------------|--------|
 | EXAMPLE 1A | 1724 | 1721 | -0.2% ✅ | 29 | 29 | +0.0% ✅ | 217 | 216.9 | -0.0% ✅ | I-300 | ✅ |
-| EXAMPLE 2A | 4174 | 4249 | +1.8% ✅ | 156 | 172 | +10.3% ✅ | 44 | 36.7 | -16.5% ⚠️ | M-34 | ⚠️ |
-| EXAMPLE 3A | 6060 | 6713 | +10.8% ⚠️ | 206 | 228 | +10.7% ✅ | 45 | 49.5 | +9.9% ✅ | M-34 | ⚠️ |
+| EXAMPLE 2A INTERNAL | 4174 | 4249 | +1.8% ✅ | 156 | 172 | +10.3% ✅ | 44 | 36.7 | -16.5% ⚠️ | M-34 | ⚠️ |
+| EXAMPLE 2A BROWN | 5830 | 5604 | -3.9% ✅ | 254 | 244 | -3.9% ✅ | 79 | 76.7 | -3.0% ✅ | D-40 | ✅ |
+| EXAMPLE 3A INTERNAL | 6060 | 6713 | +10.8% ⚠️ | 206 | 228 | +10.7% ✅ | 45 | 49.5 | +9.9% ✅ | M-34 | ⚠️ |
 
 ## Detalle por Ejemplo
 
@@ -32,7 +33,7 @@
 - **HP total bomba:** 216.9 vs. 217 libro (-0.0%)
 - **Advertencias de diseño:** —
 
-### EXAMPLE 2A
+### EXAMPLE 2A INTERNAL
 
 *Brown Vol.2b Example 2A — Oil well, no free gas at pump, 15% water cut, 5-1/2" casing*
 
@@ -42,7 +43,17 @@
 - **HP total bomba:** 36.7 vs. 44 libro (-16.5%)
 - **Advertencias de diseño:** —
 
-### EXAMPLE 3A
+### EXAMPLE 2A BROWN
+
+*Brown Vol.2b Seccion 4.538 Ejemplo #2A (impreso) - Petroleo sin gas libre, casing 5 1/2", 1227 BFPD*
+
+- **Bomba seleccionada:** D-40
+- **TDH:** 5604 ft vs. 5830 ft libro (-3.9%)
+- **Etapas:** 244 vs. 254 libro (-3.9%)
+- **HP total bomba:** 76.7 vs. 79 libro (-3.0%)
+- **Advertencias de diseño:** —
+
+### EXAMPLE 3A INTERNAL
 
 *Brown Vol.2b Example 3A — Oil well WITH free gas, 50% water cut, high GIP, 5-1/2" casing*
 

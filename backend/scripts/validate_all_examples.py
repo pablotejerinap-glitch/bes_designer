@@ -86,6 +86,8 @@ def _build_dataclasses(ex: dict):
             reservoir_temp=r["reservoir_temp"],
             drive_mechanism=DriveMechanism[r["drive_mechanism"]],
             datum_depth=r["datum_depth"],
+            fetkovich_c=r.get("fetkovich_c"),
+            fetkovich_n=r.get("fetkovich_n"),
         )
 
     fluid = Fluid(
@@ -155,6 +157,13 @@ def main() -> None:
         label = name.upper().replace("_", " ")
         desc  = ex.get("description", "")
         ref   = ex["book_reference"]
+
+        # Increment-method examples (e.g. #3A Brown) have no whole-well
+        # tdh/stages/hp; they are validated by dedicated unit tests instead.
+        if "tdh_ft" not in ref:
+            print(f"\nSkipping {label}: {desc}")
+            print("  (increment-method example — validated in tests, not whole-well)")
+            continue
 
         print(f"\nRunning {label}: {desc}")
 
