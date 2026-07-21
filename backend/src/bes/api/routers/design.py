@@ -7,7 +7,9 @@ from fastapi import APIRouter, Depends
 
 from bes.api.deps import get_catalog
 from bes.api.mappers import from_design_result, to_domain_inputs
-from bes.api.schemas import DesignRequest, DesignResponse, RecommendationSchema
+from bes.api.schemas import (
+    CriteriaSchema, DesignRequest, DesignResponse, RecommendationSchema,
+)
 from bes.recommender.recommendation_engine import generate_recommendations
 
 router = APIRouter(prefix="/api", tags=["design"])
@@ -32,8 +34,7 @@ def post_design(req: DesignRequest, catalog=Depends(get_catalog)) -> DesignRespo
     recommendations = [
         RecommendationSchema(
             rank=r["rank"],
-            score=r["score"],
-            metrics=r["metrics"],
+            criteria=CriteriaSchema(**r["criteria"]),
             design=from_design_result(r["design"]),
             rationale=r["rationale"],
             warnings=r["warnings"],
@@ -44,7 +45,7 @@ def post_design(req: DesignRequest, catalog=Depends(get_catalog)) -> DesignRespo
     return DesignResponse(
         recommendations=recommendations,
         design_basis=result["design_basis"],
-        weights=result["weights"],
+        ordering_criteria=result["ordering_criteria"],
         n_candidates_evaluated=result["n_candidates_evaluated"],
         warnings=[str(w.message) for w in caught],
     )

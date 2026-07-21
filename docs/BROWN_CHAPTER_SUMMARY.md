@@ -430,13 +430,13 @@ Tres casos:
 | 4.5310 Gas wells | `bes/core/gas_handling.py`, `bes/core/multiphase.py` | Hagedorn-Brown / Beggs-Brill |
 | 4.5311 Viscous | `bes/core/pump_design.py` | Tablas HI 4.520/521 |
 | 4.54 Couto operational | `bes/core/nodal_analysis.py` | Master regions, GLF, dominancia |
-| 4.5451 GLF/OF | `bes/recommender/scoring.py` (flexibility) | 30 % del score actual |
+| 4.5451 GLF/OF | `bes/recommender/ranking.py` (distancia al BEP) | criterio 1 del ordenamiento |
 
 ### Sugerencias de validación adicional
 
 Las siguientes constantes/tablas del libro vale la pena chequear contra los catálogos JSON actuales:
 
-1. **Tabla 4.51** (costo relativo de motor por casing) — útil para el componente "cost score".
+1. **Tabla 4.51** (costo relativo de motor por casing) — quedó sin uso al eliminarse la dimensión de costo del ordenamiento.
 2. **Tabla 4.52** (ampacidad de cables) — verificar que `cables.json` la respeta.
 3. **Tablas 4.520/4.521** (correcciones HI por viscosidad) — si están en `pump_design.py`, agregar test contra el ejemplo de viscosos del libro.
 4. **GLF = 2** (O'Neil) — confirmar que se aplica como límite superior en `gas_handling.complete_gas_design`.

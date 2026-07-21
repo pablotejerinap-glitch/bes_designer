@@ -67,7 +67,10 @@ function RecPanel({ rec, inputs }: { rec: Recommendation; inputs: DesignInputs }
   return (
     <>
       <SimpleGrid cols={{ base: 2, sm: 3, md: 5 }} mt="md">
-        <Metric label="Score" value={`${rec.score.toFixed(1)} / 10`} />
+        <Metric
+          label="Distancia al BEP"
+          value={`${(rec.criteria.bep_distance_frac * 100).toFixed(1)} %`}
+        />
         <Metric label="Eficiencia bomba" value={`${(d.pump_efficiency * 100).toFixed(1)} %`} />
         <Metric label="Etapas" value={`${d.num_stages}`} />
         <Metric label="Potencia" value={`${Math.round(d.motor_hp)} hp`} />

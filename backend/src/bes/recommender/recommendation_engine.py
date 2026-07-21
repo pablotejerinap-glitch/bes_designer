@@ -1,8 +1,12 @@
 """
 Recommendation engine — top-level API for BES/ESP equipment selection.
 
-Produces ranked, annotated ESP design packages (pump + motor + cable +
-transformer) with a human-readable rationale for each recommendation.
+Produces ESP design packages (pump + motor + cable + transformer) ordered
+by strict engineering criteria (BEP distance → efficiency → required
+power; see recommender/ranking.py), each annotated with its raw criteria
+values and a natural-language rationale built exclusively from calculated
+data. There is no scoring, no weighting, and no provider preference: the
+manufacturer is reported as information only.
 """
 from __future__ import annotations
 
@@ -17,12 +21,10 @@ from bes.core.models import (
     WellGeometry,
 )
 from bes.recommender.pump_selector import select_top_n_pumps
-from bes.recommender.scoring import (
-    DEFAULT_WEIGHTS,
-    provider_score,
-    efficiency_score,
-    flexibility_score,
-    overall_score,
+from bes.recommender.ranking import (
+    bep_distance,
+    classify_bep_distance,
+    ranking_key,
 )
 
 if TYPE_CHECKING:
@@ -33,87 +35,94 @@ if TYPE_CHECKING:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _score_design(
-    dr: DesignResult,
-    pump_obj,
-    target_flow: float,
-    casing_id: float,
-    preferred_manufacturer: str = "",
-) -> tuple[float, dict[str, float]]:
-    """Re-compute all scoring dimensions for a DesignResult."""
-    eff_s  = efficiency_score(dr.pump_efficiency)
-    flex_s = flexibility_score(pump_obj, target_flow)
-    prov_s = provider_score(dr.pump_manufacturer, preferred_manufacturer)
-    metrics = {"efficiency": eff_s, "flexibility": flex_s, "provider": prov_s}
-    return overall_score(metrics), metrics
+def _build_criteria(dr: DesignResult, pump_obj, target_flow: float) -> dict:
+    """Raw engineering criteria for one design — the data the ranking uses."""
+    dist = bep_distance(pump_obj, target_flow)
+    return {
+        "bep_flow_bpd": pump_obj.bep_flow,
+        "bep_distance_frac": dist,
+        "flow_vs_bep_pct": 100.0 * target_flow / pump_obj.bep_flow,
+        "efficiency": dr.pump_efficiency,
+        "total_pump_hp": dr.total_pump_hp,
+        "classification": classify_bep_distance(dist),
+    }
 
 
 def _build_rationale(
     dr: DesignResult,
-    metrics: dict[str, float],
-    score: float,
+    criteria: dict,
     rank: int,
+    avg_efficiency: float,
+    n_alternatives: int,
 ) -> str:
-    """Generate a one-paragraph plain-English rationale for a design choice."""
-    parts: list[str] = []
+    """Natural-language explanation assembled ONLY from calculated values.
 
-    # Opening
-    if rank == 1:
+    Every number in the sentence comes from the hydraulic/electrical design
+    or the pump catalog curve — nothing is estimated or invented here.
+    """
+    ordinal = (
+        "primera alternativa" if rank == 1 else f"alternativa {rank}"
+    )
+
+    parts: list[str] = [
+        f"La bomba {dr.pump_model} ({dr.pump_manufacturer}) fue seleccionada "
+        f"como {ordinal} porque opera al "
+        f"{criteria['flow_vs_bep_pct']:.0f} % de su caudal de máxima "
+        f"eficiencia (BEP = {criteria['bep_flow_bpd']:.0f} STB/d frente a "
+        f"{dr.flow_rate_achieved:.0f} STB/d de diseño), alcanza el TDH "
+        f"requerido de {dr.total_head_required:.0f} ft con "
+        f"{dr.num_stages} etapas y presenta una eficiencia hidráulica del "
+        f"{dr.pump_efficiency:.1%}"
+    ]
+
+    if n_alternatives > 1:
+        comparison = (
+            "superior" if dr.pump_efficiency >= avg_efficiency else "inferior"
+        )
         parts.append(
-            f"Top recommendation: {dr.pump_model} ({dr.pump_manufacturer}), "
-            f"overall score {score:.1f}/10."
+            f", {comparison} al promedio de las {n_alternatives} alternativas "
+            f"evaluadas ({avg_efficiency:.1%})"
+        )
+
+    parts.append(
+        f". La potencia requerida es {dr.total_pump_hp:.1f} hp, cubierta por "
+        f"un motor {dr.motor_model} de {dr.motor_hp:.0f} hp "
+        f"({dr.motor_voltage:.0f} V / {dr.motor_amperage:.0f} A)."
+    )
+
+    dist_pct = criteria["bep_distance_frac"] * 100.0
+    classification = criteria["classification"]
+    if classification == "optimo":
+        parts.append(
+            f" El punto operativo está a {dist_pct:.0f} % del BEP, dentro de "
+            "la zona de máxima confiabilidad hidráulica."
+        )
+    elif classification == "aceptable":
+        parts.append(
+            f" El punto operativo está a {dist_pct:.0f} % del BEP: operación "
+            "aceptable, dentro del rango recomendado del fabricante."
         )
     else:
         parts.append(
-            f"Alternative {rank}: {dr.pump_model} ({dr.pump_manufacturer}), "
-            f"overall score {score:.1f}/10."
+            f" El punto operativo está a {dist_pct:.0f} % del BEP: verificar "
+            "con el fabricante la operación sostenida en este punto."
         )
 
-    # Efficiency
-    parts.append(
-        f"Pump efficiency {dr.pump_efficiency:.1%} "
-        f"(efficiency score {metrics['efficiency']:.1f}/10)."
-    )
-
-    # BEP proximity
-    flex = metrics["flexibility"]
-    if flex >= 8.0:
-        parts.append("Operating very close to BEP — optimal hydraulic reliability.")
-    elif flex >= 5.0:
-        parts.append("Operating within acceptable distance of BEP.")
-    else:
-        parts.append(
-            "Flow point is distant from BEP — verify this operating point "
-            "is acceptable or consider an alternative pump."
-        )
-
-    # Equipment summary
-    parts.append(
-        f"{dr.num_stages} stages developing {dr.total_head_required:.0f} ft TDH. "
-        f"Motor: {dr.motor_model} {dr.motor_hp:.0f} hp / "
-        f"{dr.motor_voltage:.0f} V / {dr.motor_amperage:.0f} A. "
-        f"Cable: #{dr.cable_awg} {dr.cable_type}, "
-        f"surface voltage {dr.surface_voltage_required:.0f} V, "
-        f"transformer {dr.transformer_kva:.0f} kVA."
-    )
-
-    # Gas warning
     if dr.gip_fraction > 0.30:
         parts.append(
-            f"High free-gas fraction at intake ({dr.gip_fraction:.0%}) — "
-            "downhole gas separator strongly recommended."
+            f" Gas libre en la admisión: {dr.gip_fraction:.0%} — se requiere "
+            "separador de gas de fondo."
         )
     elif dr.gip_fraction > 0.10:
         parts.append(
-            f"Moderate free-gas fraction ({dr.gip_fraction:.0%}) — "
-            "gas separator should be considered."
+            f" Gas libre en la admisión: {dr.gip_fraction:.0%} — considerar "
+            "separador de gas."
         )
 
-    # Stage-count warning
     if dr.warnings:
-        parts.append(f"Design flags: {'; '.join(dr.warnings)}.")
+        parts.append(f" Observaciones de diseño: {'; '.join(dr.warnings)}.")
 
-    return " ".join(parts)
+    return "".join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -131,9 +140,11 @@ def generate_recommendations(
 ) -> dict:
     """Generate the top N complete ESP design recommendations.
 
-    Each recommendation includes a full DesignResult (pump, motor, cable,
-    transformer), individual dimension scores, an overall score, and a
-    plain-English rationale explaining the selection.
+    Alternatives are ordered by strict engineering criteria, in priority
+    order: (1) distance from the operating rate to the pump's BEP,
+    (2) hydraulic efficiency at the operating point, (3) lower required
+    shaft power. No weighted scores and no provider preference are applied;
+    the manufacturer is informational.
 
     Args:
         reservoir: Reservoir properties.
@@ -150,21 +161,24 @@ def generate_recommendations(
         ``recommendations``
             List of dicts, one per recommendation, each containing:
 
-            - ``rank``       : 1-based position (1 = best).
-            - ``score``      : Overall score [0–10].
-            - ``metrics``    : Per-dimension scores (efficiency, flexibility, provider).
-            - ``design``     : :class:`~core.models.DesignResult` object.
-            - ``rationale``  : Plain-English selection rationale [str].
-            - ``warnings``   : Design flags inherited from hydraulic design.
+            - ``rank``      : 1-based position (1 = best by the criteria).
+            - ``criteria``  : Raw engineering values used for the ordering
+              (bep_flow_bpd, bep_distance_frac, flow_vs_bep_pct, efficiency,
+              total_pump_hp, classification).
+            - ``design``    : :class:`~core.models.DesignResult` object.
+            - ``rationale`` : Natural-language explanation built from the
+              calculated values [str].
+            - ``warnings``  : Design flags inherited from hydraulic design.
 
         ``design_basis``
             Summary of the input conditions used for selection.
 
-        ``weights``
-            Scoring weights applied (copy of :data:`~recommender.scoring.DEFAULT_WEIGHTS`).
+        ``ordering_criteria``
+            Ordered list of the criteria applied (documentation of the
+            method, not tunable weights).
 
         ``n_candidates_evaluated``
-            Number of pump candidates scored before selecting the top N.
+            Number of complete designs assembled and ordered.
 
     Raises:
         ValueError: If no qualifying designs can be built.
@@ -177,7 +191,6 @@ def generate_recommendations(
         objectives=objectives,
         catalog=catalog,
         n=n,
-        diversify=objectives.use_vsd is not None,  # always diversify when possible
     )
 
     if not designs:
@@ -187,34 +200,52 @@ def generate_recommendations(
 
     pump_lookup = {p.model: p for p in catalog.get_all_pumps()}
 
-    recommendations: list[dict] = []
-    for rank, dr in enumerate(designs, start=1):
+    # Pair each design with its criteria; drop designs whose pump vanished
+    # from the catalog (defensive — should not happen in practice).
+    paired: list[tuple[DesignResult, dict]] = []
+    for dr in designs:
         pump_obj = pump_lookup.get(dr.pump_model)
         if pump_obj is None:
             continue
-
-        score, metrics = _score_design(
-            dr=dr,
-            pump_obj=pump_obj,
-            target_flow=objectives.target_flow_rate,
-            casing_id=well.casing_id,
-            preferred_manufacturer=objectives.preferred_manufacturer,
+        paired.append(
+            (dr, _build_criteria(dr, pump_obj, objectives.target_flow_rate))
         )
-        rationale = _build_rationale(dr, metrics, score, rank)
 
+    if not paired:
+        raise ValueError(
+            "No complete ESP design could be assembled for the given conditions."
+        )
+
+    # Enforce the engineering ordering at this level too (same key as the
+    # selector): BEP distance asc → efficiency desc → required power asc.
+    paired.sort(
+        key=lambda item: ranking_key(
+            bep_dist=item[1]["bep_distance_frac"],
+            efficiency=item[1]["efficiency"],
+            total_pump_hp=item[1]["total_pump_hp"],
+        )
+    )
+
+    avg_efficiency = (
+        sum(dr.pump_efficiency for dr, _ in paired) / len(paired)
+    )
+
+    recommendations: list[dict] = []
+    for rank, (dr, criteria) in enumerate(paired, start=1):
+        rationale = _build_rationale(
+            dr=dr,
+            criteria=criteria,
+            rank=rank,
+            avg_efficiency=avg_efficiency,
+            n_alternatives=len(paired),
+        )
         recommendations.append({
-            "rank":     rank,
-            "score":    round(score, 2),
-            "metrics":  {k: round(v, 2) for k, v in metrics.items()},
-            "design":   dr,
+            "rank":      rank,
+            "criteria":  criteria,
+            "design":    dr,
             "rationale": rationale,
-            "warnings": dr.warnings,
+            "warnings":  dr.warnings,
         })
-
-    # Ensure recommendations are sorted by score descending
-    recommendations.sort(key=lambda r: r["score"], reverse=True)
-    for i, rec in enumerate(recommendations, start=1):
-        rec["rank"] = i
 
     return {
         "recommendations": recommendations,
@@ -225,6 +256,10 @@ def generate_recommendations(
             "reservoir_pressure_psi": reservoir.static_pressure,
             "bottom_hole_temp_f":   well.bottom_hole_temp,
         },
-        "weights": dict(DEFAULT_WEIGHTS),
-        "n_candidates_evaluated": len(designs),
+        "ordering_criteria": [
+            "1. Cercanía al BEP (|q − q_BEP| / q_BEP, ascendente)",
+            "2. Eficiencia hidráulica en el punto operativo (descendente)",
+            "3. Potencia requerida en el eje (ascendente)",
+        ],
+        "n_candidates_evaluated": len(paired),
     }

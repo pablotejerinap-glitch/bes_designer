@@ -4,7 +4,6 @@ import {
   NumberInput,
   Select,
   Switch,
-  TextInput,
 } from "@mantine/core";
 import type {
   DesignInputs,
@@ -109,6 +108,13 @@ export function WellForm({ value, onChange }: Props) {
     onChange({ ...value, [section]: { ...value[section], [key]: v } });
   }
 
+  // Campos opcionales: vacío viaja como null, no como 0 — un 0 sería un valor
+  // fuera de rango que el backend rechazaría con 422.
+  function toNumOrNull(v: number | string): number | null {
+    const num = typeof v === "number" ? v : parseFloat(v);
+    return Number.isFinite(num) ? num : null;
+  }
+
   function numGrid<S extends Section>(section: S, fields: NumField[]) {
     const obj = value[section] as unknown as Record<string, number>;
     return (
@@ -162,6 +168,37 @@ export function WellForm({ value, onChange }: Props) {
               />
             </Grid.Col>
           </Grid>
+
+          {/* C y n solo aplican a Fetkovich, y ahí son obligatorios: el
+              backend rechaza el diseño con 422 si faltan. */}
+          {reservoir.ipr_method === "fetkovich" && (
+            <Grid mt="xs">
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <NumberInput
+                  label="Coeficiente C de Fetkovich"
+                  description="STB/d/psia^(2n) — de un ensayo multi-rate"
+                  value={reservoir.fetkovich_c ?? ""}
+                  step={0.0001}
+                  decimalScale={6}
+                  onChange={(v) => setRaw("reservoir", "fetkovich_c", toNumOrNull(v))}
+                  hideControls
+                />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <NumberInput
+                  label="Exponente n de Fetkovich"
+                  description="1.0 = laminar · 0.5 = turbulento pleno"
+                  value={reservoir.fetkovich_n ?? ""}
+                  step={0.01}
+                  min={0.5}
+                  max={1}
+                  decimalScale={3}
+                  onChange={(v) => setRaw("reservoir", "fetkovich_n", toNumOrNull(v))}
+                  hideControls
+                />
+              </Grid.Col>
+            </Grid>
+          )}
         </Accordion.Panel>
       </Accordion.Item>
 
@@ -206,18 +243,6 @@ export function WellForm({ value, onChange }: Props) {
         <Accordion.Control>5 · Objetivos</Accordion.Control>
         <Accordion.Panel>
           {numGrid("objectives", OBJECTIVES_NUM)}
-          <Grid mt="xs">
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <TextInput
-                label="Fabricante preferido"
-                placeholder="(vacío = sin preferencia)"
-                value={objectives.preferred_manufacturer}
-                onChange={(e) =>
-                  setRaw("objectives", "preferred_manufacturer", e.currentTarget.value)
-                }
-              />
-            </Grid.Col>
-          </Grid>
           <Switch
             mt="sm"
             label="Permite venteo de gas"

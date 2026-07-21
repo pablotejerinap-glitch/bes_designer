@@ -43,7 +43,7 @@ class ExampleWell(BaseModel):
 @router.get("/examples", response_model=list[ExampleWell])
 def get_examples() -> list[ExampleWell]:
     """Return the Brown book examples already normalized to the API shape
-    (enums lowercased, preferred_manufacturer defaulted)."""
+    (enums lowercased)."""
     data = json.loads(_data_path().read_text(encoding="utf-8"))
     out: list[ExampleWell] = []
     for key, ex in data.items():
@@ -53,7 +53,6 @@ def get_examples() -> list[ExampleWell]:
         res["ipr_method"] = res["ipr_method"].lower()
         res["drive_mechanism"] = res["drive_mechanism"].lower()
         obj = dict(ex["objectives"])
-        obj.setdefault("preferred_manufacturer", "")
         inputs = DesignInputs(
             reservoir=ReservoirSchema(**res),
             fluid=FluidSchema(**ex["fluid"]),

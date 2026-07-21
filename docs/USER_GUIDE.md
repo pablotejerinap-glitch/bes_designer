@@ -153,21 +153,27 @@ El motor evalúa cada bomba del catálogo y selecciona las **mejores 3 opciones*
 - **Gas en bomba (GIP):** fracción estimada de gas libre en la admisión
 - **Advertencias:** flags para revisión del ingeniero
 
-Las opciones se presentan en **tabs** rankeadas de mayor a menor score.
+Las opciones se presentan en **tabs**, ordenadas por criterios de ingeniería.
 
-**Criterios de scoring:**
-- Eficiencia hidráulica de la bomba (40 %)
-- Flexibilidad operativa (distancia al BEP) (30 %)
-- Preferencia de proveedor (30 %): elegí un proveedor preferido en la pestaña Objetivos y sus equipos puntúan más alto
+**Criterios de ordenamiento**, en orden estricto de prioridad (sin puntajes ni
+pesos configurables):
+1. **Cercanía al BEP** — `|q − q_BEP| / q_BEP`, de menor a mayor
+2. **Eficiencia hidráulica** en el punto operativo, de mayor a menor
+3. **Potencia requerida** en el eje, de menor a mayor
+
+El criterio 2 solo desempata igualdades del 1, y el 3 solo igualdades de los
+dos primeros. El fabricante se muestra como información y **no** interviene en
+el orden. La etiqueta de distancia al BEP (≤ 10 % "muy cerca", ≤ 25 %
+"moderadamente alejado", > 25 % "alejado") es solo visual.
 
 ---
 
 ### 4.3 📊 Comparación de Opciones
 
 Presenta las opciones calculadas en una tabla comparativa con:
-- Gráfico de radar con los 3 scores por opción
+- Los tres criterios de ordenamiento por opción, con sus valores crudos
 - Tabla lado a lado con los parámetros clave
-- Diferencias porcentuales respecto a la opción 1
+- Distancia al BEP de cada opción respecto a la primera, en puntos porcentuales
 
 Útil para tomar la decisión final cuando hay varias opciones similares.
 
@@ -227,7 +233,7 @@ Al final de la sección **Diseño BES**, aparecen tres botones de descarga:
 | **Cable** | Selección por AWG, longitud, tipo (EPDM/Polypro) |
 | **Transformador** | Potencia en kVA con factor de servicio 1.25 |
 | **Gas en bomba (GIP)** | Método de volumenes a condiciones de admisión (Brown §4.53103) |
-| **Scoring** | Multi-criterio: eficiencia 40 %, flexibilidad 30 %, preferencia de proveedor 30 % |
+| **Ordenamiento** | Lexicográfico: 1. cercanía al BEP, 2. eficiencia, 3. menor potencia. Sin pesos ni preferencia de proveedor |
 
 ---
 

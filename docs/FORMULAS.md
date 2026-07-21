@@ -298,26 +298,37 @@ $$HP_{incr} = N_{stages}\cdot hp_{stage,w}\cdot SG_{mix}$$
 
 ---
 
-## 8. Scoring (ranking de diseños)
-Archivo: [recommender/scoring.py](../recommender/scoring.py)
+## 8. Ordenamiento de diseños (sin scoring)
+Archivo: [bes/recommender/ranking.py](../backend/src/bes/recommender/ranking.py)
 
-Pesos: eficiencia 40 %, flexibilidad 30 %, preferencia de proveedor 30 %.
+Las alternativas se ordenan por una clave **lexicográfica** de tres criterios
+físicos. No hay pesos, ni escalas 0–10, ni dimensión de proveedor: el
+fabricante es informativo. El criterio 2 solo desempata igualdades del 1, y el
+3 solo igualdades de los dos primeros.
 
-### 8.1 Eficiencia — [scoring.py:25](../recommender/scoring.py#L25)
+Base ingenieril (Brown §4.5325): el caudal de diseño debe caer lo más cerca
+posible del punto de máxima eficiencia; operar lejos del BEP aumenta el empuje
+axial y el desgaste, y reduce la vida útil.
 
-$$S_{ef} = \text{clip}(\eta\cdot 10,\ 0,\ 10)$$
+### 8.1 Criterio 1 — distancia al BEP (ascendente)
 
-### 8.2 Flexibilidad (proximidad al BEP) — [scoring.py:39](../recommender/scoring.py#L39)
+$$d_{BEP} = \frac{|q - q_{BEP}|}{q_{BEP}}$$
 
-$$S_{flex} = 10\left(1 - \frac{|q - q_{BEP}|}{(q_{max} - q_{min})/2}\right),\quad \text{acotado a } [0,10]$$
+### 8.2 Criterio 2 — eficiencia hidráulica (descendente)
 
-### 8.3 Preferencia de proveedor — [scoring.py:63](../recommender/scoring.py#L63)
+$$\eta = \eta(q)\ \text{ leída de la curva de catálogo en el punto operativo}$$
 
-$$S_{prov} = \begin{cases} 10 & \text{sin preferencia} \\ 10 & \text{fabricante} = \text{preferido} \\ 5 & \text{en otro caso} \end{cases}$$
+### 8.3 Criterio 3 — potencia en el eje (ascendente)
 
-### 8.4 Score global — [scoring.py:84](../recommender/scoring.py#L84)
+$$HP_{eje} = N_{stages}\cdot hp_{stage,w}\cdot SG_{fluido}$$
 
-$$S = \frac{\sum_k w_k\,S_k}{\sum_k w_k} = 0.40\,S_{ef} + 0.30\,S_{flex} + 0.30\,S_{prov}$$
+### 8.4 Clave de ordenamiento
+
+$$k = \left(d_{BEP},\ -\eta,\ HP_{eje}\right)$$
+
+Ordenar ascendente por $k$ da la prioridad buscada. La clasificación
+$d_{BEP} \le 10\,\%$ "óptimo", $\le 25\,\%$ "aceptable", $> 25\,\%$ "alejado"
+es **solo para mostrar** y nunca interviene en el orden.
 
 ---
 

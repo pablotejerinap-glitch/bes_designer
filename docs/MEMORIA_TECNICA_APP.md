@@ -13,7 +13,7 @@ El diseño de un sistema de Bombeo Electrosumergible (BES, o ESP por sus siglas 
 
 Hecho a mano, este diseño exige: calcular el comportamiento de afluencia del pozo (IPR), estimar las propiedades de los fluidos a distintas presiones y temperaturas (PVT), integrar gradientes de presión multifásicos a lo largo del pozo, calcular la altura dinámica total que debe vencer la bomba (TDH), recorrer catálogos de fabricantes leyendo curvas de rendimiento, y verificar restricciones geométricas, térmicas y eléctricas. Es un proceso iterativo, propenso a errores y que en la práctica se repite para varias bombas candidatas antes de elegir una.
 
-**BES Designer automatiza ese proceso completo.** A partir de los datos del pozo, evalúa todas las bombas del catálogo que son físicamente compatibles, completa para cada una el diseño hidráulico y eléctrico, las califica con un puntaje multicriterio y devuelve las tres mejores opciones con su justificación, advertencias de diseño y reportes descargables.
+**BES Designer automatiza ese proceso completo.** A partir de los datos del pozo, evalúa todas las bombas del catálogo que son físicamente compatibles, completa para cada una el diseño hidráulico y eléctrico, las ordena por criterios de ingeniería y devuelve las tres mejores opciones con su justificación, advertencias de diseño y reportes descargables.
 
 La metodología implementada es la de Kermit Brown, *The Technology of Artificial Lift Methods*, Vol. 2b, Cap. 4.5 (PennWell, 1980), complementada con el Vol. 4 (análisis nodal). Cada módulo de cálculo se valida contra los ejemplos numerados del libro.
 
@@ -29,7 +29,7 @@ La interfaz (SPA React + Mantine) se organiza en secciones que siguen el orden n
 |---|---------|-----------------------------------|
 | 1 | **Datos del Pozo** | Carga los datos en cinco pestañas: reservorio, fluido, geometría del pozo, condiciones de superficie y objetivos de diseño. Puede cargar un ejemplo del libro con un clic. Todos los datos se validan al guardar (rangos físicos, consistencia geométrica). |
 | 2 | **Diseño BES** | Con un botón se ejecuta el diseño completo. Muestra las 3 mejores opciones en pestañas: equipo seleccionado, etapas, TDH, diseño eléctrico, fracción de gas en la admisión, advertencias y justificación en texto. Desde aquí se descargan los reportes PDF, Excel y el caso en JSON. |
-| 3 | **Comparación de Opciones** | Gráfico radar y tabla comparativa de las opciones (eficiencia, flexibilidad, preferencia de proveedor, puntaje global). |
+| 3 | **Comparación de Opciones** | Tabla comparativa de las opciones con los tres criterios de ordenamiento (distancia al BEP, eficiencia, potencia) y sus valores crudos. |
 | 4 | **Análisis de Sensibilidad** | Evalúa cómo cambia el diseño ante variaciones de presión de reservorio, corte de agua y GOR. |
 | 5 | **Análisis Nodal** | Construye las curvas de oferta (IPR) y demanda (outflow) del sistema, encuentra el punto de operación natural y con BES, y permite comparar las cuatro correlaciones multifásicas disponibles y simular la declinación de presión del reservorio. |
 | 6 | **Acerca de** | Metodología, referencias bibliográficas y créditos. |
@@ -96,19 +96,30 @@ Si el fluido es viscoso se aplican los factores de corrección del estándar Hyd
 
 Con el PVT a la presión de admisión se calcula la fracción volumétrica de gas libre que entra a la bomba. Según su magnitud se emiten advertencias y la recomendación de separador de fondo (riesgo de bloqueo por gas, Brown §4.53103). Para pozos con mucho gas existe además el **método de incrementos de presión de 200 psi** del libro: divide el recorrido de presión de la bomba en tramos, calcula el caudal in situ de cada tramo (el gas se comprime y se redisuelve al subir la presión) y selecciona la bomba y el número de etapas tramo por tramo, pudiendo combinar dos modelos de bomba (diseño "tapered", como en el Ejemplo 3B del libro).
 
-### Paso 8 — Puntaje y ranking
+### Paso 8 — Ordenamiento de las alternativas
 
-Cada diseño completo recibe tres puntajes de 0 a 10, combinados con pesos fijos:
+Los diseños completos se ordenan por tres criterios físicos, en orden estricto
+de prioridad (ordenamiento lexicográfico). No hay puntajes, ni pesos, ni
+fórmula de agregación:
 
-| Criterio | Peso | Qué mide |
-|----------|------|----------|
-| Eficiencia | 40 % | Eficiencia hidráulica de la bomba en el punto de operación |
-| Flexibilidad | 30 % | Cercanía del punto de operación al punto de mejor eficiencia (BEP): operar cerca del BEP maximiza la vida útil |
-| Preferencia de proveedor | 30 % | Si el usuario elige un proveedor preferido, sus bombas puntúan 10 y el resto 5; sin preferencia, todas puntúan 10 (no sesga) |
+| Prioridad | Criterio | Definición | Sentido |
+|---|----------|-----------|---------|
+| 1 | Cercanía al BEP | `\|q − q_BEP\| / q_BEP` | ascendente (menor es mejor) |
+| 2 | Eficiencia hidráulica | η en el punto de operación, leída de la curva de catálogo | descendente |
+| 3 | Potencia requerida | HP en el eje = etapas × HP/etapa × SG | ascendente |
 
-> **Nota:** versiones anteriores incluían un criterio de *costo* (estimado por potencia y etapas). Se reemplazó por la preferencia de proveedor a pedido del proyecto; el sistema ya no estima ni pondera costo.
+El criterio 2 solo desempata igualdades del 1, y el 3 solo igualdades de los
+dos primeros. Operar cerca del BEP maximiza la vida útil: alejarse aumenta el
+empuje axial y el desgaste (Brown §4.5325).
 
-El sistema devuelve las 3 mejores opciones, garantizando cuando es posible al menos una por fabricante (diversificación), cada una con una justificación generada en texto.
+> **Nota:** versiones anteriores puntuaban de 0 a 10 y ponderaban eficiencia
+> 40 %, flexibilidad 30 % y una tercera dimensión (primero *costo*, después
+> *preferencia de proveedor*). Se eliminó el esquema completo: los pesos eran
+> arbitrarios y la dimensión de proveedor no es una propiedad física del
+> diseño. El fabricante se informa, pero no ordena.
+
+El sistema devuelve las 3 mejores opciones, cada una con sus criterios crudos y
+una justificación generada en texto a partir de valores calculados.
 
 ---
 
@@ -230,7 +241,7 @@ Entradas del usuario (validadas)
 core/   │  ipr.py → pvt.py → multiphase.py → tdh.py → pump_design.py
         │  → electrical.py → gas_handling.py → nodal_analysis.py
         ▼
-recommender/  pump_selector.py → scoring.py → recommendation_engine.py
+recommender/  pump_selector.py → ranking.py → recommendation_engine.py
         ▼
 frontend/ (React) + bes.plotting     bes.reports/ (PDF ReportLab · Excel openpyxl · JSON)
 ```

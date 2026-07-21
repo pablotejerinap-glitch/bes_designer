@@ -1,31 +1,27 @@
 // Comparación lado a lado de las opciones recomendadas.
 // No pide nada a la API: /api/design ya devuelve las N opciones con sus
 // métricas, así que esto es pura presentación.
-import { Alert, Badge, Card, Group, Progress, SimpleGrid, Table, Text } from "@mantine/core";
-import type { Recommendation } from "../api/types";
+import { Alert, Badge, Card, Group, SimpleGrid, Table, Text } from "@mantine/core";
+import type { BepClassification, Recommendation } from "../api/types";
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
-function ScoreBar({ label, value }: { label: string; value: number }) {
-  return (
-    <div>
-      <Group justify="space-between" gap="xs">
-        <Text size="xs" c="dimmed">
-          {label}
-        </Text>
-        <Text size="xs" fw={600}>
-          {value.toFixed(1)}/10
-        </Text>
-      </Group>
-      <Progress value={value * 10} size="sm" mt={2} />
-    </div>
-  );
-}
+// Etiquetas de la clasificación de distancia al BEP. Solo informan: el orden
+// lo fija el criterio lexicográfico del backend, no estos colores.
+const CLASSIFICATION: Record<BepClassification, { label: string; color: string }> = {
+  optimo: { label: "Muy cerca del BEP", color: "teal" },
+  aceptable: { label: "Moderadamente alejado del BEP", color: "yellow" },
+  alejado: { label: "Alejado del BEP", color: "red" },
+};
 
 function OptionCard({ rec, best }: { rec: Recommendation; best: Recommendation }) {
   const d = rec.design;
+  const c = rec.criteria;
   const medal = MEDALS[rec.rank - 1] ?? `#${rec.rank}`;
-  const delta = rec.rank === 1 ? null : rec.score - best.score;
+  const cls = CLASSIFICATION[c.classification];
+  // Criterio 1: cuánto más lejos del BEP queda esta opción que la primera.
+  const deltaBep =
+    rec.rank === 1 ? null : (c.bep_distance_frac - best.criteria.bep_distance_frac) * 100;
 
   const specs: [string, string][] = [
     ["Etapas", `${d.num_stages}`],
@@ -55,23 +51,60 @@ function OptionCard({ rec, best }: { rec: Recommendation; best: Recommendation }
 
       <Group align="baseline" gap="xs" mt="sm">
         <Text fw={700} size="xl">
-          {rec.score.toFixed(2)}
+          {(c.bep_distance_frac * 100).toFixed(1)} %
         </Text>
         <Text size="sm" c="dimmed">
-          / 10
+          del BEP
         </Text>
-        {delta !== null && (
-          <Badge color={delta < 0 ? "red" : "teal"} variant="light" size="sm">
-            {delta >= 0 ? "+" : ""}
-            {delta.toFixed(2)} vs 🥇
+        {deltaBep !== null && (
+          <Badge color={deltaBep > 0 ? "red" : "teal"} variant="light" size="sm">
+            {deltaBep >= 0 ? "+" : ""}
+            {deltaBep.toFixed(1)} pp vs 🥇
           </Badge>
         )}
       </Group>
+      <Badge color={cls.color} variant="light" size="sm" mt={4}>
+        {cls.label}
+      </Badge>
 
       <Card.Section inheritPadding py="sm">
-        <ScoreBar label="Eficiencia" value={rec.metrics.efficiency} />
-        <ScoreBar label="Flexibilidad (BEP)" value={rec.metrics.flexibility} />
-        <ScoreBar label="Preferencia de proveedor" value={rec.metrics.provider} />
+        <Text size="xs" c="dimmed">
+          Criterios de ordenamiento
+        </Text>
+        <Table mt={4}>
+          <Table.Tbody>
+            <Table.Tr>
+              <Table.Td>
+                <Text size="xs">1. Distancia al BEP</Text>
+              </Table.Td>
+              <Table.Td>
+                <Text size="xs" fw={600}>
+                  {(c.bep_distance_frac * 100).toFixed(1)} % ({c.bep_flow_bpd.toFixed(0)} STB/d)
+                </Text>
+              </Table.Td>
+            </Table.Tr>
+            <Table.Tr>
+              <Table.Td>
+                <Text size="xs">2. Eficiencia hidráulica</Text>
+              </Table.Td>
+              <Table.Td>
+                <Text size="xs" fw={600}>
+                  {(c.efficiency * 100).toFixed(1)} %
+                </Text>
+              </Table.Td>
+            </Table.Tr>
+            <Table.Tr>
+              <Table.Td>
+                <Text size="xs">3. Potencia en el eje</Text>
+              </Table.Td>
+              <Table.Td>
+                <Text size="xs" fw={600}>
+                  {c.total_pump_hp.toFixed(1)} hp
+                </Text>
+              </Table.Td>
+            </Table.Tr>
+          </Table.Tbody>
+        </Table>
       </Card.Section>
 
       <Table striped withTableBorder mt="xs">

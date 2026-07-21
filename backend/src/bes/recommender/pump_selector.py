@@ -2,8 +2,10 @@
 Top-N pump selector for BES/ESP recommendation engine.
 
 Calls the existing hydraulic (pump_design) and electrical design modules,
-scores every qualifying candidate, optionally diversifies across
-manufacturers, and returns the best N results as DesignResult objects.
+orders every qualifying candidate by strict engineering criteria
+(BEP distance → efficiency → required power; see recommender/ranking.py),
+and returns the best N results as DesignResult objects. The manufacturer
+plays no role in the ordering.
 """
 from __future__ import annotations
 
@@ -21,12 +23,7 @@ from bes.core.pump_design import design_pump_complete
 from bes.core.electrical import electrical_design_complete
 from bes.core.tdh import _sg_liquid
 from bes.core.pvt import standing_rs, gas_z_factor, gas_bg, standing_bo, water_bw
-from bes.recommender.scoring import (
-    efficiency_score,
-    flexibility_score,
-    provider_score,
-    overall_score,
-)
+from bes.recommender.ranking import bep_distance, ranking_key
 
 if TYPE_CHECKING:
     from bes.catalogs.loader import CatalogManager
@@ -72,52 +69,6 @@ def _gip_fraction_at_pip(
     v_total = v_oil + v_water + v_gas
 
     return v_gas / v_total if v_total > 0.0 else 0.0
-
-
-def _diversify(
-    scored_items: list[tuple[float, dict, object]],
-    n: int,
-) -> list[tuple[float, dict, object]]:
-    """Reorder scored candidates to ensure manufacturer diversity in the top N.
-
-    Guarantees at least one result per manufacturer present in the catalog
-    (up to n slots). Remaining slots are filled in score order.
-
-    Args:
-        scored_items: List of (score, pump_dict, PumpCurve) triples,
-            already sorted by score descending.
-        n: Target number of results.
-
-    Returns:
-        Reordered list of at most n items.
-    """
-    manufacturers = list(dict.fromkeys(
-        item[1]["pump_manufacturer"] for item in scored_items
-    ))
-
-    result: list[tuple] = []
-    added_mfrs: set[str] = set()
-
-    # One representative per manufacturer (best-scored)
-    for mfr in manufacturers:
-        best = next(
-            (x for x in scored_items if x[1]["pump_manufacturer"] == mfr),
-            None,
-        )
-        if best is not None and best not in result:
-            result.append(best)
-            added_mfrs.add(mfr)
-
-    # Fill remaining slots in score order
-    for item in scored_items:
-        if len(result) >= n:
-            break
-        if item not in result:
-            result.append(item)
-
-    # Re-sort by score (diversity slots may outrank each other)
-    result.sort(key=lambda x: x[0], reverse=True)
-    return result[:n]
 
 
 def _build_design_result(
@@ -201,16 +152,16 @@ def select_top_n_pumps(
     objectives: DesignObjectives,
     catalog: "CatalogManager",
     n: int = 3,
-    diversify: bool = True,
 ) -> list[DesignResult]:
-    """Select the top N ESP pump designs, scored and optionally diversified.
+    """Select the top N ESP pump designs ordered by engineering criteria.
 
     Steps:
     1. Run full hydraulic design for all catalog pumps that fit the well.
-    2. Run electrical design (motor + cable + transformer) for each candidate.
-    3. Score each design on efficiency, flexibility, and provider preference.
-    4. Optionally reorder to guarantee at least one pump per manufacturer.
-    5. Return top N as DesignResult dataclass instances.
+    2. Order candidates by the strict engineering key (BEP distance →
+       efficiency → required power; recommender/ranking.py). No weights,
+       no provider dimension — the manufacturer is informational only.
+    3. Run electrical design (motor + cable + transformer) for the top N.
+    4. Return the results as DesignResult dataclass instances.
 
     Args:
         reservoir: Reservoir properties.
@@ -220,11 +171,10 @@ def select_top_n_pumps(
         objectives: Production targets.
         catalog: Loaded equipment catalog.
         n: Maximum number of designs to return.
-        diversify: If True, guarantee at least one pump per available
-            manufacturer in the top-N results.
 
     Returns:
-        List of DesignResult objects, best score first.
+        List of DesignResult objects in engineering-criteria order
+        (closest to BEP first).
 
     Raises:
         ValueError: If no qualifying pumps are found in the catalog.
@@ -254,37 +204,28 @@ def select_top_n_pumps(
     # Build a lookup from model name → PumpCurve object
     pump_lookup = {p.model: p for p in catalog.get_all_pumps()}
 
-    # Score all candidates
-    scored: list[tuple[float, dict, object]] = []
+    # Order all candidates by the strict engineering key:
+    # (1) BEP distance asc, (2) efficiency desc, (3) required power asc.
+    ranked: list[tuple[tuple, dict, object]] = []
     for cand in pump_candidates:
         pump_obj = pump_lookup.get(cand["pump_model"])
         if pump_obj is None:
             continue
-
-        eff_s  = efficiency_score(cand["efficiency"])
-        flex_s = flexibility_score(pump_obj, objectives.target_flow_rate)
-        prov_s = provider_score(
-            cand["pump_manufacturer"], objectives.preferred_manufacturer
+        key = ranking_key(
+            bep_dist=bep_distance(pump_obj, objectives.target_flow_rate),
+            efficiency=cand["efficiency"],
+            total_pump_hp=cand["total_pump_hp"],
         )
+        ranked.append((key, cand, pump_obj))
 
-        score = overall_score(
-            {"efficiency": eff_s, "flexibility": flex_s, "provider": prov_s}
-        )
-        scored.append((score, cand, pump_obj))
-
-    scored.sort(key=lambda x: x[0], reverse=True)
-
-    # Optionally reorder for brand diversity
-    if diversify and len(scored) > 1:
-        scored = _diversify(scored, n)
-    else:
-        scored = scored[:n]
+    ranked.sort(key=lambda x: x[0])
+    ranked = ranked[:n]
 
     # Build DesignResult for each surviving candidate
     bottom_temp = well.bottom_hole_temp
     results: list[DesignResult] = []
 
-    for _score, cand, pump_obj in scored:
+    for _key, cand, pump_obj in ranked:
         try:
             elec = electrical_design_complete(
                 motor_hp=cand["total_pump_hp"],

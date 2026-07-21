@@ -15,7 +15,7 @@ A partir de los datos del pozo (reservorio, fluido, geometría, superficie y obj
 - **TDH por Hazen-Williams** + perfil hidrostático
 - **Manejo de gas (GIP)** siguiendo Brown §4.53103
 - **Corrección por viscosidad** según el estándar Hydraulic Institute
-- **Scoring multi-criterio**: eficiencia 40 % · flexibilidad 30 % · preferencia de proveedor 30 %
+- **Ordenamiento por criterios de ingeniería**: 1. cercanía al BEP · 2. eficiencia · 3. menor potencia (lexicográfico, sin pesos)
 - **Top-3 recomendaciones** con diversificación de fabricante
 - **Reportes** PDF, Excel y JSON descargables desde la app
 - **Análisis de sensibilidad** sobre parámetros clave
@@ -39,7 +39,7 @@ bes_designer/
 │   │   │   ├── electrical.py   # Motor, cable, transformador
 │   │   │   └── gas_handling.py # GIP (Brown §4.53103)
 │   │   ├── catalogs/           # Catálogos de equipos (JSON) + CatalogManager
-│   │   ├── recommender/        # Selección y ranking (select_top_n_pumps, scoring)
+│   │   ├── recommender/        # Selección y ordenamiento (select_top_n_pumps, ranking)
 │   │   ├── reports/            # PDF (ReportLab) · Excel (openpyxl)
 │   │   ├── services/           # Orquestación agnóstica de framework
 │   │   ├── plotting/           # Gráficos Plotly (agnósticos, los usa la API)

@@ -1,13 +1,13 @@
 """
-Tests for the BES/ESP recommendation engine — Phase 9.
+Tests for the BES/ESP recommendation engine.
 
-Validates scoring functions, pump selection, diversification, and the
-full recommendation pipeline.
+Validates the engineering-criteria ranking (BEP distance → efficiency →
+required power), pump selection, and the full recommendation pipeline.
+No scores, no weights, no provider preference.
 """
 from __future__ import annotations
 
 import pytest
-from pathlib import Path
 
 from bes.catalogs.loader import CatalogManager
 from bes.core.models import (
@@ -20,12 +20,12 @@ from bes.core.models import (
     SurfaceConditions,
     WellGeometry,
 )
-from bes.recommender.scoring import (
-    DEFAULT_WEIGHTS,
-    provider_score,
-    efficiency_score,
-    flexibility_score,
-    overall_score,
+from bes.recommender.ranking import (
+    BEP_ACCEPTABLE_MAX,
+    BEP_OPTIMAL_MAX,
+    bep_distance,
+    classify_bep_distance,
+    ranking_key,
 )
 from bes.recommender.pump_selector import select_top_n_pumps
 from bes.recommender.recommendation_engine import generate_recommendations
@@ -117,116 +117,78 @@ def objectives() -> DesignObjectives:
 
 @pytest.fixture(scope="module")
 def d40_pump(manager):
-    """D-40 PumpCurve object — used for scoring unit tests."""
+    """D-40 PumpCurve object — used for ranking unit tests."""
     return next(p for p in manager.get_all_pumps() if p.model == "D-40")
 
 
 # ---------------------------------------------------------------------------
-# 1. Scoring functions
+# 1. Engineering-criteria ranking primitives
 # ---------------------------------------------------------------------------
 
-class TestEfficiencyScore:
+class TestBepDistance:
 
-    def test_perfect_efficiency(self):
-        assert efficiency_score(1.0) == pytest.approx(10.0)
+    def test_at_bep_is_zero(self, d40_pump):
+        assert bep_distance(d40_pump, d40_pump.bep_flow) == pytest.approx(0.0)
 
-    def test_zero_efficiency(self):
-        assert efficiency_score(0.0) == pytest.approx(0.0)
-
-    def test_typical_efficiency(self):
-        assert efficiency_score(0.60) == pytest.approx(6.0)
-
-    def test_clamped_above_1(self):
-        assert efficiency_score(1.5) == pytest.approx(10.0)
-
-    def test_clamped_below_0(self):
-        assert efficiency_score(-0.1) == pytest.approx(0.0)
-
-    def test_monotonically_increasing(self):
-        scores = [efficiency_score(e) for e in (0.0, 0.40, 0.55, 0.65, 1.0)]
-        for a, b in zip(scores, scores[1:]):
-            assert a <= b
-
-
-class TestFlexibilityScore:
-
-    def test_at_bep_is_10(self, d40_pump):
-        assert flexibility_score(d40_pump, d40_pump.bep_flow) == pytest.approx(10.0)
-
-    def test_at_min_flow_is_zero_or_below(self, d40_pump):
-        score = flexibility_score(d40_pump, d40_pump.min_flow)
-        assert score <= 0.0 + 1e-6   # ~0 or clamped to 0
-
-    def test_at_max_flow_is_zero_or_below(self, d40_pump):
-        score = flexibility_score(d40_pump, d40_pump.max_flow)
-        assert score <= 0.0 + 1e-6
-
-    def test_closer_to_bep_higher_score(self, d40_pump):
+    def test_symmetric_around_bep(self, d40_pump):
         bep = d40_pump.bep_flow
-        near = bep + 50.0
-        far = bep + 200.0
-        assert flexibility_score(d40_pump, near) > flexibility_score(d40_pump, far)
+        assert bep_distance(d40_pump, bep + 100.0) == pytest.approx(
+            bep_distance(d40_pump, bep - 100.0)
+        )
 
-    def test_score_in_range(self, d40_pump):
-        for flow in (d40_pump.min_flow, d40_pump.bep_flow, d40_pump.max_flow):
-            s = flexibility_score(d40_pump, flow)
-            assert 0.0 <= s <= 10.0
+    def test_is_relative_fraction(self, d40_pump):
+        bep = d40_pump.bep_flow
+        assert bep_distance(d40_pump, bep * 1.10) == pytest.approx(0.10)
 
+    def test_closer_to_bep_smaller_distance(self, d40_pump):
+        bep = d40_pump.bep_flow
+        assert bep_distance(d40_pump, bep + 50.0) < bep_distance(d40_pump, bep + 200.0)
 
-class TestProviderScore:
-
-    def test_no_preference_full_marks(self):
-        assert provider_score("Reda", "") == pytest.approx(10.0)
-        assert provider_score("Reda", None) == pytest.approx(10.0)
-
-    def test_preferred_match_full_marks(self):
-        assert provider_score("ChampionX", "ChampionX") == pytest.approx(10.0)
-
-    def test_preferred_match_case_insensitive(self):
-        assert provider_score("ChampionX", "championx") == pytest.approx(10.0)
-
-    def test_non_preferred_lower(self):
-        s_match = provider_score("ChampionX", "ChampionX")
-        s_other = provider_score("Reda", "ChampionX")
-        assert s_other < s_match
-
-    def test_score_in_range(self):
-        for mfr in ("Reda", "ChampionX", "SLB"):
-            for pref in ("", "Reda", "SLB", None):
-                s = provider_score(mfr, pref)
-                assert 0.0 <= s <= 10.0
+    def test_invalid_flow_rejected(self, d40_pump):
+        with pytest.raises(ValueError, match="flow"):
+            bep_distance(d40_pump, 0.0)
 
 
-class TestOverallScore:
+class TestRankingKey:
+    """Strict lexicographic ordering: BEP → efficiency → power. No weights."""
 
-    def test_equal_perfect_scores(self):
-        metrics = {"efficiency": 10.0, "flexibility": 10.0, "provider": 10.0}
-        assert overall_score(metrics) == pytest.approx(10.0)
+    def test_bep_distance_dominates(self):
+        # A pump much less efficient but closer to BEP must rank first
+        close_inefficient = ranking_key(0.05, 0.40, 200.0)
+        far_efficient = ranking_key(0.20, 0.70, 50.0)
+        assert close_inefficient < far_efficient
 
-    def test_equal_zero_scores(self):
-        metrics = {"efficiency": 0.0, "flexibility": 0.0, "provider": 0.0}
-        assert overall_score(metrics) == pytest.approx(0.0)
+    def test_efficiency_breaks_bep_ties(self):
+        better_eff = ranking_key(0.10, 0.65, 100.0)
+        worse_eff = ranking_key(0.10, 0.55, 50.0)
+        assert better_eff < worse_eff
 
-    def test_default_weights_sum_to_1(self):
-        assert sum(DEFAULT_WEIGHTS.values()) == pytest.approx(1.0)
+    def test_power_breaks_remaining_ties(self):
+        lower_hp = ranking_key(0.10, 0.60, 80.0)
+        higher_hp = ranking_key(0.10, 0.60, 120.0)
+        assert lower_hp < higher_hp
 
-    def test_custom_weights(self):
-        metrics = {"efficiency": 10.0, "flexibility": 0.0, "provider": 0.0}
-        # Weight only efficiency
-        score = overall_score(metrics, {"efficiency": 1.0, "flexibility": 0.0, "provider": 0.0})
-        assert score == pytest.approx(10.0)
+    def test_identical_criteria_equal_keys(self):
+        assert ranking_key(0.1, 0.6, 100.0) == ranking_key(0.1, 0.6, 100.0)
 
-    def test_mixed_scores(self):
-        metrics = {"efficiency": 6.0, "flexibility": 8.0, "provider": 4.0}
-        # With default weights: (6×0.4 + 8×0.3 + 4×0.3) / 1.0 = (2.4+2.4+1.2)/1.0 = 6.0
-        assert overall_score(metrics) == pytest.approx(6.0, rel=0.01)
 
-    def test_score_in_range(self):
-        for eff in (0, 5, 10):
-            for flex in (0, 5, 10):
-                for prov in (0, 5, 10):
-                    s = overall_score({"efficiency": eff, "flexibility": flex, "provider": prov})
-                    assert 0.0 <= s <= 10.0
+class TestClassifyBepDistance:
+
+    def test_optimal_at_zero(self):
+        assert classify_bep_distance(0.0) == "optimo"
+
+    def test_optimal_boundary(self):
+        assert classify_bep_distance(BEP_OPTIMAL_MAX) == "optimo"
+
+    def test_acceptable_band(self):
+        assert classify_bep_distance(0.15) == "aceptable"
+        assert classify_bep_distance(BEP_ACCEPTABLE_MAX) == "aceptable"
+
+    def test_far_beyond_acceptable(self):
+        assert classify_bep_distance(0.30) == "alejado"
+
+    def test_thresholds_are_ordered(self):
+        assert 0.0 < BEP_OPTIMAL_MAX < BEP_ACCEPTABLE_MAX
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +200,7 @@ class TestSelectTopNPumps:
     @pytest.fixture(scope="class")
     def top3(self, manager, reservoir, fluid, well, surface, objectives):
         return select_top_n_pumps(
-            reservoir, fluid, well, surface, objectives, manager, n=3, diversify=True
+            reservoir, fluid, well, surface, objectives, manager, n=3
         )
 
     def test_returns_list(self, top3):
@@ -302,36 +264,44 @@ class TestSelectTopNPumps:
         for dr in top3:
             assert dr.pump_setting_depth > 0.0
 
-    def test_diversify_includes_multiple_manufacturers(
-        self, manager, reservoir, fluid, well, surface, objectives
+    def test_ordered_by_engineering_criteria(
+        self, top3, manager, objectives
     ):
-        """If two manufacturers qualify, diversify=True must include both."""
-        results = select_top_n_pumps(
-            reservoir, fluid, well, surface, objectives,
-            manager, n=3, diversify=True,
-        )
-        manufacturers = {dr.pump_manufacturer for dr in results}
-        # At 1200 bpd with 6.366" casing, D-40 (Reda) and I-42B (Centrilift) qualify
-        if len(results) >= 2:
-            assert len(manufacturers) >= 2, (
-                f"Expected diversity, got only: {manufacturers}"
-            )
+        """Results must come ordered by the strict engineering key."""
+        pump_lookup = {p.model: p for p in manager.get_all_pumps()}
+        keys = []
+        for dr in top3:
+            pump_obj = pump_lookup[dr.pump_model]
+            keys.append(ranking_key(
+                bep_dist=bep_distance(pump_obj, objectives.target_flow_rate),
+                efficiency=dr.pump_efficiency,
+                total_pump_hp=dr.total_pump_hp,
+            ))
+        assert keys == sorted(keys), f"Engineering order violated: {keys}"
 
-    def test_no_diversify_still_returns_results(
-        self, manager, reservoir, fluid, well, surface, objectives
-    ):
-        results = select_top_n_pumps(
-            reservoir, fluid, well, surface, objectives,
-            manager, n=3, diversify=False,
+    def test_manufacturer_plays_no_role(self, top3, manager, objectives):
+        """The ordering must be reproducible from physical criteria alone —
+        no field of the result depends on manufacturer identity."""
+        # Rebuild the expected order using ONLY physical quantities
+        pump_lookup = {p.model: p for p in manager.get_all_pumps()}
+        expected = sorted(
+            top3,
+            key=lambda dr: ranking_key(
+                bep_dist=bep_distance(
+                    pump_lookup[dr.pump_model], objectives.target_flow_rate
+                ),
+                efficiency=dr.pump_efficiency,
+                total_pump_hp=dr.total_pump_hp,
+            ),
         )
-        assert len(results) >= 1
+        assert [dr.pump_model for dr in top3] == [dr.pump_model for dr in expected]
 
     def test_n1_returns_at_most_one(
         self, manager, reservoir, fluid, well, surface, objectives
     ):
         results = select_top_n_pumps(
             reservoir, fluid, well, surface, objectives,
-            manager, n=1, diversify=False,
+            manager, n=1,
         )
         assert len(results) == 1
 
@@ -366,8 +336,16 @@ class TestGenerateRecommendations:
         assert isinstance(recs, dict)
 
     def test_has_required_top_level_keys(self, recs):
-        for k in ("recommendations", "design_basis", "weights", "n_candidates_evaluated"):
+        for k in ("recommendations", "design_basis", "ordering_criteria",
+                  "n_candidates_evaluated"):
             assert k in recs
+
+    def test_no_scoring_artifacts_remain(self, recs):
+        """The output must not carry scores, metrics, or weights."""
+        assert "weights" not in recs
+        for rec in recs["recommendations"]:
+            assert "score" not in rec
+            assert "metrics" not in rec
 
     def test_recommendations_is_list(self, recs):
         assert isinstance(recs["recommendations"], list)
@@ -377,21 +355,33 @@ class TestGenerateRecommendations:
 
     def test_each_recommendation_has_required_keys(self, recs):
         for rec in recs["recommendations"]:
-            for k in ("rank", "score", "metrics", "design", "rationale", "warnings"):
+            for k in ("rank", "criteria", "design", "rationale", "warnings"):
                 assert k in rec, f"Missing key '{k}' in recommendation"
 
-    def test_recommendations_ordered_by_score_descending(self, recs):
-        scores = [r["score"] for r in recs["recommendations"]]
-        for a, b in zip(scores, scores[1:]):
-            assert a >= b, f"Score order violated: {scores}"
+    def test_ordered_by_engineering_criteria(self, recs):
+        keys = [
+            ranking_key(
+                bep_dist=r["criteria"]["bep_distance_frac"],
+                efficiency=r["criteria"]["efficiency"],
+                total_pump_hp=r["criteria"]["total_pump_hp"],
+            )
+            for r in recs["recommendations"]
+        ]
+        assert keys == sorted(keys), f"Engineering order violated: {keys}"
 
     def test_ranks_are_sequential(self, recs):
         ranks = [r["rank"] for r in recs["recommendations"]]
         assert ranks == list(range(1, len(ranks) + 1))
 
-    def test_scores_between_0_and_10(self, recs):
+    def test_criteria_are_physical_quantities(self, recs):
         for rec in recs["recommendations"]:
-            assert 0.0 <= rec["score"] <= 10.0
+            cr = rec["criteria"]
+            assert cr["bep_flow_bpd"] > 0
+            assert cr["bep_distance_frac"] >= 0.0
+            assert cr["flow_vs_bep_pct"] > 0.0
+            assert 0.0 < cr["efficiency"] <= 1.0
+            assert cr["total_pump_hp"] > 0.0
+            assert cr["classification"] in ("optimo", "aceptable", "alejado")
 
     def test_design_is_design_result(self, recs):
         for rec in recs["recommendations"]:
@@ -406,11 +396,12 @@ class TestGenerateRecommendations:
         for rec in recs["recommendations"]:
             assert rec["design"].pump_model in rec["rationale"]
 
-    def test_metrics_has_three_dimensions(self, recs):
+    def test_rationale_built_from_calculated_values(self, recs):
+        """The explanation must quote the design's own numbers."""
         for rec in recs["recommendations"]:
-            assert "efficiency" in rec["metrics"]
-            assert "flexibility" in rec["metrics"]
-            assert "provider" in rec["metrics"]
+            dr = rec["design"]
+            assert f"{dr.num_stages}" in rec["rationale"]
+            assert dr.motor_model in rec["rationale"]
 
     def test_design_basis_present(self, recs):
         basis = recs["design_basis"]
@@ -419,13 +410,20 @@ class TestGenerateRecommendations:
         assert "casing_id_in" in basis
         assert "reservoir_pressure_psi" in basis
 
-    def test_weights_match_defaults(self, recs):
-        assert recs["weights"] == DEFAULT_WEIGHTS
+    def test_ordering_criteria_documented(self, recs):
+        """The output documents the criteria applied, in priority order."""
+        oc = recs["ordering_criteria"]
+        assert len(oc) == 3
+        assert "BEP" in oc[0]
+        assert "ficiencia" in oc[1]
+        assert "otencia" in oc[2]
 
-    def test_best_recommendation_has_highest_score(self, recs):
+    def test_best_recommendation_is_closest_to_bep_or_ties(self, recs):
         best = recs["recommendations"][0]
         for rec in recs["recommendations"]:
-            assert best["score"] >= rec["score"]
+            assert best["criteria"]["bep_distance_frac"] <= (
+                rec["criteria"]["bep_distance_frac"] + 1e-12
+            )
 
     def test_warnings_is_list(self, recs):
         for rec in recs["recommendations"]:
@@ -443,28 +441,14 @@ class TestGenerateRecommendations:
     def test_n_candidates_evaluated_positive(self, recs):
         assert recs["n_candidates_evaluated"] >= 1
 
-    def test_preferred_provider_boosts_its_score(
-        self, manager, reservoir, fluid, well, surface
-    ):
-        """A design from the preferred provider must score its provider
-        dimension at 10, above the 5 it gets without the preference."""
-        import dataclasses
-        base_obj = DesignObjectives(
-            target_flow_rate=1200.0, safety_margin_depth=100.0,
-            allow_gas_venting=False, max_gip=0.10, design_life_years=5.0,
-            use_vsd=False,
-        )
-        neutral = generate_recommendations(
-            reservoir, fluid, well, surface, base_obj, manager, n=5
-        )
-        target_mfr = neutral["recommendations"][0]["design"].pump_manufacturer
-        pref_obj = dataclasses.replace(base_obj, preferred_manufacturer=target_mfr)
-        preferred = generate_recommendations(
-            reservoir, fluid, well, surface, pref_obj, manager, n=5
-        )
-        top = preferred["recommendations"][0]
-        assert top["design"].pump_manufacturer == target_mfr
-        assert top["metrics"]["provider"] == pytest.approx(10.0)
+    def test_selection_is_provider_neutral(self, recs):
+        """No brand advantage exists: DesignObjectives has no provider
+        field and the recommendation carries no provider dimension."""
+        import dataclasses as _dc
+        field_names = {f.name for f in _dc.fields(DesignObjectives)}
+        assert "preferred_manufacturer" not in field_names
+        for rec in recs["recommendations"]:
+            assert "provider" not in rec.get("criteria", {})
 
     def test_n3_request_returns_at_most_3(
         self, manager, reservoir, fluid, well, surface, objectives

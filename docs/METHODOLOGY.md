@@ -188,15 +188,33 @@ V_gas = (GOR − Rs) · Bg · (1 − WC)
 
 ---
 
-### 2.10 Scoring Multi-Criterio
+### 2.10 Ordenamiento por Criterios Ingenieriles
 
-Score global = Σ wᵢ · sᵢ / Σ wᵢ
+Las alternativas se ordenan por criterios técnicos objetivos en **orden
+estricto de prioridad** (ordenamiento lexicográfico, sin pesos ni fórmulas
+de agregación):
 
-| Dimensión | Peso | Criterio |
-|---|---|---|
-| Eficiencia | 0.40 | s_eff = η_bomba × 10 (0–1 → 0–10) |
-| Flexibilidad | 0.30 | Distancia normalizada al BEP (10 en BEP, 0 en extremos) |
-| Preferencia de proveedor | 0.30 | 10 si la bomba es del proveedor preferido; 5 el resto; 10 para todas si no hay preferencia |
+| Prioridad | Criterio | Definición | Sentido |
+|---|---|---|---|
+| 1 | Cercanía al BEP | d = \|q_op − q_BEP\| / q_BEP | ascendente (menor = mejor) |
+| 2 | Eficiencia hidráulica | η en el punto operativo (curva de catálogo) | descendente |
+| 3 | Potencia requerida | HP en el eje = etapas × HP/etapa × SG | ascendente |
+
+El criterio 2 solo desempata igualdades del criterio 1, y el 3 solo
+igualdades de los dos primeros. **No existen ponderaciones configurables ni
+dimensión de proveedor**: el fabricante se muestra como información y no
+interviene en el ordenamiento.
+
+Base ingenieril (Brown §4.5325, Ref. [1]): la bomba debe seleccionarse de
+modo que el caudal de diseño caiga lo más cerca posible de su punto de
+máxima eficiencia; operar lejos del BEP incrementa el empuje axial y el
+desgaste, y reduce la vida útil del equipo. La eficiencia y la potencia en
+el punto operativo se leen directamente de la curva de rendimiento del
+catálogo.
+
+Clasificación de la distancia al BEP (solo visualización, nunca ordena):
+≤ 10 % "muy cerca del BEP"; ≤ 25 % "moderadamente alejado"; > 25 %
+"alejado" (verificar operación sostenida con el fabricante).
 
 ---
 
@@ -317,10 +335,10 @@ Entrada: Reservoir · Fluid · WellGeometry · SurfaceConditions · DesignObject
     Diseño eléctrico: Motor → Cable → Transformador
         │
         ▼
-    Scoring (eficiencia · flexibilidad · preferencia de proveedor)
+    Ordenamiento ingenieril (1. cercanía al BEP · 2. eficiencia · 3. menor potencia)
         │
         ▼
-    Top-3 recomendaciones (con diversificación de fabricante)
+    Top-3 recomendaciones (el fabricante es informativo, no ordena)
         │
         ▼
 Salida: DesignResult (bomba + motor + cable + transformador + advertencias)

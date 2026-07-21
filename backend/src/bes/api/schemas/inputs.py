@@ -92,7 +92,6 @@ class ObjectivesSchema(BaseModel):
     max_gip: float = Field(..., ge=0, le=1, description="Fracción máxima de gas en bomba [0-1]")
     design_life_years: float = Field(..., gt=0, description="Vida de diseño [años]")
     use_vsd: bool
-    preferred_manufacturer: str = Field("", description="Fabricante preferido (vacío = sin preferencia)")
 
 
 class DesignInputs(BaseModel):

@@ -14,6 +14,7 @@ from bes.api.schemas.inputs import (
     WellSchema,
 )
 from bes.api.schemas.outputs import (
+    CriteriaSchema,
     DesignResponse,
     DesignResultSchema,
     RecommendationSchema,
@@ -31,6 +32,7 @@ __all__ = [
     "ReservoirSchema",
     "SurfaceSchema",
     "WellSchema",
+    "CriteriaSchema",
     "DesignResponse",
     "DesignResultSchema",
     "RecommendationSchema",

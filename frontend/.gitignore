@@ -4,3 +4,7 @@ dist-ssr/
 *.local
 .vite/
 *.tsbuildinfo
+
+# Generado por `npm run gen:api` desde openapi.json. No se versiona:
+# el contrato tipado que usa la app es src/api/types.ts, escrito a mano.
+src/api/schema.ts

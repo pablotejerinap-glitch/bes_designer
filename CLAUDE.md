@@ -65,7 +65,7 @@ backend/            todo el Python — unidad de despliegue autocontenida
   src/bes/          paquete único distribuible (pip install -e backend/)
     core/           dominio puro — sin frameworks
     catalogs/       catálogos JSON + queries (los .json viajan con el paquete)
-    recommender/    scoring y selección
+    recommender/    selección y ordenamiento por criterios
     reports/        PDF / Excel
     services/       orquestación agnóstica de framework
     plotting/       builders Plotly — agnósticos, los consume la API
@@ -94,8 +94,8 @@ User inputs (Reservoir, Fluid, WellGeometry, SurfaceConditions, DesignObjectives
     ├─ bes/core/gas_handling.py → complete_gas_design() — GIP, pressure-increment design, separator rec.
     │
     ├─ bes/recommender/
-    │      pump_selector.py        → select_top_n_pumps() — runs hydraulic + electrical, scores all
-    │      scoring.py              → efficiency / flexibility / provider-preference scores (0–10, weighted 40/30/30)
+    │      pump_selector.py        → select_top_n_pumps() — runs hydraulic + electrical, orders by engineering criteria
+    │      ranking.py              → bep_distance() / ranking_key() / classify_bep_distance() — no scores, no weights
     │      recommendation_engine.py → generate_recommendations() — top-level API
     │
     └─ bes/services/               → orquestación agnóstica de framework (números crudos, no UI)
@@ -149,9 +149,11 @@ Wellhead Pressure Head = Pwh × 2.31 / SG_liquid
 
 `hp/stage` catalog values are rated for water (SG = 1.0); multiply by `sg_fluid` for actual fluid HP.
 
-### Scoring weights
+### Engineering-criteria ordering (no scoring)
 
-`bes/recommender/scoring.py`: efficiency 40 %, flexibility (BEP proximity) 30 %, provider preference 30 %. Scores are 0–10; `overall_score()` returns the weighted average. Provider preference is driven by `DesignObjectives.preferred_manufacturer` (empty = no preference → all designs score 10 on that dimension; set = the preferred manufacturer's pumps score 10, others 5). The economic/cost dimension was removed.
+`bes/recommender/ranking.py`: alternatives are ordered by a strict lexicographic key — (1) BEP distance `|q − q_BEP| / q_BEP` ascending, (2) pump efficiency descending, (3) required shaft HP ascending. There are **no weighted scores, no 0–10 scales, and no provider preference**; the manufacturer is informational only (`DesignObjectives` has no provider field). `classify_bep_distance()` labels the BEP distance for display only (≤10 % óptimo / ≤25 % aceptable / >25 % alejado) and never affects the ordering. Each recommendation carries a `criteria` dict with the raw values and a natural-language `rationale` built exclusively from calculated data. The former weighted scoring system (efficiency 40 % / flexibility 30 % / provider 30 %) was removed — see `REFORMA_COMPARACION_BES.docx`.
+
+The API exposes this as `RecommendationSchema.criteria` (`CriteriaSchema`) and `DesignResponse.ordering_criteria`; there is no `score`, `metrics` or `weights` field.
 
 ### Book examples used as regression tests
 

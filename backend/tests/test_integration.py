@@ -476,7 +476,8 @@ class TestPipelineInvariants:
         ex = examples[name]
         res, flu, wel, sur, obj = _build_dataclasses(ex)
         result = generate_recommendations(res, flu, wel, sur, obj, catalog, n=3)
-        for key in ("recommendations", "design_basis", "weights", "n_candidates_evaluated"):
+        for key in ("recommendations", "design_basis", "ordering_criteria",
+                    "n_candidates_evaluated"):
             assert key in result
 
     @pytest.mark.parametrize("name", _INVARIANT_EXAMPLES)
@@ -538,12 +539,18 @@ class TestPipelineInvariants:
         assert dr.gas_handler_model, "high-GIP design should recommend a gas handler"
 
     @pytest.mark.parametrize("name", _INVARIANT_EXAMPLES)
-    def test_scores_between_0_and_10(self, name, examples, catalog):
+    def test_criteria_values_are_physical(self, name, examples, catalog):
+        """Each recommendation carries raw engineering criteria, no scores."""
         ex = examples[name]
         res, flu, wel, sur, obj = _build_dataclasses(ex)
         result = generate_recommendations(res, flu, wel, sur, obj, catalog, n=3)
         for rec in result["recommendations"]:
-            assert 0.0 <= rec["score"] <= 10.0
+            assert "score" not in rec and "metrics" not in rec
+            cr = rec["criteria"]
+            assert cr["bep_distance_frac"] >= 0.0
+            assert 0.0 < cr["efficiency"] <= 1.0
+            assert cr["total_pump_hp"] > 0.0
+            assert cr["classification"] in ("optimo", "aceptable", "alejado")
 
 
 # ===========================================================================

@@ -20,7 +20,7 @@ backend/            todo el Python — unidad de despliegue autocontenida
   src/bes/          paquete único distribuible (pip install -e backend/)
     core/           dominio puro — sin frameworks
     catalogs/       catálogos JSON + queries (los .json viajan con el paquete)
-    recommender/    scoring y selección
+    recommender/    selección y ordenamiento por criterios
     reports/        PDF / Excel
     services/       orquestación agnóstica de framework
     plotting/       builders Plotly — agnósticos, los consume la API

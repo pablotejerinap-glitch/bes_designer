@@ -72,8 +72,15 @@ def test_design_example_1a(client: TestClient) -> None:
     assert top["design"]["pump_model"]           # non-empty
     assert top["design"]["num_stages"] > 0
     assert 0.0 <= top["design"]["pump_efficiency"] <= 1.0
-    assert set(top["metrics"]) == {"efficiency", "flexibility", "provider"}
-    assert "weights" in body and "design_basis" in body
+    assert set(top["criteria"]) == {
+        "bep_flow_bpd", "bep_distance_frac", "flow_vs_bep_pct",
+        "efficiency", "total_pump_hp", "classification",
+    }
+    assert "ordering_criteria" in body and "design_basis" in body
+    # El ordenamiento es lexicográfico: rank 1 no puede estar más lejos del BEP
+    # que rank 2 (la eficiencia y la potencia solo desempatan).
+    dists = [r["criteria"]["bep_distance_frac"] for r in body["recommendations"]]
+    assert dists == sorted(dists)
 
 
 def test_design_validation_error_pydantic(client: TestClient) -> None:

@@ -27,6 +27,10 @@ export interface ReservoirInput {
   reservoir_temp: number;
   drive_mechanism: DriveMechanism;
   datum_depth: number;
+  /** Coeficiente C [STB/d/psia^(2n)]. Obligatorio si ipr_method es "fetkovich". */
+  fetkovich_c?: number | null;
+  /** Exponente n [-], rango físico [0.5, 1.0]. Obligatorio con "fetkovich". */
+  fetkovich_n?: number | null;
 }
 
 export interface FluidInput {
@@ -74,7 +78,6 @@ export interface ObjectivesInput {
   max_gip: number;
   design_life_years: number;
   use_vsd: boolean;
-  preferred_manufacturer: string;
 }
 
 export interface DesignInputs {
@@ -139,10 +142,26 @@ export interface DesignResult {
   sensor_model: string;
 }
 
+/** Clasificación de la distancia al BEP. Solo para mostrar: nunca ordena. */
+export type BepClassification = "optimo" | "aceptable" | "alejado";
+
+/**
+ * Criterios de ingeniería crudos detrás del ordenamiento — sin puntajes ni
+ * pesos. `bep_distance_frac` es el criterio 1, `efficiency` el 2 y
+ * `total_pump_hp` el 3; el resto es contexto para la UI.
+ */
+export interface Criteria {
+  bep_flow_bpd: number;
+  bep_distance_frac: number;
+  flow_vs_bep_pct: number;
+  efficiency: number;
+  total_pump_hp: number;
+  classification: BepClassification;
+}
+
 export interface Recommendation {
   rank: number;
-  score: number;
-  metrics: Record<string, number>;
+  criteria: Criteria;
   design: DesignResult;
   rationale: string;
   warnings: string[];
@@ -151,7 +170,8 @@ export interface Recommendation {
 export interface DesignResponse {
   recommendations: Recommendation[];
   design_basis: Record<string, number>;
-  weights: Record<string, number>;
+  /** Criterios aplicados, en orden de prioridad. Documentan el método. */
+  ordering_criteria: string[];
   n_candidates_evaluated: number;
   warnings: string[];
 }
