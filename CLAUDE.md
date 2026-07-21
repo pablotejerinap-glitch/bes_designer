@@ -2,11 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Rediseño de arquitectura en curso (rama refactor/architecture-redesign)
+## Arquitectura de tres capas
 
-Migramos el monolito Streamlit a una arquitectura de tres capas
-(frontend React / backend FastAPI / DB SQLite). Reglas y convenciones del
-rediseño (leerlas antes de tocar código de arquitectura):
+El monolito Streamlit se migró a tres capas (frontend React / backend FastAPI /
+DB SQLite) y la app Streamlit se retiró. Reglas y convenciones (leerlas antes
+de tocar código de arquitectura):
 
 @.claude/rules/architecture.md
 @.claude/rules/domain.md
@@ -14,11 +14,12 @@ rediseño (leerlas antes de tocar código de arquitectura):
 @.claude/rules/frontend.md
 
 Skills del proyecto (invocables): `run`, `add-endpoint`, `add-domain-function`.
-Plan completo: `C:\Users\maria\.claude\plans\quiet-stargazing-scott.md`.
 
 **Entorno:** venv en `.venv` (Python 3.14). Usar `.venv\Scripts\python.exe`
-(no hay `python`/`pip` en PATH). El proyecto está instalado editable
-(`pip install -e .`) — imports absolutos, **sin `sys.path.insert`**.
+(no hay `python`/`pip` en PATH). El backend se instala editable con
+`.venv\Scripts\python.exe -m pip install -e backend` — imports absolutos al
+paquete `bes`, **sin `sys.path.insert`**. El frontend necesita `npm install`
+en `frontend/`.
 
 ## Commands
 
@@ -45,8 +46,17 @@ cd frontend && npm run dev
 # Everything at once
 docker compose up --build
 
-# Validate all book examples end-to-end
+# Validate all book examples end-to-end (regenera docs/VALIDATION.md)
 python scripts/validate_all_examples.py
+
+# Typecheck del frontend (desde frontend/)
+npx tsc --noEmit
+
+# Regenerar el contrato tipado tras cambiar un schema Pydantic:
+#   backend/  python -c "import json;from bes.api.main import app;
+#             open('../frontend/openapi.json','w',encoding='utf-8',newline='').write(
+#             json.dumps(app.openapi(),separators=(',',':'),ensure_ascii=False))"
+#   frontend/ npm run gen:api
 ```
 
 No linter or formatter is configured. `requirements.txt` lists all dependencies (numpy, scipy, pandas, matplotlib, plotly, reportlab, openpyxl, pytest).
@@ -164,7 +174,61 @@ The API exposes this as `RecommendationSchema.criteria` (`CriteriaSchema`) and `
 | #2B | Centrilift I-42B | ~2 080 | 4 258 | 112 | ≈65 |
 | Friction | 5" new pipe | 10 000 | ≈18.5 ft/1 000 ft | — | — |
 
-Tests live in `tests/test_pump_design.py`. When adding new calculations, validate against a Brown example and add a corresponding test.
+Tests live in `backend/tests/test_pump_design.py`. When adding new calculations, validate against a Brown example and add a corresponding test.
+
+`backend/data/example_wells.json` distinguishes two kinds of scenario:
+`*_internal` are project scenarios, `*_brown` carry the **printed** values from
+the book (§4.538 #2A, §4.53103 #3A, §4.53104-07 #3B with its six cases and the
+PVT table 4.53). The `_brown` increment-method ones have no whole-well
+`tdh_ft`; `scripts/validate_all_examples.py` skips them and
+`tests/test_integration.py` validates them by unit instead
+(`TestExample2ABrown`, `TestExample3ABrownIncrements`, `TestExample3BBrown`).
+`ejercicio_esp_neuquen` is the metric cátedra well converted to field units.
+
+### Fetkovich IPR
+
+`Reservoir.fetkovich_c` / `fetkovich_n` carry the deliverability parameters
+(C > 0, n ∈ [0.5, 1.0]); both are **required** when `ipr_method is FETKOVICH`
+and validated in `__post_init__`, so an incomplete Reservoir fails at
+construction rather than deep inside the solver. Functions still accept
+explicit `fetkovich_c`/`fetkovich_n` arguments, which win over the model
+fields (`_resolve_fetkovich_params`). Future-IPR helpers `fetkovich_future_c()`
+(Beggs Eq. 2-74) and `vogel_future_qmax()` (Eq. 2-78) use **absolute** psia in
+the pressure ratio. Regression in `tests/test_fetkovich.py` against Beggs
+Example 2-10.
+
+### Metric design path (método de cátedra "ESP 01")
+
+A **parallel, explicit** engine in `bes/core/metric_design.py` implements the
+cátedra exercise "ESP 01" in metric units (kg/cm², m, °C, m³/d, g/cm³) with the
+exercise's own simplified formulas — it does **not** reuse the field TDH
+formula. Entry point: `design_esp_metric(MetricDesignInput, catalog, ...)` →
+`MetricDesignResult` (17 steps, each a pure function). Unit conversions live in
+`bes/core/units.py`; the dedicated catalog is `bes/catalogs/metric_catalog.json`
+(loaded by `bes/catalogs/metric_loader.py` → `MetricCatalog`). The catalog is
+**injected by the caller** — `bes.core` is the bottom layer and never imports
+`bes.catalogs` at runtime (`tests/test_architecture.py` enforces this). The
+field engine and its catalogs are untouched. Formulas, catalog sources and the
+resolved ambiguities are documented in `docs/METHODOLOGY.md` §7 and
+`docs/EJEMPLO_ESP01.md`; regression in `tests/test_esp01.py`. Note (§7-B): TDH
+anchors on the arithmetically-correct ~2301 m, exposing the cátedra 2347 m only
+as `tdh_reference_m`.
+
+### Catalog provenance
+
+Every catalog entry carries a `_source` field stating where the number comes
+from and which values are estimated. Keep it when editing: it is what makes the
+data citable in the thesis. Pump curves anchor their BEP and flow range to real
+catalog data where available (see `CORRECCION_CATALOGOS.md`); off-BEP points
+follow the standard centrifugal shape.
+
+### Development tooling (`tools/`)
+
+`tools/catalog_pipeline/` (PDF catalog digitization) and
+`tools/database_migration/` (Excel → DB build) are project-level utilities,
+deliberately outside the `bes` package and the backend Docker image. They
+import `bes.*` through the editable install — no `sys.path` manipulation — and
+resolve catalog data with `Path(bes.__file__).parent`.
 
 ### pump_setting_depth convention
 
