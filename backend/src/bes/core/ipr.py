@@ -182,6 +182,106 @@ def fetkovich_ipr(pr: float, pwf: float, c: float, n: float) -> float:
 
 
 # ---------------------------------------------------------------------------
+# Future IPR (reservoir pressure decline)
+# ---------------------------------------------------------------------------
+
+def fetkovich_future_c(c_present: float, pr_present: float, pr_future: float) -> float:
+    """Fetkovich deliverability coefficient at a future reservoir pressure.
+
+    Fetkovich's future-IPR method (Beggs, "Production Optimization Using
+    Nodal Analysis", Ch. 2, Eq. 2-74): C declines linearly with average
+    reservoir pressure while the exponent n stays constant:
+
+        C_F = C_P · (P̄RF / P̄RP)
+        q_F = C_F · (P̄RF² − Pwf²)^n
+
+    UNIT CONVENTION: the pressure ratio uses ABSOLUTE pressures [psia]
+    (Beggs Example 2-11, footnote — unlike Vogel's equations, which the
+    book states in gauge pressures). This engine works in psia throughout,
+    so callers pass psia directly.
+
+    Algebraic consequence (Beggs Eq. 2-77, useful as a consistency check,
+    not a separate method):  qmax_F = qmax_P · (P̄RF/P̄RP)^(2n+1).
+
+    Args:
+        c_present: Current coefficient C_P [STB/d/psia^(2n)]. Must be > 0.
+        pr_present: Current average reservoir pressure P̄RP [psia]. Must be > 0.
+        pr_future: Future average reservoir pressure P̄RF [psia]. Must be > 0.
+
+    Returns:
+        Future coefficient C_F [STB/d/psia^(2n)].
+
+    Raises:
+        ValueError: If any argument is <= 0.
+    """
+    if c_present <= 0:
+        raise ValueError(f"c_present must be > 0, got {c_present}")
+    if pr_present <= 0:
+        raise ValueError(f"pr_present must be > 0, got {pr_present}")
+    if pr_future <= 0:
+        raise ValueError(f"pr_future must be > 0, got {pr_future}")
+    return c_present * (pr_future / pr_present)
+
+
+def vogel_future_qmax(qmax_present: float, pr_present: float, pr_future: float) -> float:
+    """Vogel AOF at a future reservoir pressure (cubic decline law).
+
+    Combining Vogel and Fetkovich (Beggs, Ch. 2, Eq. 2-78): for a Vogel IPR
+    the maximum rate declines with the cube of the pressure ratio:
+
+        qmax_F = qmax_P · (P̄RF / P̄RP)³
+
+    UNIT CONVENTION: the ratio uses ABSOLUTE pressures [psia] (Beggs
+    Example 2-11 footnote), even though Vogel's rate equation itself is
+    stated in gauge pressures in the book.
+
+    NOTE: this is a standalone helper anchored to Beggs Example 2-11.
+    The nodal-analysis Pr-decline slider does NOT use it for Vogel — the
+    existing (Brown-validated) path keeps PI constant, which implies a
+    linear qmax decline. See REPORTE_FETKOVICH.md for the discrepancy.
+
+    Args:
+        qmax_present: Current AOF qmax_P [STB/d]. Must be > 0.
+        pr_present: Current average reservoir pressure P̄RP [psia]. Must be > 0.
+        pr_future: Future average reservoir pressure P̄RF [psia]. Must be > 0.
+
+    Returns:
+        Future AOF qmax_F [STB/d].
+
+    Raises:
+        ValueError: If any argument is <= 0.
+    """
+    if qmax_present <= 0:
+        raise ValueError(f"qmax_present must be > 0, got {qmax_present}")
+    if pr_present <= 0:
+        raise ValueError(f"pr_present must be > 0, got {pr_present}")
+    if pr_future <= 0:
+        raise ValueError(f"pr_future must be > 0, got {pr_future}")
+    return qmax_present * (pr_future / pr_present) ** 3
+
+
+# ---------------------------------------------------------------------------
+# Fetkovich parameter resolution
+# ---------------------------------------------------------------------------
+
+def _resolve_fetkovich_params(
+    reservoir: Reservoir,
+    fetkovich_c: float | None,
+    fetkovich_n: float | None,
+) -> tuple[float | None, float]:
+    """Resolve Fetkovich C and n: explicit args win, else Reservoir fields.
+
+    Returns ``(c, n)`` where ``c`` may still be None (the caller raises with
+    a method-specific message) and ``n`` defaults to 1.0 when unspecified.
+    ``getattr`` guards against Reservoir instances created before the fields
+    existed (e.g. unpickled sessions).
+    """
+    c = fetkovich_c if fetkovich_c is not None else getattr(reservoir, "fetkovich_c", None)
+    n = fetkovich_n if fetkovich_n is not None else getattr(reservoir, "fetkovich_n", None)
+    return c, (n if n is not None else 1.0)
+
+
+# ---------------------------------------------------------------------------
 # Inverse solver: Pwf for a target rate
 # ---------------------------------------------------------------------------
 
@@ -189,7 +289,7 @@ def calculate_pwf_for_target_rate(
     reservoir: Reservoir,
     target_rate: float,
     fetkovich_c: float | None = None,
-    fetkovich_n: float = 1.0,
+    fetkovich_n: float | None = None,
 ) -> float:
     """Find the flowing bottomhole pressure (Pwf) required to achieve a target rate.
 
@@ -200,9 +300,11 @@ def calculate_pwf_for_target_rate(
     Args:
         reservoir: Reservoir object providing Pr, Pb, PI, and ipr_method.
         target_rate: Desired gross liquid flow rate [STB/d]. Must be > 0.
-        fetkovich_c: Fetkovich coefficient C [STB/d/psia^(2n)]. Only required
-            when reservoir.ipr_method is FETKOVICH.
-        fetkovich_n: Fetkovich exponent n [-]. Defaults to 1.0.
+        fetkovich_c: Fetkovich coefficient C [STB/d/psia^(2n)]. Falls back to
+            ``reservoir.fetkovich_c`` when omitted; required (one way or the
+            other) when reservoir.ipr_method is FETKOVICH.
+        fetkovich_n: Fetkovich exponent n [-]. Falls back to
+            ``reservoir.fetkovich_n``, then to 1.0.
 
     Returns:
         Required flowing bottomhole pressure Pwf [psia].
@@ -218,6 +320,9 @@ def calculate_pwf_for_target_rate(
     pb = reservoir.bubble_point
     pi = reservoir.productivity_index
     method = reservoir.ipr_method
+    fetkovich_c, fetkovich_n = _resolve_fetkovich_params(
+        reservoir, fetkovich_c, fetkovich_n
+    )
 
     aof = _compute_aof(reservoir, fetkovich_c, fetkovich_n)
     if target_rate > aof:
@@ -266,7 +371,7 @@ def generate_ipr_curve(
     reservoir: Reservoir,
     n_points: int = 50,
     fetkovich_c: float | None = None,
-    fetkovich_n: float = 1.0,
+    fetkovich_n: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Generate a complete IPR curve suitable for plotting.
 
@@ -277,9 +382,11 @@ def generate_ipr_curve(
     Args:
         reservoir: Reservoir parameters (Pr, Pb, PI, ipr_method).
         n_points: Number of evaluation points. Defaults to 50.
-        fetkovich_c: Fetkovich coefficient [STB/d/psia^(2n)]. Required only
-            when ipr_method is FETKOVICH.
-        fetkovich_n: Fetkovich exponent [-]. Defaults to 1.0.
+        fetkovich_c: Fetkovich coefficient [STB/d/psia^(2n)]. Falls back to
+            ``reservoir.fetkovich_c``; required (one way or the other) when
+            ipr_method is FETKOVICH.
+        fetkovich_n: Fetkovich exponent [-]. Falls back to
+            ``reservoir.fetkovich_n``, then to 1.0.
 
     Returns:
         Tuple ``(q_array, pwf_array)`` where
@@ -296,6 +403,9 @@ def generate_ipr_curve(
     pb = reservoir.bubble_point
     pi = reservoir.productivity_index
     method = reservoir.ipr_method
+    fetkovich_c, fetkovich_n = _resolve_fetkovich_params(
+        reservoir, fetkovich_c, fetkovich_n
+    )
 
     pwf_array = np.linspace(pr, 0.0, n_points)
 

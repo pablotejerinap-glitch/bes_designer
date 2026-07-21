@@ -35,6 +35,16 @@ class ReservoirSchema(BaseModel):
     reservoir_temp: float = Field(..., gt=0, description="Temp. de reservorio [°F]")
     drive_mechanism: DriveMechanismStr
     datum_depth: float = Field(..., gt=0, description="Profundidad de referencia [ft TVD]")
+    fetkovich_c: float | None = Field(
+        None, gt=0,
+        description="Coeficiente C de Fetkovich [STB/d/psia^(2n)], de un ensayo "
+                    "multi-rate. Obligatorio si ipr_method es 'fetkovich'.",
+    )
+    fetkovich_n: float | None = Field(
+        None, ge=0.5, le=1.0,
+        description="Exponente n de Fetkovich [-]. 1.0 = laminar, 0.5 = turbulento "
+                    "pleno. Obligatorio si ipr_method es 'fetkovich'.",
+    )
 
 
 class FluidSchema(BaseModel):

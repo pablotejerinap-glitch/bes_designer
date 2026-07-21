@@ -31,6 +31,8 @@ def make_reservoir(
     pr: float = 2000.0,
     pb: float = 1500.0,
     pi: float = 1.0,
+    fetkovich_c: float | None = None,
+    fetkovich_n: float | None = None,
 ) -> Reservoir:
     return Reservoir(
         static_pressure=pr,
@@ -40,6 +42,8 @@ def make_reservoir(
         reservoir_temp=160.0,
         drive_mechanism=DriveMechanism.SOLUTION_GAS,
         datum_depth=7500.0,
+        fetkovich_c=fetkovich_c,
+        fetkovich_n=fetkovich_n,
     )
 
 
@@ -256,10 +260,21 @@ class TestCalculatePwfForTargetRate:
 
     def test_roundtrip_fetkovich(self):
         # AOF = c*(pr²)^n = 5e-4*(3000²)^0.8 ≈ 183 STB/d > target=50 ✓
-        res = make_reservoir(IPRMethod.FETKOVICH, pr=3000)
         c, n = 5e-4, 0.8
+        res = make_reservoir(IPRMethod.FETKOVICH, pr=3000,
+                             fetkovich_c=c, fetkovich_n=n)
         target = 50.0
         pwf = calculate_pwf_for_target_rate(res, target, fetkovich_c=c, fetkovich_n=n)
+        q_back = fetkovich_ipr(pr=res.static_pressure, pwf=pwf, c=c, n=n)
+        assert q_back == pytest.approx(target, abs=0.5)
+
+    def test_roundtrip_fetkovich_params_from_reservoir(self):
+        """C and n carried inside the Reservoir object — no explicit args."""
+        c, n = 5e-4, 0.8
+        res = make_reservoir(IPRMethod.FETKOVICH, pr=3000,
+                             fetkovich_c=c, fetkovich_n=n)
+        target = 50.0
+        pwf = calculate_pwf_for_target_rate(res, target)
         q_back = fetkovich_ipr(pr=res.static_pressure, pwf=pwf, c=c, n=n)
         assert q_back == pytest.approx(target, abs=0.5)
 
@@ -275,9 +290,10 @@ class TestCalculatePwfForTargetRate:
             calculate_pwf_for_target_rate(res, target_rate=0.0)
 
     def test_fetkovich_missing_c_raises(self):
-        res = make_reservoir(IPRMethod.FETKOVICH)
+        # Since C/n became Reservoir fields, the error is raised earlier:
+        # at model construction, not deep inside the solver.
         with pytest.raises(ValueError, match="fetkovich_c"):
-            calculate_pwf_for_target_rate(res, target_rate=100.0)
+            make_reservoir(IPRMethod.FETKOVICH)
 
     def test_linear_closed_form_exact(self):
         """Linear IPR has a closed-form inverse — result must be exact."""
@@ -321,8 +337,9 @@ class TestGenerateIPRCurve:
         assert np.all(np.diff(q) >= -1e-9)
 
     def test_q_monotonically_nondecreasing_fetkovich(self):
-        res = make_reservoir(IPRMethod.FETKOVICH, pr=3000)
-        q, _ = generate_ipr_curve(res, n_points=30, fetkovich_c=1e-5, fetkovich_n=0.8)
+        res = make_reservoir(IPRMethod.FETKOVICH, pr=3000,
+                             fetkovich_c=1e-5, fetkovich_n=0.8)
+        q, _ = generate_ipr_curve(res, n_points=30)
         assert np.all(np.diff(q) >= -1e-9)
 
     def test_boundary_values_linear(self):
@@ -355,6 +372,6 @@ class TestGenerateIPRCurve:
         assert q_above == pytest.approx(q_below, abs=0.01)
 
     def test_fetkovich_missing_c_raises(self):
-        res = make_reservoir(IPRMethod.FETKOVICH)
+        # The missing-parameter error now fires at Reservoir construction.
         with pytest.raises(ValueError, match="fetkovich_c"):
-            generate_ipr_curve(res)
+            make_reservoir(IPRMethod.FETKOVICH)

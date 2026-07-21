@@ -94,6 +94,42 @@ def test_design_domain_cross_field_422(client: TestClient) -> None:
     assert "casing_id" in r.json()["detail"]
 
 
+def test_design_fetkovich_roundtrips_c_and_n(client: TestClient) -> None:
+    """C and n travel schema -> mapper -> Reservoir and the design runs.
+
+    C is chosen so the Fetkovich AOF matches the example's linear reference
+    (PI x Pr = 12 500 STB/d): the operating point stays in the same regime and
+    the design assembles, so a failure here means the wiring broke, not that
+    the well stopped being feasible.
+    """
+    p = _payload()
+    p["reservoir"]["ipr_method"] = "fetkovich"
+    p["reservoir"]["fetkovich_c"] = 0.0641782
+    p["reservoir"]["fetkovich_n"] = 0.854
+    r = client.post("/api/design", json=p)
+    assert r.status_code == 200, r.text
+    assert len(r.json()["recommendations"]) >= 1
+
+
+def test_design_fetkovich_without_params_422(client: TestClient) -> None:
+    """FETKOVICH without C/n is a domain cross-field rule -> HTTP 422."""
+    p = _payload()
+    p["reservoir"]["ipr_method"] = "fetkovich"
+    r = client.post("/api/design", json=p)
+    assert r.status_code == 422
+    assert "fetkovich_c" in r.json()["detail"]
+
+
+def test_design_fetkovich_n_out_of_range_422(client: TestClient) -> None:
+    """n outside [0.5, 1.0] is caught by Pydantic before reaching the domain."""
+    p = _payload()
+    p["reservoir"]["ipr_method"] = "fetkovich"
+    p["reservoir"]["fetkovich_c"] = 0.5
+    p["reservoir"]["fetkovich_n"] = 1.3
+    r = client.post("/api/design", json=p)
+    assert r.status_code == 422
+
+
 def _nodal_payload(**over) -> dict:
     p = _payload()
     body = {"reservoir": p["reservoir"], "fluid": p["fluid"],

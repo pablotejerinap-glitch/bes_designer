@@ -37,6 +37,12 @@ class Reservoir:
         reservoir_temp: Bottom-hole static temperature [°F].
         drive_mechanism: Primary energy mechanism of the reservoir.
         datum_depth: Reference depth for pressure calculations [ft TVD].
+        fetkovich_c: Fetkovich deliverability coefficient C
+            [STB/d/psia^(2n)], from a multi-rate (flow-after-flow or
+            isochronal) test. Required when ipr_method is FETKOVICH.
+        fetkovich_n: Fetkovich flow exponent n [-], from the same test.
+            Physical range [0.5, 1.0]: 1.0 = laminar (no turbulence),
+            0.5 = fully turbulent. Required when ipr_method is FETKOVICH.
     """
     static_pressure: float
     bubble_point: float
@@ -45,8 +51,23 @@ class Reservoir:
     reservoir_temp: float
     drive_mechanism: DriveMechanism
     datum_depth: float
+    fetkovich_c: Optional[float] = None
+    fetkovich_n: Optional[float] = None
 
     def __post_init__(self) -> None:
+        if self.ipr_method is IPRMethod.FETKOVICH:
+            if self.fetkovich_c is None or self.fetkovich_n is None:
+                raise ValueError(
+                    "ipr_method FETKOVICH requires fetkovich_c and fetkovich_n "
+                    "(from a multi-rate flow-after-flow or isochronal test); "
+                    f"got C={self.fetkovich_c}, n={self.fetkovich_n}"
+                )
+        if self.fetkovich_c is not None and self.fetkovich_c <= 0:
+            raise ValueError(f"fetkovich_c must be > 0, got {self.fetkovich_c}")
+        if self.fetkovich_n is not None and not (0.5 <= self.fetkovich_n <= 1.0):
+            raise ValueError(
+                f"fetkovich_n must be in [0.5, 1.0], got {self.fetkovich_n}"
+            )
         if self.static_pressure <= 0:
             raise ValueError(f"static_pressure must be > 0, got {self.static_pressure}")
         if self.bubble_point < 0:

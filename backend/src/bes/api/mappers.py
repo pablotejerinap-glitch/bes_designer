@@ -35,6 +35,8 @@ def to_reservoir(s: ReservoirSchema) -> Reservoir:
         reservoir_temp=s.reservoir_temp,
         drive_mechanism=_DRIVE_BY_NAME[s.drive_mechanism.value],
         datum_depth=s.datum_depth,
+        fetkovich_c=s.fetkovich_c,
+        fetkovich_n=s.fetkovich_n,
     )
 
 
