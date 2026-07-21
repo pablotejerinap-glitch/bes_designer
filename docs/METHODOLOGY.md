@@ -325,3 +325,72 @@ Entrada: Reservoir · Fluid · WellGeometry · SurfaceConditions · DesignObject
         ▼
 Salida: DesignResult (bomba + motor + cable + transformador + advertencias)
 ```
+
+---
+
+## 7. Método Métrico — Ejercicio de Cátedra "ESP 01"
+
+Ruta **paralela y explícita** al motor de campo (`bes/core/metric_design.py`), en
+unidades métricas (kg/cm², m, °C, m³/d, g/cm³) y con las fórmulas simplificadas
+del ejercicio de cátedra. **No** reutiliza la fórmula de TDH de Brown §4.5324 —
+son metodologías distintas que deben convivir. La entrada es
+`MetricDesignInput`; la salida, `MetricDesignResult` (todos los intermedios).
+Conversores en `bes/core/units.py`; catálogo dedicado en `bes/catalogs/metric_catalog.json`
+(cargado por `bes/catalogs/metric_loader.py`).
+
+### 7.1 Fórmulas por paso
+
+| Paso | Magnitud | Ecuación |
+|---|---|---|
+| — | Gravedad de la mezcla | `Pem = Peo·(1−WC) + Pew·WC` |
+| 1 | Presión admisible a Pref | `ΔP_ref = Pem·(Pref−Ps)/10` ; `Padm = PIP + ΔP_ref` |
+| 2 | Caudal máximo (Vogel test) | `Q/Qmax = 1 − 0.2·(Pwf/Pr) − 0.8·(Pwf/Pr)²` ; `Qmax = Qwf / (Q/Qmax)` |
+| 3 | Caudal de producción | `Q_prod = Qmax · [1 − 0.2·(Padm/Pr) − 0.8·(Padm/Pr)²]` |
+| 4–5 | Lectura de curva + afinidad | `Q_cat = Q_op·(f_cat/f_op)` ; `H_op = H_cat·(f_op/f_cat)²` ; `HP_op = HP_cat·(f_op/f_cat)³` |
+| 6 | Fricción en tubing (métrico) | `F = 2.083·(100/C)^1.852·(Q/5.454)^1.852 / ID^4.8655` [m/1000 m] ; `Tf = F·Ps/1000` |
+| 7 | PIP a la succión | `PIP = Pwf_ref − (Pref−Ps)/10·Pem` |
+| 8 | TDH | `TDH = Ps + Tf + Pbp·10/Pem − PIP·10/Pem` [m] |
+| 9 | Etapas | `Etapas = ⌈TDH / H_op⌉` |
+| 10 | Housings | mínima cantidad cuya suma de etapas ≥ y más próxima a las requeridas |
+| 11 | Verificación de housing | `MHP = Ho·Etapas·Pem·1.4206` [psi] vs. límite STD 5000 / HP 6000 psi |
+| 12 | Potencia de bomba | `HP = HP_op·Etapas·Pem` ; chequeo de eje por HP acumulado (§7.3-C) |
+| 13 | Motores | 1–2 motores en serie: HP total ≥ requerido (mín. exceso), corrientes similares, máxima tensión |
+| 14 | Refrigeración | `v = Q / A_anular`, `A_anular = π/4·(ID_casing² − OD_motor²)` ; requisito `v ≥ 1 ft/s` |
+| 15 | Protector | cojinete de alta carga si Etapas > capacidad floater STD |
+| 16 | Cable | menor calibre con ampacidad suficiente y caída ≤ 10 V/100 m corregida por temperatura |
+| 17 | Tensión de superficie | `V_sup = V_motor + caída_cable` |
+
+Conversión clave: `h[m] = P[kg/cm²]·10/Pem` (1 kg/cm² ≈ 10 m de agua) y
+`P[psi] = h[m]·SG·1.4206` (0.433·3.281) para la verificación de housing.
+
+### 7.2 Origen de los datos de catálogo
+
+Los puntos de curva TD-2200/TD-3000, la tabla de motores TR4, los protectores
+HL serie 400 y el gráfico de caída de cable se cargaron con los **valores leídos
+en la resolución** del ejercicio (ver `bes/catalogs/metric_catalog.json`, campos
+`_source`). Quedan `TODO` para digitalizar las curvas completas del fabricante.
+
+### 7.3 Ambigüedades resueltas del material
+
+**A) Pwf 30 vs 31 (paso 3).** El título de la lámina dice "Pwf 31" pero la
+cuenta usa 30. El motor usa `Padm_a_ref` real (≈31) por coherencia y deja el
+valor **parametrizable** (`production_pwf_kgcm2`). Ambos redondean a 279–280 m³/d.
+
+**B) TDH — discrepancia aritmética.** Con `Pbp=10`, `PIP=15`, `Pem=1.0629` la
+fórmula del paso 8 da **≈ 2301 m**, no los **2347 m** de la lámina. **Decisión
+tomada:** el motor **ancla en el valor aritméticamente correcto (~2301 m)** y
+expone 2347 solo como referencia informativa (`tdh_reference_m`), sin aseverarlo.
+Todo lo aguas abajo (etapas 420, housings 5×#10, MHP, HP) es **auto-consistente**
+con ~2301 m; difiere de la lámina (que parte de 2347 → 428 etapas → 4×#10+1×#11).
+
+**C) Eje de alta resistencia por housing (paso 12).** El motor está al fondo, así
+que el eje transmite la potencia total en el housing inferior y menos hacia
+arriba. La sección de eje que alimenta cada housing transporta el HP acumulado de
+ese housing y todos los de arriba; si supera el límite STD (104 HP) requiere eje
+de alta resistencia (HR). Para ESP 01 → **2 housings HR, 3 STD**, reproduciendo
+la conclusión "dos bombas con eje de alta resistencia y el resto estándar".
+
+### 7.4 Tabla de regresión (`backend/tests/test_esp01.py`)
+
+Reproduce los valores de la resolución dentro de las tolerancias del ejercicio;
+TDH y sus derivados anclados según §7.3-B. Ver también `docs/EJEMPLO_ESP01.md`.

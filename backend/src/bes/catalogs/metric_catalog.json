@@ -1,0 +1,84 @@
+{
+  "_note": "Catálogo métrico para el método de cátedra 'ESP 01' (Wood Group serie 400 / TR4). Curvas por frecuencia (m³/d, m/etapa, HP/etapa). Los puntos de curva se cargaron con los VALORES LEÍDOS que aparecen en la resolución del ejercicio; ver docs/METHODOLOGY.md §7 para el origen y las tolerancias. TODO: digitalizar las curvas completas del fabricante.",
+  "pumps": [
+    {
+      "manufacturer": "Wood Group",
+      "series": "400",
+      "model": "TD-2200",
+      "od_inches": 3.75,
+      "catalog_frequency_hz": 60,
+      "min_flow_m3d": 150,
+      "max_flow_m3d": 600,
+      "bep_flow_m3d": 335,
+      "shutin_head_m_per_stage": 10.0,
+      "housing_stages": {"7": 58, "10": 84, "11": 92, "15": 125},
+      "shaft_hp_limit_std": 104,
+      "shaft_hp_limit_hr": 167,
+      "housing_pressure_limit_psi_std": 5000,
+      "housing_pressure_limit_psi_hp": 6000,
+      "bearing_floater_std_stages": 303,
+      "bearing_high_load_stages": 1529,
+      "performance_curve": [
+        {"flow_m3d": 0,   "head_m_per_stage": 10.0,  "hp_per_stage": 0.30, "efficiency": 0.0},
+        {"flow_m3d": 150, "head_m_per_stage": 9.30,  "hp_per_stage": 0.48, "efficiency": 0.40},
+        {"flow_m3d": 250, "head_m_per_stage": 8.60,  "hp_per_stage": 0.56, "efficiency": 0.52},
+        {"flow_m3d": 335, "head_m_per_stage": 7.906, "hp_per_stage": 0.600, "efficiency": 0.55},
+        {"flow_m3d": 400, "head_m_per_stage": 6.90,  "hp_per_stage": 0.63, "efficiency": 0.55},
+        {"flow_m3d": 500, "head_m_per_stage": 5.20,  "hp_per_stage": 0.67, "efficiency": 0.50},
+        {"flow_m3d": 600, "head_m_per_stage": 3.00,  "hp_per_stage": 0.70, "efficiency": 0.40}
+      ],
+      "_source": "Curva TD-2200 a 60 Hz — puntos leídos de la lámina ESP 01 (Q=335 m³/d -> H≈7.9 m/et, HP≈0.60, Ho≈10 m/et). Resto interpolado. TODO: reemplazar por curva de fabricante."
+    },
+    {
+      "manufacturer": "Wood Group",
+      "series": "400",
+      "model": "TD-3000",
+      "od_inches": 3.75,
+      "catalog_frequency_hz": 50,
+      "min_flow_m3d": 150,
+      "max_flow_m3d": 450,
+      "bep_flow_m3d": 279,
+      "shutin_head_m_per_stage": 6.50,
+      "housing_stages": {"7": 58, "10": 84, "11": 92, "15": 125},
+      "shaft_hp_limit_std": 104,
+      "shaft_hp_limit_hr": 167,
+      "housing_pressure_limit_psi_std": 5000,
+      "housing_pressure_limit_psi_hp": 6000,
+      "bearing_floater_std_stages": 303,
+      "bearing_high_load_stages": 1529,
+      "performance_curve": [
+        {"flow_m3d": 0,   "head_m_per_stage": 6.50, "hp_per_stage": 0.20, "efficiency": 0.0},
+        {"flow_m3d": 150, "head_m_per_stage": 5.80, "hp_per_stage": 0.30, "efficiency": 0.45},
+        {"flow_m3d": 250, "head_m_per_stage": 4.90, "hp_per_stage": 0.36, "efficiency": 0.57},
+        {"flow_m3d": 279, "head_m_per_stage": 4.62, "hp_per_stage": 0.38, "efficiency": 0.60},
+        {"flow_m3d": 350, "head_m_per_stage": 3.90, "hp_per_stage": 0.41, "efficiency": 0.58},
+        {"flow_m3d": 450, "head_m_per_stage": 2.60, "hp_per_stage": 0.44, "efficiency": 0.48}
+      ],
+      "_source": "Curva TD-3000 a 50 Hz — puntos leídos de la lámina ESP 01 (Q=279 m³/d -> H=4.62 m/et, HP=0.38, Ef=0.6). TODO: reemplazar por curva de fabricante."
+    }
+  ],
+  "motors": [
+    {"manufacturer": "TR4", "series": "THD", "model": "TR4-40-540",   "hp_rating": 40.0,  "voltage": 540,  "amperage": 47, "type": "STD"},
+    {"manufacturer": "TR4", "series": "THD", "model": "TR4-58-788",   "hp_rating": 58.5,  "voltage": 788,  "amperage": 47, "type": "STD"},
+    {"manufacturer": "TR4", "series": "THD", "model": "TR4-60-810",   "hp_rating": 60.0,  "voltage": 810,  "amperage": 47, "type": "STD"},
+    {"manufacturer": "TR4", "series": "HTI", "model": "TR4-80-1083",  "hp_rating": 80.0,  "voltage": 1083, "amperage": 46, "type": "STD"},
+    {"manufacturer": "TR4", "series": "HTI", "model": "TR4-100-1354", "hp_rating": 100.0, "voltage": 1354, "amperage": 46, "type": "STD"},
+    {"manufacturer": "TR4", "series": "HTI", "model": "TR4-120-1625", "hp_rating": 120.0, "voltage": 1625, "amperage": 46, "type": "STD"},
+    {"manufacturer": "TR4", "series": "HTI", "model": "TR4-150-2030", "hp_rating": 150.0, "voltage": 2030, "amperage": 46, "type": "STD"}
+  ],
+  "_motors_source": "Tabla motores TR4 (THD/HTI) a 50 Hz — HP/V/A leídos de la lámina ESP 01 (100 HP/1354 V/46 A y 58.5 HP/788 V/47 A). Resto consistente con la serie. TODO: tabla completa de fabricante.",
+  "seals": [
+    {"manufacturer": "Wood Group", "series": "400", "model": "HL-400-STD", "type": "labyrinth", "bearing": "floater_std",  "max_stages": 303,  "od_inches": 3.75, "max_temp_f": 400},
+    {"manufacturer": "Wood Group", "series": "400", "model": "HL-400-HL",  "type": "labyrinth", "bearing": "high_load",    "max_stages": 1529, "od_inches": 3.75, "max_temp_f": 400}
+  ],
+  "_seals_source": "Protectores laberínticos HL serie 400 — capacidad de cojinete (floater STD 303 etapas / high-load 1529 etapas) de la curva TR4 Seal Thrust Bearing Capacities (ESP 01).",
+  "cables": [
+    {"size": "#2", "conductor": "CU", "max_amps": 88, "vdrop_v_per_100m_per_amp": 0.09480},
+    {"size": "#4", "conductor": "CU", "max_amps": 69, "vdrop_v_per_100m_per_amp": 0.15054},
+    {"size": "#6", "conductor": "CU", "max_amps": 55, "vdrop_v_per_100m_per_amp": 0.23900}
+  ],
+  "cable_temp_correction": [
+    [30, 1.00], [50, 1.07], [70, 1.13], [95, 1.20], [120, 1.28]
+  ],
+  "_cables_source": "Gráfico 'Cable Voltage Drop' (V/100 m vs corriente) y 'Cable Voltage Drop Correction' (factor vs temperatura) — puntos leídos de ESP 01 (#4 Cu ≈ 7.0 V/100 m a 46.5 A; corrección 1.20 a 95 °C)."
+}
