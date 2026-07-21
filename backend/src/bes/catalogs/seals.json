@@ -12,7 +12,8 @@
       "od_inches": 3.75,
       "length_ft": 2.8,
       "thrust_capacity_lbs": 6500,
-      "max_temp_f": 250
+      "max_temp_f": 250,
+      "_source": "Valores consistentes con protectores estándar Reda VSEAL (serie 375) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Reda",
@@ -25,7 +26,8 @@
       "od_inches": 3.75,
       "length_ft": 3.2,
       "thrust_capacity_lbs": 5000,
-      "max_temp_f": 250
+      "max_temp_f": 250,
+      "_source": "Valores consistentes con protectores estándar Reda VSEAL (serie 375) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Reda",
@@ -38,7 +40,8 @@
       "od_inches": 3.75,
       "length_ft": 4.5,
       "thrust_capacity_lbs": 8000,
-      "max_temp_f": 250
+      "max_temp_f": 250,
+      "_source": "Valores consistentes con protectores estándar Reda VSEAL (serie 375) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Reda",
@@ -51,7 +54,8 @@
       "od_inches": 4.56,
       "length_ft": 3.5,
       "thrust_capacity_lbs": 11000,
-      "max_temp_f": 250
+      "max_temp_f": 250,
+      "_source": "Valores consistentes con protectores estándar Reda VSEAL (serie 456) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Reda",
@@ -64,7 +68,8 @@
       "od_inches": 4.56,
       "length_ft": 4.0,
       "thrust_capacity_lbs": 9000,
-      "max_temp_f": 250
+      "max_temp_f": 250,
+      "_source": "Valores consistentes con protectores estándar Reda VSEAL (serie 456) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Reda",
@@ -77,7 +82,8 @@
       "od_inches": 4.56,
       "length_ft": 5.8,
       "thrust_capacity_lbs": 15000,
-      "max_temp_f": 250
+      "max_temp_f": 250,
+      "_source": "Valores consistentes con protectores estándar Reda VSEAL (serie 456) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Reda",
@@ -90,7 +96,8 @@
       "od_inches": 5.4,
       "length_ft": 4.5,
       "thrust_capacity_lbs": 18000,
-      "max_temp_f": 300
+      "max_temp_f": 300,
+      "_source": "Valores consistentes con protectores estándar Reda VSEAL (serie 540) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Reda",
@@ -103,7 +110,8 @@
       "od_inches": 5.4,
       "length_ft": 5.0,
       "thrust_capacity_lbs": 15000,
-      "max_temp_f": 300
+      "max_temp_f": 300,
+      "_source": "Valores consistentes con protectores estándar Reda VSEAL (serie 540) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Reda",
@@ -116,7 +124,8 @@
       "od_inches": 5.4,
       "length_ft": 7.0,
       "thrust_capacity_lbs": 22000,
-      "max_temp_f": 300
+      "max_temp_f": 300,
+      "_source": "Valores consistentes con protectores estándar Reda VSEAL (serie 540) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Centrilift",
@@ -129,7 +138,8 @@
       "od_inches": 5.44,
       "length_ft": 4.6,
       "thrust_capacity_lbs": 19000,
-      "max_temp_f": 300
+      "max_temp_f": 300,
+      "_source": "Valores consistentes con protectores estándar Centrilift (serie 544) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Centrilift",
@@ -142,7 +152,8 @@
       "od_inches": 5.44,
       "length_ft": 5.2,
       "thrust_capacity_lbs": 16000,
-      "max_temp_f": 300
+      "max_temp_f": 300,
+      "_source": "Valores consistentes con protectores estándar Centrilift (serie 544) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Centrilift",
@@ -155,7 +166,8 @@
       "od_inches": 5.44,
       "length_ft": 7.5,
       "thrust_capacity_lbs": 24000,
-      "max_temp_f": 300
+      "max_temp_f": 300,
+      "_source": "Valores consistentes con protectores estándar Centrilift (serie 544) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Centrilift",
@@ -168,7 +180,8 @@
       "od_inches": 5.62,
       "length_ft": 5.0,
       "thrust_capacity_lbs": 24000,
-      "max_temp_f": 350
+      "max_temp_f": 350,
+      "_source": "Valores consistentes con protectores estándar Centrilift (serie 562) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Centrilift",
@@ -181,7 +194,8 @@
       "od_inches": 5.62,
       "length_ft": 5.8,
       "thrust_capacity_lbs": 20000,
-      "max_temp_f": 350
+      "max_temp_f": 350,
+      "_source": "Valores consistentes con protectores estándar Centrilift (serie 562) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Centrilift",
@@ -194,7 +208,8 @@
       "od_inches": 5.62,
       "length_ft": 8.5,
       "thrust_capacity_lbs": 30000,
-      "max_temp_f": 350
+      "max_temp_f": 350,
+      "_source": "Valores consistentes con protectores estándar Centrilift (serie 562) — fuente específica no confirmada"
     },
     {
       "manufacturer": "ChampionX",
@@ -210,7 +225,7 @@
       "max_temp_f": 400,
       "shaft_hp_standard": 256,
       "shaft_hp_high_strength": 410,
-      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED"
+      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED. Public VIGIL solution sheet (championx.com UNBRIDLED_VIGIL_Solution_Sheet_0321.pdf) confirms ultra-high-load tilt-pad thrust bearings, Monel/Inconel shafts and 5.5-9 in casing range, but publishes NO numeric thrust/temperature ratings (web search verified Jun 2026)"
     },
     {
       "manufacturer": "ChampionX",
@@ -226,7 +241,7 @@
       "max_temp_f": 400,
       "shaft_hp_standard": 256,
       "shaft_hp_high_strength": 410,
-      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED"
+      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED. Public VIGIL solution sheet (championx.com UNBRIDLED_VIGIL_Solution_Sheet_0321.pdf) confirms ultra-high-load tilt-pad thrust bearings, Monel/Inconel shafts and 5.5-9 in casing range, but publishes NO numeric thrust/temperature ratings (web search verified Jun 2026)"
     },
     {
       "manufacturer": "ChampionX",
@@ -242,7 +257,7 @@
       "max_temp_f": 400,
       "shaft_hp_standard": 256,
       "shaft_hp_high_strength": 410,
-      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED"
+      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED. Public VIGIL solution sheet (championx.com UNBRIDLED_VIGIL_Solution_Sheet_0321.pdf) confirms ultra-high-load tilt-pad thrust bearings, Monel/Inconel shafts and 5.5-9 in casing range, but publishes NO numeric thrust/temperature ratings (web search verified Jun 2026)"
     },
     {
       "manufacturer": "ChampionX",
@@ -258,7 +273,7 @@
       "max_temp_f": 400,
       "shaft_hp_standard": 256,
       "shaft_hp_high_strength": 410,
-      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED"
+      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED. Public VIGIL solution sheet (championx.com UNBRIDLED_VIGIL_Solution_Sheet_0321.pdf) confirms ultra-high-load tilt-pad thrust bearings, Monel/Inconel shafts and 5.5-9 in casing range, but publishes NO numeric thrust/temperature ratings (web search verified Jun 2026)"
     },
     {
       "manufacturer": "ChampionX",
@@ -274,7 +289,7 @@
       "max_temp_f": 400,
       "shaft_hp_standard": 256,
       "shaft_hp_high_strength": 410,
-      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED"
+      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED. Public VIGIL solution sheet (championx.com UNBRIDLED_VIGIL_Solution_Sheet_0321.pdf) confirms ultra-high-load tilt-pad thrust bearings, Monel/Inconel shafts and 5.5-9 in casing range, but publishes NO numeric thrust/temperature ratings (web search verified Jun 2026)"
     },
     {
       "manufacturer": "ChampionX",
@@ -290,7 +305,7 @@
       "max_temp_f": 400,
       "shaft_hp_standard": 256,
       "shaft_hp_high_strength": 410,
-      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED"
+      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED. Public VIGIL solution sheet (championx.com UNBRIDLED_VIGIL_Solution_Sheet_0321.pdf) confirms ultra-high-load tilt-pad thrust bearings, Monel/Inconel shafts and 5.5-9 in casing range, but publishes NO numeric thrust/temperature ratings (web search verified Jun 2026)"
     },
     {
       "manufacturer": "ChampionX",
@@ -309,7 +324,7 @@
       "max_temp_f": 400,
       "shaft_hp_standard": 637,
       "shaft_hp_high_strength": 1019,
-      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED"
+      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED. Public VIGIL solution sheet (championx.com UNBRIDLED_VIGIL_Solution_Sheet_0321.pdf) confirms ultra-high-load tilt-pad thrust bearings, Monel/Inconel shafts and 5.5-9 in casing range, but publishes NO numeric thrust/temperature ratings (web search verified Jun 2026)"
     },
     {
       "manufacturer": "ChampionX",
@@ -328,7 +343,7 @@
       "max_temp_f": 400,
       "shaft_hp_standard": 637,
       "shaft_hp_high_strength": 1019,
-      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED"
+      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED. Public VIGIL solution sheet (championx.com UNBRIDLED_VIGIL_Solution_Sheet_0321.pdf) confirms ultra-high-load tilt-pad thrust bearings, Monel/Inconel shafts and 5.5-9 in casing range, but publishes NO numeric thrust/temperature ratings (web search verified Jun 2026)"
     },
     {
       "manufacturer": "ChampionX",
@@ -347,7 +362,7 @@
       "max_temp_f": 400,
       "shaft_hp_standard": 637,
       "shaft_hp_high_strength": 1019,
-      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED"
+      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED. Public VIGIL solution sheet (championx.com UNBRIDLED_VIGIL_Solution_Sheet_0321.pdf) confirms ultra-high-load tilt-pad thrust bearings, Monel/Inconel shafts and 5.5-9 in casing range, but publishes NO numeric thrust/temperature ratings (web search verified Jun 2026)"
     }
   ]
 }

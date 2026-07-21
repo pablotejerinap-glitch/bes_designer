@@ -16,3 +16,13 @@ htmlcov/
 
 # Claude Code — settings locales por-usuario (no compartir)
 .claude/settings.local.json
+
+# Credenciales. El pipeline de catalogos guarda usuario/clave de MySQL en .env;
+# se listan aca y no solo en un .gitignore anidado, que desaparece al cambiar
+# de rama y deja el archivo expuesto a `git add -A`.
+.env
+*.env
+
+# Copia de trabajo del layout anterior al refactor backend/frontend. Su
+# contenido vive versionado en la rama respaldo/pre-refactor-metrico.
+Archivos_innecesarios_solo_lectura/

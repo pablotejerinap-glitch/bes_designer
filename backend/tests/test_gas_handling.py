@@ -11,6 +11,8 @@ Book examples used:
 """
 from __future__ import annotations
 
+import copy
+
 import pytest
 from pathlib import Path
 
@@ -300,14 +302,24 @@ class TestPressureIncrementDesign:
     # --- GIP sensitivity ---
 
     def test_higher_gip_more_stages(self, manager, reservoir_3a, fluid_3a):
-        """More gas in pump → lighter mixture → more stages needed."""
+        """More gas in pump → lighter mixture → more stages needed.
+
+        This invariant only holds for a *fixed* pump: ``pressure_increment_design``
+        re-selects the pump per increment by reservoir-condition rate, so with a
+        multi-pump catalog the gassier (higher-volume) case can land on a
+        higher-rate, higher-head pump and need fewer stages — masking the effect.
+        We pin the catalog to a single pump (D-20) to test the underlying physics.
+        """
+        single = copy.copy(manager)
+        single._pumps = [p for p in manager.get_all_pumps() if p.model == "D-20"]
+
         r_100 = pressure_increment_design(
             reservoir_3a, fluid_3a, 500.0, 2300.0, 500.0,
-            manager, gip=1.0, water_cut=0.5,
+            single, gip=1.0, water_cut=0.5,
         )
         r_0 = pressure_increment_design(
             reservoir_3a, fluid_3a, 500.0, 2300.0, 500.0,
-            manager, gip=0.0, water_cut=0.5,
+            single, gip=0.0, water_cut=0.5,
         )
         assert r_100["total_stages"] > r_0["total_stages"]
 

@@ -87,7 +87,8 @@
           "hp_per_stage": 0.347,
           "efficiency": 0.498
         }
-      ]
+      ],
+      "_source": "Brown, K.E. (1980) The Technology of Artificial Lift Methods, Vol. 2b, Cap. 4.5, Ejemplo 2A (bomba de validación)"
     },
     {
       "manufacturer": "Reda",
@@ -174,7 +175,8 @@
           "hp_per_stage": 0.558,
           "efficiency": 0.41
         }
-      ]
+      ],
+      "_source": "Catálogo base del proyecto (metodología Brown Vol. 2b, Cap. 4.5); valores consistentes con series estándar Reda (serie 400) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Reda",
@@ -260,7 +262,8 @@
           "hp_per_stage": 0.878,
           "efficiency": 0.458
         }
-      ]
+      ],
+      "_source": "Catálogo base del proyecto (metodología Brown Vol. 2b, Cap. 4.5); valores consistentes con series estándar Reda (serie 400) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Centrilift",
@@ -347,7 +350,8 @@
           "hp_per_stage": 0.668,
           "efficiency": 0.452
         }
-      ]
+      ],
+      "_source": "Brown, K.E. (1980) The Technology of Artificial Lift Methods, Vol. 2b, Cap. 4.5, Ejemplo 2B (bomba de validación)"
     },
     {
       "manufacturer": "Centrilift",
@@ -436,7 +440,8 @@
           "hp_per_stage": 6.92,
           "efficiency": 0.502
         }
-      ]
+      ],
+      "_source": "Brown, K.E. (1980) The Technology of Artificial Lift Methods, Vol. 2b, Cap. 4.5, Ejemplo 1A (bomba de validación)"
     },
     {
       "manufacturer": "Centrilift",
@@ -516,7 +521,8 @@
           "hp_per_stage": 0.645,
           "efficiency": 0.34
         }
-      ]
+      ],
+      "_source": "Catálogo base del proyecto (metodología Brown Vol. 2b, Cap. 4.5); valores consistentes con series estándar Centrilift (serie 513) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Centrilift",
@@ -602,7 +608,8 @@
           "hp_per_stage": 1.125,
           "efficiency": 0.468
         }
-      ]
+      ],
+      "_source": "Catálogo base del proyecto (metodología Brown Vol. 2b, Cap. 4.5); valores consistentes con series estándar Centrilift (serie 513) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Centrilift",
@@ -688,7 +695,8 @@
           "hp_per_stage": 0.995,
           "efficiency": 0.415
         }
-      ]
+      ],
+      "_source": "Catálogo base del proyecto (metodología Brown Vol. 2b, Cap. 4.5); valores consistentes con series estándar Centrilift (serie 513) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Reda",
@@ -774,7 +782,8 @@
           "hp_per_stage": 1.158,
           "efficiency": 0.455
         }
-      ]
+      ],
+      "_source": "Catálogo base del proyecto (metodología Brown Vol. 2b, Cap. 4.5); valores consistentes con series estándar Reda (serie 540) — fuente específica no confirmada"
     },
     {
       "manufacturer": "Centrilift",
@@ -861,7 +870,8 @@
           "hp_per_stage": 0.224,
           "efficiency": 0.422
         }
-      ]
+      ],
+      "_source": "Brown, K.E. (1980) The Technology of Artificial Lift Methods, Vol. 2b, Cap. 4.5, Ejemplos 2A/3A (bomba de validación)"
     },
     {
       "manufacturer": "Reda",
@@ -880,7 +890,7 @@
         250,
         300
       ],
-      "_source": "Brown Vol. 2b Ex. #3B (hp/stage anchor); curve synthesized",
+      "_source": "Reda 400-series low-rate pump; hp/stage anchored to Brown Vol. 2b Ex. #3B (real book source); flow range comparable to real Reda D460N (200-650 bpd, SLB/Reda catalog). Off-BEP: std centrifugal.",
       "performance_curve": [
         {
           "flow_bpd": 300,
@@ -955,8 +965,8 @@
       "series": "540",
       "model": "GN-4000",
       "od_inches": 5.4,
-      "min_flow_bpd": 3000,
-      "max_flow_bpd": 5200,
+      "min_flow_bpd": 3200,
+      "max_flow_bpd": 4800,
       "bep_flow_bpd": 4000,
       "max_stages": 140,
       "housing_options": [
@@ -967,73 +977,73 @@
         110,
         140
       ],
-      "_source": "Representative — REDA GN-series style",
+      "_source": "Reda GN-series (540). Flow range real (Reda GN4000: 3200-4800 bpd, Pengtools/SLB catalog). BEP head/eff anchored to real Reda GN5200 catalog BEP (28.34 ft/stage, 66.1% — same 540 series). Off-BEP: std centrifugal shape.",
       "performance_curve": [
         {
           "flow_bpd": 2000,
-          "head_ft_per_stage": 54.2,
-          "hp_per_stage": 1.469,
-          "efficiency": 0.543
+          "head_ft_per_stage": 36.6,
+          "hp_per_stage": 1.035,
+          "efficiency": 0.521
         },
         {
           "flow_bpd": 2400,
-          "head_ft_per_stage": 52.3,
-          "hp_per_stage": 1.55,
-          "efficiency": 0.596
+          "head_ft_per_stage": 35.3,
+          "hp_per_stage": 1.092,
+          "efficiency": 0.571
         },
         {
           "flow_bpd": 2750,
-          "head_ft_per_stage": 50.4,
-          "hp_per_stage": 1.613,
-          "efficiency": 0.633
+          "head_ft_per_stage": 34.0,
+          "hp_per_stage": 1.136,
+          "efficiency": 0.606
         },
         {
           "flow_bpd": 3150,
-          "head_ft_per_stage": 48.0,
-          "hp_per_stage": 1.678,
-          "efficiency": 0.664
+          "head_ft_per_stage": 32.4,
+          "hp_per_stage": 1.182,
+          "efficiency": 0.636
         },
         {
           "flow_bpd": 3500,
-          "head_ft_per_stage": 45.7,
-          "hp_per_stage": 1.729,
-          "efficiency": 0.681
+          "head_ft_per_stage": 30.8,
+          "hp_per_stage": 1.218,
+          "efficiency": 0.652
         },
         {
           "flow_bpd": 3900,
-          "head_ft_per_stage": 42.8,
-          "hp_per_stage": 1.781,
-          "efficiency": 0.69
+          "head_ft_per_stage": 28.9,
+          "hp_per_stage": 1.255,
+          "efficiency": 0.661
         },
         {
           "flow_bpd": 4300,
-          "head_ft_per_stage": 39.6,
-          "hp_per_stage": 1.826,
-          "efficiency": 0.687
+          "head_ft_per_stage": 26.7,
+          "hp_per_stage": 1.286,
+          "efficiency": 0.658
         },
         {
           "flow_bpd": 4650,
-          "head_ft_per_stage": 36.6,
-          "hp_per_stage": 1.858,
-          "efficiency": 0.675
+          "head_ft_per_stage": 24.7,
+          "hp_per_stage": 1.309,
+          "efficiency": 0.646
         },
         {
           "flow_bpd": 5050,
-          "head_ft_per_stage": 32.9,
-          "hp_per_stage": 1.885,
-          "efficiency": 0.65
+          "head_ft_per_stage": 22.2,
+          "hp_per_stage": 1.328,
+          "efficiency": 0.622
         },
         {
           "flow_bpd": 5400,
-          "head_ft_per_stage": 29.5,
-          "hp_per_stage": 1.897,
-          "efficiency": 0.618
+          "head_ft_per_stage": 19.9,
+          "hp_per_stage": 1.336,
+          "efficiency": 0.592
         },
         {
           "flow_bpd": 5800,
-          "head_ft_per_stage": 25.3,
-          "hp_per_stage": 1.891,
-          "efficiency": 0.571
+          "head_ft_per_stage": 17.1,
+          "hp_per_stage": 1.332,
+          "efficiency": 0.547
         }
       ]
     },
@@ -1042,8 +1052,8 @@
       "series": "540",
       "model": "GN-5600",
       "od_inches": 5.4,
-      "min_flow_bpd": 4200,
-      "max_flow_bpd": 7200,
+      "min_flow_bpd": 4000,
+      "max_flow_bpd": 7500,
       "bep_flow_bpd": 5600,
       "max_stages": 120,
       "housing_options": [
@@ -1054,73 +1064,73 @@
         110,
         120
       ],
-      "_source": "Representative — REDA GN-series style",
+      "_source": "Reda GN-series (540). Flow range real (Reda GN5600: 4000-7500 bpd, Pengtools/SLB catalog). BEP head/eff anchored to real Reda GN5200 catalog BEP (28.34 ft/stage, 66.1% — sister 540-series model). Off-BEP: std centrifugal shape.",
       "performance_curve": [
         {
           "flow_bpd": 2800,
-          "head_ft_per_stage": 60.6,
-          "hp_per_stage": 2.236,
-          "efficiency": 0.559
+          "head_ft_per_stage": 36.6,
+          "hp_per_stage": 1.448,
+          "efficiency": 0.521
         },
         {
           "flow_bpd": 3350,
-          "head_ft_per_stage": 58.5,
-          "hp_per_stage": 2.358,
-          "efficiency": 0.613
+          "head_ft_per_stage": 35.3,
+          "hp_per_stage": 1.527,
+          "efficiency": 0.57
         },
         {
           "flow_bpd": 3850,
-          "head_ft_per_stage": 56.4,
-          "hp_per_stage": 2.456,
-          "efficiency": 0.651
+          "head_ft_per_stage": 34.0,
+          "hp_per_stage": 1.591,
+          "efficiency": 0.606
         },
         {
           "flow_bpd": 4400,
-          "head_ft_per_stage": 53.8,
-          "hp_per_stage": 2.554,
-          "efficiency": 0.682
+          "head_ft_per_stage": 32.4,
+          "hp_per_stage": 1.654,
+          "efficiency": 0.635
         },
         {
           "flow_bpd": 4950,
-          "head_ft_per_stage": 50.8,
-          "hp_per_stage": 2.641,
-          "efficiency": 0.702
+          "head_ft_per_stage": 30.7,
+          "hp_per_stage": 1.71,
+          "efficiency": 0.653
         },
         {
           "flow_bpd": 5450,
-          "head_ft_per_stage": 47.9,
-          "hp_per_stage": 2.711,
-          "efficiency": 0.71
+          "head_ft_per_stage": 28.9,
+          "hp_per_stage": 1.756,
+          "efficiency": 0.661
         },
         {
           "flow_bpd": 6000,
-          "head_ft_per_stage": 44.4,
-          "hp_per_stage": 2.778,
-          "efficiency": 0.707
+          "head_ft_per_stage": 26.8,
+          "hp_per_stage": 1.799,
+          "efficiency": 0.658
         },
         {
           "flow_bpd": 6500,
-          "head_ft_per_stage": 41.0,
-          "hp_per_stage": 2.828,
-          "efficiency": 0.694
+          "head_ft_per_stage": 24.7,
+          "hp_per_stage": 1.832,
+          "efficiency": 0.646
         },
         {
           "flow_bpd": 7050,
-          "head_ft_per_stage": 37.0,
-          "hp_per_stage": 2.868,
-          "efficiency": 0.67
+          "head_ft_per_stage": 22.3,
+          "hp_per_stage": 1.858,
+          "efficiency": 0.623
         },
         {
           "flow_bpd": 7600,
-          "head_ft_per_stage": 32.7,
-          "hp_per_stage": 2.888,
-          "efficiency": 0.633
+          "head_ft_per_stage": 19.7,
+          "hp_per_stage": 1.871,
+          "efficiency": 0.589
         },
         {
           "flow_bpd": 8100,
-          "head_ft_per_stage": 28.5,
-          "hp_per_stage": 2.881,
-          "efficiency": 0.59
+          "head_ft_per_stage": 17.2,
+          "hp_per_stage": 1.866,
+          "efficiency": 0.549
         }
       ]
     },
@@ -1142,72 +1152,72 @@
         140,
         160
       ],
-      "_source": "Representative — Centrilift GC-series style",
+      "_source": "Centrilift 513 mixed-flow; BEP flow 6100 bpd REAL (TUALP / Pessoa-Prado experimental pump). BEP head/eff approximated from real Reda D5800N catalog BEP (22.63 ft/stage, 70% — nearest high-rate anchor, cross-manufacturer). Off-BEP: std centrifugal shape.",
       "performance_curve": [
         {
           "flow_bpd": 3050,
-          "head_ft_per_stage": 43.9,
-          "hp_per_stage": 1.787,
+          "head_ft_per_stage": 29.2,
+          "hp_per_stage": 1.19,
           "efficiency": 0.551
         },
         {
           "flow_bpd": 3650,
-          "head_ft_per_stage": 42.4,
-          "hp_per_stage": 1.885,
+          "head_ft_per_stage": 28.2,
+          "hp_per_stage": 1.255,
           "efficiency": 0.604
         },
         {
           "flow_bpd": 4200,
-          "head_ft_per_stage": 40.8,
-          "hp_per_stage": 1.964,
+          "head_ft_per_stage": 27.1,
+          "hp_per_stage": 1.307,
           "efficiency": 0.642
         },
         {
           "flow_bpd": 4800,
-          "head_ft_per_stage": 38.9,
-          "hp_per_stage": 2.042,
+          "head_ft_per_stage": 25.9,
+          "hp_per_stage": 1.359,
           "efficiency": 0.673
         },
         {
           "flow_bpd": 5350,
-          "head_ft_per_stage": 36.9,
-          "hp_per_stage": 2.106,
+          "head_ft_per_stage": 24.6,
+          "hp_per_stage": 1.402,
           "efficiency": 0.691
         },
         {
           "flow_bpd": 5950,
-          "head_ft_per_stage": 34.6,
-          "hp_per_stage": 2.168,
+          "head_ft_per_stage": 23.0,
+          "hp_per_stage": 1.443,
           "efficiency": 0.7
         },
         {
           "flow_bpd": 6550,
-          "head_ft_per_stage": 32.1,
-          "hp_per_stage": 2.222,
+          "head_ft_per_stage": 21.4,
+          "hp_per_stage": 1.479,
           "efficiency": 0.697
         },
         {
           "flow_bpd": 7100,
-          "head_ft_per_stage": 29.6,
-          "hp_per_stage": 2.262,
+          "head_ft_per_stage": 19.7,
+          "hp_per_stage": 1.505,
           "efficiency": 0.684
         },
         {
           "flow_bpd": 7700,
-          "head_ft_per_stage": 26.7,
-          "hp_per_stage": 2.293,
+          "head_ft_per_stage": 17.7,
+          "hp_per_stage": 1.526,
           "efficiency": 0.659
         },
         {
           "flow_bpd": 8250,
-          "head_ft_per_stage": 23.8,
-          "hp_per_stage": 2.308,
+          "head_ft_per_stage": 15.8,
+          "hp_per_stage": 1.536,
           "efficiency": 0.626
         },
         {
           "flow_bpd": 8850,
-          "head_ft_per_stage": 20.4,
-          "hp_per_stage": 2.302,
+          "head_ft_per_stage": 13.6,
+          "hp_per_stage": 1.532,
           "efficiency": 0.579
         }
       ]
@@ -1217,8 +1227,8 @@
       "series": "400",
       "model": "WE-1350",
       "od_inches": 4.0,
-      "min_flow_bpd": 1050,
-      "max_flow_bpd": 1750,
+      "min_flow_bpd": 960,
+      "max_flow_bpd": 1700,
       "bep_flow_bpd": 1350,
       "max_stages": 240,
       "housing_options": [
@@ -1230,73 +1240,73 @@
         200,
         240
       ],
-      "_source": "Representative — Weatherford ESP style",
+      "_source": "Weatherford ESP mapped to real Reda 400-series equivalent (user-authorized). Flow range from real Reda D1400N (960-1700 bpd). BEP head/eff anchored to real Reda D1150N catalog BEP (36.87 ft/stage, 61.0%). Off-BEP: std centrifugal shape.",
       "performance_curve": [
         {
           "flow_bpd": 680,
-          "head_ft_per_stage": 30.3,
-          "hp_per_stage": 0.32,
-          "efficiency": 0.474
+          "head_ft_per_stage": 47.5,
+          "hp_per_stage": 0.493,
+          "efficiency": 0.483
         },
         {
           "flow_bpd": 800,
-          "head_ft_per_stage": 29.3,
-          "hp_per_stage": 0.335,
-          "efficiency": 0.515
+          "head_ft_per_stage": 46.0,
+          "hp_per_stage": 0.517,
+          "efficiency": 0.524
         },
         {
           "flow_bpd": 930,
-          "head_ft_per_stage": 28.2,
-          "hp_per_stage": 0.351,
-          "efficiency": 0.551
+          "head_ft_per_stage": 44.2,
+          "hp_per_stage": 0.541,
+          "efficiency": 0.56
         },
         {
           "flow_bpd": 1060,
-          "head_ft_per_stage": 26.9,
-          "hp_per_stage": 0.364,
-          "efficiency": 0.576
-        },
-        {
-          "flow_bpd": 1190,
-          "head_ft_per_stage": 25.5,
-          "hp_per_stage": 0.376,
-          "efficiency": 0.593
-        },
-        {
-          "flow_bpd": 1320,
-          "head_ft_per_stage": 23.9,
-          "hp_per_stage": 0.387,
-          "efficiency": 0.6
-        },
-        {
-          "flow_bpd": 1440,
-          "head_ft_per_stage": 22.3,
-          "hp_per_stage": 0.396,
-          "efficiency": 0.598
-        },
-        {
-          "flow_bpd": 1570,
-          "head_ft_per_stage": 20.5,
-          "hp_per_stage": 0.404,
+          "head_ft_per_stage": 42.2,
+          "hp_per_stage": 0.562,
           "efficiency": 0.586
         },
         {
+          "flow_bpd": 1190,
+          "head_ft_per_stage": 39.9,
+          "hp_per_stage": 0.58,
+          "efficiency": 0.603
+        },
+        {
+          "flow_bpd": 1320,
+          "head_ft_per_stage": 37.5,
+          "hp_per_stage": 0.597,
+          "efficiency": 0.61
+        },
+        {
+          "flow_bpd": 1440,
+          "head_ft_per_stage": 35.0,
+          "hp_per_stage": 0.611,
+          "efficiency": 0.608
+        },
+        {
+          "flow_bpd": 1570,
+          "head_ft_per_stage": 32.1,
+          "hp_per_stage": 0.622,
+          "efficiency": 0.597
+        },
+        {
           "flow_bpd": 1700,
-          "head_ft_per_stage": 18.5,
-          "hp_per_stage": 0.409,
-          "efficiency": 0.566
+          "head_ft_per_stage": 29.0,
+          "hp_per_stage": 0.631,
+          "efficiency": 0.575
         },
         {
           "flow_bpd": 1830,
-          "head_ft_per_stage": 16.4,
-          "hp_per_stage": 0.412,
-          "efficiency": 0.536
+          "head_ft_per_stage": 25.7,
+          "hp_per_stage": 0.635,
+          "efficiency": 0.545
         },
         {
           "flow_bpd": 1960,
-          "head_ft_per_stage": 14.1,
-          "hp_per_stage": 0.411,
-          "efficiency": 0.496
+          "head_ft_per_stage": 22.1,
+          "hp_per_stage": 0.633,
+          "efficiency": 0.504
         }
       ]
     },
@@ -1305,8 +1315,8 @@
       "series": "513",
       "model": "WE-2400",
       "od_inches": 5.13,
-      "min_flow_bpd": 1800,
-      "max_flow_bpd": 3100,
+      "min_flow_bpd": 1500,
+      "max_flow_bpd": 3200,
       "bep_flow_bpd": 2400,
       "max_stages": 130,
       "housing_options": [
@@ -1317,73 +1327,73 @@
         110,
         130
       ],
-      "_source": "Representative — Weatherford ESP style",
+      "_source": "Weatherford ESP mapped to real Reda D2400N (user-authorized; near-exact rate match). Flow range, BEP head & efficiency all from real Reda D2400N catalog (1500-3200 bpd, BEP 2396 bpd, 25.27 ft/stage, 68.9%). Off-BEP: std centrifugal shape.",
       "performance_curve": [
         {
           "flow_bpd": 1200,
-          "head_ft_per_stage": 38.7,
-          "hp_per_stage": 0.658,
-          "efficiency": 0.52
+          "head_ft_per_stage": 32.6,
+          "hp_per_stage": 0.531,
+          "efficiency": 0.543
         },
         {
           "flow_bpd": 1430,
-          "head_ft_per_stage": 37.4,
-          "hp_per_stage": 0.693,
-          "efficiency": 0.568
+          "head_ft_per_stage": 31.5,
+          "hp_per_stage": 0.559,
+          "efficiency": 0.593
         },
         {
           "flow_bpd": 1660,
-          "head_ft_per_stage": 35.9,
-          "hp_per_stage": 0.724,
-          "efficiency": 0.607
+          "head_ft_per_stage": 30.3,
+          "hp_per_stage": 0.584,
+          "efficiency": 0.633
         },
         {
           "flow_bpd": 1880,
-          "head_ft_per_stage": 34.4,
-          "hp_per_stage": 0.751,
-          "efficiency": 0.634
+          "head_ft_per_stage": 28.9,
+          "hp_per_stage": 0.606,
+          "efficiency": 0.662
         },
         {
           "flow_bpd": 2100,
-          "head_ft_per_stage": 32.6,
-          "hp_per_stage": 0.775,
-          "efficiency": 0.651
+          "head_ft_per_stage": 27.5,
+          "hp_per_stage": 0.625,
+          "efficiency": 0.68
         },
         {
           "flow_bpd": 2350,
-          "head_ft_per_stage": 30.5,
-          "hp_per_stage": 0.799,
-          "efficiency": 0.66
+          "head_ft_per_stage": 25.7,
+          "hp_per_stage": 0.645,
+          "efficiency": 0.689
         },
         {
           "flow_bpd": 2550,
-          "head_ft_per_stage": 28.6,
-          "hp_per_stage": 0.816,
-          "efficiency": 0.658
+          "head_ft_per_stage": 24.1,
+          "hp_per_stage": 0.658,
+          "efficiency": 0.687
         },
         {
           "flow_bpd": 2800,
-          "head_ft_per_stage": 26.0,
-          "hp_per_stage": 0.833,
-          "efficiency": 0.644
+          "head_ft_per_stage": 21.9,
+          "hp_per_stage": 0.672,
+          "efficiency": 0.673
         },
         {
           "flow_bpd": 3000,
-          "head_ft_per_stage": 23.8,
-          "hp_per_stage": 0.843,
-          "efficiency": 0.625
+          "head_ft_per_stage": 20.1,
+          "hp_per_stage": 0.68,
+          "efficiency": 0.652
         },
         {
           "flow_bpd": 3250,
-          "head_ft_per_stage": 20.9,
-          "hp_per_stage": 0.85,
-          "efficiency": 0.59
+          "head_ft_per_stage": 17.6,
+          "hp_per_stage": 0.686,
+          "efficiency": 0.616
         },
         {
           "flow_bpd": 3500,
-          "head_ft_per_stage": 17.8,
-          "hp_per_stage": 0.847,
-          "efficiency": 0.542
+          "head_ft_per_stage": 15.0,
+          "hp_per_stage": 0.683,
+          "efficiency": 0.566
         }
       ]
     },
@@ -1392,8 +1402,8 @@
       "series": "538",
       "model": "WE-5000",
       "od_inches": 5.38,
-      "min_flow_bpd": 3800,
-      "max_flow_bpd": 6400,
+      "min_flow_bpd": 4400,
+      "max_flow_bpd": 7000,
       "bep_flow_bpd": 5000,
       "max_stages": 130,
       "housing_options": [
@@ -1404,73 +1414,73 @@
         110,
         130
       ],
-      "_source": "Representative — Weatherford ESP style",
+      "_source": "Weatherford ESP mapped to real Reda D5800N (user-authorized). Flow range, BEP head & efficiency from real Reda D5800N catalog (4400-7000 bpd, BEP 5820 bpd, 22.63 ft/stage, 70.2%). Off-BEP: std centrifugal shape.",
       "performance_curve": [
         {
           "flow_bpd": 2500,
-          "head_ft_per_stage": 56.8,
-          "hp_per_stage": 1.896,
-          "efficiency": 0.551
+          "head_ft_per_stage": 29.2,
+          "hp_per_stage": 0.973,
+          "efficiency": 0.553
         },
         {
           "flow_bpd": 3000,
-          "head_ft_per_stage": 54.8,
-          "hp_per_stage": 2.001,
-          "efficiency": 0.605
+          "head_ft_per_stage": 28.2,
+          "hp_per_stage": 1.027,
+          "efficiency": 0.606
         },
         {
           "flow_bpd": 3450,
-          "head_ft_per_stage": 52.7,
-          "hp_per_stage": 2.085,
-          "efficiency": 0.643
+          "head_ft_per_stage": 27.1,
+          "hp_per_stage": 1.07,
+          "efficiency": 0.644
         },
         {
           "flow_bpd": 3900,
-          "head_ft_per_stage": 50.5,
-          "hp_per_stage": 2.16,
-          "efficiency": 0.671
+          "head_ft_per_stage": 26.0,
+          "hp_per_stage": 1.108,
+          "efficiency": 0.673
         },
         {
           "flow_bpd": 4400,
-          "head_ft_per_stage": 47.7,
-          "hp_per_stage": 2.236,
-          "efficiency": 0.691
+          "head_ft_per_stage": 24.5,
+          "hp_per_stage": 1.147,
+          "efficiency": 0.693
         },
         {
           "flow_bpd": 4900,
-          "head_ft_per_stage": 44.6,
-          "hp_per_stage": 2.303,
-          "efficiency": 0.7
+          "head_ft_per_stage": 23.0,
+          "hp_per_stage": 1.181,
+          "efficiency": 0.701
         },
         {
           "flow_bpd": 5350,
-          "head_ft_per_stage": 41.7,
-          "hp_per_stage": 2.354,
-          "efficiency": 0.697
+          "head_ft_per_stage": 21.4,
+          "hp_per_stage": 1.208,
+          "efficiency": 0.699
         },
         {
           "flow_bpd": 5800,
-          "head_ft_per_stage": 38.4,
-          "hp_per_stage": 2.397,
-          "efficiency": 0.685
+          "head_ft_per_stage": 19.8,
+          "hp_per_stage": 1.23,
+          "efficiency": 0.686
         },
         {
           "flow_bpd": 6300,
-          "head_ft_per_stage": 34.6,
-          "hp_per_stage": 2.432,
-          "efficiency": 0.66
+          "head_ft_per_stage": 17.8,
+          "hp_per_stage": 1.248,
+          "efficiency": 0.661
         },
         {
           "flow_bpd": 6800,
-          "head_ft_per_stage": 30.5,
-          "hp_per_stage": 2.449,
-          "efficiency": 0.623
+          "head_ft_per_stage": 15.7,
+          "hp_per_stage": 1.256,
+          "efficiency": 0.624
         },
         {
           "flow_bpd": 7250,
-          "head_ft_per_stage": 26.5,
-          "hp_per_stage": 2.442,
-          "efficiency": 0.58
+          "head_ft_per_stage": 13.6,
+          "hp_per_stage": 1.253,
+          "efficiency": 0.581
         }
       ]
     },
@@ -1491,73 +1501,73 @@
         250,
         300
       ],
-      "_source": "SLB High Rise data sheet (flow range real; curve synthesized)",
+      "_source": "SLB High Rise (400). Flow range real (SLB data sheet). BEP head/eff anchored to nearest real Reda N-series by rate — D1150N (36.87 ft/stage, 61.0%). HighRise curves not public; approximation. Off-BEP: std centrifugal shape.",
       "performance_curve": [
         {
           "flow_bpd": 350,
-          "head_ft_per_stage": 31.0,
-          "hp_per_stage": 0.163,
-          "efficiency": 0.488
+          "head_ft_per_stage": 47.6,
+          "hp_per_stage": 0.255,
+          "efficiency": 0.481
         },
         {
           "flow_bpd": 420,
-          "head_ft_per_stage": 29.9,
-          "hp_per_stage": 0.173,
-          "efficiency": 0.536
+          "head_ft_per_stage": 45.9,
+          "hp_per_stage": 0.269,
+          "efficiency": 0.527
         },
         {
           "flow_bpd": 480,
-          "head_ft_per_stage": 28.8,
-          "hp_per_stage": 0.179,
-          "efficiency": 0.568
+          "head_ft_per_stage": 44.3,
+          "hp_per_stage": 0.28,
+          "efficiency": 0.559
         },
         {
           "flow_bpd": 550,
-          "head_ft_per_stage": 27.5,
-          "hp_per_stage": 0.187,
-          "efficiency": 0.596
+          "head_ft_per_stage": 42.2,
+          "hp_per_stage": 0.291,
+          "efficiency": 0.586
         },
         {
           "flow_bpd": 620,
-          "head_ft_per_stage": 25.9,
-          "hp_per_stage": 0.193,
-          "efficiency": 0.613
+          "head_ft_per_stage": 39.8,
+          "hp_per_stage": 0.301,
+          "efficiency": 0.604
         },
         {
           "flow_bpd": 680,
-          "head_ft_per_stage": 24.5,
-          "hp_per_stage": 0.198,
-          "efficiency": 0.62
+          "head_ft_per_stage": 37.6,
+          "hp_per_stage": 0.309,
+          "efficiency": 0.61
         },
         {
           "flow_bpd": 750,
-          "head_ft_per_stage": 22.7,
-          "hp_per_stage": 0.203,
-          "efficiency": 0.617
+          "head_ft_per_stage": 34.9,
+          "hp_per_stage": 0.317,
+          "efficiency": 0.608
         },
         {
           "flow_bpd": 820,
-          "head_ft_per_stage": 20.7,
-          "hp_per_stage": 0.207,
-          "efficiency": 0.605
+          "head_ft_per_stage": 31.8,
+          "hp_per_stage": 0.323,
+          "efficiency": 0.595
         },
         {
           "flow_bpd": 880,
-          "head_ft_per_stage": 18.9,
-          "hp_per_stage": 0.21,
-          "efficiency": 0.585
+          "head_ft_per_stage": 29.1,
+          "hp_per_stage": 0.327,
+          "efficiency": 0.576
         },
         {
           "flow_bpd": 950,
-          "head_ft_per_stage": 16.7,
-          "hp_per_stage": 0.211,
-          "efficiency": 0.553
+          "head_ft_per_stage": 25.6,
+          "hp_per_stage": 0.329,
+          "efficiency": 0.544
         },
         {
           "flow_bpd": 1020,
-          "head_ft_per_stage": 14.3,
-          "hp_per_stage": 0.21,
-          "efficiency": 0.51
+          "head_ft_per_stage": 21.9,
+          "hp_per_stage": 0.328,
+          "efficiency": 0.502
         }
       ]
     },
@@ -1577,73 +1587,73 @@
         200,
         250
       ],
-      "_source": "SLB High Rise data sheet (flow range real; curve synthesized)",
+      "_source": "SLB High Rise (400). Flow range real (SLB data sheet). BEP head/eff anchored to nearest real Reda N-series by rate — D1150N (36.87 ft/stage, 61.0%). HighRise curves not public; approximation. Off-BEP: std centrifugal shape.",
       "performance_curve": [
         {
           "flow_bpd": 800,
-          "head_ft_per_stage": 38.7,
-          "hp_per_stage": 0.426,
-          "efficiency": 0.535
+          "head_ft_per_stage": 47.6,
+          "hp_per_stage": 0.583,
+          "efficiency": 0.481
         },
         {
           "flow_bpd": 950,
-          "head_ft_per_stage": 37.4,
-          "hp_per_stage": 0.448,
-          "efficiency": 0.585
+          "head_ft_per_stage": 46.0,
+          "hp_per_stage": 0.614,
+          "efficiency": 0.525
         },
         {
           "flow_bpd": 1100,
-          "head_ft_per_stage": 36.0,
-          "hp_per_stage": 0.468,
-          "efficiency": 0.624
+          "head_ft_per_stage": 44.2,
+          "hp_per_stage": 0.641,
+          "efficiency": 0.56
         },
         {
           "flow_bpd": 1260,
-          "head_ft_per_stage": 34.3,
-          "hp_per_stage": 0.487,
-          "efficiency": 0.654
+          "head_ft_per_stage": 42.1,
+          "hp_per_stage": 0.666,
+          "efficiency": 0.587
         },
         {
           "flow_bpd": 1410,
-          "head_ft_per_stage": 32.5,
-          "hp_per_stage": 0.502,
-          "efficiency": 0.672
+          "head_ft_per_stage": 39.9,
+          "hp_per_stage": 0.688,
+          "efficiency": 0.603
         },
         {
           "flow_bpd": 1560,
-          "head_ft_per_stage": 30.5,
-          "hp_per_stage": 0.516,
-          "efficiency": 0.68
+          "head_ft_per_stage": 37.5,
+          "hp_per_stage": 0.707,
+          "efficiency": 0.61
         },
         {
           "flow_bpd": 1710,
-          "head_ft_per_stage": 28.4,
-          "hp_per_stage": 0.529,
-          "efficiency": 0.677
+          "head_ft_per_stage": 34.9,
+          "hp_per_stage": 0.724,
+          "efficiency": 0.608
         },
         {
           "flow_bpd": 1860,
-          "head_ft_per_stage": 26.1,
-          "hp_per_stage": 0.539,
-          "efficiency": 0.665
+          "head_ft_per_stage": 32.1,
+          "hp_per_stage": 0.738,
+          "efficiency": 0.597
         },
         {
           "flow_bpd": 2000,
-          "head_ft_per_stage": 23.8,
-          "hp_per_stage": 0.546,
-          "efficiency": 0.644
+          "head_ft_per_stage": 29.3,
+          "hp_per_stage": 0.747,
+          "efficiency": 0.578
         },
         {
           "flow_bpd": 2150,
-          "head_ft_per_stage": 21.2,
-          "hp_per_stage": 0.55,
-          "efficiency": 0.612
+          "head_ft_per_stage": 26.1,
+          "hp_per_stage": 0.753,
+          "efficiency": 0.549
         },
         {
           "flow_bpd": 2300,
-          "head_ft_per_stage": 18.4,
-          "hp_per_stage": 0.549,
-          "efficiency": 0.569
+          "head_ft_per_stage": 22.7,
+          "hp_per_stage": 0.752,
+          "efficiency": 0.511
         }
       ]
     },
@@ -1663,73 +1673,73 @@
         200,
         250
       ],
-      "_source": "SLB High Rise data sheet (flow range real; curve synthesized)",
+      "_source": "SLB High Rise (400). Flow range real (SLB data sheet). BEP head/eff anchored to nearest real Reda N-series by rate — D1150N (36.87 ft/stage, 61.0%). HighRise curves not public; approximation. Off-BEP: std centrifugal shape.",
       "performance_curve": [
         {
           "flow_bpd": 850,
-          "head_ft_per_stage": 40.0,
-          "hp_per_stage": 0.468,
-          "efficiency": 0.535
+          "head_ft_per_stage": 47.6,
+          "hp_per_stage": 0.62,
+          "efficiency": 0.481
         },
         {
           "flow_bpd": 1010,
-          "head_ft_per_stage": 38.7,
-          "hp_per_stage": 0.492,
-          "efficiency": 0.585
+          "head_ft_per_stage": 46.0,
+          "hp_per_stage": 0.652,
+          "efficiency": 0.525
         },
         {
           "flow_bpd": 1170,
-          "head_ft_per_stage": 37.2,
-          "hp_per_stage": 0.514,
-          "efficiency": 0.624
+          "head_ft_per_stage": 44.2,
+          "hp_per_stage": 0.681,
+          "efficiency": 0.56
         },
         {
           "flow_bpd": 1330,
-          "head_ft_per_stage": 35.5,
-          "hp_per_stage": 0.533,
-          "efficiency": 0.653
+          "head_ft_per_stage": 42.2,
+          "hp_per_stage": 0.707,
+          "efficiency": 0.586
         },
         {
           "flow_bpd": 1500,
-          "head_ft_per_stage": 33.6,
-          "hp_per_stage": 0.552,
-          "efficiency": 0.672
+          "head_ft_per_stage": 39.9,
+          "hp_per_stage": 0.731,
+          "efficiency": 0.603
         },
         {
           "flow_bpd": 1660,
-          "head_ft_per_stage": 31.5,
-          "hp_per_stage": 0.567,
-          "efficiency": 0.68
+          "head_ft_per_stage": 37.5,
+          "hp_per_stage": 0.752,
+          "efficiency": 0.61
         },
         {
           "flow_bpd": 1820,
-          "head_ft_per_stage": 29.3,
-          "hp_per_stage": 0.581,
-          "efficiency": 0.677
-        },
-        {
-          "flow_bpd": 1980,
-          "head_ft_per_stage": 27.0,
-          "hp_per_stage": 0.592,
-          "efficiency": 0.664
-        },
-        {
-          "flow_bpd": 2150,
-          "head_ft_per_stage": 24.2,
-          "hp_per_stage": 0.6,
-          "efficiency": 0.64
-        },
-        {
-          "flow_bpd": 2300,
-          "head_ft_per_stage": 21.7,
-          "hp_per_stage": 0.604,
+          "head_ft_per_stage": 34.9,
+          "hp_per_stage": 0.77,
           "efficiency": 0.608
         },
         {
+          "flow_bpd": 1980,
+          "head_ft_per_stage": 32.1,
+          "hp_per_stage": 0.784,
+          "efficiency": 0.596
+        },
+        {
+          "flow_bpd": 2150,
+          "head_ft_per_stage": 28.8,
+          "hp_per_stage": 0.795,
+          "efficiency": 0.574
+        },
+        {
+          "flow_bpd": 2300,
+          "head_ft_per_stage": 25.8,
+          "hp_per_stage": 0.8,
+          "efficiency": 0.546
+        },
+        {
           "flow_bpd": 2450,
-          "head_ft_per_stage": 18.9,
-          "hp_per_stage": 0.603,
-          "efficiency": 0.568
+          "head_ft_per_stage": 22.5,
+          "hp_per_stage": 0.798,
+          "efficiency": 0.509
         }
       ]
     },
@@ -1751,73 +1761,73 @@
         140,
         160
       ],
-      "_source": "SLB High Rise data sheet (flow range real; curve synthesized)",
+      "_source": "SLB High Rise (513). Flow range real (SLB data sheet). BEP head/eff anchored to nearest real Reda N-series by rate — D2400N (25.27 ft/stage, 68.9%). HighRise curves not public; approximation. Off-BEP: std centrifugal shape.",
       "performance_curve": [
         {
           "flow_bpd": 1300,
-          "head_ft_per_stage": 49.0,
-          "hp_per_stage": 0.839,
-          "efficiency": 0.559
+          "head_ft_per_stage": 32.6,
+          "hp_per_stage": 0.575,
+          "efficiency": 0.543
         },
         {
           "flow_bpd": 1550,
-          "head_ft_per_stage": 47.4,
-          "hp_per_stage": 0.884,
-          "efficiency": 0.612
+          "head_ft_per_stage": 31.5,
+          "hp_per_stage": 0.606,
+          "efficiency": 0.593
         },
         {
           "flow_bpd": 1790,
-          "head_ft_per_stage": 45.6,
-          "hp_per_stage": 0.922,
-          "efficiency": 0.651
+          "head_ft_per_stage": 30.3,
+          "hp_per_stage": 0.632,
+          "efficiency": 0.632
         },
         {
           "flow_bpd": 2050,
-          "head_ft_per_stage": 43.4,
-          "hp_per_stage": 0.96,
-          "efficiency": 0.683
+          "head_ft_per_stage": 28.9,
+          "hp_per_stage": 0.658,
+          "efficiency": 0.663
         },
         {
           "flow_bpd": 2300,
-          "head_ft_per_stage": 41.1,
-          "hp_per_stage": 0.991,
-          "efficiency": 0.702
+          "head_ft_per_stage": 27.3,
+          "hp_per_stage": 0.679,
+          "efficiency": 0.681
         },
         {
           "flow_bpd": 2550,
-          "head_ft_per_stage": 38.5,
-          "hp_per_stage": 1.02,
-          "efficiency": 0.71
+          "head_ft_per_stage": 25.6,
+          "hp_per_stage": 0.699,
+          "efficiency": 0.689
         },
         {
           "flow_bpd": 2800,
-          "head_ft_per_stage": 35.8,
-          "hp_per_stage": 1.044,
-          "efficiency": 0.706
+          "head_ft_per_stage": 23.8,
+          "hp_per_stage": 0.715,
+          "efficiency": 0.686
         },
         {
           "flow_bpd": 3050,
-          "head_ft_per_stage": 32.8,
-          "hp_per_stage": 1.064,
-          "efficiency": 0.692
+          "head_ft_per_stage": 21.8,
+          "hp_per_stage": 0.729,
+          "efficiency": 0.671
         },
         {
           "flow_bpd": 3300,
-          "head_ft_per_stage": 29.5,
-          "hp_per_stage": 1.078,
-          "efficiency": 0.666
+          "head_ft_per_stage": 19.6,
+          "hp_per_stage": 0.739,
+          "efficiency": 0.647
         },
         {
           "flow_bpd": 3500,
-          "head_ft_per_stage": 26.8,
-          "hp_per_stage": 1.084,
-          "efficiency": 0.638
+          "head_ft_per_stage": 17.8,
+          "hp_per_stage": 0.743,
+          "efficiency": 0.619
         },
         {
           "flow_bpd": 3750,
-          "head_ft_per_stage": 23.2,
-          "hp_per_stage": 1.082,
-          "efficiency": 0.592
+          "head_ft_per_stage": 15.4,
+          "hp_per_stage": 0.741,
+          "efficiency": 0.574
         }
       ]
     },
@@ -1838,73 +1848,73 @@
         110,
         140
       ],
-      "_source": "SLB High Rise data sheet (flow range real; curve synthesized)",
+      "_source": "SLB High Rise (538). Flow range real (SLB data sheet). BEP head/eff anchored to nearest real Reda N-series by rate — D4300N (21.34 ft/stage, 70.3%). HighRise curves not public; approximation. Off-BEP: std centrifugal shape.",
       "performance_curve": [
         {
           "flow_bpd": 1950,
-          "head_ft_per_stage": 56.8,
-          "hp_per_stage": 1.438,
-          "efficiency": 0.567
+          "head_ft_per_stage": 27.5,
+          "hp_per_stage": 0.714,
+          "efficiency": 0.553
         },
         {
           "flow_bpd": 2300,
-          "head_ft_per_stage": 55.0,
-          "hp_per_stage": 1.51,
-          "efficiency": 0.617
+          "head_ft_per_stage": 26.7,
+          "hp_per_stage": 0.75,
+          "efficiency": 0.602
         },
         {
           "flow_bpd": 2700,
-          "head_ft_per_stage": 52.7,
-          "hp_per_stage": 1.583,
-          "efficiency": 0.662
+          "head_ft_per_stage": 25.6,
+          "hp_per_stage": 0.786,
+          "efficiency": 0.646
         },
         {
           "flow_bpd": 3050,
-          "head_ft_per_stage": 50.4,
-          "hp_per_stage": 1.64,
-          "efficiency": 0.691
+          "head_ft_per_stage": 24.5,
+          "hp_per_stage": 0.815,
+          "efficiency": 0.674
         },
         {
           "flow_bpd": 3450,
-          "head_ft_per_stage": 47.6,
-          "hp_per_stage": 1.698,
-          "efficiency": 0.712
+          "head_ft_per_stage": 23.1,
+          "hp_per_stage": 0.844,
+          "efficiency": 0.695
         },
         {
           "flow_bpd": 3800,
-          "head_ft_per_stage": 44.8,
-          "hp_per_stage": 1.743,
-          "efficiency": 0.72
+          "head_ft_per_stage": 21.7,
+          "hp_per_stage": 0.866,
+          "efficiency": 0.702
         },
         {
           "flow_bpd": 4150,
-          "head_ft_per_stage": 41.9,
-          "hp_per_stage": 1.783,
-          "efficiency": 0.717
+          "head_ft_per_stage": 20.3,
+          "hp_per_stage": 0.886,
+          "efficiency": 0.7
         },
         {
           "flow_bpd": 4550,
-          "head_ft_per_stage": 38.2,
-          "hp_per_stage": 1.82,
-          "efficiency": 0.703
+          "head_ft_per_stage": 18.5,
+          "hp_per_stage": 0.905,
+          "efficiency": 0.686
         },
         {
           "flow_bpd": 4900,
-          "head_ft_per_stage": 34.7,
-          "hp_per_stage": 1.844,
-          "efficiency": 0.68
+          "head_ft_per_stage": 16.8,
+          "hp_per_stage": 0.916,
+          "efficiency": 0.663
         },
         {
           "flow_bpd": 5300,
-          "head_ft_per_stage": 30.5,
-          "hp_per_stage": 1.857,
-          "efficiency": 0.641
+          "head_ft_per_stage": 14.8,
+          "hp_per_stage": 0.923,
+          "efficiency": 0.626
         },
         {
           "flow_bpd": 5650,
-          "head_ft_per_stage": 26.6,
-          "hp_per_stage": 1.852,
-          "efficiency": 0.597
+          "head_ft_per_stage": 12.9,
+          "hp_per_stage": 0.92,
+          "efficiency": 0.582
         }
       ]
     },
@@ -1925,76 +1935,76 @@
         110,
         120
       ],
-      "_source": "SLB High Rise data sheet (flow range real; curve synthesized)",
+      "_source": "SLB High Rise (538). Flow range real (SLB data sheet). BEP head/eff anchored to nearest real Reda 540-series by rate — GN5200 (28.34 ft/stage, 66.1%). HighRise curves not public; approximation. Off-BEP: std centrifugal shape.",
       "performance_curve": [
         {
           "flow_bpd": 2600,
-          "head_ft_per_stage": 63.2,
-          "hp_per_stage": 2.106,
-          "efficiency": 0.575
+          "head_ft_per_stage": 36.6,
+          "hp_per_stage": 1.345,
+          "efficiency": 0.521
         },
         {
           "flow_bpd": 3100,
-          "head_ft_per_stage": 61.1,
-          "hp_per_stage": 2.218,
-          "efficiency": 0.629
+          "head_ft_per_stage": 35.3,
+          "hp_per_stage": 1.417,
+          "efficiency": 0.569
         },
         {
           "flow_bpd": 3600,
-          "head_ft_per_stage": 58.7,
-          "hp_per_stage": 2.318,
-          "efficiency": 0.671
+          "head_ft_per_stage": 33.9,
+          "hp_per_stage": 1.48,
+          "efficiency": 0.608
         },
         {
           "flow_bpd": 4100,
-          "head_ft_per_stage": 56.0,
-          "hp_per_stage": 2.407,
-          "efficiency": 0.702
+          "head_ft_per_stage": 32.4,
+          "hp_per_stage": 1.537,
+          "efficiency": 0.636
         },
         {
           "flow_bpd": 4600,
-          "head_ft_per_stage": 53.0,
-          "hp_per_stage": 2.487,
-          "efficiency": 0.722
+          "head_ft_per_stage": 30.6,
+          "hp_per_stage": 1.588,
+          "efficiency": 0.654
         },
         {
           "flow_bpd": 5050,
-          "head_ft_per_stage": 50.0,
-          "hp_per_stage": 2.551,
-          "efficiency": 0.729
+          "head_ft_per_stage": 28.9,
+          "hp_per_stage": 1.629,
+          "efficiency": 0.661
         },
         {
           "flow_bpd": 5550,
-          "head_ft_per_stage": 46.5,
-          "hp_per_stage": 2.613,
-          "efficiency": 0.727
+          "head_ft_per_stage": 26.9,
+          "hp_per_stage": 1.669,
+          "efficiency": 0.658
         },
         {
           "flow_bpd": 6050,
-          "head_ft_per_stage": 42.7,
-          "hp_per_stage": 2.664,
-          "efficiency": 0.713
+          "head_ft_per_stage": 24.7,
+          "hp_per_stage": 1.702,
+          "efficiency": 0.646
         },
         {
           "flow_bpd": 6550,
-          "head_ft_per_stage": 38.5,
-          "hp_per_stage": 2.701,
-          "efficiency": 0.688
+          "head_ft_per_stage": 22.3,
+          "hp_per_stage": 1.725,
+          "efficiency": 0.623
         },
         {
           "flow_bpd": 7050,
-          "head_ft_per_stage": 34.1,
-          "hp_per_stage": 2.719,
-          "efficiency": 0.651
+          "head_ft_per_stage": 19.7,
+          "hp_per_stage": 1.737,
+          "efficiency": 0.59
         },
         {
           "flow_bpd": 7550,
-          "head_ft_per_stage": 29.4,
-          "hp_per_stage": 2.711,
-          "efficiency": 0.603
+          "head_ft_per_stage": 17.0,
+          "hp_per_stage": 1.732,
+          "efficiency": 0.546
         }
       ]
     }
   ],
-  "_note": "Two data classes: (1) pumps digitized from Kermit Brown Vol. 2b Ch. 4.5 examples; (2) pumps generated by scripts/generate_pump_curves.py (marked with _source) — representative curves with standard centrifugal shape, HP derived from hydraulic horsepower for thermodynamic consistency. Representative data: NOT for real field design."
+  "_note": "Two data classes: (1) pumps digitized from Kermit Brown Vol. 2b Ch. 4.5 examples; (2) pumps generated by scripts/generate_pump_curves.py (marked with _source). For class (2) the BEP anchor (head/eff) and flow range are taken from REAL catalog data where available (Reda D-series & GN5200 BEP; SLB/Pengtools flow ranges) — see each _source and CORRECCION_CATALOGOS.md; only the BEP point is real, off-BEP points follow the standard centrifugal shape with HP derived from hydraulic horsepower. Not a substitute for the manufacturer's measured curve."
 }
