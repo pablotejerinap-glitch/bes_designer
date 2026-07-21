@@ -16,16 +16,19 @@ frontend/ (React) ──HTTP/JSON──▶ bes.api (FastAPI) ──▶ bes.servi
 ## Layout del repositorio
 
 ```
-src/bes/            paquete único distribuible (pip install -e .)
-  core/             dominio puro — sin frameworks
-  catalogs/         catálogos JSON + queries (los .json viajan con el paquete)
-  recommender/      scoring y selección
-  reports/          PDF / Excel
-  services/         orquestación agnóstica de framework
-  plotting/         builders Plotly — agnósticos, los consume la API
-  api/              capa de entrega HTTP (FastAPI)
-frontend/           SPA React
-tests/ data/ docs/ scripts/
+backend/            todo el Python — unidad de despliegue autocontenida
+  src/bes/          paquete único distribuible (pip install -e backend/)
+    core/           dominio puro — sin frameworks
+    catalogs/       catálogos JSON + queries (los .json viajan con el paquete)
+    recommender/    scoring y selección
+    reports/        PDF / Excel
+    services/       orquestación agnóstica de framework
+    plotting/       builders Plotly — agnósticos, los consume la API
+    api/            capa de entrega HTTP (FastAPI)
+  tests/ data/ scripts/
+  pyproject.toml  requirements*.txt  Dockerfile
+frontend/           SPA React (Vite + TS + Mantine)
+docker-compose.yml · docs/ · README.md · CLAUDE.md   ← nivel proyecto
 ```
 
 `frontend/` y `bes.api` son **adaptadores de entrega**: ninguno es "el

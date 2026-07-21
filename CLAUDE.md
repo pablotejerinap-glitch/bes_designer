@@ -24,6 +24,7 @@ Plan completo: `C:\Users\maria\.claude\plans\quiet-stargazing-scott.md`.
 
 ```bash
 # Todos los comandos usan el intérprete del venv: .venv\Scripts\python.exe
+# Los de Python se corren desde backend/ (ahí viven pyproject.toml y tests/).
 
 # Run all tests
 pytest
@@ -56,19 +57,23 @@ No linter or formatter is configured. `requirements.txt` lists all dependencies 
 
 ### Repository layout
 
-El proyecto usa layout `src/`. El único paquete distribuible es `bes`:
+Dos carpetas de primer nivel, cada una desplegable por separado. Adentro de
+`backend/` el layout es `src/` y el único paquete distribuible es `bes`:
 
 ```
-src/bes/            pip install -e .  → import bes.*
-  core/             dominio puro — nunca importa un framework
-  catalogs/         catálogos JSON + queries (los .json viajan con el paquete)
-  recommender/      scoring y selección de bombas
-  reports/          PDF (ReportLab) / Excel (openpyxl)
-  services/         orquestación agnóstica de framework
-  plotting/         builders Plotly — agnósticos, los consume la API
-  api/              capa de entrega HTTP (FastAPI)
+backend/            todo el Python — unidad de despliegue autocontenida
+  src/bes/          paquete único distribuible (pip install -e backend/)
+    core/           dominio puro — sin frameworks
+    catalogs/       catálogos JSON + queries (los .json viajan con el paquete)
+    recommender/    scoring y selección
+    reports/        PDF / Excel
+    services/       orquestación agnóstica de framework
+    plotting/       builders Plotly — agnósticos, los consume la API
+    api/            capa de entrega HTTP (FastAPI)
+  tests/ data/ scripts/
+  pyproject.toml  requirements*.txt  Dockerfile
 frontend/           SPA React (Vite + TS + Mantine)
-tests/ data/ docs/ scripts/
+docker-compose.yml · docs/ · README.md · CLAUDE.md   ← nivel proyecto
 ```
 
 `bes.api` y `frontend/` son **adaptadores de entrega**; el dominio vive debajo

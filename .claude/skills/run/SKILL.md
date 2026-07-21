@@ -6,31 +6,33 @@ description: Levantar la app BES Designer localmente (backend FastAPI + frontend
 # Correr BES Designer
 
 El proyecto usa un venv en `.venv` con Python 3.14. El intérprete es
-`.venv\Scripts\python.exe`. El proyecto está instalado en editable (`pip install -e .`),
-así que los imports funcionan desde cualquier CWD, sin `sys.path`.
+`.venv\Scripts\python.exe`. El paquete está instalado en editable
+(`pip install -e backend`), así que los imports funcionan desde cualquier CWD,
+sin `sys.path`. El venv vive en la raíz; los comandos de Python se corren
+desde `backend/`, que es donde están `pyproject.toml` y `tests/`.
 
 ## Setup (una vez)
 
 ```powershell
 # Crear venv (si no existe) e instalar dependencias
 & "C:\Users\maria\AppData\Local\Python\bin\python.exe" -m venv .venv
-& ".\.venv\Scripts\python.exe" -m pip install -r requirements.txt
-& ".\.venv\Scripts\python.exe" -m pip install -e .
+& ".\.venv\Scripts\python.exe" -m pip install -r backend\requirements.txt
+& ".\.venv\Scripts\python.exe" -m pip install -e backend
 ```
 
 ## Backend FastAPI (requerido por el frontend)
 
 ```powershell
-& ".\.venv\Scripts\python.exe" -m uvicorn bes.api.main:app --reload --port 8000
+cd backend; & "..\.venv\Scripts\python.exe" -m uvicorn bes.api.main:app --reload --port 8000
 ```
 Docs OpenAPI en http://localhost:8000/docs. Salud: `Invoke-WebRequest http://localhost:8000/api/health`.
 
 ## Tests (correr SIEMPRE antes de dar por terminado un cambio)
 
 ```powershell
-& ".\.venv\Scripts\python.exe" -m pytest -q
+cd backend; & "..\.venv\Scripts\python.exe" -m pytest -q
 ```
-Deben pasar los 577 tests (545 dominio + 17 API + 15 arquitectura). Ver `.claude/rules/domain.md`.
+Deben pasar los 584 tests (545 dominio + 17 API + 15 arquitectura + 7 scripts). Ver `.claude/rules/domain.md`.
 
 ## Frontend React (Semana 3+)
 

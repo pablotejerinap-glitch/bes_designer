@@ -16,12 +16,9 @@ import warnings
 from datetime import date
 from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# Ensure project root is on sys.path so imports work when run from any CWD
-# ---------------------------------------------------------------------------
-_ROOT = Path(__file__).parent.parent
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
+# `bes` se importa por el editable install (pip install -e backend/), no por
+# manipular sys.path — ver .claude/rules/architecture.md.
+_BACKEND = Path(__file__).parent.parent
 
 # Windows consoles default to cp1252, which cannot print ✅/❌
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -41,8 +38,9 @@ from bes.recommender.recommendation_engine import generate_recommendations  # no
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-_EXAMPLES_JSON = _ROOT / "data" / "example_wells.json"
-_DOCS_DIR      = _ROOT / "docs"
+_EXAMPLES_JSON = _BACKEND / "data" / "example_wells.json"
+# docs/ es del proyecto, no del backend: vive en la raíz del repo.
+_DOCS_DIR      = _BACKEND.parent / "docs"
 _OUTPUT_MD     = _DOCS_DIR / "VALIDATION.md"
 
 # ---------------------------------------------------------------------------

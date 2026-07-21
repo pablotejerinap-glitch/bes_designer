@@ -1,6 +1,6 @@
 # BES Designer — Validación contra Ejemplos del Libro
 
-**Generado:** 2026-07-18  
+**Generado:** 2026-07-20  
 **Referencia:** Kermit Brown, *The Technology of Artificial Lift Methods*, Vol. 2b, Ch. 4.5
 
 > Los valores de referencia son estimaciones analíticas basadas en las mismas ecuaciones

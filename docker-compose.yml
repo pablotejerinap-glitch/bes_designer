@@ -1,11 +1,10 @@
-# Orquestación de las tres capas. Levantar todo:  docker compose up --build
+# Orquestación de las dos capas. Levantar todo:  docker compose up --build
 #   frontend  → http://localhost:8080   (SPA React, proxya /api al backend)
 #   api       → http://localhost:8000   (FastAPI, /api/health, /docs)
 services:
   api:
     build:
-      context: .
-      dockerfile: Dockerfile.api
+      context: ./backend
     environment:
       # CORS: sólo hace falta para el Vite dev directo (:5173). El front en
       # :8080 va por nginx (mismo origen) y no dispara CORS.

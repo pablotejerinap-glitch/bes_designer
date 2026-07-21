@@ -27,64 +27,39 @@ A partir de los datos del pozo (reservorio, fluido, geometría, superficie y obj
 
 ```
 bes_designer/
-├── src/bes/                # Paquete instalable (pip install -e .)
-│   │
-│   ├── core/               # Motor de cálculo
-│   ├── models.py           # Dataclasses y validación de datos
-│   ├── ipr.py              # IPR: Vogel, Linear, Fetkovich, Combined
-│   ├── pvt.py              # PVT: Standing, DAK z-factor, Beggs-Robinson
-│   ├── multiphase.py       # Hagedorn-Brown, Beggs-Brill, traverse de presión
-│   ├── tdh.py              # Total Dynamic Head (Brown §4.5324)
-│   ├── pump_design.py      # Etapas, HP, corrección por viscosidad HI
-│   ├── electrical.py       # Motor, cable, transformador
-│   └── gas_handling.py     # GIP (Brown §4.53103)
+├── backend/                    # Todo el Python — desplegable por separado
+│   ├── src/bes/                # Paquete instalable (pip install -e backend/)
+│   │   ├── core/               # Motor de cálculo (dominio puro, sin frameworks)
+│   │   │   ├── models.py       # Dataclasses y validación
+│   │   │   ├── ipr.py          # IPR: Vogel, Linear, Fetkovich, Combined
+│   │   │   ├── pvt.py          # PVT: Standing, DAK z-factor, Beggs-Robinson
+│   │   │   ├── multiphase.py   # Hagedorn-Brown, Beggs-Brill, traverse
+│   │   │   ├── tdh.py          # Total Dynamic Head (Brown §4.5324)
+│   │   │   ├── pump_design.py  # Etapas, HP, corrección por viscosidad HI
+│   │   │   ├── electrical.py   # Motor, cable, transformador
+│   │   │   └── gas_handling.py # GIP (Brown §4.53103)
+│   │   ├── catalogs/           # Catálogos de equipos (JSON) + CatalogManager
+│   │   ├── recommender/        # Selección y ranking (select_top_n_pumps, scoring)
+│   │   ├── reports/            # PDF (ReportLab) · Excel (openpyxl)
+│   │   ├── services/           # Orquestación agnóstica de framework
+│   │   ├── plotting/           # Gráficos Plotly (agnósticos, los usa la API)
+│   │   └── api/                # Backend FastAPI (routers, schemas, mappers)
+│   ├── tests/                  # Suite pytest
+│   ├── data/                   # example_wells.json (ejemplos de Brown)
+│   ├── scripts/                # validate_all_examples.py, ingest, generación
+│   ├── pyproject.toml
+│   ├── requirements*.txt
+│   └── Dockerfile
 │
-│   ├── catalogs/           # Catálogos de equipos (JSON)
-│   ├── pumps.json          # Curvas de rendimiento de bombas
-│   ├── motors.json         # Catálogo de motores
-│   ├── cables.json         # Catálogo de cables
-│   ├── seals.json          # Catálogo de sellos/protectores
-│   └── loader.py           # CatalogManager
+├── frontend/                   # SPA React (Vite + TS + Mantine)
+│   ├── src/
+│   ├── Dockerfile
+│   └── nginx.conf
 │
-│   ├── recommender/        # Selección y ranking de equipos
-│   ├── pump_selector.py    # select_top_n_pumps
-│   ├── scoring.py          # Scores de eficiencia, flexibilidad, preferencia de proveedor
-│   └── recommendation_engine.py  # generate_recommendations (API pública)
-│
-│   ├── reports/            # Generación de reportes
-│   ├── pdf_generator.py    # generate_design_report → bytes PDF (ReportLab)
-│   └── excel_exporter.py   # generate_design_excel → bytes XLSX (openpyxl)
-│
-│   ├── services/           # Orquestación agnóstica de framework
-│   ├── plotting/           # Gráficos Plotly (agnósticos, los usa la API)
-│   └── api/                # Backend FastAPI (routers, schemas, mappers)
-│
-├── frontend/               # SPA React (Vite + TS + Mantine)
-│
-├── requirements.txt
-│
-├── tests/                  # Suite de tests pytest
-│   ├── test_ipr.py
-│   ├── test_pvt.py
-│   ├── test_multiphase.py
-│   ├── test_tdh.py         # (incluye test_pump_design)
-│   ├── test_electrical.py
-│   ├── test_gas_handling.py
-│   ├── test_catalog.py
-│   ├── test_models.py
-│   ├── test_recommender.py
-│   └── test_integration.py # Tests end-to-end con ejemplos del libro
-│
-├── data/
-│   └── example_wells.json  # Ejemplos de Brown Vol. 2b (1A, 2A, 3A)
-│
-├── scripts/
-│   └── validate_all_examples.py  # Genera docs/VALIDATION.md
-│
-└── docs/
-    ├── USER_GUIDE.md       # Guía de instalación y uso
-    ├── METHODOLOGY.md      # Correlaciones, suposiciones, limitaciones
-    └── VALIDATION.md       # Tabla comparativa vs. libro (generada por script)
+├── docker-compose.yml          # Levanta api + frontend
+├── docs/                       # USER_GUIDE · METHODOLOGY · VALIDATION
+├── README.md
+└── CLAUDE.md
 ```
 
 ---
@@ -102,9 +77,8 @@ source .venv/bin/activate        # Linux / macOS
 .venv\Scripts\activate           # Windows (cmd)
 .venv\Scripts\Activate.ps1      # Windows (PowerShell)
 
-# 3. Instalar dependencias + el paquete en editable
-pip install -r requirements.txt
-pip install -e .
+# 3. Instalar el backend en editable (arrastra sus dependencias)
+pip install -e backend
 ```
 
 Requiere **Python 3.10 o superior**.
