@@ -112,6 +112,16 @@ def _build_resumen(ws, dr: DesignResult, well_data: dict) -> None:
             c.alignment = _LEFT
             row += 1
 
+    # Crédito del autor al pie, igual que el pie de página del PDF.
+    row += 2
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=3)
+    c = ws.cell(
+        row=row, column=1,
+        value="BES Designer v2.0 — Desarrollado por Pablo Agustín Tejerina, UNCo",
+    )
+    c.font = Font(size=8, color="757575", name="Calibri", italic=True)
+    c.alignment = _LEFT
+
 
 def _build_inputs(ws, well_data: dict) -> None:
     ws.title = "Inputs"
