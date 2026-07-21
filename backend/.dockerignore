@@ -1,0 +1,21 @@
+# Contexto de build para Dockerfile.api y Dockerfile.streamlit (raíz del repo).
+.git/
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+htmlcov/
+.coverage
+*.log
+
+# El backend/streamlit no necesitan el código del frontend.
+frontend/
+
+# Artefactos y config local que no van en las imágenes.
+.claude/
+docs/
+tests/
+scripts/

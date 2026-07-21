@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 .vscode/
 venv/
+.venv/
 env/
 *.egg-info/
 .DS_Store
@@ -12,3 +13,6 @@ dist/
 htmlcov/
 .coverage
 *.log
+
+# Claude Code — settings locales por-usuario (no compartir)
+.claude/settings.local.json

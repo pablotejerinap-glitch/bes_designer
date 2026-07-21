@@ -57,7 +57,7 @@ Las dependencias instaladas son:
 
 | Paquete | Uso |
 |---|---|
-| streamlit | Interfaz web |
+| fastapi + uvicorn | API HTTP |
 | numpy, scipy | Cálculo numérico |
 | pandas | Manejo de datos tabulares |
 | matplotlib, plotly | Gráficos |
@@ -80,7 +80,8 @@ Se esperan 400+ tests en verde. Si alguno falla, verificar que las dependencias 
 
 ```bash
 # Desde el directorio del proyecto
-streamlit run app.py
+uvicorn bes.api.main:app --port 8000   # backend
+cd frontend && npm run dev             # frontend en :5173
 ```
 
 La aplicación se abrirá automáticamente en el navegador en `http://localhost:8501`.
@@ -257,7 +258,7 @@ Basado en Brown Vol. 2b §4.5, Example 3A.
 | "No se encontró diseño válido" | Sin bomba compatible en catálogo | Ampliar max_gip, revisar tasa objetivo o tamaño de casing |
 | PDF genera error | reportlab no instalado | `pip install reportlab` |
 | Excel genera error | openpyxl no instalado | `pip install openpyxl` |
-| La app no abre el navegador | Puerto 8501 en uso | `streamlit run app.py --server.port 8502` |
+| La app no abre el navegador | Puerto 5173 en uso | `npm run dev -- --port 5174` |
 | Tests fallan | Dependencias desactualizadas | `pip install -r requirements.txt --upgrade` |
 | Advertencia "bubble_point > static_pressure" | Reservorio depletado | Normal para drive por gas en solución; Vogel aplica |
 

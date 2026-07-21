@@ -2,9 +2,30 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Rediseño de arquitectura en curso (rama refactor/architecture-redesign)
+
+Migramos el monolito Streamlit a una arquitectura de tres capas
+(frontend React / backend FastAPI / DB SQLite). Reglas y convenciones del
+rediseño (leerlas antes de tocar código de arquitectura):
+
+@.claude/rules/architecture.md
+@.claude/rules/domain.md
+@.claude/rules/api-contract.md
+@.claude/rules/frontend.md
+
+Skills del proyecto (invocables): `run`, `add-endpoint`, `add-domain-function`.
+Plan completo: `C:\Users\maria\.claude\plans\quiet-stargazing-scott.md`.
+
+**Entorno:** venv en `.venv` (Python 3.14). Usar `.venv\Scripts\python.exe`
+(no hay `python`/`pip` en PATH). El proyecto está instalado editable
+(`pip install -e .`) — imports absolutos, **sin `sys.path.insert`**.
+
 ## Commands
 
 ```bash
+# Todos los comandos usan el intérprete del venv: .venv\Scripts\python.exe
+# Los de Python se corren desde backend/ (ahí viven pyproject.toml y tests/).
+
 # Run all tests
 pytest
 
@@ -15,49 +36,87 @@ pytest tests/test_pump_design.py
 pytest tests/test_pump_design.py::TestCalculateStages
 pytest tests/test_pump_design.py::TestCalculateStages::test_example_2a_d40_254_stages
 
-# Launch the Streamlit app
-python -m streamlit run app.py
+# Launch the FastAPI backend (required by the SPA)
+python -m uvicorn bes.api.main:app --reload --port 8000
+
+# Launch the React SPA (dev)
+cd frontend && npm run dev
+
+# Everything at once
+docker compose up --build
 
 # Validate all book examples end-to-end
 python scripts/validate_all_examples.py
 ```
 
-No linter or formatter is configured. `requirements.txt` lists all dependencies (numpy, scipy, pandas, matplotlib, plotly, streamlit, reportlab, openpyxl, pytest).
+No linter or formatter is configured. `requirements.txt` lists all dependencies (numpy, scipy, pandas, matplotlib, plotly, reportlab, openpyxl, pytest).
 
 ## Architecture
 
 **BES Designer** automatiza el diseño de sistemas de Bombeo Electrosumergible (ESP/BES) siguiendo la metodología de Kermit Brown, *The Technology of Artificial Lift Methods*, Vol. 2b, Cap. 4.5. Todos los cálculos se validan contra los ejemplos numerados del libro.
+
+### Repository layout
+
+Dos carpetas de primer nivel, cada una desplegable por separado. Adentro de
+`backend/` el layout es `src/` y el único paquete distribuible es `bes`:
+
+```
+backend/            todo el Python — unidad de despliegue autocontenida
+  src/bes/          paquete único distribuible (pip install -e backend/)
+    core/           dominio puro — sin frameworks
+    catalogs/       catálogos JSON + queries (los .json viajan con el paquete)
+    recommender/    scoring y selección
+    reports/        PDF / Excel
+    services/       orquestación agnóstica de framework
+    plotting/       builders Plotly — agnósticos, los consume la API
+    api/            capa de entrega HTTP (FastAPI)
+  tests/ data/ scripts/
+  pyproject.toml  requirements*.txt  Dockerfile
+frontend/           SPA React (Vite + TS + Mantine)
+docker-compose.yml · docs/ · README.md · CLAUDE.md   ← nivel proyecto
+```
+
+`bes.api` y `frontend/` son **adaptadores de entrega**; el dominio vive debajo
+y no depende de ninguno. La app Streamlit se retiró al alcanzar React paridad.
 
 ### Data flow
 
 ```
 User inputs (Reservoir, Fluid, WellGeometry, SurfaceConditions, DesignObjectives)
     │
-    ├─ core/ipr.py          → Pwf at perforations (Vogel / Linear / Fetkovich / Combined)
-    ├─ core/pvt.py          → PVT properties at pressure/temperature (Standing, DAK, Beggs-Robinson)
-    ├─ core/multiphase.py   → calculate_pip()  — pressure traverse annulus → pump depth
-    │                         calculate_discharge_pressure() — traverse tubing to surface
-    ├─ core/tdh.py          → calculate_tdh()  — TDH = Vertical Lift + Friction + WHP head
-    ├─ core/pump_design.py  → design_pump_complete() — filter catalog, stage count, HP for every pump
-    ├─ core/electrical.py   → electrical_design_complete() — motor → cable → transformer
-    ├─ core/gas_handling.py → complete_gas_design() — GIP, pressure-increment design, separator rec.
+    ├─ bes/core/ipr.py          → Pwf at perforations (Vogel / Linear / Fetkovich / Combined)
+    ├─ bes/core/pvt.py          → PVT properties at pressure/temperature (Standing, DAK, Beggs-Robinson)
+    ├─ bes/core/multiphase.py   → calculate_pip()  — pressure traverse annulus → pump depth
+    │                             calculate_discharge_pressure() — traverse tubing to surface
+    ├─ bes/core/tdh.py          → calculate_tdh()  — TDH = Vertical Lift + Friction + WHP head
+    ├─ bes/core/pump_design.py  → design_pump_complete() — filter catalog, stage count, HP for every pump
+    ├─ bes/core/electrical.py   → electrical_design_complete() — motor → cable → transformer
+    ├─ bes/core/gas_handling.py → complete_gas_design() — GIP, pressure-increment design, separator rec.
     │
-    └─ recommender/
-           pump_selector.py        → select_top_n_pumps() — runs hydraulic + electrical, scores all
-           scoring.py              → efficiency / flexibility / provider-preference scores (0–10, weighted 40/30/30)
-           recommendation_engine.py → generate_recommendations() — top-level API called by app.py
+    ├─ bes/recommender/
+    │      pump_selector.py        → select_top_n_pumps() — runs hydraulic + electrical, scores all
+    │      scoring.py              → efficiency / flexibility / provider-preference scores (0–10, weighted 40/30/30)
+    │      recommendation_engine.py → generate_recommendations() — top-level API
+    │
+    └─ bes/services/               → orquestación agnóstica de framework (números crudos, no UI)
+           nodal_service.py        → run_nodal_analysis()
+           sensitivity_service.py  → run_sensitivity()
+           case_bundle.py          → case_bundle_json() — formato guardar/abrir (futuro DB)
 ```
 
-`app.py` calls only `generate_recommendations()` from the recommender layer. The UI layer (`ui/`) renders the results; `reports/` generates PDF and Excel outputs.
+La capa `bes.services` es la fuente única de verdad detrás de la API FastAPI.
+No importa ningún framework. Ver `.claude/rules/architecture.md`.
 
-### Key models (`core/models.py`)
+`bes.api` llama a `generate_recommendations()`; el front solo renderiza. `bes.reports` genera PDF y Excel, `bes.plotting` las figuras.
+
+### Key models (`bes/core/models.py`)
 
 All inputs are dataclasses with `__post_init__` validation:
 - `Reservoir`, `Fluid`, `WellGeometry`, `SurfaceConditions`, `DesignObjectives` — inputs
 - `PumpCurve`, `PumpPerformancePoint` — catalog types
 - `DesignResult` — the single output object that flows into the UI and reports
 
-### Catalog system (`catalogs/`)
+### Catalog system (`bes/catalogs/`)
 
 JSON files (`pumps.json`, `motors.json`, `cables.json`, `seals.json`) loaded once by `CatalogManager`. Key query methods:
 - `get_pumps_by_casing(casing_id_in)` — filters `pump.od < casing_id`
@@ -92,7 +151,7 @@ Wellhead Pressure Head = Pwh × 2.31 / SG_liquid
 
 ### Scoring weights
 
-`recommender/scoring.py`: efficiency 40 %, flexibility (BEP proximity) 30 %, provider preference 30 %. Scores are 0–10; `overall_score()` returns the weighted average. Provider preference is driven by `DesignObjectives.preferred_manufacturer` (empty = no preference → all designs score 10 on that dimension; set = the preferred manufacturer's pumps score 10, others 5). The economic/cost dimension was removed.
+`bes/recommender/scoring.py`: efficiency 40 %, flexibility (BEP proximity) 30 %, provider preference 30 %. Scores are 0–10; `overall_score()` returns the weighted average. Provider preference is driven by `DesignObjectives.preferred_manufacturer` (empty = no preference → all designs score 10 on that dimension; set = the preferred manufacturer's pumps score 10, others 5). The economic/cost dimension was removed.
 
 ### Book examples used as regression tests
 
@@ -107,4 +166,4 @@ Tests live in `tests/test_pump_design.py`. When adding new calculations, validat
 
 ### pump_setting_depth convention
 
-`select_top_n_pumps()` in `recommender/pump_selector.py` sets `pump_setting_depth = max(well.perforations_top − objectives.safety_margin_depth, 100 ft)` and passes it through to the electrical design (cable length). `electrical_design_complete()` accepts an optional `pump_depth`; when omitted it falls back to the legacy proxy `total_depth × 0.80`. For a custom depth, pass it explicitly to `design_pump_complete()` or `calculate_tdh()`.
+`select_top_n_pumps()` in `bes/recommender/pump_selector.py` sets `pump_setting_depth = max(well.perforations_top − objectives.safety_margin_depth, 100 ft)` and passes it through to the electrical design (cable length). `electrical_design_complete()` accepts an optional `pump_depth`; when omitted it falls back to the legacy proxy `total_depth × 0.80`. For a custom depth, pass it explicitly to `design_pump_complete()` or `calculate_tdh()`.

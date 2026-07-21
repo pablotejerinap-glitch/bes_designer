@@ -1,0 +1,13 @@
+numpy==2.4.4
+scipy==1.17.1
+pandas==3.0.2
+matplotlib==3.10.8
+plotly==6.7.0
+reportlab==4.4.10
+openpyxl==3.1.5
+pytest==9.0.3
+
+# Backend API (Semana 2+)
+fastapi==0.139.0
+uvicorn[standard]==0.51.0
+httpx==0.28.1

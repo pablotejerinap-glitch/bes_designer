@@ -1,0 +1,31 @@
+# Orquestación de las dos capas. Levantar todo:  docker compose up --build
+#   frontend  → http://localhost:8080   (SPA React, proxya /api al backend)
+#   api       → http://localhost:8000   (FastAPI, /api/health, /docs)
+services:
+  api:
+    build:
+      context: ./backend
+    environment:
+      # CORS: sólo hace falta para el Vite dev directo (:5173). El front en
+      # :8080 va por nginx (mismo origen) y no dispara CORS.
+      - BES_CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
