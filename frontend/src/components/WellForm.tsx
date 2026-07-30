@@ -1,10 +1,14 @@
+import { useEffect, useState } from "react";
 import {
   Accordion,
+  Divider,
   Grid,
   NumberInput,
   Select,
   Switch,
+  Text,
 } from "@mantine/core";
+import { api } from "../api/client";
 import type {
   DesignInputs,
   DriveMechanism,
@@ -13,6 +17,8 @@ import type {
   ObjectivesInput,
   ReservoirInput,
   SurfaceInput,
+  TubularCatalog,
+  TubularDim,
   WellInput,
 } from "../api/types";
 
@@ -41,18 +47,19 @@ const FLUID_NUM: NumField[] = [
   { key: "water_sg", label: "SG de la salmuera", step: 0.01 },
   { key: "oil_viscosity_dead", label: "Viscosidad dead-oil", unit: "cp", step: 0.1 },
   { key: "viscosity_temp_ref", label: "Temp. ref. viscosidad", unit: "°F" },
-  { key: "bubble_point_pressure", label: "Pb del fluido", unit: "psia" },
+  // Pb del fluido no se pide acá: es el mismo punto de burbuja del reservorio
+  // ("Presión de burbuja"). App sincroniza fluid.bubble_point_pressure =
+  // reservoir.bubble_point para que IPR y PVT usen un único valor.
   { key: "h2s_content", label: "H2S", unit: "ppm" },
   { key: "co2_content", label: "CO2", unit: "ppm" },
 ];
 
-const WELL_NUM: NumField[] = [
+// Los diámetros de casing/tubing salen de la tabla Tenaris (OD -> peso -> ID),
+// no de inputs numéricos sueltos; el resto de la geometría sí son números.
+const WELL_TOP: NumField[] = [
   { key: "total_depth", label: "Profundidad total", unit: "ft MD" },
-  { key: "casing_od", label: "OD casing", unit: "in", step: 0.001 },
-  { key: "casing_weight", label: "Peso casing", unit: "lb/ft", step: 0.1 },
-  { key: "casing_id", label: "ID casing", unit: "in", step: 0.001 },
-  { key: "tubing_od", label: "OD tubing", unit: "in", step: 0.001 },
-  { key: "tubing_id", label: "ID tubing", unit: "in", step: 0.001 },
+];
+const WELL_BOTTOM: NumField[] = [
   { key: "perforations_top", label: "Tope perforaciones", unit: "ft MD" },
   { key: "perforations_bottom", label: "Base perforaciones", unit: "ft MD" },
   { key: "deviation_max", label: "Desviación máxima", unit: "°", step: 0.5 },
@@ -115,19 +122,29 @@ export function WellForm({ value, onChange }: Props) {
     return Number.isFinite(num) ? num : null;
   }
 
+  // La unidad va como sufijo dentro del input (estilo pengtools), no como
+  // description: siempre visible al lado del número.
   function numGrid<S extends Section>(section: S, fields: NumField[]) {
     const obj = value[section] as unknown as Record<string, number>;
     return (
-      <Grid>
+      <Grid gutter="xs">
         {fields.map((f) => (
-          <Grid.Col span={{ base: 12, sm: 6, md: 4 }} key={f.key}>
+          <Grid.Col span={{ base: 12, xs: 6 }} key={f.key}>
             <NumberInput
               label={f.label}
-              description={f.unit}
               value={obj[f.key]}
               step={f.step ?? 1}
               onChange={(v) => setNum(section, f.key, v)}
               hideControls
+              rightSection={
+                f.unit ? (
+                  <Text size="xs" c="dimmed" pr={10} className="num" style={{ whiteSpace: "nowrap" }}>
+                    {f.unit}
+                  </Text>
+                ) : undefined
+              }
+              rightSectionPointerEvents="none"
+              rightSectionWidth="auto"
             />
           </Grid.Col>
         ))}
@@ -139,8 +156,127 @@ export function WellForm({ value, onChange }: Props) {
   const fluid = value.fluid as FluidInput;
   const surface = value.surface as SurfaceInput;
   const objectives = value.objectives as ObjectivesInput;
-  // well used only via numGrid; kept typed for clarity
-  void (value.well as WellInput);
+  const well = value.well as WellInput;
+
+  // --- Casing / tubing dimensional (tablas Tenaris API 5CT) ---
+  // El usuario elige OD y peso nominal (lo que traen los catálogos); el ID —que
+  // casi nunca está a mano— se autocompleta desde la tabla. Se puede editar a
+  // mano si hace falta un valor no estándar.
+  const [tubulars, setTubulars] = useState<TubularCatalog | null>(null);
+  useEffect(() => {
+    api.tubulars().then(setTubulars).catch(() => setTubulars(null));
+  }, []);
+
+  function setWell(fields: Partial<WellInput>) {
+    onChange({ ...value, well: { ...value.well, ...fields } });
+  }
+
+  const uniqueOds = (rows: TubularDim[]) => {
+    const seen = new Map<number, string>();
+    for (const r of rows) if (!seen.has(r.od_in)) seen.set(r.od_in, r.od_label);
+    return [...seen.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([od_in, od_label]) => ({ od_in, od_label }));
+  };
+  const weightRows = (rows: TubularDim[], od: number) =>
+    rows
+      .filter((r) => Math.abs(r.od_in - od) < 1e-6)
+      .sort((a, b) => a.weight_lbft - b.weight_lbft);
+  const near = (a: number, b: number, tol = 1e-6) => Math.abs(a - b) < tol;
+
+  function tubularBlock(opts: {
+    title: string;
+    rows: TubularDim[];
+    od: number;
+    weight: number | null;
+    id: number;
+    driftIn: number | null;
+    onOd: (od: number, first: TubularDim | null) => void;
+    onWeight: (row: TubularDim) => void;
+    onId: (v: number) => void;
+  }) {
+    const { title, rows, od, weight, id, driftIn } = opts;
+    const ods = uniqueOds(rows);
+    let odData = ods.map((o) => ({ value: String(o.od_in), label: `${o.od_label}"  ·  ${o.od_in} in` }));
+    if (od && !ods.some((o) => near(o.od_in, od))) {
+      odData = [{ value: String(od), label: `${od} in (manual)` }, ...odData];
+    }
+    const wr = weightRows(rows, od);
+    let wData = wr.map((r) => ({ value: String(r.weight_lbft), label: `${r.weight_lbft} lb/ft  ·  ID ${r.id_in}"` }));
+    if (weight != null && !wr.some((r) => near(r.weight_lbft, weight))) {
+      wData = [{ value: String(weight), label: `${weight} lb/ft (manual)` }, ...wData];
+    }
+    return (
+      <>
+        <Divider my="xs" label={title} labelPosition="left" />
+        <Grid gutter="xs">
+          <Grid.Col span={{ base: 12, xs: 4 }}>
+            <Select
+              label="OD"
+              data={odData}
+              value={od ? String(od) : null}
+              searchable
+              allowDeselect={false}
+              onChange={(v) => {
+                if (!v) return;
+                const newOd = parseFloat(v);
+                opts.onOd(newOd, weightRows(rows, newOd)[0] ?? null);
+              }}
+            />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, xs: 4 }}>
+            <Select
+              label="Peso nominal"
+              data={wData}
+              value={weight != null ? String(weight) : null}
+              searchable
+              allowDeselect={false}
+              nothingFoundMessage="Elegí un OD"
+              onChange={(v) => {
+                if (!v) return;
+                const w = parseFloat(v);
+                const row = weightRows(rows, od).find((r) => near(r.weight_lbft, w));
+                if (row) opts.onWeight(row);
+              }}
+            />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, xs: 4 }}>
+            <NumberInput
+              label="ID"
+              value={id}
+              step={0.001}
+              decimalScale={3}
+              onChange={(v) => opts.onId(typeof v === "number" ? v : parseFloat(String(v)))}
+              hideControls
+              rightSection={<Text size="xs" c="dimmed" pr={10} className="num">in</Text>}
+              rightSectionPointerEvents="none"
+              rightSectionWidth="auto"
+              description={driftIn != null ? `Drift API: ${driftIn}"` : "autocompletado desde la tabla"}
+            />
+          </Grid.Col>
+        </Grid>
+      </>
+    );
+  }
+
+  // Fallback si el backend no está disponible: los 5 campos como números sueltos.
+  const WELL_TUBULARS_FALLBACK: NumField[] = [
+    { key: "casing_od", label: "OD casing", unit: "in", step: 0.001 },
+    { key: "casing_weight", label: "Peso casing", unit: "lb/ft", step: 0.1 },
+    { key: "casing_id", label: "ID casing", unit: "in", step: 0.001 },
+    { key: "tubing_od", label: "OD tubing", unit: "in", step: 0.001 },
+    { key: "tubing_id", label: "ID tubing", unit: "in", step: 0.001 },
+  ];
+
+  const tubingWeight = tubulars
+    ? weightRows(tubulars.tubing, well.tubing_od).find((r) => near(r.id_in, well.tubing_id, 1e-3))?.weight_lbft ?? null
+    : null;
+  const casingDrift = tubulars
+    ? weightRows(tubulars.casing, well.casing_od).find((r) => near(r.weight_lbft, well.casing_weight))?.drift_in ?? null
+    : null;
+  const tubingDrift = tubulars
+    ? weightRows(tubulars.tubing, well.tubing_od).find((r) => tubingWeight != null && near(r.weight_lbft, tubingWeight))?.drift_in ?? null
+    : null;
 
   return (
     <Accordion multiple defaultValue={["reservoir"]} variant="separated">
@@ -217,7 +353,45 @@ export function WellForm({ value, onChange }: Props) {
 
       <Accordion.Item value="well">
         <Accordion.Control>3 · Geometría del pozo</Accordion.Control>
-        <Accordion.Panel>{numGrid("well", WELL_NUM)}</Accordion.Panel>
+        <Accordion.Panel>
+          {numGrid("well", WELL_TOP)}
+          {tubulars ? (
+            <>
+              {tubularBlock({
+                title: "Casing (Tenaris API 5CT)",
+                rows: tubulars.casing,
+                od: well.casing_od,
+                weight: well.casing_weight,
+                id: well.casing_id,
+                driftIn: casingDrift,
+                onOd: (od, first) =>
+                  setWell({
+                    casing_od: od,
+                    casing_weight: first?.weight_lbft ?? well.casing_weight,
+                    casing_id: first?.id_in ?? well.casing_id,
+                  }),
+                onWeight: (row) => setWell({ casing_weight: row.weight_lbft, casing_id: row.id_in }),
+                onId: (v) => setWell({ casing_id: Number.isFinite(v) ? v : well.casing_id }),
+              })}
+              {tubularBlock({
+                title: "Tubing (Tenaris API 5CT)",
+                rows: tubulars.tubing,
+                od: well.tubing_od,
+                weight: tubingWeight,
+                id: well.tubing_id,
+                driftIn: tubingDrift,
+                onOd: (od, first) =>
+                  setWell({ tubing_od: od, tubing_id: first?.id_in ?? well.tubing_id }),
+                onWeight: (row) => setWell({ tubing_id: row.id_in }),
+                onId: (v) => setWell({ tubing_id: Number.isFinite(v) ? v : well.tubing_id }),
+              })}
+              <Divider my="xs" />
+            </>
+          ) : (
+            numGrid("well", WELL_TUBULARS_FALLBACK)
+          )}
+          {numGrid("well", WELL_BOTTOM)}
+        </Accordion.Panel>
       </Accordion.Item>
 
       <Accordion.Item value="surface">

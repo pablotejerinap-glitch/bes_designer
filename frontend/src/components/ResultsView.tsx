@@ -18,18 +18,26 @@ import { ComparisonView } from "./ComparisonView";
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <Card withBorder padding="sm" radius="md">
+    <Card padding="sm">
       <Text size="xs" c="dimmed">
         {label}
       </Text>
-      <Text fw={700} size="lg">
+      <Text fw={600} size="lg" className="num">
         {value}
       </Text>
     </Card>
   );
 }
 
-function RecPanel({ rec, inputs }: { rec: Recommendation; inputs: DesignInputs }) {
+function RecPanel({
+  rec,
+  inputs,
+  manual = false,
+}: {
+  rec: Recommendation;
+  inputs: DesignInputs;
+  manual?: boolean;
+}) {
   const [busy, setBusy] = useState<"pdf" | "xlsx" | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const d = rec.design;
@@ -38,7 +46,13 @@ function RecPanel({ rec, inputs }: { rec: Recommendation; inputs: DesignInputs }
     setBusy(fmt);
     setErr(null);
     try {
-      const blob = await api.report(fmt, { ...inputs, n: 3, rank: rec.rank - 1 });
+      // Una bomba elegida manualmente no tiene "rank" en el motor de
+      // recomendación: hay que volver a pedir el reporte con pump_model para
+      // no descargar, sin querer, la opción rank 0 del top-N.
+      const req = manual
+        ? { ...inputs, n: 1, pump_model: d.pump_model }
+        : { ...inputs, n: 3, rank: rec.rank - 1 };
+      const blob = await api.report(fmt, req);
       downloadBlob(blob, `reporte_bes_opcion${rec.rank}.${fmt}`);
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : String(e));
@@ -50,14 +64,31 @@ function RecPanel({ rec, inputs }: { rec: Recommendation; inputs: DesignInputs }
   const rows: [string, string][] = [
     ["Bomba", `${d.pump_manufacturer} ${d.pump_model} (${d.pump_series})`],
     ["Etapas", `${d.num_stages}`],
+    [
+      "Carcasa (housing)",
+      `${d.housing_size_stages} et${d.n_housings > 1 ? ` en ${d.n_housings} carcasas (tándem)` : ""}${d.dummy_stages > 0 ? ` · ${d.dummy_stages} dummy` : ""}`,
+    ],
+    [
+      "Presión sobre housing",
+      `${Math.round(d.max_housing_pressure_psi)} / ${Math.round(d.housing_pressure_limit_psi)} psi ${d.housing_pressure_ok ? "✓" : "⚠ excede"}`,
+    ],
     ["OD bomba", `${d.pump_od.toFixed(2)} in`],
     ["TDH", `${Math.round(d.total_head_required)} ft`],
     ["Profundidad de asentamiento", `${Math.round(d.pump_setting_depth)} ft`],
     ["Presión de admisión (PIP)", `${Math.round(d.intake_pressure)} psi`],
     ["Motor", `${d.motor_manufacturer} ${d.motor_model}`],
+    ["HP eje (operativo / máximo)", `${Math.round(d.total_pump_hp)} / ${Math.round(d.motor_hp_max)} hp`],
     ["Potencia motor", `${Math.round(d.motor_hp)} hp @ ${Math.round(d.motor_voltage)} V / ${Math.round(d.motor_amperage)} A`],
+    [
+      "Velocidad de refrigeración",
+      `${d.fluid_velocity_ft_s.toFixed(2)} ft/s ${d.cooling_ok ? "✓" : "⚠ < 1 ft/s"}`,
+    ],
     ["Cable", `#${d.cable_awg} ${d.cable_type}`],
     ["Voltaje de superficie", `${Math.round(d.surface_voltage_required)} V`],
+    [
+      "Controlador",
+      d.controller_model ? `${d.controller_manufacturer} ${d.controller_model} (${d.controller_type})` : "—",
+    ],
     ["Transformador", `${Math.round(d.transformer_kva)} kVA`],
     ["Sello / protector", d.seal_model ? `${d.seal_manufacturer} ${d.seal_model}` : "—"],
     ["Manejo de gas", d.gas_handler_model ? `${d.gas_handler_manufacturer} ${d.gas_handler_model}` : "—"],
@@ -104,10 +135,10 @@ function RecPanel({ rec, inputs }: { rec: Recommendation; inputs: DesignInputs }
 
       <Group mt="md">
         <Button onClick={() => download("pdf")} loading={busy === "pdf"} variant="light">
-          📕 Descargar PDF
+          Descargar PDF
         </Button>
         <Button onClick={() => download("xlsx")} loading={busy === "xlsx"} variant="light">
-          📗 Descargar Excel
+          Descargar Excel
         </Button>
       </Group>
       {err && (
@@ -122,21 +153,23 @@ function RecPanel({ rec, inputs }: { rec: Recommendation; inputs: DesignInputs }
 export function ResultsView({
   response,
   inputs,
+  title = "Recomendaciones",
+  manual = false,
 }: {
   response: DesignResponse;
   inputs: DesignInputs;
+  title?: string;
+  manual?: boolean;
 }) {
   const recs = response.recommendations;
   if (recs.length === 0) {
     return <Text c="dimmed">Sin recomendaciones.</Text>;
   }
 
-  const medal = (rank: number) => (rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉");
-
   return (
     <Card withBorder radius="md" padding="lg">
       <Group justify="space-between">
-        <Title order={4}>Recomendaciones</Title>
+        <Title order={4}>{title}</Title>
         <Badge variant="light">{response.n_candidates_evaluated} candidatos evaluados</Badge>
       </Group>
 
@@ -150,14 +183,14 @@ export function ResultsView({
         <Tabs.List>
           {recs.map((r, i) => (
             <Tabs.Tab key={r.rank} value={String(i)}>
-              {medal(r.rank)} Opción {r.rank}: {r.design.pump_model}
+              {manual ? "Bomba" : `Opción ${r.rank}`}: {r.design.pump_model}
             </Tabs.Tab>
           ))}
-          {recs.length > 1 && <Tabs.Tab value="compare">⚖️ Comparar</Tabs.Tab>}
+          {recs.length > 1 && <Tabs.Tab value="compare">Comparar</Tabs.Tab>}
         </Tabs.List>
         {recs.map((r, i) => (
           <Tabs.Panel key={r.rank} value={String(i)}>
-            <RecPanel rec={r} inputs={inputs} />
+            <RecPanel rec={r} inputs={inputs} manual={manual} />
           </Tabs.Panel>
         ))}
         {recs.length > 1 && (

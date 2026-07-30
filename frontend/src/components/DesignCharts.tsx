@@ -111,15 +111,15 @@ export function DesignCharts({
   return (
     <Tabs defaultValue="curve" mt="lg" variant="outline">
       <Tabs.List>
-        <Tabs.Tab value="curve">📈 Curva de bomba</Tabs.Tab>
-        <Tabs.Tab value="nodal">🎯 Análisis nodal</Tabs.Tab>
+        <Tabs.Tab value="curve">Curva de bomba</Tabs.Tab>
+        <Tabs.Tab value="nodal">Análisis nodal</Tabs.Tab>
       </Tabs.List>
 
       <Tabs.Panel value="curve" pt="sm">
-        <FigureSlot state={curve} height={460} />
+        <FigureSlot state={curve} height={520} />
       </Tabs.Panel>
       <Tabs.Panel value="nodal" pt="sm">
-        <FigureSlot state={nodal} height={520} />
+        <FigureSlot state={nodal} height={560} />
       </Tabs.Panel>
     </Tabs>
   );

@@ -83,7 +83,7 @@ export function SensitivityView({ inputs }: { inputs: DesignInputs | null }) {
   }
 
   return (
-    <Card withBorder radius="md" padding="lg" mt="md">
+    <Card padding="lg">
       <Title order={4}>Análisis de sensibilidad</Title>
       <Text c="dimmed" size="sm">
         Variá un parámetro de entrada dentro de un rango y observá cómo cambian HP,
@@ -120,7 +120,7 @@ export function SensitivityView({ inputs }: { inputs: DesignInputs | null }) {
 
       <Group mt="xs">
         <Button onClick={run} loading={running}>
-          ▶ Correr análisis
+          Correr análisis
         </Button>
         <Text size="xs" c="dimmed">
           {N_POINTS} puntos de evaluación — cada uno corre un diseño completo

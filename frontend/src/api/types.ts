@@ -61,6 +61,24 @@ export interface WellInput {
   bottom_hole_temp: number;
 }
 
+/** Una fila de la tabla dimensional Tenaris (API 5CT): un OD + peso nominal con
+ *  su ID y drift resueltos. Espeja `TubularDim` del backend. */
+export interface TubularDim {
+  od_in: number;
+  od_label: string;
+  od_mm?: number | null;
+  weight_lbft: number;
+  wall_in?: number | null;
+  id_in: number;
+  drift_in?: number | null;
+}
+
+/** Tablas dimensionales de casing y tubing (`GET /api/catalogs/tubulars`). */
+export interface TubularCatalog {
+  casing: TubularDim[];
+  tubing: TubularDim[];
+}
+
 export interface SurfaceInput {
   wellhead_pressure_required: number;
   flowline_length: number;
@@ -90,6 +108,9 @@ export interface DesignInputs {
 
 export interface DesignRequest extends DesignInputs {
   n: number;
+  /** Modelo de bomba a forzar manualmente; si se especifica, bypassa el
+   *  motor de recomendación y devuelve una única opción para esa bomba. */
+  pump_model?: string | null;
 }
 
 export interface ExampleWell {
@@ -129,6 +150,18 @@ export interface DesignResult {
   gip_fraction: number;
   warnings: string[];
   alternatives: string[];
+  housing_size_stages: number;
+  dummy_stages: number;
+  n_housings: number;
+  max_housing_pressure_psi: number;
+  housing_pressure_limit_psi: number;
+  housing_pressure_ok: boolean;
+  fluid_velocity_ft_s: number;
+  cooling_ok: boolean;
+  motor_hp_max: number;
+  controller_manufacturer: string;
+  controller_model: string;
+  controller_type: string;
   seal_manufacturer: string;
   seal_model: string;
   seal_type: string;

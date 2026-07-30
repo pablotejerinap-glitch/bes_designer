@@ -4,8 +4,6 @@
 import { Alert, Badge, Card, Group, SimpleGrid, Table, Text } from "@mantine/core";
 import type { BepClassification, Recommendation } from "../api/types";
 
-const MEDALS = ["🥇", "🥈", "🥉"];
-
 // Etiquetas de la clasificación de distancia al BEP. Solo informan: el orden
 // lo fija el criterio lexicográfico del backend, no estos colores.
 const CLASSIFICATION: Record<BepClassification, { label: string; color: string }> = {
@@ -17,7 +15,6 @@ const CLASSIFICATION: Record<BepClassification, { label: string; color: string }
 function OptionCard({ rec, best }: { rec: Recommendation; best: Recommendation }) {
   const d = rec.design;
   const c = rec.criteria;
-  const medal = MEDALS[rec.rank - 1] ?? `#${rec.rank}`;
   const cls = CLASSIFICATION[c.classification];
   // Criterio 1: cuánto más lejos del BEP queda esta opción que la primera.
   const deltaBep =
@@ -40,7 +37,7 @@ function OptionCard({ rec, best }: { rec: Recommendation; best: Recommendation }
   return (
     <Card withBorder radius="md" padding="md">
       <Text fw={700} size="lg">
-        {medal} Opción {rec.rank}
+        Opción {rec.rank}
       </Text>
       <Text fw={500}>
         {d.pump_manufacturer} — {d.pump_model}
@@ -59,7 +56,7 @@ function OptionCard({ rec, best }: { rec: Recommendation; best: Recommendation }
         {deltaBep !== null && (
           <Badge color={deltaBep > 0 ? "red" : "teal"} variant="light" size="sm">
             {deltaBep >= 0 ? "+" : ""}
-            {deltaBep.toFixed(1)} pp vs 🥇
+            {deltaBep.toFixed(1)} pp vs Opción 1
           </Badge>
         )}
       </Group>

@@ -1,0 +1,177 @@
+/* Tokens y layout globales — estilo pengtools (ver src/theme.ts).
+   Tema claro por defecto; el oscuro queda disponible vía el toggle. */
+
+:root {
+  --app-header-h: 52px;
+  --app-panel-w: 400px;
+}
+
+[data-mantine-color-scheme="light"] {
+  --app-bg: #f5f6f8;
+  --app-surface: #ffffff;
+  --app-border: #dfe3e8;
+  --app-border-strong: #c4cdd5;
+  --app-text: #1f2933;
+  --app-text-secondary: #52606d;
+  --app-text-dim: #7b8794;
+  --app-accent: #2a7ae2;
+  --app-accent-soft: #e8f1fc;
+  --app-thead-bg: #f0f2f5;
+
+  /* Alinear las variables de Mantine con los tokens. */
+  --mantine-color-body: #f5f6f8;
+  --mantine-color-text: #1f2933;
+  --mantine-color-dimmed: #7b8794;
+  --mantine-color-default-border: #dfe3e8;
+}
+
+[data-mantine-color-scheme="dark"] {
+  --app-bg: #15181c;
+  --app-surface: #1c2025;
+  --app-border: #2b3138;
+  --app-border-strong: #3c434c;
+  --app-text: #e6e9ec;
+  --app-text-secondary: #aab2ba;
+  --app-text-dim: #7b8794;
+  --app-accent: #438be5;
+  --app-accent-soft: #17304f;
+  --app-thead-bg: #22262c;
+
+  --mantine-color-body: #15181c;
+  --mantine-color-default-border: #2b3138;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-size: 14px;
+}
+
+/* Números de ingeniería: dígitos tabulares en tablas y métricas. */
+table,
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tablas densas estilo pengtools: encabezado gris, filas finas. */
+.mantine-Table-thead {
+  background: var(--app-thead-bg);
+}
+
+.mantine-Table-th {
+  font-weight: 500;
+  color: var(--app-text-secondary);
+  white-space: nowrap;
+}
+
+/* ---- Layout de dos paneles ---------------------------------------- */
+
+.app-root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.app-toolbar {
+  flex: none;
+  height: var(--app-header-h);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  background: var(--app-surface);
+  border-bottom: 1px solid var(--app-border);
+}
+
+.app-main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: var(--app-panel-w) minmax(0, 1fr);
+}
+
+.app-inputs {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--app-surface);
+  border-right: 1px solid var(--app-border);
+}
+
+.app-inputs-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.app-inputs-footer {
+  flex: none;
+  padding: 12px;
+  border-top: 1px solid var(--app-border);
+  background: var(--app-surface);
+}
+
+.app-results {
+  min-width: 0;
+  overflow-y: auto;
+  padding: 16px 20px 32px;
+}
+
+/* En pantallas chicas colapsa a una columna con scroll de página. */
+@media (max-width: 1000px) {
+  .app-root {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .app-main {
+    grid-template-columns: 1fr;
+  }
+
+  .app-inputs {
+    border-right: none;
+    border-bottom: 1px solid var(--app-border);
+  }
+
+  .app-inputs-scroll {
+    overflow-y: visible;
+  }
+
+  .app-results {
+    overflow-y: visible;
+  }
+
+  .app-toolbar {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+  }
+}
+
+/* Indicador de estado del backend: punto de color + texto, sin emoji. */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.status-dot--ok {
+  background: #1a9e73;
+}
+
+.status-dot--error {
+  background: #d64545;
+}
+
+.status-dot--checking {
+  background: var(--app-text-dim);
+}
