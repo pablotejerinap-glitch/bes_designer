@@ -233,6 +233,80 @@ def plot_pump_curve(pump: "PumpCurve", operating_flow: float, stages: int) -> go
     return fig
 
 
+def plot_pump_catalog_curve(pump: "PumpCurve") -> go.Figure:
+    """Curva de catálogo *por etapa* de una bomba, sin contexto de diseño.
+
+    A diferencia de :func:`plot_pump_curve` — que escala por el número de etapas
+    instaladas y marca el punto de operación de un diseño concreto — esta figura
+    muestra la curva cruda del fabricante tal como se digitalizó: head por etapa,
+    HP por etapa y eficiencia frente al caudal, con el BEP marcado y el rango
+    operativo recomendado sombreado. Es la que alimenta la pestaña de
+    "ver la bomba seleccionada" del front, que sólo elige un modelo del catálogo.
+
+    Args:
+        pump: PumpCurve del catálogo.
+
+    Returns:
+        Plotly Figure con doble eje Y (head/HP a la izquierda, eficiencia a la
+        derecha). Agnóstico de framework: la API lo serializa con ``to_json()``.
+    """
+    flows = np.array([p.flow_rate for p in pump.points])
+    heads = np.array([p.head_per_stage for p in pump.points])
+    hps = np.array([p.hp_per_stage for p in pump.points])
+    effs = np.array([p.efficiency for p in pump.points]) * 100.0
+
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    # Rango operativo recomendado (sombreado)
+    fig.add_vrect(
+        x0=pump.min_flow, x1=pump.max_flow,
+        fillcolor="#90CAF9", opacity=0.12, line_width=0,
+        annotation_text="Rango operativo", annotation_position="top left",
+    )
+
+    fig.add_trace(go.Scatter(
+        x=flows, y=heads, name="Head (ft/etapa)",
+        line=dict(color="#1565C0", width=2.5),
+        hovertemplate="q=%{x:.0f} STB/d<br>Head=%{y:.2f} ft/etapa<extra></extra>",
+    ), secondary_y=False)
+
+    fig.add_trace(go.Scatter(
+        x=flows, y=hps, name="HP/etapa",
+        line=dict(color="#E65100", width=2, dash="dash"),
+        hovertemplate="q=%{x:.0f} STB/d<br>HP=%{y:.3f}/etapa<extra></extra>",
+    ), secondary_y=False)
+
+    fig.add_trace(go.Scatter(
+        x=flows, y=effs, name="Eficiencia (%)",
+        line=dict(color="#2E7D32", width=2, dash="dot"),
+        hovertemplate="q=%{x:.0f} STB/d<br>Eff=%{y:.1f}%<extra></extra>",
+    ), secondary_y=True)
+
+    # BEP: caudal de máxima eficiencia
+    bep_eff = float(np.interp(pump.bep_flow, flows, effs))
+    fig.add_trace(go.Scatter(
+        x=[pump.bep_flow], y=[bep_eff],
+        name="BEP", mode="markers",
+        marker=dict(color="#9C27B0", size=12, symbol="star"),
+        hovertemplate=f"BEP<br>q={pump.bep_flow:.0f} STB/d<br>Eff=%{{y:.1f}}%<extra></extra>",
+    ), secondary_y=True)
+    fig.add_vline(x=pump.bep_flow, line_dash="dash", line_color="#9C27B0", line_width=1)
+
+    fig.update_layout(
+        title=(f"Curva de catálogo — {pump.manufacturer} {pump.model} "
+               f"(serie {pump.series}, {pump.od}\" OD)"),
+        xaxis_title="Caudal (STB/d)",
+        template="plotly_white",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(t=70, b=50, l=60, r=60),
+    )
+    fig.update_yaxes(title_text="Head (ft/etapa) / HP", secondary_y=False, rangemode="tozero")
+    fig.update_yaxes(title_text="Eficiencia (%)", secondary_y=True,
+                     range=[0, max(effs) * 1.3])
+
+    return fig
+
+
 # ---------------------------------------------------------------------------
 # 3. Pressure profile
 # ---------------------------------------------------------------------------

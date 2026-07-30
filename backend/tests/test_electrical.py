@@ -546,3 +546,29 @@ class TestElectricalDesignComplete:
             result["motor"]["amperage"],
         )
         assert result["kva_required"] == pytest.approx(expected_kva, rel=1e-9)
+
+
+class TestFluidVelocityCooling:
+    """Velocidad de fluido en el anular para enfriar el motor."""
+
+    def test_known_velocity(self):
+        from bes.core.electrical import fluid_velocity_past_motor
+        # 1227 bpd, casing 5.5" ID 4.892, motor 4.0" -> ~1.84 ft/s
+        v = fluid_velocity_past_motor(1227.0, 4.892, 4.0)
+        assert v == pytest.approx(1.84, abs=0.1)
+
+    def test_low_flow_below_threshold(self):
+        from bes.core.electrical import fluid_velocity_past_motor, _MIN_COOLING_VELOCITY_FT_S
+        v = fluid_velocity_past_motor(120.0, 4.892, 4.0)
+        assert v < _MIN_COOLING_VELOCITY_FT_S
+
+    def test_motor_not_fitting_raises(self):
+        from bes.core.electrical import fluid_velocity_past_motor
+        with pytest.raises(ValueError):
+            fluid_velocity_past_motor(1000.0, 4.0, 4.5)  # motor OD > casing ID
+
+    def test_velocity_scales_with_flow(self):
+        from bes.core.electrical import fluid_velocity_past_motor
+        v1 = fluid_velocity_past_motor(500.0, 5.0, 4.0)
+        v2 = fluid_velocity_past_motor(1000.0, 5.0, 4.0)
+        assert v2 == pytest.approx(2.0 * v1, rel=1e-9)

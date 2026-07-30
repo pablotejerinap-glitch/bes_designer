@@ -283,8 +283,14 @@ class TestFlowRangeFilter:
         assert "M-34" not in models
 
     def test_very_high_flow_returns_empty_or_only_large(self, manager):
+        # 50 000 bpd solo puede cubrirlo una bomba de muy alto caudal (serie
+        # grande, p. ej. Summit SN950). El catálogo puede no tener ninguna, o
+        # tener solo bombas grandes cuyo rango incluya ese caudal; en ningún
+        # caso aparecen bombas chicas.
         result = manager.get_pumps_by_flow_range(50000)
-        assert len(result) == 0
+        for p in result:
+            assert p.min_flow <= 50000 <= p.max_flow
+            assert p.max_flow >= 50000  # solo bombas de alto caudal califican
 
 
 # ---------------------------------------------------------------------------
@@ -336,3 +342,39 @@ class TestCableQuery:
     def test_high_temp_requires_epdm_or_redalene(self, manager):
         cable = manager.get_cable(amps=40, temp_f=450, voltage=1000)
         assert cable["max_temp_f"] >= 450
+
+
+class TestControllerSelection:
+    """Selección de controlador de superficie (tablero / VSD)."""
+
+    def _cm(self):
+        from bes.catalogs.loader import CatalogManager
+        return CatalogManager()
+
+    def test_catalog_loaded(self):
+        cm = self._cm()
+        ctrls = cm.get_all_controllers()
+        assert len(ctrls) >= 6
+        mans = {c["manufacturer"] for c in ctrls}
+        assert {"Reda", "Centrilift", "ChampionX"} <= mans
+
+    def test_prefers_vsd_when_requested(self):
+        cm = self._cm()
+        c = cm.get_controller(voltage=1800, kva=200, amps=48, prefer_vsd=True)
+        assert c["type"] == "vsd"
+
+    def test_prefers_switchboard_by_default(self):
+        cm = self._cm()
+        c = cm.get_controller(voltage=1800, kva=200, amps=48, prefer_vsd=False)
+        assert c["type"] == "switchboard"
+
+    def test_covers_requirements(self):
+        cm = self._cm()
+        c = cm.get_controller(voltage=2000, kva=300, amps=60, prefer_vsd=False)
+        assert c["max_voltage"] >= 2000 and c["max_kva"] >= 300 and c["max_amps"] >= 60
+
+    def test_no_controller_raises(self):
+        import pytest
+        cm = self._cm()
+        with pytest.raises(ValueError):
+            cm.get_controller(voltage=99999, kva=99999, amps=99999)

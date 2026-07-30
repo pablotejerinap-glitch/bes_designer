@@ -341,6 +341,8 @@ class PumpCurve:
     points: list[PumpPerformancePoint]
     max_stages: int
     housing_options: list[int]
+    # Presión máxima de trabajo de la carcasa [psi] (opcional; 0 = sin dato).
+    housing_pressure_limit_psi: float = 0.0
 
     def __post_init__(self) -> None:
         if self.od <= 0:
@@ -436,6 +438,23 @@ class DesignResult:
     gip_fraction: float
     warnings: list[str] = field(default_factory=list)
     alternatives: list[str] = field(default_factory=list)
+    # Housing / carcasas (optional; poblado por la selección de carcasa)
+    housing_size_stages: int = 0     # capacidad total instalada [etapas]
+    dummy_stages: int = 0            # etapas ciegas para completar la carcasa
+    n_housings: int = 1              # nº de carcasas/unidades (>1 = tándem)
+    max_housing_pressure_psi: float = 0.0   # MaxP shut-in sobre la carcasa
+    housing_pressure_limit_psi: float = 0.0 # límite de trabajo de la carcasa
+    housing_pressure_ok: bool = True         # MaxP <= límite
+    # Enfriamiento del motor (velocidad de fluido en el anular)
+    fluid_velocity_ft_s: float = 0.0
+    cooling_ok: bool = True
+    # HP máximo de eje (fluido más pesado); el motor se dimensiona sobre este.
+    # ``total_pump_hp`` es el HP operativo (SG de la mezcla).
+    motor_hp_max: float = 0.0
+    # Controlador de superficie (tablero fijo o VSD)
+    controller_manufacturer: str = ""
+    controller_model: str = ""
+    controller_type: str = ""
     # Seal / protector (optional; populated by the electrical design)
     seal_manufacturer: str = ""
     seal_model: str = ""

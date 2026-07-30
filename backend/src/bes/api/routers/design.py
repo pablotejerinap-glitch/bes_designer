@@ -10,26 +10,40 @@ from bes.api.mappers import from_design_result, to_domain_inputs
 from bes.api.schemas import (
     CriteriaSchema, DesignRequest, DesignResponse, RecommendationSchema,
 )
-from bes.recommender.recommendation_engine import generate_recommendations
+from bes.recommender.recommendation_engine import (
+    generate_recommendation_for_pump, generate_recommendations,
+)
 
 router = APIRouter(prefix="/api", tags=["design"])
 
 
 @router.post("/design", response_model=DesignResponse)
 def post_design(req: DesignRequest, catalog=Depends(get_catalog)) -> DesignResponse:
-    """Run the full recommendation engine and return ranked design packages.
+    """Run the recommendation engine and return ranked design packages.
 
-    A domain ``ValueError`` (no feasible design) is turned into HTTP 422 by the
-    central handler in ``api.main``. Domain ``UserWarning``s (e.g. a depleted
-    reservoir) are captured and surfaced in ``warnings``.
+    If ``pump_model`` is set, the recommendation engine's ranking is bypassed
+    entirely and the response carries a single design package for that named
+    pump (a manual override of the algorithm's choice, not a ranked
+    alternative) — ``n`` is ignored in that case.
+
+    A domain ``ValueError`` (no feasible design, unknown/incompatible pump) is
+    turned into HTTP 422 by the central handler in ``api.main``. Domain
+    ``UserWarning``s (e.g. a depleted reservoir) are captured and surfaced in
+    ``warnings``.
     """
     reservoir, fluid, well, surface, objectives = to_domain_inputs(req)
 
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        result = generate_recommendations(
-            reservoir, fluid, well, surface, objectives, catalog, n=req.n,
-        )
+        if req.pump_model:
+            result = generate_recommendation_for_pump(
+                reservoir, fluid, well, surface, objectives, catalog,
+                pump_model=req.pump_model,
+            )
+        else:
+            result = generate_recommendations(
+                reservoir, fluid, well, surface, objectives, catalog, n=req.n,
+            )
 
     recommendations = [
         RecommendationSchema(

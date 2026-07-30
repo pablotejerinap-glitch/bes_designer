@@ -60,5 +60,8 @@ def get_examples() -> list[ExampleWell]:
             surface=SurfaceSchema(**ex["surface"]),
             objectives=ObjectivesSchema(**obj),
         )
-        out.append(ExampleWell(key=key, label=ex.get("description", key), inputs=inputs))
+        # Etiqueta corta para el dropdown: usa "label" si está; si no, cae a la
+        # descripción (los ejemplos de Brown ya traen una descripción corta).
+        label = ex.get("label") or ex.get("description", key)
+        out.append(ExampleWell(key=key, label=label, inputs=inputs))
     return out

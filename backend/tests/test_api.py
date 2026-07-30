@@ -127,6 +127,36 @@ def test_design_fetkovich_without_params_422(client: TestClient) -> None:
     assert "fetkovich_c" in r.json()["detail"]
 
 
+def test_design_with_pump_model_returns_single_recommendation(client: TestClient) -> None:
+    """A manual pump_model bypasses the ranking engine: n is ignored and the
+    response carries exactly one recommendation for that named pump."""
+    p = _payload("example_1a", n=3)
+    p["pump_model"] = "I-300"  # the book's own pick for example #1A (10 000 bpd)
+    r = client.post("/api/design", json=p)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert len(body["recommendations"]) == 1
+    assert body["recommendations"][0]["design"]["pump_model"] == "I-300"
+    assert body["n_candidates_evaluated"] == 1
+    assert "manual" in body["ordering_criteria"][0].lower()
+
+
+def test_design_with_unknown_pump_model_422(client: TestClient) -> None:
+    p = _payload()
+    p["pump_model"] = "NO-EXISTE-XYZ"
+    r = client.post("/api/design", json=p)
+    assert r.status_code == 422
+    assert "NO-EXISTE-XYZ" in r.json()["detail"]
+
+
+def test_design_with_pump_model_too_large_for_casing_422(client: TestClient) -> None:
+    p = _payload()
+    p["pump_model"] = "SM18500"  # OD 8.75in, doesn't fit example_1a's casing
+    r = client.post("/api/design", json=p)
+    assert r.status_code == 422
+    assert "casing" in r.json()["detail"]
+
+
 def test_design_fetkovich_n_out_of_range_422(client: TestClient) -> None:
     """n outside [0.5, 1.0] is caught by Pydantic before reaching the domain."""
     p = _payload()
@@ -205,6 +235,15 @@ def test_report_xlsx(client: TestClient) -> None:
 def test_report_bad_format_404(client: TestClient) -> None:
     r = client.post("/api/reports/txt", json=_payload())
     assert r.status_code == 404
+
+
+def test_report_pdf_with_pump_model(client: TestClient) -> None:
+    """A manually-selected pump_model reports that exact pump, ignoring rank."""
+    p = _payload("example_1a")
+    p["pump_model"] = "I-300"
+    r = client.post("/api/reports/pdf", json=p)
+    assert r.status_code == 200, r.text
+    assert r.content[:4] == b"%PDF"
 
 
 def test_examples(client: TestClient) -> None:

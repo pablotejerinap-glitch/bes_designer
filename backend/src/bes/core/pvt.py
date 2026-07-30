@@ -101,15 +101,17 @@ def standing_rs(p: float, t: float, api: float, gas_sg: float, pb: float) -> flo
 
 
 def standing_pb(rs: float, t: float, api: float, gas_sg: float) -> float:
-    """Bubble-point pressure — inverse of Standing's Rs correlation.
+    """Bubble-point pressure — Standing's correlation.
 
-    Analytically inverts the Standing Rs equation:
-        Pb = 18.2 × [(Rs/γg)^0.83 × 10^(0.00091·T − 0.0125·API) − 1.4]
+    Standing's published bubble-point equation, exactly as given in Ahmed,
+    *Reservoir Engineering Handbook*, 4th ed., Eq. 2-76/2-77:
+        Pb = 18.2 × [(Rs/γg)^0.83 × 10^a − 1.4]
+        a  = 0.00091·(T[°R] − 460) − 0.0125·API = 0.00091·T[°F] − 0.0125·API
 
-    Use this to convert a measured producing GOR into a consistent bubble-point
-    pressure, ensuring round-trip consistency with ``standing_rs``.
+    Use this to convert a measured producing GOR into a bubble-point pressure.
 
-    Reference: Standing, M.B., API Drill. Prod. Prac. (1947).
+    Reference: Standing, M.B., API Drill. Prod. Prac. (1947); Ahmed (2010),
+    Eq. 2-76.
 
     Args:
         rs: Solution GOR at bubble point (= total producing GOR) [scf/STB].
@@ -132,9 +134,9 @@ def standing_pb(rs: float, t: float, api: float, gas_sg: float) -> float:
     if gas_sg <= 0:
         raise ValueError(f"gas_sg must be > 0, got {gas_sg}")
 
-    # (rs/gas_sg)^(1/1.2048) / 10^exponent = p_eff/18.2 + 1.4
-    exponent = 0.0125 * api - 0.00091 * t
-    pb = 18.2 * ((rs / gas_sg) ** (1.0 / 1.2048) / 10.0 ** exponent - 1.4)
+    # Ahmed Eq. 2-76: Pb = 18.2·[(Rs/γg)^0.83·10^a − 1.4], a = 0.00091·T − 0.0125·API
+    a = 0.00091 * t - 0.0125 * api
+    pb = 18.2 * ((rs / gas_sg) ** 0.83 * 10.0 ** a - 1.4)
     if pb <= 0:
         raise ValueError(
             f"Computed Pb = {pb:.1f} psia ≤ 0. Check API, T, gas_sg inputs "
@@ -234,11 +236,12 @@ def gas_z_factor(p: float, t: float, gas_sg: float) -> float:
 def gas_bg(p: float, t: float, z: float) -> float:
     """Gas formation volume factor.
 
-    Formula: Bg = 0.00504 × z × (T + 460) / P
+    Formula (Ahmed, *Reservoir Engineering Handbook*, 4th ed., Eq. 2-54):
+        Bg = 0.005035 × z × T[°R] / P   [bbl/scf]
 
     Derived from the real-gas law with unit conversion from reservoir cubic feet
     to stock-tank barrels (1 bbl = 5.615 ft³; constant accounts for SC at
-    14.7 psia / 60 °F).
+    14.65 psia / 60 °F, per Ahmed Eq. 2-54).
 
     Args:
         p: Pressure [psia]. Must be > 0.
@@ -255,7 +258,7 @@ def gas_bg(p: float, t: float, z: float) -> float:
         raise ValueError(f"p must be > 0, got {p}")
     if z <= 0:
         raise ValueError(f"z must be > 0, got {z}")
-    return 0.00504 * z * (t + 460.0) / p
+    return 0.005035 * z * (t + 460.0) / p
 
 
 # ---------------------------------------------------------------------------
@@ -263,15 +266,16 @@ def gas_bg(p: float, t: float, z: float) -> float:
 # ---------------------------------------------------------------------------
 
 def water_bw(p: float, t: float) -> float:
-    """Water formation volume factor — simplified McCain (1990) correlation.
+    """Water formation volume factor — McCain correlation (gas-free water).
 
-    Bw ≈ 1 + 1.21×10⁻⁴·(T−60) + 1.0×10⁻⁶·(T−60)² − 3.33×10⁻⁶·P
+    Full correlation as given in Ahmed, *Reservoir Engineering Handbook*,
+    4th ed., Eq. 2-125:
+        Bw = A1 + A2·P + A3·P²
+        Ai = a1 + a2·(T[°R] − 460) + a3·(T[°R] − 460)²   (T−460 = T[°F])
+    with the gas-free-water coefficients tabulated in Ahmed (Eq. 2-125).
 
-    Valid for fresh to moderately saline water. Salinity effects on Bw are
-    minor for ESP design purposes (< 1 % correction at 100 000 ppm TDS).
-
-    Reference: McCain, W.D., "The Properties of Petroleum Fluids",
-    2nd ed., PennWell (1990), p. 147.
+    Reference: McCain, W.D., "The Properties of Petroleum Fluids", 2nd ed.,
+    PennWell (1990); reproduced in Ahmed (2010), Eq. 2-125.
 
     Args:
         p: Pressure [psia]. Must be >= 0.
@@ -287,8 +291,11 @@ def water_bw(p: float, t: float) -> float:
         raise ValueError(f"p must be >= 0, got {p}")
     if t <= 0:
         raise ValueError(f"t must be > 0 °F, got {t}")
-    dt = t - 60.0
-    return 1.0 + 1.21e-4 * dt + 1.0e-6 * dt ** 2 - 3.33e-6 * p
+    # Ahmed Eq. 2-125 — gas-free water coefficients (Ai = a1 + a2·T + a3·T², T in °F)
+    a1 = 0.9947 + 5.8e-6 * t + 1.02e-6 * t ** 2
+    a2 = -4.228e-6 + 1.8376e-8 * t - 6.77e-11 * t ** 2
+    a3 = 1.3e-10 - 1.3855e-12 * t + 4.285e-15 * t ** 2
+    return a1 + a2 * p + a3 * p ** 2
 
 
 # ---------------------------------------------------------------------------

@@ -106,3 +106,9 @@ class DesignInputs(BaseModel):
 class DesignRequest(DesignInputs):
     """Full input bundle for a design run."""
     n: int = Field(3, ge=1, le=10, description="Número de recomendaciones a devolver")
+    pump_model: str | None = Field(
+        None,
+        description="Modelo de bomba del catálogo a forzar manualmente. Si se "
+                    "especifica, se omite el motor de recomendación y se devuelve "
+                    "el diseño completo para esa única bomba (bypassa 'n').",
+    )

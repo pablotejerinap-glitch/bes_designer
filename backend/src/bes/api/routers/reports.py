@@ -8,7 +8,9 @@ from pydantic import Field
 from bes.api.deps import get_catalog
 from bes.api.mappers import to_domain_inputs
 from bes.api.schemas import DesignRequest
-from bes.recommender.recommendation_engine import generate_recommendations
+from bes.recommender.recommendation_engine import (
+    generate_recommendation_for_pump, generate_recommendations,
+)
 from bes.reports.excel_exporter import generate_design_excel
 from bes.reports.pdf_generator import generate_design_report
 
@@ -31,14 +33,21 @@ def post_report(fmt: str, req: ReportRequest, catalog=Depends(get_catalog)) -> R
         raise HTTPException(status_code=404, detail=f"Formato '{fmt}' no soportado (pdf|xlsx)")
 
     reservoir, fluid, well, surface, objectives = to_domain_inputs(req)
-    result = generate_recommendations(
-        reservoir, fluid, well, surface, objectives, catalog, n=max(req.rank + 1, 3),
-    )
-    recs = result["recommendations"]
-    if req.rank >= len(recs):
-        raise ValueError(f"rank {req.rank} fuera de rango ({len(recs)} recomendaciones)")
 
-    dr = recs[req.rank]["design"]
+    if req.pump_model:
+        result = generate_recommendation_for_pump(
+            reservoir, fluid, well, surface, objectives, catalog,
+            pump_model=req.pump_model,
+        )
+        dr = result["recommendations"][0]["design"]
+    else:
+        result = generate_recommendations(
+            reservoir, fluid, well, surface, objectives, catalog, n=max(req.rank + 1, 3),
+        )
+        recs = result["recommendations"]
+        if req.rank >= len(recs):
+            raise ValueError(f"rank {req.rank} fuera de rango ({len(recs)} recomendaciones)")
+        dr = recs[req.rank]["design"]
     well_data = {
         "reservoir": reservoir, "fluid": fluid, "well": well,
         "surface": surface, "objectives": objectives,

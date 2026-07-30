@@ -84,13 +84,17 @@ class TestStandingRs:
         assert rs_above == pytest.approx(rs_at_pb, rel=1e-9)
 
     def test_pb_consistency(self):
-        """At P = Pb, Rs must equal the GOR used to derive Pb via standing_pb."""
-        # Pick an arbitrary Rs, derive Pb, then verify Rs(Pb) = original Rs
+        """At P = Pb, Rs recovers the GOR used to derive Pb (within Standing's fit).
+
+        Standing's Rs (Ahmed Eq. 2-69, exponent 1.2048) and Pb (Ahmed Eq. 2-76,
+        exponent 0.83) are SEPARATELY fitted correlations, not exact analytic
+        inverses, so the round-trip carries a small inherent error (~0.02 %).
+        """
         gor = 400.0
         t, api, gas_sg = 180.0, 35.0, 0.65
         pb = standing_pb(gor, t, api, gas_sg)
         rs_back = standing_rs(pb, t, api, gas_sg, pb)
-        assert rs_back == pytest.approx(gor, rel=1e-6)
+        assert rs_back == pytest.approx(gor, rel=2e-3)
 
     def test_increases_with_api(self):
         """Higher API oil dissolves more gas at the same pressure."""
@@ -113,11 +117,15 @@ class TestStandingRs:
 
 class TestStandingPb:
     def test_roundtrip_with_rs(self):
-        """standing_rs(Pb) → standing_pb(Rs) must recover original Pb."""
+        """standing_rs(Pb) → standing_pb(Rs) recovers Pb within Standing's fit.
+
+        Rs (Ahmed Eq. 2-69) and Pb (Ahmed Eq. 2-76) are separately fitted, not
+        exact inverses; the round-trip error is ~0.02 %.
+        """
         pb_orig = 2200.0
         rs_at_pb = standing_rs(pb_orig, 160, 35, 0.65, pb_orig)
         pb_back = standing_pb(rs_at_pb, 160, 35, 0.65)
-        assert pb_back == pytest.approx(pb_orig, rel=1e-6)
+        assert pb_back == pytest.approx(pb_orig, rel=2e-3)
 
     def test_pb_increases_with_gor(self):
         """Higher GOR wells have higher bubble-point pressures."""
@@ -214,9 +222,9 @@ class TestGasZFactor:
 
 class TestGasBg:
     def test_standard_conditions(self):
-        """At 14.7 psia / 60°F / z=1: Bg = 0.00504×1×520/14.7 = 0.17829 bbl/scf."""
+        """Ahmed Eq. 2-54: Bg = 0.005035×z×T[°R]/P bbl/scf. At 14.7 psia/60°F/z=1."""
         bg = gas_bg(p=14.7, t=60, z=1.0)
-        assert bg == pytest.approx(0.00504 * 520.0 / 14.7, rel=1e-6)
+        assert bg == pytest.approx(0.005035 * 520.0 / 14.7, rel=1e-6)
 
     def test_decreases_with_pressure(self):
         """Higher pressure compresses gas → smaller Bg."""

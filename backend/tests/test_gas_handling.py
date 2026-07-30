@@ -387,13 +387,19 @@ class TestPressureIncrementDesign:
     # --- Custom increment size ---
 
     def test_custom_increment_100psi(self, manager, reservoir_3a, fluid_3a):
+        # Fija la bomba (fixed_pump_model) para aislar el método de incrementos:
+        # sin fijarla, el diseño re-selecciona una bomba por incremento según el
+        # caudal in situ, y al enriquecer el catálogo la selección cambia entre
+        # 100/200 psi (más incrementos → más bins de caudal → distinta bomba),
+        # rompiendo la comparación aunque el método sea correcto. Con bomba fija,
+        # 100 vs 200 psi convergen dentro del 10 % (verificado).
         r200 = pressure_increment_design(
             reservoir_3a, fluid_3a, 500.0, 2300.0, 500.0, manager,
-            gip=1.0, water_cut=0.5, increment_psi=200.0,
+            gip=1.0, water_cut=0.5, increment_psi=200.0, fixed_pump_model="D-40",
         )
         r100 = pressure_increment_design(
             reservoir_3a, fluid_3a, 500.0, 2300.0, 500.0, manager,
-            gip=1.0, water_cut=0.5, increment_psi=100.0,
+            gip=1.0, water_cut=0.5, increment_psi=100.0, fixed_pump_model="D-40",
         )
         # Finer steps → similar total but more rows
         assert r100["n_increments"] == 18
@@ -483,14 +489,22 @@ class TestCompleteGasDesign:
         assert design["increment_design"]["total_hp"] > 0.0
 
     def test_full_venting_reduces_stages(self, manager, reservoir_3a, fluid_3a, well_7in):
-        """Venting all gas → GIP=0 → single-phase liquid → fewer stages."""
+        """Venting all gas → GIP=0 → single-phase liquid → fewer stages.
+
+        Se fija la bomba (fixed_pump_model) para aislar el efecto del gas: sin
+        fijarla, el diseño re-selecciona la bomba por caudal in situ y, con un
+        catálogo denso, el caso venteado (menor caudal) puede elegir una bomba de
+        menor head/etapa que requiere MÁS etapas, invirtiendo la comparación
+        aunque físicamente ventear reduzca la carga. Con bomba fija, ventear
+        reduce las etapas de forma consistente (verificado: D-40 221→154).
+        """
         d_no_vent = complete_gas_design(
             reservoir_3a, fluid_3a, well_7in, 6500.0, 500.0,
-            manager, vent_gas_pct=0.0,
+            manager, vent_gas_pct=0.0, fixed_pump_model="D-40",
         )
         d_full_vent = complete_gas_design(
             reservoir_3a, fluid_3a, well_7in, 6500.0, 500.0,
-            manager, vent_gas_pct=1.0,
+            manager, vent_gas_pct=1.0, fixed_pump_model="D-40",
         )
         assert (
             d_no_vent["increment_design"]["total_stages"]

@@ -54,6 +54,7 @@ def _parse_pumps(raw: list[dict]) -> list[PumpCurve]:
                 max_stages=entry["max_stages"],
                 housing_options=entry["housing_options"],
                 points=points,
+                housing_pressure_limit_psi=entry.get("housing_pressure_limit_psi", 0.0),
             )
         )
     return pumps
@@ -100,6 +101,16 @@ class CatalogManager:
         self._sensors: list[dict] = _load_optional(
             base / "sensors.json", "sensors"
         )
+        self._controllers: list[dict] = _load_optional(
+            base / "controllers.json", "controllers"
+        )
+        # Tablas dimensionales Tenaris (API 5CT): OD + peso -> ID y drift.
+        # Resuelven el ID del casing/tubing que el usuario casi nunca tiene a
+        # mano (los catalogos publican OD y peso nominal, no el ID).
+        _ct_path = base / "casing_tubing.json"
+        _ct = _load_json(_ct_path) if _ct_path.exists() else {}
+        self._casing_dims: list[dict] = _ct.get("casing", [])
+        self._tubing_dims: list[dict] = _ct.get("tubing", [])
 
     # ------------------------------------------------------------------
     # Pump queries
@@ -121,6 +132,87 @@ class CatalogManager:
     def get_pumps_by_flow_range(self, flow_bpd: float) -> list[PumpCurve]:
         """Return pumps whose operating range includes *flow_bpd*."""
         return [p for p in self._pumps if p.min_flow <= flow_bpd <= p.max_flow]
+
+    # ------------------------------------------------------------------
+    # Casing / tubing dimensional queries (Tenaris API 5CT)
+    # ------------------------------------------------------------------
+    #
+    # El usuario elige un OD y un peso nominal (lo que traen los catalogos);
+    # el ID y el drift salen de estas tablas. ``get_casing_dims`` es el punto
+    # que resuelve el ID que el modelo ``WellGeometry`` necesita.
+
+    @staticmethod
+    def _dims_ods(rows: list[dict]) -> list[dict]:
+        """Lista de ODs disponibles (uno por diametro), ordenada, con etiqueta."""
+        seen: dict[float, str] = {}
+        for r in rows:
+            seen.setdefault(r["od_in"], r["od_label"])
+        return [
+            {"od_in": od, "od_label": lbl}
+            for od, lbl in sorted(seen.items())
+        ]
+
+    @staticmethod
+    def _dims_weights(rows: list[dict], od_in: float) -> list[dict]:
+        """Pesos disponibles para un OD, con su ID y drift resueltos."""
+        out = [
+            {
+                "weight_lbft": r["weight_lbft"],
+                "wall_in": r["wall_in"],
+                "id_in": r["id_in"],
+                "drift_in": r["drift_in"],
+            }
+            for r in rows
+            if abs(r["od_in"] - od_in) < 1e-6
+        ]
+        return sorted(out, key=lambda x: x["weight_lbft"])
+
+    @staticmethod
+    def _dims_lookup(rows: list[dict], od_in: float, weight_lbft: float) -> dict:
+        for r in rows:
+            if abs(r["od_in"] - od_in) < 1e-6 and abs(
+                r["weight_lbft"] - weight_lbft
+            ) < 1e-6:
+                return dict(r)
+        raise ValueError(
+            f"No hay entrada para OD={od_in} in y peso={weight_lbft} lb/ft en la tabla"
+        )
+
+    def list_casing_ods(self) -> list[dict]:
+        """ODs de casing disponibles (``od_in`` + ``od_label``)."""
+        return self._dims_ods(self._casing_dims)
+
+    def list_tubing_ods(self) -> list[dict]:
+        """ODs de tubing disponibles (``od_in`` + ``od_label``)."""
+        return self._dims_ods(self._tubing_dims)
+
+    def casing_weights(self, od_in: float) -> list[dict]:
+        """Pesos de casing para un OD, cada uno con su ID y drift."""
+        return self._dims_weights(self._casing_dims, od_in)
+
+    def tubing_weights(self, od_in: float) -> list[dict]:
+        """Pesos de tubing para un OD, cada uno con su ID y drift."""
+        return self._dims_weights(self._tubing_dims, od_in)
+
+    def get_casing_dims(self, od_in: float, weight_lbft: float) -> dict:
+        """Dimensiones de casing (id_in, drift_in, wall_in) para OD + peso.
+
+        Raises:
+            ValueError: si el par (OD, peso) no existe en la tabla Tenaris.
+        """
+        return self._dims_lookup(self._casing_dims, od_in, weight_lbft)
+
+    def get_tubing_dims(self, od_in: float, weight_lbft: float) -> dict:
+        """Dimensiones de tubing (id_in, drift_in, wall_in) para OD + peso."""
+        return self._dims_lookup(self._tubing_dims, od_in, weight_lbft)
+
+    def all_casing_dims(self) -> list[dict]:
+        """Tabla completa de casing (para exponer por la API al frontend)."""
+        return list(self._casing_dims)
+
+    def all_tubing_dims(self) -> list[dict]:
+        """Tabla completa de tubing (para exponer por la API al frontend)."""
+        return list(self._tubing_dims)
 
     # ------------------------------------------------------------------
     # Motor queries
@@ -310,6 +402,48 @@ class CatalogManager:
     def get_all_sensors(self) -> list[dict]:
         """Return every downhole sensor in the catalog."""
         return list(self._sensors)
+
+    # ------------------------------------------------------------------
+    # Surface controller / switchboard / VSD
+    # ------------------------------------------------------------------
+
+    def get_all_controllers(self) -> list[dict]:
+        """Return every surface controller in the catalog."""
+        return list(self._controllers)
+
+    def get_controller(
+        self, voltage: float, kva: float, amps: float, prefer_vsd: bool = False
+    ) -> dict:
+        """Select the surface controller (switchboard or VSD).
+
+        Se necesita conocer, para dimensionarlo (Brown §4.5325): la **tensión de
+        superficie**, la **potencia aparente (kVA)** y el **amperaje** del motor.
+        Se filtra por esos tres límites y se prefiere VSD/tablero según
+        *prefer_vsd*; entre los que califican se toma el más económico (menor
+        kVA).
+
+        Raises:
+            ValueError: si no hay controlador en catálogo que cubra las
+                condiciones.
+        """
+        want = "vsd" if prefer_vsd else "switchboard"
+
+        def qualifies(c: dict) -> bool:
+            return (
+                c["max_voltage"] >= voltage
+                and c["max_kva"] >= kva
+                and c["max_amps"] >= amps
+            )
+
+        pool = [c for c in self._controllers if c["type"] == want and qualifies(c)]
+        if not pool:  # sin match del tipo preferido → cualquier tipo que cubra
+            pool = [c for c in self._controllers if qualifies(c)]
+        if not pool:
+            raise ValueError(
+                f"No hay controlador de superficie para {voltage:.0f} V, "
+                f"{kva:.0f} kVA, {amps:.0f} A"
+            )
+        return min(pool, key=lambda c: c["max_kva"])
 
     def select_sensor(
         self,

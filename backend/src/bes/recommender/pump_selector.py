@@ -19,7 +19,7 @@ from bes.core.models import (
     SurfaceConditions,
     WellGeometry,
 )
-from bes.core.pump_design import design_pump_complete
+from bes.core.pump_design import design_pump_by_model, design_pump_complete
 from bes.core.electrical import electrical_design_complete
 from bes.core.tdh import _sg_liquid
 from bes.core.pvt import standing_rs, gas_z_factor, gas_bg, standing_bo, water_bw
@@ -95,6 +95,10 @@ def _build_design_result(
     warnings = list(pump_dict.get("warnings", []))
     if seal_warning:
         warnings.append(seal_warning)
+    if elec.get("cooling_warning"):
+        warnings.append(elec["cooling_warning"])
+    if elec.get("controller_warning"):
+        warnings.append(elec["controller_warning"])
 
     return DesignResult(
         pump_manufacturer=pump_dict["pump_manufacturer"],
@@ -127,6 +131,18 @@ def _build_design_result(
         gip_fraction=max(0.0, min(1.0, gip)),
         warnings=warnings,
         alternatives=[],
+        housing_size_stages=int(pump_dict.get("housing_size_stages", 0)),
+        dummy_stages=int(pump_dict.get("dummy_stages", 0)),
+        n_housings=int(pump_dict.get("n_housings", 1)),
+        max_housing_pressure_psi=float(pump_dict.get("max_housing_pressure_psi", 0.0)),
+        housing_pressure_limit_psi=float(pump_dict.get("housing_pressure_limit_psi", 0.0)),
+        housing_pressure_ok=bool(pump_dict.get("housing_pressure_ok", True)),
+        fluid_velocity_ft_s=float(elec.get("fluid_velocity_ft_s", 0.0)),
+        cooling_ok=bool(elec.get("cooling_ok", True)),
+        motor_hp_max=float(pump_dict.get("motor_hp_max", pump_dict["total_pump_hp"])),
+        controller_manufacturer=(elec["controller"]["manufacturer"] if elec.get("controller") else ""),
+        controller_model=(elec["controller"]["model"] if elec.get("controller") else ""),
+        controller_type=(elec["controller"]["type"] if elec.get("controller") else ""),
         seal_manufacturer=(seal["manufacturer"] if seal else ""),
         seal_model=(seal["model"] if seal else ""),
         seal_type=(seal["type"] if seal else ""),
@@ -219,68 +235,154 @@ def select_top_n_pumps(
         ranked.append((key, cand, pump_obj))
 
     ranked.sort(key=lambda x: x[0])
-    ranked = ranked[:n]
 
-    # Build DesignResult for each surviving candidate
+    # Ensamblar en orden de ranking hasta juntar *n* diseños FACTIBLES. No se
+    # trunca a n antes de ensamblar: un candidato mejor rankeado puede no
+    # ensamblar (p. ej. su motor sobre HP-máximo exige un cable que no entra en
+    # el casing), y en ese caso hay que seguir bajando en el ranking en vez de
+    # devolver menos diseños (o ninguno).
     bottom_temp = well.bottom_hole_temp
     results: list[DesignResult] = []
 
     for _key, cand, pump_obj in ranked:
+        if len(results) >= n:
+            break
         try:
-            elec = electrical_design_complete(
-                motor_hp=cand["total_pump_hp"],
-                pump_od=cand["pump_od"],
-                well=well,
-                fluid=fluid,
-                catalog_manager=catalog,
-                pump_depth=pump_setting_depth,
-                tdh_ft=cand["tdh_ft"],
-                sg_fluid=_sg_liquid(fluid),
-                pump_series=pump_obj.series,
+            dr = _assemble_design(
+                cand, pump_obj, well, surface, fluid, objectives, catalog,
+                pump_setting_depth, bottom_temp,
             )
-        except (ValueError, KeyError, StopIteration):
+        except (ValueError, KeyError, StopIteration, TypeError):
             continue
-
-        gip = _gip_fraction_at_pip(
-            fluid=fluid,
-            pip=cand["pip_psi"],
-            bottom_temp=bottom_temp,
-            pump_setting_depth=pump_setting_depth,
-            well=well,
-        )
-
-        # Gas handler recommended only when free gas at intake is non-trivial.
-        gas_handler = None
-        if gip > 0.10:
-            gas_handler = catalog.select_gas_handler(
-                flow_bpd=objectives.target_flow_rate,
-                casing_id_in=well.casing_id,
-                prefer_type="vortex",
-            )
-
-        # Downhole sensor: always recommend a model covering well conditions.
-        sensor = catalog.select_sensor(
-            intake_pressure_psi=cand["pip_psi"],
-            bottom_temp_f=bottom_temp,
-            motor_voltage=float(elec["motor"]["voltage"]),
-        )
-
-        try:
-            dr = _build_design_result(
-                pump_dict=cand,
-                pump_obj=pump_obj,
-                elec=elec,
-                pump_setting_depth=pump_setting_depth,
-                well=well,
-                surface=surface,
-                target_rate=objectives.target_flow_rate,
-                gip=gip,
-                gas_handler=gas_handler,
-                sensor=sensor,
-            )
-        except (ValueError, TypeError):
-            continue
-
         results.append(dr)
 
     return results
+
+
+def _assemble_design(
+    cand: dict,
+    pump_obj,
+    well: "WellGeometry",
+    surface: "SurfaceConditions",
+    fluid: "Fluid",
+    objectives: "DesignObjectives",
+    catalog: "CatalogManager",
+    pump_setting_depth: float,
+    bottom_temp: float,
+) -> DesignResult:
+    """Electrical design + gas handler + sensor + ``DesignResult`` assembly
+    for one already hydraulically-designed candidate.
+
+    Shared by :func:`select_top_n_pumps` (which catches failures per
+    candidate and skips to the next-best alternative) and
+    :func:`select_pump_by_model` (which lets failures raise — a manually
+    chosen pump has no fallback candidate to try instead).
+    """
+    elec = electrical_design_complete(
+        # El motor se dimensiona sobre el HP MÁXIMO (fluido más pesado, Brown
+        # §4.5325), no sobre el operativo, para que no se sobrecargue durante
+        # el arranque/desgasificado o produciendo agua.
+        motor_hp=cand.get("motor_hp_max", cand["total_pump_hp"]),
+        pump_od=cand["pump_od"],
+        well=well,
+        fluid=fluid,
+        catalog_manager=catalog,
+        pump_depth=pump_setting_depth,
+        tdh_ft=cand["tdh_ft"],
+        sg_fluid=_sg_liquid(fluid),
+        pump_series=pump_obj.series,
+        flow_bpd=objectives.target_flow_rate,
+        use_vsd=objectives.use_vsd,
+    )
+
+    gip = _gip_fraction_at_pip(
+        fluid=fluid,
+        pip=cand["pip_psi"],
+        bottom_temp=bottom_temp,
+        pump_setting_depth=pump_setting_depth,
+        well=well,
+    )
+
+    # Gas handler recommended only when free gas at intake is non-trivial.
+    gas_handler = None
+    if gip > 0.10:
+        gas_handler = catalog.select_gas_handler(
+            flow_bpd=objectives.target_flow_rate,
+            casing_id_in=well.casing_id,
+            prefer_type="vortex",
+        )
+
+    # Downhole sensor: always recommend a model covering well conditions.
+    sensor = catalog.select_sensor(
+        intake_pressure_psi=cand["pip_psi"],
+        bottom_temp_f=bottom_temp,
+        motor_voltage=float(elec["motor"]["voltage"]),
+    )
+
+    return _build_design_result(
+        pump_dict=cand,
+        pump_obj=pump_obj,
+        elec=elec,
+        pump_setting_depth=pump_setting_depth,
+        well=well,
+        surface=surface,
+        target_rate=objectives.target_flow_rate,
+        gip=gip,
+        gas_handler=gas_handler,
+        sensor=sensor,
+    )
+
+
+def select_pump_by_model(
+    reservoir: Reservoir,
+    fluid: Fluid,
+    well: WellGeometry,
+    surface: SurfaceConditions,
+    objectives: DesignObjectives,
+    catalog: "CatalogManager",
+    pump_model: str,
+) -> DesignResult:
+    """Assemble the complete ESP design for one user-chosen catalog pump.
+
+    Mirrors ``select_top_n_pumps``'s per-candidate assembly (electrical
+    design, gas handler, sensor selection) but for exactly the requested
+    pump, bypassing the ranking entirely — this is a manual override of the
+    recommendation engine's choice, not a ranked alternative.
+
+    Args:
+        reservoir: Reservoir properties.
+        fluid: Fluid PVT and composition.
+        well: Well geometry.
+        surface: Surface conditions and power supply.
+        objectives: Production targets.
+        catalog: Loaded equipment catalog.
+        pump_model: Catalog model name of the user-chosen pump.
+
+    Returns:
+        A single ``DesignResult`` for the requested pump.
+
+    Raises:
+        ValueError: If the pump doesn't exist, doesn't fit the casing, or
+            the design cannot be completed at the target conditions.
+    """
+    pump_setting_depth = max(
+        well.perforations_top - objectives.safety_margin_depth,
+        100.0,
+    )
+
+    cand = design_pump_by_model(
+        reservoir=reservoir,
+        fluid=fluid,
+        well=well,
+        surface=surface,
+        objectives=objectives,
+        pump_setting_depth=pump_setting_depth,
+        catalog_manager=catalog,
+        pump_model=pump_model,
+    )
+    pump_obj = next(p for p in catalog.get_all_pumps() if p.model == pump_model)
+
+    return _assemble_design(
+        cand, pump_obj, well, surface, fluid, objectives, catalog,
+        pump_setting_depth, well.bottom_hole_temp,
+    )

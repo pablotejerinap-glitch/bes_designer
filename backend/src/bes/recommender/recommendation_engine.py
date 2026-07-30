@@ -20,7 +20,7 @@ from bes.core.models import (
     SurfaceConditions,
     WellGeometry,
 )
-from bes.recommender.pump_selector import select_top_n_pumps
+from bes.recommender.pump_selector import select_pump_by_model, select_top_n_pumps
 from bes.recommender.ranking import (
     bep_distance,
     classify_bep_distance,
@@ -54,26 +54,42 @@ def _build_rationale(
     rank: int,
     avg_efficiency: float,
     n_alternatives: int,
+    manual: bool = False,
 ) -> str:
     """Natural-language explanation assembled ONLY from calculated values.
 
     Every number in the sentence comes from the hydraulic/electrical design
     or the pump catalog curve — nothing is estimated or invented here.
+    ``manual=True`` frames the intro as a user override rather than a ranked
+    alternative (used by ``generate_recommendation_for_pump``).
     """
-    ordinal = (
-        "primera alternativa" if rank == 1 else f"alternativa {rank}"
-    )
+    if manual:
+        intro = (
+            f"La bomba {dr.pump_model} ({dr.pump_manufacturer}) fue "
+            f"seleccionada manualmente por el usuario. Opera al "
+            f"{criteria['flow_vs_bep_pct']:.0f} % de su caudal de máxima "
+            f"eficiencia (BEP = {criteria['bep_flow_bpd']:.0f} STB/d frente a "
+            f"{dr.flow_rate_achieved:.0f} STB/d de diseño), alcanza el TDH "
+            f"requerido de {dr.total_head_required:.0f} ft con "
+            f"{dr.num_stages} etapas y presenta una eficiencia hidráulica del "
+            f"{dr.pump_efficiency:.1%}"
+        )
+    else:
+        ordinal = (
+            "primera alternativa" if rank == 1 else f"alternativa {rank}"
+        )
+        intro = (
+            f"La bomba {dr.pump_model} ({dr.pump_manufacturer}) fue seleccionada "
+            f"como {ordinal} porque opera al "
+            f"{criteria['flow_vs_bep_pct']:.0f} % de su caudal de máxima "
+            f"eficiencia (BEP = {criteria['bep_flow_bpd']:.0f} STB/d frente a "
+            f"{dr.flow_rate_achieved:.0f} STB/d de diseño), alcanza el TDH "
+            f"requerido de {dr.total_head_required:.0f} ft con "
+            f"{dr.num_stages} etapas y presenta una eficiencia hidráulica del "
+            f"{dr.pump_efficiency:.1%}"
+        )
 
-    parts: list[str] = [
-        f"La bomba {dr.pump_model} ({dr.pump_manufacturer}) fue seleccionada "
-        f"como {ordinal} porque opera al "
-        f"{criteria['flow_vs_bep_pct']:.0f} % de su caudal de máxima "
-        f"eficiencia (BEP = {criteria['bep_flow_bpd']:.0f} STB/d frente a "
-        f"{dr.flow_rate_achieved:.0f} STB/d de diseño), alcanza el TDH "
-        f"requerido de {dr.total_head_required:.0f} ft con "
-        f"{dr.num_stages} etapas y presenta una eficiencia hidráulica del "
-        f"{dr.pump_efficiency:.1%}"
-    ]
+    parts: list[str] = [intro]
 
     if n_alternatives > 1:
         comparison = (
@@ -262,4 +278,77 @@ def generate_recommendations(
             "3. Potencia requerida en el eje (ascendente)",
         ],
         "n_candidates_evaluated": len(paired),
+    }
+
+
+def generate_recommendation_for_pump(
+    reservoir: Reservoir,
+    fluid: Fluid,
+    well: WellGeometry,
+    surface: SurfaceConditions,
+    objectives: DesignObjectives,
+    catalog: "CatalogManager",
+    pump_model: str,
+) -> dict:
+    """Generate the complete ESP design package for one user-chosen pump.
+
+    This bypasses the recommendation engine's ranking entirely — it is a
+    manual override of the algorithm's choice, not a ranked alternative.
+    The returned dict has the same shape as ``generate_recommendations``'s
+    return value (a single-item ``recommendations`` list, rank 1), so the
+    API and frontend can render it through the same response/UI path.
+
+    Args:
+        reservoir: Reservoir properties.
+        fluid: Fluid PVT and composition.
+        well: Well geometry.
+        surface: Surface conditions and power supply.
+        objectives: Production targets.
+        catalog: Loaded equipment catalog.
+        pump_model: Catalog model name of the user-chosen pump.
+
+    Raises:
+        ValueError: If the pump is unknown, doesn't fit the well casing, or
+            the design cannot be completed at the target conditions.
+    """
+    dr = select_pump_by_model(
+        reservoir=reservoir,
+        fluid=fluid,
+        well=well,
+        surface=surface,
+        objectives=objectives,
+        catalog=catalog,
+        pump_model=pump_model,
+    )
+
+    pump_obj = next(p for p in catalog.get_all_pumps() if p.model == pump_model)
+    criteria = _build_criteria(dr, pump_obj, objectives.target_flow_rate)
+    rationale = _build_rationale(
+        dr=dr,
+        criteria=criteria,
+        rank=1,
+        avg_efficiency=dr.pump_efficiency,
+        n_alternatives=1,
+        manual=True,
+    )
+
+    return {
+        "recommendations": [{
+            "rank":      1,
+            "criteria":  criteria,
+            "design":    dr,
+            "rationale": rationale,
+            "warnings":  dr.warnings,
+        }],
+        "design_basis": {
+            "target_flow_rate_bpd": objectives.target_flow_rate,
+            "well_depth_ft":        well.total_depth,
+            "casing_id_in":         well.casing_id,
+            "reservoir_pressure_psi": reservoir.static_pressure,
+            "bottom_hole_temp_f":   well.bottom_hole_temp,
+        },
+        "ordering_criteria": [
+            "Selección manual del usuario — no se aplica ordenamiento por criterios.",
+        ],
+        "n_candidates_evaluated": 1,
     }

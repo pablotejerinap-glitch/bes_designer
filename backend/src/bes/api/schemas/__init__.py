@@ -19,11 +19,18 @@ from bes.api.schemas.outputs import (
     DesignResultSchema,
     RecommendationSchema,
 )
-from bes.api.schemas.catalog import CatalogSummary, PumpSummary
+from bes.api.schemas.catalog import (
+    CatalogSummary,
+    PumpSummary,
+    TubularCatalog,
+    TubularDim,
+)
 
 __all__ = [
     "CatalogSummary",
     "PumpSummary",
+    "TubularCatalog",
+    "TubularDim",
     "DesignRequest",
     "DriveMechanismStr",
     "FluidSchema",

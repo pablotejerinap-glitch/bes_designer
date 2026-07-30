@@ -9,6 +9,7 @@ from bes.plotting.plots import (
     plot_nodal_analysis,
     plot_nodal_comparison,
     plot_pressure_profile,
+    plot_pump_catalog_curve,
     plot_pump_curve,
     plot_sensitivity_analysis,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "plot_nodal_analysis",
     "plot_nodal_comparison",
     "plot_pressure_profile",
+    "plot_pump_catalog_curve",
     "plot_pump_curve",
     "plot_sensitivity_analysis",
 ]

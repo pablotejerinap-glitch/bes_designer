@@ -29,6 +29,7 @@ from bes.core.pump_design import (
     calculate_motor_hp,
     calculate_stages,
     check_pump_operating_range,
+    design_pump_by_model,
     design_pump_complete,
 )
 
@@ -624,3 +625,193 @@ class TestDesignPumpComplete:
         )
         models = [r["pump_model"] for r in results]
         assert "I-300" in models, f"I-300 not found in results; got {models}"
+
+
+# ---------------------------------------------------------------------------
+# 6 — design_pump_by_model (manual pump selection, bypasses the
+#     casing/flow-range prefilter used for auto-recommendation)
+# ---------------------------------------------------------------------------
+
+class TestDesignPumpByModel:
+    """design_pump_by_model must reproduce design_pump_complete's per-pump
+    result exactly, and enforce casing fit / curve range as hard bounds."""
+
+    def test_matches_design_pump_complete_for_same_pump(
+        self, base_reservoir, base_fluid, base_well, base_surface,
+        base_objectives, manager,
+    ):
+        batch = design_pump_complete(
+            base_reservoir, base_fluid, base_well, base_surface,
+            base_objectives, pump_setting_depth=3000.0, catalog_manager=manager,
+        )
+        d40_from_batch = next(r for r in batch if r["pump_model"] == "D-40")
+
+        single = design_pump_by_model(
+            base_reservoir, base_fluid, base_well, base_surface,
+            base_objectives, pump_setting_depth=3000.0, catalog_manager=manager,
+            pump_model="D-40",
+        )
+        assert single["stages"] == d40_from_batch["stages"]
+        assert single["total_pump_hp"] == pytest.approx(d40_from_batch["total_pump_hp"])
+        assert single["tdh_ft"] == pytest.approx(d40_from_batch["tdh_ft"])
+        assert single["efficiency"] == pytest.approx(d40_from_batch["efficiency"])
+
+    def test_unknown_model_raises(self, base_reservoir, base_fluid, base_well,
+                                   base_surface, base_objectives, manager):
+        with pytest.raises(ValueError, match="NO-EXISTE"):
+            design_pump_by_model(
+                base_reservoir, base_fluid, base_well, base_surface,
+                base_objectives, pump_setting_depth=3000.0, catalog_manager=manager,
+                pump_model="NO-EXISTE",
+            )
+
+    def test_pump_too_large_for_casing_raises(self, base_reservoir, base_fluid,
+                                               base_well, base_surface,
+                                               base_objectives, manager):
+        # SM18500 (OD 8.75") does not fit base_well's 8-5/8" casing (ID 7.825").
+        big_pump = next(p for p in manager.get_all_pumps() if p.model == "SM18500")
+        assert big_pump.od >= base_well.casing_id
+        with pytest.raises(ValueError, match="casing"):
+            design_pump_by_model(
+                base_reservoir, base_fluid, base_well, base_surface,
+                base_objectives, pump_setting_depth=3000.0, catalog_manager=manager,
+                pump_model="SM18500",
+            )
+
+    def test_flow_outside_curve_range_raises(self, base_fluid, base_well,
+                                              base_surface, manager):
+        # Higher reservoir pressure so the target rate is reservoir-feasible;
+        # 1 800 bpd is still above D-40's curve range (800-1700 bpd).
+        reservoir = Reservoir(
+            static_pressure=1500.0, bubble_point=700.0, productivity_index=5.0,
+            ipr_method=IPRMethod.VOGEL, reservoir_temp=130.0,
+            drive_mechanism=DriveMechanism.SOLUTION_GAS, datum_depth=3500.0,
+        )
+        objectives = DesignObjectives(
+            target_flow_rate=1800.0, safety_margin_depth=200.0,
+            allow_gas_venting=False, max_gip=0.10,
+            design_life_years=3.0, use_vsd=False,
+        )
+        with pytest.raises(ValueError, match="D-40"):
+            design_pump_by_model(
+                reservoir, base_fluid, base_well, base_surface,
+                objectives, pump_setting_depth=3000.0, catalog_manager=manager,
+                pump_model="D-40",
+            )
+
+
+class TestSelectHousing:
+    """Selección de carcasa(s) estándar y etapas ciegas (dummy)."""
+
+    D40 = [50, 75, 100, 125, 150, 175, 200, 225, 250]
+
+    def test_picks_smallest_option_above_required(self):
+        from bes.core.pump_design import select_housing
+        h = select_housing(193, self.D40, 250)
+        assert h["housing_size_stages"] == 200
+        assert h["dummy_stages"] == 7
+        assert h["n_housings"] == 1
+
+    def test_exact_fit_no_dummy(self):
+        from bes.core.pump_design import select_housing
+        h = select_housing(200, self.D40, 250)
+        assert h["dummy_stages"] == 0 and h["n_housings"] == 1
+
+    def test_tandem_when_exceeds_max(self):
+        from bes.core.pump_design import select_housing
+        h = select_housing(400, self.D40, 250)
+        assert h["n_housings"] == 2
+        assert h["housing_size_stages"] >= 400
+        assert sum(cap * cnt for cap, cnt in h["housings"]) == h["housing_size_stages"]
+
+    def test_dummy_never_negative_and_covers_required(self):
+        from bes.core.pump_design import select_housing
+        for req in (1, 28, 100, 244, 251, 333, 500):
+            h = select_housing(req, self.D40, 250)
+            assert h["dummy_stages"] >= 0
+            assert h["housing_size_stages"] >= req
+
+
+class TestHousingPressure:
+    """Verificación de presión sobre la carcasa (MaxP shut-in vs límite)."""
+
+    def _build(self):
+        import json
+        from bes.catalogs.loader import CatalogManager
+        from bes.core.models import (
+            Reservoir, Fluid, WellGeometry, SurfaceConditions, DesignObjectives,
+            IPRMethod, DriveMechanism,
+        )
+        cm = CatalogManager()
+        ex = json.load(open("data/example_wells.json"))["example_2a_brown"]
+        r = dict(ex["reservoir"])
+        r["ipr_method"] = IPRMethod[r["ipr_method"]]
+        r["drive_mechanism"] = DriveMechanism[r["drive_mechanism"]]
+        res = Reservoir(**r)
+        fl = Fluid(**ex["fluid"]); w = WellGeometry(**ex["well"])
+        su = SurfaceConditions(**ex["surface"]); ob = DesignObjectives(**ex["objectives"])
+        psd = max(w.perforations_top - ob.safety_margin_depth, 100.0)
+        return cm, res, fl, w, su, ob, psd
+
+    def test_maxp_matches_formula_and_ok(self):
+        from bes.core.pump_design import design_pump_by_model, _sg_liquid
+        cm, res, fl, w, su, ob, psd = self._build()
+        c = design_pump_by_model(res, fl, w, su, ob, psd, cm, "D-40")
+        pump = next(p for p in cm.get_all_pumps() if p.model == "D-40")
+        shutin = max(pt.head_per_stage for pt in pump.points)
+        expected = shutin * c["stages"] * _sg_liquid(fl) / 2.31
+        assert c["max_housing_pressure_psi"] == pytest.approx(expected, rel=1e-6)
+        assert c["housing_pressure_limit_psi"] == 5000.0
+        assert c["housing_pressure_ok"] is True  # 2A queda holgado
+
+    def test_warns_when_limit_exceeded(self):
+        from bes.core.pump_design import design_pump_by_model
+        cm, res, fl, w, su, ob, psd = self._build()
+        pump = next(p for p in cm.get_all_pumps() if p.model == "D-40")
+        pump.housing_pressure_limit_psi = 500.0  # límite artificialmente bajo
+        try:
+            c = design_pump_by_model(res, fl, w, su, ob, psd, cm, "D-40")
+            assert c["housing_pressure_ok"] is False
+            assert any("carcasa" in wtxt.lower() for wtxt in c["warnings"])
+        finally:
+            pump.housing_pressure_limit_psi = 5000.0  # restaurar
+
+
+class TestMotorHpMaxVsOperative:
+    """HP máximo (SG del fluido más pesado) vs operativo (SG de la mezcla)."""
+
+    def _build(self, overrides=None):
+        import json
+        from bes.catalogs.loader import CatalogManager
+        from bes.core.models import (
+            Reservoir, Fluid, WellGeometry, SurfaceConditions, DesignObjectives,
+            IPRMethod, DriveMechanism,
+        )
+        cm = CatalogManager()
+        ex = json.load(open("data/example_wells.json"))["example_2a_brown"]
+        r = dict(ex["reservoir"]); r["ipr_method"] = IPRMethod[r["ipr_method"]]
+        r["drive_mechanism"] = DriveMechanism[r["drive_mechanism"]]
+        fdict = dict(ex["fluid"])
+        if overrides:
+            fdict.update(overrides)
+        res = Reservoir(**r); fl = Fluid(**fdict); w = WellGeometry(**ex["well"])
+        su = SurfaceConditions(**ex["surface"]); ob = DesignObjectives(**ex["objectives"])
+        psd = max(w.perforations_top - ob.safety_margin_depth, 100.0)
+        return cm, res, fl, w, su, ob, psd
+
+    def test_max_ge_operative_with_water_cut(self):
+        from bes.core.pump_design import design_pump_by_model
+        from bes.core.tdh import _sg_liquid, _sg_max
+        cm, res, fl, w, su, ob, psd = self._build()
+        c = design_pump_by_model(res, fl, w, su, ob, psd, cm, "D-40")
+        assert c["motor_hp_max"] >= c["total_pump_hp"]
+        # el cociente = SG máx / SG mezcla
+        assert c["motor_hp_max"] / c["total_pump_hp"] == pytest.approx(
+            _sg_max(fl) / _sg_liquid(fl), rel=1e-6
+        )
+
+    def test_equal_for_full_water(self):
+        from bes.core.pump_design import design_pump_by_model
+        cm, res, fl, w, su, ob, psd = self._build(overrides={"water_cut": 1.0})
+        c = design_pump_by_model(res, fl, w, su, ob, psd, cm, "D-40")
+        assert c["motor_hp_max"] == pytest.approx(c["total_pump_hp"], rel=1e-9)

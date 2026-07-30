@@ -498,9 +498,253 @@
       }
     }
   },
-  "ejercicio_esp_neuquen": {
-    "description": "Ejercicio de diseno ESP en unidades metricas (pozo argentino) - alto corte de agua 91%, reservorio saturado Pb=Pr=170 kg/cm2, objetivo 300 m3/d",
-    "source": "Ejercicio de catedra / pozo real. Datos originales en metrico convertidos a unidades de campo. NO es un ejemplo impreso de Brown.",
+  "example_alat_x2": {
+    "description": "Pozo real ALAT.x-2 (YPF, yacimiento Malargue, Mendoza). Crudo pesado 17 API, corte de agua 99%, reservorio subsaturado Pr=110 kg/cm2 (1565 psi) > Pb=45 kg/cm2 (640 psi), objetivo 151.6 m3/d (953 STB/d). Datos originales en metrico del workbook de seleccion BES (BHGE), convertidos a unidades de campo. Equipo seleccionado real: bomba FLEX17-5 134 etapas, motor 100 HP, 53 Hz.",
+    "source": "Workbook 'datos para diseno bes alat.x-1.xlsm' (hoja Datos, formulario FV-016 BHGE/YPF). Caso de campo real; NO es un ejemplo impreso de Brown.",
+    "reservoir": {
+      "static_pressure": 1564.6,
+      "bubble_point": 640.0,
+      "productivity_index": 1.154,
+      "ipr_method": "VOGEL",
+      "reservoir_temp": 194.0,
+      "drive_mechanism": "SOLUTION_GAS",
+      "datum_depth": 5731.6
+    },
+    "fluid": {
+      "oil_api": 17.0,
+      "water_cut": 0.99,
+      "gor": 1038.7,
+      "gas_sg": 0.65,
+      "water_sg": 1.004,
+      "oil_viscosity_dead": 15.0,
+      "viscosity_temp_ref": 194.0,
+      "bubble_point_pressure": 640.0,
+      "h2s_content": 0.0,
+      "co2_content": 0.0,
+      "sand_production": false
+    },
+    "well": {
+      "total_depth": 6400.9,
+      "casing_od": 5.5,
+      "casing_weight": 20.0,
+      "casing_id": 4.778,
+      "tubing_od": 2.875,
+      "tubing_id": 2.441,
+      "perforations_top": 4274.9,
+      "perforations_bottom": 6141.7,
+      "deviation_max": 0.0,
+      "wellhead_temp": 100.0,
+      "bottom_hole_temp": 194.0
+    },
+    "surface": {
+      "wellhead_pressure_required": 142.2,
+      "flowline_length": 1000.0,
+      "flowline_id": 3.0,
+      "flowline_elevation_change": 0.0,
+      "separator_pressure": 100.0,
+      "power_supply_voltage": 4160.0,
+      "frequency": 50.0
+    },
+    "objectives": {
+      "target_flow_rate": 953.5,
+      "safety_margin_depth": 100.0,
+      "allow_gas_venting": false,
+      "max_gip": 0.1,
+      "design_life_years": 5.0,
+      "use_vsd": true
+    },
+    "book_reference": {
+      "validation_type": "design_scenario",
+      "note": "Escenario de campo real sin valores de referencia impresos de Brown; validate_all_examples lo saltea al no tener tdh_ft. Equipo real instalado: FLEX17-5 x134, motor 100 HP, 53 Hz (informativo)."
+    },
+    "label": "Caso real ALAT.x-2 — YPF Malargüe, crudo 17°API, 99% agua, 5-1/2\" casing"
+  },
+  "example_ncf194": {
+    "description": "Pozo real NCF-194 (YPF, yacimiento Malargue). Reporte de instalacion BES (BHGE). Geometria y equipo AS-RUN del reporte; casing 5.5in ID 4.892in, punzados 1780-1800 m, admision 1721.31 m, bomba instalada TD650 202/29B (serie 400), motor MGFT375 85 HP 1125 V 50 Hz. Crudo pesado, alto corte de agua (tipico del yacimiento).",
+    "source": "Reporte de instalacion (hoja REPORTE, formulario FF-002 BHGE/YPF). Geometria y equipo REALES del pozo NCF-194. El reservorio y fluido NO figuran en el reporte de instalacion: se adoptan valores representativos del yacimiento Malargue (del caso de diseno ALAT.x-2, mismo campo). Caso de campo real; NO es un ejemplo de Brown.",
+    "reservoir": {
+      "static_pressure": 1564.6,
+      "bubble_point": 640.0,
+      "productivity_index": 1.154,
+      "ipr_method": "VOGEL",
+      "reservoir_temp": 194.0,
+      "drive_mechanism": "SOLUTION_GAS",
+      "datum_depth": 5872.7
+    },
+    "fluid": {
+      "oil_api": 17.0,
+      "water_cut": 0.99,
+      "gor": 1038.7,
+      "gas_sg": 0.65,
+      "water_sg": 1.004,
+      "oil_viscosity_dead": 15.0,
+      "viscosity_temp_ref": 194.0,
+      "bubble_point_pressure": 640.0,
+      "h2s_content": 0.0,
+      "co2_content": 0.0,
+      "sand_production": false
+    },
+    "well": {
+      "total_depth": 5938.3,
+      "casing_od": 5.5,
+      "casing_weight": 17.0,
+      "casing_id": 4.892,
+      "tubing_od": 2.875,
+      "tubing_id": 2.441,
+      "perforations_top": 5839.9,
+      "perforations_bottom": 5905.5,
+      "deviation_max": 0.0,
+      "wellhead_temp": 100.0,
+      "bottom_hole_temp": 194.0
+    },
+    "surface": {
+      "wellhead_pressure_required": 142.2,
+      "flowline_length": 1000.0,
+      "flowline_id": 3.0,
+      "flowline_elevation_change": 0.0,
+      "separator_pressure": 100.0,
+      "power_supply_voltage": 4160.0,
+      "frequency": 50.0
+    },
+    "objectives": {
+      "target_flow_rate": 943.5,
+      "safety_margin_depth": 100.0,
+      "allow_gas_venting": false,
+      "max_gip": 0.1,
+      "design_life_years": 5.0,
+      "use_vsd": true
+    },
+    "book_reference": {
+      "validation_type": "design_scenario",
+      "note": "Geometria/equipo reales del reporte de NCF-194; reservorio y fluido tipicos del yacimiento (ALAT.x-2). Sin tdh_ft: validate_all_examples lo saltea."
+    },
+    "label": "Caso real NCF-194 — YPF Malargüe, instalación BES real, 5-1/2\" casing"
+  },
+  "example_ncf162": {
+    "description": "Pozo real NCF-162 (YPF, yacimiento Malargue). Reporte de instalacion BES (BHGE). Geometria y equipo AS-RUN del reporte; casing 5.5in ID 4.95in, punzados 1700-1762 m, admision 1686.82 m, bomba instalada TD675 202 (serie 400), motor MGFT375 85 HP 1125 V 50 Hz. Crudo pesado, alto corte de agua (tipico del yacimiento).",
+    "source": "Reporte de instalacion (hoja REPORTE, formulario FF-002 BHGE/YPF). Geometria y equipo REALES del pozo NCF-162. El reservorio y fluido NO figuran en el reporte de instalacion: se adoptan valores representativos del yacimiento Malargue (del caso de diseno ALAT.x-2, mismo campo). Caso de campo real; NO es un ejemplo de Brown.",
+    "reservoir": {
+      "static_pressure": 1564.6,
+      "bubble_point": 640.0,
+      "productivity_index": 1.154,
+      "ipr_method": "VOGEL",
+      "reservoir_temp": 194.0,
+      "drive_mechanism": "SOLUTION_GAS",
+      "datum_depth": 5679.1
+    },
+    "fluid": {
+      "oil_api": 17.0,
+      "water_cut": 0.99,
+      "gor": 1038.7,
+      "gas_sg": 0.65,
+      "water_sg": 1.004,
+      "oil_viscosity_dead": 15.0,
+      "viscosity_temp_ref": 194.0,
+      "bubble_point_pressure": 640.0,
+      "h2s_content": 0.0,
+      "co2_content": 0.0,
+      "sand_production": false
+    },
+    "well": {
+      "total_depth": 5807.1,
+      "casing_od": 5.5,
+      "casing_weight": 17.0,
+      "casing_id": 4.95,
+      "tubing_od": 2.875,
+      "tubing_id": 2.441,
+      "perforations_top": 5577.4,
+      "perforations_bottom": 5780.8,
+      "deviation_max": 0.0,
+      "wellhead_temp": 100.0,
+      "bottom_hole_temp": 194.0
+    },
+    "surface": {
+      "wellhead_pressure_required": 142.2,
+      "flowline_length": 1000.0,
+      "flowline_id": 3.0,
+      "flowline_elevation_change": 0.0,
+      "separator_pressure": 100.0,
+      "power_supply_voltage": 4160.0,
+      "frequency": 50.0
+    },
+    "objectives": {
+      "target_flow_rate": 943.5,
+      "safety_margin_depth": 100.0,
+      "allow_gas_venting": false,
+      "max_gip": 0.1,
+      "design_life_years": 5.0,
+      "use_vsd": true
+    },
+    "book_reference": {
+      "validation_type": "design_scenario",
+      "note": "Geometria/equipo reales del reporte de NCF-162; reservorio y fluido tipicos del yacimiento (ALAT.x-2). Sin tdh_ft: validate_all_examples lo saltea."
+    },
+    "label": "Caso real NCF-162 — YPF Malargüe, instalación BES real, 5-1/2\" casing"
+  },
+  "example_ncf182": {
+    "description": "Pozo real NCF-182 (YPF, yacimiento Malargue). Reporte de instalacion BES (BHGE). Geometria y equipo AS-RUN del reporte; casing 5.5in ID 4.892in, punzados 1433-1779 m, admision 1701.42 m, bomba instalada TD460 305 (serie 400), motor MGFT375 85 HP 1125 V 50 Hz. Crudo pesado, alto corte de agua (tipico del yacimiento).",
+    "source": "Reporte de instalacion (hoja REPORTE, formulario FF-002 BHGE/YPF). Geometria y equipo REALES del pozo NCF-182. El reservorio y fluido NO figuran en el reporte de instalacion: se adoptan valores representativos del yacimiento Malargue (del caso de diseno ALAT.x-2, mismo campo). Caso de campo real; NO es un ejemplo de Brown.",
+    "reservoir": {
+      "static_pressure": 1564.6,
+      "bubble_point": 640.0,
+      "productivity_index": 1.154,
+      "ipr_method": "VOGEL",
+      "reservoir_temp": 194.0,
+      "drive_mechanism": "SOLUTION_GAS",
+      "datum_depth": 5269.0
+    },
+    "fluid": {
+      "oil_api": 17.0,
+      "water_cut": 0.99,
+      "gor": 1038.7,
+      "gas_sg": 0.65,
+      "water_sg": 1.004,
+      "oil_viscosity_dead": 15.0,
+      "viscosity_temp_ref": 194.0,
+      "bubble_point_pressure": 640.0,
+      "h2s_content": 0.0,
+      "co2_content": 0.0,
+      "sand_production": false
+    },
+    "well": {
+      "total_depth": 5872.7,
+      "casing_od": 5.5,
+      "casing_weight": 17.0,
+      "casing_id": 4.892,
+      "tubing_od": 2.875,
+      "tubing_id": 2.441,
+      "perforations_top": 4701.4,
+      "perforations_bottom": 5836.6,
+      "deviation_max": 0.0,
+      "wellhead_temp": 100.0,
+      "bottom_hole_temp": 194.0
+    },
+    "surface": {
+      "wellhead_pressure_required": 142.2,
+      "flowline_length": 1000.0,
+      "flowline_id": 3.0,
+      "flowline_elevation_change": 0.0,
+      "separator_pressure": 100.0,
+      "power_supply_voltage": 4160.0,
+      "frequency": 50.0
+    },
+    "objectives": {
+      "target_flow_rate": 943.5,
+      "safety_margin_depth": 100.0,
+      "allow_gas_venting": false,
+      "max_gip": 0.1,
+      "design_life_years": 5.0,
+      "use_vsd": true
+    },
+    "book_reference": {
+      "validation_type": "design_scenario",
+      "note": "Geometria/equipo reales del reporte de NCF-182; reservorio y fluido tipicos del yacimiento (ALAT.x-2). Sin tdh_ft: validate_all_examples lo saltea."
+    },
+    "label": "Caso real NCF-182 — YPF Malargüe, instalación BES real, 5-1/2\" casing"
+  },
+  "example_catedra_esp01": {
+    "description": "Caso N°1 de la catedra — ejercicio 'ESP 01' de diseno BES en unidades metricas (kg/cm2, m, m3/d, C). Reservorio saturado Pb=Pr=170 kg/cm2 (2418 psi), alto corte de agua 91%, crudo 28 API. Punto de ensayo 260 m3/d @ Pwf=50 kg/cm2 (Vogel Q/Qmax=0.872, Qmax=298 m3/d). Objetivo 300 m3/d (1887 STB/d), PIP esperada 15 kg/cm2. Punzados 2300-2500 m, Pref 2400 m, succion 2250 m, profundidad total 2600 m. Fluido: API 28, GOR 50 m3/m3 (281 scf/STB), gas SG 0.65, agua SG 1.08, viscosidad 7 cp. Datos originales en metrico convertidos a unidades de campo. La solucion exacta de la catedra (Vogel Qmax=298, bomba TD-2200 a 50 Hz) esta implementada en el motor metrico dedicado (bes.core.metric_design, docs/EJEMPLO_ESP01.md, tests/test_esp01.py). En el camino de diseno de campo el indice de productividad se ajusta para que ensamble un diseno completo con el catalogo disponible. NO es un ejemplo impreso de Brown.",
+    "source": "Ejercicio de catedra 'ESP 01' (pozo argentino, unidades metricas). Datos del enunciado; conversion a unidades de campo. Caso real de catedra; NO es Brown.",
     "reservoir": {
       "static_pressure": 2418.0,
       "bubble_point": 2418.0,
@@ -556,6 +800,7 @@
     "book_reference": {
       "validation_type": "design_scenario",
       "note": "Escenario de diseno sin valores impresos de referencia (no es un ejemplo de Brown); validate_all_examples lo saltea al no tener tdh_ft. Conversiones metrico->campo: Pr=Pb=170 kg/cm2=2418 psi; T=95 C=203 F; datum=2400 m=7874 ft; WHP min=10 kg/cm2=142 psi; objetivo=300 m3/d=1887 STB/d. PI=3.24 STB/d/psi es el valor dado por el enunciado; ATENCION: derivarlo de Q=260 m3/d y dP=120 kg/cm2 da ~0.96 STB/d/psi (inconsistencia a verificar contra el enunciado original). Supuestos por dato no disponible: wellhead_temp=100 F, separator_pressure=100 psi, flowline=1000 ft/3 in, power_supply=4160 V, frequency=50 Hz (red argentina), safety_margin_depth=100 ft, design_life=5 anios. El 'margen de seguridad 10%' del enunciado es un margen de diseno general, no representable como campo del modelo."
-    }
+    },
+    "label": "Caso N°1 de la cátedra — ESP 01 (métrico, YPF, 91% agua, casing 5-1/2\")"
   }
 }

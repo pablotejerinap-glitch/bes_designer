@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from bes.api.deps import get_catalog
-from bes.api.schemas import CatalogSummary, PumpSummary
+from bes.api.schemas import CatalogSummary, PumpSummary, TubularCatalog, TubularDim
 
 router = APIRouter(prefix="/api", tags=["catalogs"])
 
@@ -27,3 +27,17 @@ def get_catalogs(catalog=Depends(get_catalog)) -> CatalogSummary:
         "sensors":      len(catalog.get_all_sensors()),
     }
     return CatalogSummary(pumps=pump_summaries, manufacturers=manufacturers, counts=counts)
+
+
+@router.get("/catalogs/tubulars", response_model=TubularCatalog)
+def get_tubulars(catalog=Depends(get_catalog)) -> TubularCatalog:
+    """Tablas dimensionales Tenaris (API 5CT) de casing y tubing.
+
+    Cada fila lleva OD + peso nominal con su ID y drift ya resueltos, de modo
+    que el frontend pueda ofrecer OD -> peso y autocompletar el ID sin que el
+    usuario tenga que conocerlo.
+    """
+    return TubularCatalog(
+        casing=[TubularDim(**r) for r in catalog.all_casing_dims()],
+        tubing=[TubularDim(**r) for r in catalog.all_tubing_dims()],
+    )

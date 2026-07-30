@@ -27,8 +27,10 @@ from bes.recommender.ranking import (
     classify_bep_distance,
     ranking_key,
 )
-from bes.recommender.pump_selector import select_top_n_pumps
-from bes.recommender.recommendation_engine import generate_recommendations
+from bes.recommender.pump_selector import select_pump_by_model, select_top_n_pumps
+from bes.recommender.recommendation_engine import (
+    generate_recommendation_for_pump, generate_recommendations,
+)
 
 
 
@@ -466,3 +468,102 @@ class TestGenerateRecommendations:
         )
         assert len(result["recommendations"]) == 1
         assert result["recommendations"][0]["rank"] == 1
+
+
+# ---------------------------------------------------------------------------
+# 4. select_pump_by_model / generate_recommendation_for_pump — manual
+#    override of the recommendation engine (bypasses ranking entirely)
+# ---------------------------------------------------------------------------
+
+class TestSelectPumpByModel:
+
+    def test_returns_design_result_for_requested_pump(
+        self, manager, reservoir, fluid, well, surface, objectives
+    ):
+        dr = select_pump_by_model(
+            reservoir, fluid, well, surface, objectives, manager, pump_model="D-40"
+        )
+        assert isinstance(dr, DesignResult)
+        assert dr.pump_model == "D-40"
+
+    def test_matches_top_n_result_for_same_pump(
+        self, manager, reservoir, fluid, well, surface, objectives
+    ):
+        """Selecting a pump manually must reproduce the exact same design the
+        ranked engine would compute for that pump — no divergent code path."""
+        top = select_top_n_pumps(
+            reservoir, fluid, well, surface, objectives, manager, n=10
+        )
+        ranked_d40 = next(dr for dr in top if dr.pump_model == "D-40")
+
+        manual_d40 = select_pump_by_model(
+            reservoir, fluid, well, surface, objectives, manager, pump_model="D-40"
+        )
+        assert manual_d40.num_stages == ranked_d40.num_stages
+        assert manual_d40.total_pump_hp == pytest.approx(ranked_d40.total_pump_hp)
+        assert manual_d40.motor_model == ranked_d40.motor_model
+
+    def test_unknown_pump_raises(
+        self, manager, reservoir, fluid, well, surface, objectives
+    ):
+        with pytest.raises(ValueError, match="NO-EXISTE"):
+            select_pump_by_model(
+                reservoir, fluid, well, surface, objectives, manager,
+                pump_model="NO-EXISTE",
+            )
+
+    def test_pump_too_large_for_casing_raises(
+        self, manager, reservoir, fluid, well, surface, objectives
+    ):
+        # well.casing_id = 6.366in (7in casing); SM18500 (OD 8.75in) can't fit.
+        with pytest.raises(ValueError, match="casing"):
+            select_pump_by_model(
+                reservoir, fluid, well, surface, objectives, manager,
+                pump_model="SM18500",
+            )
+
+
+class TestGenerateRecommendationForPump:
+
+    @pytest.fixture(scope="class")
+    def manual(self, manager, reservoir, fluid, well, surface, objectives):
+        return generate_recommendation_for_pump(
+            reservoir, fluid, well, surface, objectives, manager, pump_model="D-40"
+        )
+
+    def test_returns_dict_with_required_keys(self, manual):
+        for k in ("recommendations", "design_basis", "ordering_criteria",
+                  "n_candidates_evaluated"):
+            assert k in manual
+
+    def test_single_recommendation_ranked_1(self, manual):
+        assert len(manual["recommendations"]) == 1
+        assert manual["recommendations"][0]["rank"] == 1
+        assert manual["n_candidates_evaluated"] == 1
+
+    def test_design_is_the_requested_pump(self, manual):
+        assert manual["recommendations"][0]["design"].pump_model == "D-40"
+
+    def test_criteria_are_physical_quantities(self, manual):
+        cr = manual["recommendations"][0]["criteria"]
+        assert cr["bep_flow_bpd"] > 0
+        assert 0.0 < cr["efficiency"] <= 1.0
+        assert cr["classification"] in ("optimo", "aceptable", "alejado")
+
+    def test_rationale_mentions_manual_selection(self, manual):
+        rationale = manual["recommendations"][0]["rationale"]
+        assert "manualmente" in rationale
+        assert "D-40" in rationale
+
+    def test_ordering_criteria_documents_manual_override(self, manual):
+        assert len(manual["ordering_criteria"]) == 1
+        assert "manual" in manual["ordering_criteria"][0].lower()
+
+    def test_unknown_pump_raises(
+        self, manager, reservoir, fluid, well, surface, objectives
+    ):
+        with pytest.raises(ValueError, match="NO-EXISTE"):
+            generate_recommendation_for_pump(
+                reservoir, fluid, well, surface, objectives, manager,
+                pump_model="NO-EXISTE",
+            )

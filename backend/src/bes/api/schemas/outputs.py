@@ -42,6 +42,19 @@ class DesignResultSchema(BaseModel):
     gip_fraction: float
     warnings: list[str] = Field(default_factory=list)
     alternatives: list[str] = Field(default_factory=list)
+    # Housing / carcasas (optional)
+    housing_size_stages: int = 0
+    dummy_stages: int = 0
+    n_housings: int = 1
+    max_housing_pressure_psi: float = 0.0
+    housing_pressure_limit_psi: float = 0.0
+    housing_pressure_ok: bool = True
+    fluid_velocity_ft_s: float = 0.0
+    cooling_ok: bool = True
+    motor_hp_max: float = 0.0
+    controller_manufacturer: str = ""
+    controller_model: str = ""
+    controller_type: str = ""
     # Seal / protector (optional)
     seal_manufacturer: str = ""
     seal_model: str = ""

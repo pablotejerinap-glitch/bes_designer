@@ -1,0 +1,1806 @@
+{
+ "_source": "Tenaris — Manual de Uso de Casing y Tubing. Tablas 'DIMENSIONES DE TUBING/CASING API 5CT 8a edicion / ISO 11960 3a edicion' (pags. 33-36 del PDF). od_in/id_in/drift_in en pulgadas, weight_lbft en lb/pie; drift_in es el diametro drift ESTANDAR API (null si el peso no publica drift). Digitalizado con pdfplumber y verificado contra valores API conocidos (ID y drift).",
+ "units": {
+  "od_in": "in",
+  "od_mm": "mm",
+  "weight_lbft": "lb/ft",
+  "wall_in": "in",
+  "id_in": "in",
+  "drift_in": "in"
+ },
+ "tubing": [
+  {
+   "od_in": 2.375,
+   "od_label": "2 3/8",
+   "od_mm": 60.3,
+   "weight_lbft": 4.0,
+   "wall_in": 0.167,
+   "id_in": 2.041,
+   "drift_in": 1.947
+  },
+  {
+   "od_in": 2.375,
+   "od_label": "2 3/8",
+   "od_mm": 60.3,
+   "weight_lbft": 4.6,
+   "wall_in": 0.19,
+   "id_in": 1.995,
+   "drift_in": 1.901
+  },
+  {
+   "od_in": 2.375,
+   "od_label": "2 3/8",
+   "od_mm": 60.3,
+   "weight_lbft": 4.7,
+   "wall_in": 0.19,
+   "id_in": 1.995,
+   "drift_in": 1.901
+  },
+  {
+   "od_in": 2.375,
+   "od_label": "2 3/8",
+   "od_mm": 60.3,
+   "weight_lbft": 5.1,
+   "wall_in": 0.218,
+   "id_in": 1.939,
+   "drift_in": 1.845
+  },
+  {
+   "od_in": 2.375,
+   "od_label": "2 3/8",
+   "od_mm": 60.3,
+   "weight_lbft": 5.3,
+   "wall_in": 0.218,
+   "id_in": 1.939,
+   "drift_in": 1.845
+  },
+  {
+   "od_in": 2.375,
+   "od_label": "2 3/8",
+   "od_mm": 60.3,
+   "weight_lbft": 5.8,
+   "wall_in": 0.254,
+   "id_in": 1.867,
+   "drift_in": 1.773
+  },
+  {
+   "od_in": 2.375,
+   "od_label": "2 3/8",
+   "od_mm": 60.3,
+   "weight_lbft": 5.95,
+   "wall_in": 0.254,
+   "id_in": 1.867,
+   "drift_in": 1.773
+  },
+  {
+   "od_in": 2.875,
+   "od_label": "2 7/8",
+   "od_mm": 73.0,
+   "weight_lbft": 6.4,
+   "wall_in": 0.217,
+   "id_in": 2.441,
+   "drift_in": 2.347
+  },
+  {
+   "od_in": 2.875,
+   "od_label": "2 7/8",
+   "od_mm": 73.0,
+   "weight_lbft": 6.5,
+   "wall_in": 0.217,
+   "id_in": 2.441,
+   "drift_in": 2.347
+  },
+  {
+   "od_in": 2.875,
+   "od_label": "2 7/8",
+   "od_mm": 73.0,
+   "weight_lbft": 7.8,
+   "wall_in": 0.276,
+   "id_in": 2.323,
+   "drift_in": 2.229
+  },
+  {
+   "od_in": 2.875,
+   "od_label": "2 7/8",
+   "od_mm": 73.0,
+   "weight_lbft": 7.9,
+   "wall_in": 0.276,
+   "id_in": 2.323,
+   "drift_in": 2.229
+  },
+  {
+   "od_in": 2.875,
+   "od_label": "2 7/8",
+   "od_mm": 73.0,
+   "weight_lbft": 8.6,
+   "wall_in": 0.308,
+   "id_in": 2.259,
+   "drift_in": 2.165
+  },
+  {
+   "od_in": 2.875,
+   "od_label": "2 7/8",
+   "od_mm": 73.0,
+   "weight_lbft": 8.7,
+   "wall_in": 0.308,
+   "id_in": 2.259,
+   "drift_in": 2.165
+  },
+  {
+   "od_in": 2.875,
+   "od_label": "2 7/8",
+   "od_mm": 73.0,
+   "weight_lbft": 9.6,
+   "wall_in": 0.34,
+   "id_in": 2.195,
+   "drift_in": 2.101
+  },
+  {
+   "od_in": 3.5,
+   "od_label": "3 1/2",
+   "od_mm": 88.9,
+   "weight_lbft": 7.7,
+   "wall_in": 0.216,
+   "id_in": 3.068,
+   "drift_in": 2.943
+  },
+  {
+   "od_in": 3.5,
+   "od_label": "3 1/2",
+   "od_mm": 88.9,
+   "weight_lbft": 9.2,
+   "wall_in": 0.254,
+   "id_in": 2.992,
+   "drift_in": 2.867
+  },
+  {
+   "od_in": 3.5,
+   "od_label": "3 1/2",
+   "od_mm": 88.9,
+   "weight_lbft": 9.3,
+   "wall_in": 0.254,
+   "id_in": 2.992,
+   "drift_in": 2.867
+  },
+  {
+   "od_in": 3.5,
+   "od_label": "3 1/2",
+   "od_mm": 88.9,
+   "weight_lbft": 10.2,
+   "wall_in": 0.289,
+   "id_in": 2.922,
+   "drift_in": 2.797
+  },
+  {
+   "od_in": 3.5,
+   "od_label": "3 1/2",
+   "od_mm": 88.9,
+   "weight_lbft": 10.3,
+   "wall_in": 0.289,
+   "id_in": 2.922,
+   "drift_in": 2.797
+  },
+  {
+   "od_in": 3.5,
+   "od_label": "3 1/2",
+   "od_mm": 88.9,
+   "weight_lbft": 12.7,
+   "wall_in": 0.375,
+   "id_in": 2.75,
+   "drift_in": 2.625
+  },
+  {
+   "od_in": 3.5,
+   "od_label": "3 1/2",
+   "od_mm": 88.9,
+   "weight_lbft": 12.95,
+   "wall_in": 0.375,
+   "id_in": 2.75,
+   "drift_in": 2.625
+  },
+  {
+   "od_in": 3.5,
+   "od_label": "3 1/2",
+   "od_mm": 88.9,
+   "weight_lbft": 15.8,
+   "wall_in": 0.476,
+   "id_in": 2.548,
+   "drift_in": 2.423
+  },
+  {
+   "od_in": 4.0,
+   "od_label": "4",
+   "od_mm": 101.6,
+   "weight_lbft": 9.5,
+   "wall_in": 0.226,
+   "id_in": 3.548,
+   "drift_in": 3.423
+  },
+  {
+   "od_in": 4.0,
+   "od_label": "4",
+   "od_mm": 101.6,
+   "weight_lbft": 10.9,
+   "wall_in": 0.262,
+   "id_in": 3.476,
+   "drift_in": 3.351
+  },
+  {
+   "od_in": 4.0,
+   "od_label": "4",
+   "od_mm": 101.6,
+   "weight_lbft": 11.0,
+   "wall_in": 0.262,
+   "id_in": 3.476,
+   "drift_in": 3.351
+  },
+  {
+   "od_in": 4.0,
+   "od_label": "4",
+   "od_mm": 101.6,
+   "weight_lbft": 13.0,
+   "wall_in": 0.33,
+   "id_in": 3.34,
+   "drift_in": 3.215
+  },
+  {
+   "od_in": 4.0,
+   "od_label": "4",
+   "od_mm": 101.6,
+   "weight_lbft": 13.2,
+   "wall_in": 0.33,
+   "id_in": 3.34,
+   "drift_in": 3.215
+  },
+  {
+   "od_in": 4.0,
+   "od_label": "4",
+   "od_mm": 101.6,
+   "weight_lbft": 13.4,
+   "wall_in": 0.33,
+   "id_in": 3.34,
+   "drift_in": 3.215
+  },
+  {
+   "od_in": 4.0,
+   "od_label": "4",
+   "od_mm": 101.6,
+   "weight_lbft": 14.85,
+   "wall_in": 0.38,
+   "id_in": 3.24,
+   "drift_in": 3.115
+  },
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 9.5,
+   "wall_in": 0.205,
+   "id_in": 4.09,
+   "drift_in": 3.965
+  },
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 10.5,
+   "wall_in": 0.224,
+   "id_in": 4.052,
+   "drift_in": 3.927
+  },
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 11.6,
+   "wall_in": 0.25,
+   "id_in": 4.0,
+   "drift_in": 3.875
+  },
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 12.6,
+   "wall_in": 0.271,
+   "id_in": 3.958,
+   "drift_in": 3.833
+  },
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 12.75,
+   "wall_in": 0.271,
+   "id_in": 3.958,
+   "drift_in": 3.833
+  },
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 13.5,
+   "wall_in": 0.29,
+   "id_in": 3.92,
+   "drift_in": 3.795
+  },
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 15.1,
+   "wall_in": 0.337,
+   "id_in": 3.826,
+   "drift_in": 3.701
+  },
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 15.2,
+   "wall_in": 0.337,
+   "id_in": 3.826,
+   "drift_in": 3.701
+  },
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 15.5,
+   "wall_in": 0.337,
+   "id_in": 3.826,
+   "drift_in": 3.701
+  }
+ ],
+ "casing": [
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 9.5,
+   "wall_in": 0.205,
+   "id_in": 4.09,
+   "drift_in": null
+  },
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 10.5,
+   "wall_in": 0.224,
+   "id_in": 4.052,
+   "drift_in": 3.927
+  },
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 11.6,
+   "wall_in": 0.25,
+   "id_in": 4.0,
+   "drift_in": 3.875
+  },
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 13.5,
+   "wall_in": 0.29,
+   "id_in": 3.92,
+   "drift_in": 3.795
+  },
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 15.1,
+   "wall_in": 0.337,
+   "id_in": 3.826,
+   "drift_in": 3.701
+  },
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 16.9,
+   "wall_in": 0.38,
+   "id_in": 3.74,
+   "drift_in": 3.615
+  },
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 19.2,
+   "wall_in": 0.43,
+   "id_in": 3.64,
+   "drift_in": 3.515
+  },
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 21.6,
+   "wall_in": 0.5,
+   "id_in": 3.5,
+   "drift_in": 3.375
+  },
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 24.6,
+   "wall_in": 0.56,
+   "id_in": 3.38,
+   "drift_in": 3.255
+  },
+  {
+   "od_in": 4.5,
+   "od_label": "4 1/2",
+   "od_mm": 114.3,
+   "weight_lbft": 26.5,
+   "wall_in": 0.64,
+   "id_in": 3.22,
+   "drift_in": 3.095
+  },
+  {
+   "od_in": 5.0,
+   "od_label": "5",
+   "od_mm": 127.0,
+   "weight_lbft": 11.5,
+   "wall_in": 0.22,
+   "id_in": 4.56,
+   "drift_in": 4.435
+  },
+  {
+   "od_in": 5.0,
+   "od_label": "5",
+   "od_mm": 127.0,
+   "weight_lbft": 13.0,
+   "wall_in": 0.253,
+   "id_in": 4.494,
+   "drift_in": 4.369
+  },
+  {
+   "od_in": 5.0,
+   "od_label": "5",
+   "od_mm": 127.0,
+   "weight_lbft": 15.0,
+   "wall_in": 0.296,
+   "id_in": 4.408,
+   "drift_in": 4.283
+  },
+  {
+   "od_in": 5.0,
+   "od_label": "5",
+   "od_mm": 127.0,
+   "weight_lbft": 18.0,
+   "wall_in": 0.362,
+   "id_in": 4.276,
+   "drift_in": 4.151
+  },
+  {
+   "od_in": 5.0,
+   "od_label": "5",
+   "od_mm": 127.0,
+   "weight_lbft": 21.4,
+   "wall_in": 0.437,
+   "id_in": 4.126,
+   "drift_in": 4.001
+  },
+  {
+   "od_in": 5.0,
+   "od_label": "5",
+   "od_mm": 127.0,
+   "weight_lbft": 23.2,
+   "wall_in": 0.478,
+   "id_in": 4.044,
+   "drift_in": 3.919
+  },
+  {
+   "od_in": 5.0,
+   "od_label": "5",
+   "od_mm": 127.0,
+   "weight_lbft": 24.1,
+   "wall_in": 0.5,
+   "id_in": 4.0,
+   "drift_in": 3.875
+  },
+  {
+   "od_in": 5.0,
+   "od_label": "5",
+   "od_mm": 127.0,
+   "weight_lbft": 27.0,
+   "wall_in": 0.56,
+   "id_in": 3.88,
+   "drift_in": 3.755
+  },
+  {
+   "od_in": 5.0,
+   "od_label": "5",
+   "od_mm": 127.0,
+   "weight_lbft": 29.2,
+   "wall_in": 0.625,
+   "id_in": 3.75,
+   "drift_in": 3.625
+  },
+  {
+   "od_in": 5.0,
+   "od_label": "5",
+   "od_mm": 127.0,
+   "weight_lbft": 31.6,
+   "wall_in": 0.687,
+   "id_in": 3.626,
+   "drift_in": 3.501
+  },
+  {
+   "od_in": 5.5,
+   "od_label": "5 1/2",
+   "od_mm": 139.7,
+   "weight_lbft": 14.0,
+   "wall_in": 0.244,
+   "id_in": 5.012,
+   "drift_in": 4.887
+  },
+  {
+   "od_in": 5.5,
+   "od_label": "5 1/2",
+   "od_mm": 139.7,
+   "weight_lbft": 15.5,
+   "wall_in": 0.275,
+   "id_in": 4.95,
+   "drift_in": 4.825
+  },
+  {
+   "od_in": 5.5,
+   "od_label": "5 1/2",
+   "od_mm": 139.7,
+   "weight_lbft": 17.0,
+   "wall_in": 0.304,
+   "id_in": 4.892,
+   "drift_in": 4.767
+  },
+  {
+   "od_in": 5.5,
+   "od_label": "5 1/2",
+   "od_mm": 139.7,
+   "weight_lbft": 20.0,
+   "wall_in": 0.361,
+   "id_in": 4.778,
+   "drift_in": 4.653
+  },
+  {
+   "od_in": 5.5,
+   "od_label": "5 1/2",
+   "od_mm": 139.7,
+   "weight_lbft": 23.0,
+   "wall_in": 0.415,
+   "id_in": 4.67,
+   "drift_in": 4.545
+  },
+  {
+   "od_in": 5.5,
+   "od_label": "5 1/2",
+   "od_mm": 139.7,
+   "weight_lbft": 26.0,
+   "wall_in": 0.476,
+   "id_in": 4.548,
+   "drift_in": 4.423
+  },
+  {
+   "od_in": 5.5,
+   "od_label": "5 1/2",
+   "od_mm": 139.7,
+   "weight_lbft": 26.8,
+   "wall_in": 0.5,
+   "id_in": 4.5,
+   "drift_in": 4.375
+  },
+  {
+   "od_in": 5.5,
+   "od_label": "5 1/2",
+   "od_mm": 139.7,
+   "weight_lbft": 29.7,
+   "wall_in": 0.562,
+   "id_in": 4.376,
+   "drift_in": 4.251
+  },
+  {
+   "od_in": 5.5,
+   "od_label": "5 1/2",
+   "od_mm": 139.7,
+   "weight_lbft": 32.0,
+   "wall_in": 0.612,
+   "id_in": 4.276,
+   "drift_in": 4.151
+  },
+  {
+   "od_in": 5.5,
+   "od_label": "5 1/2",
+   "od_mm": 139.7,
+   "weight_lbft": 32.6,
+   "wall_in": 0.625,
+   "id_in": 4.25,
+   "drift_in": 4.125
+  },
+  {
+   "od_in": 5.5,
+   "od_label": "5 1/2",
+   "od_mm": 139.7,
+   "weight_lbft": 35.3,
+   "wall_in": 0.687,
+   "id_in": 4.126,
+   "drift_in": 4.001
+  },
+  {
+   "od_in": 5.5,
+   "od_label": "5 1/2",
+   "od_mm": 139.7,
+   "weight_lbft": 38.0,
+   "wall_in": 0.75,
+   "id_in": 4.0,
+   "drift_in": 3.875
+  },
+  {
+   "od_in": 5.5,
+   "od_label": "5 1/2",
+   "od_mm": 139.7,
+   "weight_lbft": 40.5,
+   "wall_in": 0.812,
+   "id_in": 3.876,
+   "drift_in": 3.751
+  },
+  {
+   "od_in": 5.5,
+   "od_label": "5 1/2",
+   "od_mm": 139.7,
+   "weight_lbft": 43.1,
+   "wall_in": 0.875,
+   "id_in": 3.75,
+   "drift_in": 3.625
+  },
+  {
+   "od_in": 6.625,
+   "od_label": "6 5/8",
+   "od_mm": 168.3,
+   "weight_lbft": 20.0,
+   "wall_in": 0.288,
+   "id_in": 6.049,
+   "drift_in": 5.924
+  },
+  {
+   "od_in": 6.625,
+   "od_label": "6 5/8",
+   "od_mm": 168.3,
+   "weight_lbft": 24.0,
+   "wall_in": 0.352,
+   "id_in": 5.921,
+   "drift_in": 5.796
+  },
+  {
+   "od_in": 6.625,
+   "od_label": "6 5/8",
+   "od_mm": 168.3,
+   "weight_lbft": 28.0,
+   "wall_in": 0.417,
+   "id_in": 5.791,
+   "drift_in": 5.666
+  },
+  {
+   "od_in": 6.625,
+   "od_label": "6 5/8",
+   "od_mm": 168.3,
+   "weight_lbft": 32.0,
+   "wall_in": 0.475,
+   "id_in": 5.675,
+   "drift_in": 5.55
+  },
+  {
+   "od_in": 6.625,
+   "od_label": "6 5/8",
+   "od_mm": 168.3,
+   "weight_lbft": 35.0,
+   "wall_in": 0.525,
+   "id_in": 5.575,
+   "drift_in": 5.45
+  },
+  {
+   "od_in": 6.625,
+   "od_label": "6 5/8",
+   "od_mm": 168.3,
+   "weight_lbft": 36.7,
+   "wall_in": 0.562,
+   "id_in": 5.501,
+   "drift_in": 5.376
+  },
+  {
+   "od_in": 6.625,
+   "od_label": "6 5/8",
+   "od_mm": 168.3,
+   "weight_lbft": 40.2,
+   "wall_in": 0.625,
+   "id_in": 5.375,
+   "drift_in": 5.25
+  },
+  {
+   "od_in": 6.625,
+   "od_label": "6 5/8",
+   "od_mm": 168.3,
+   "weight_lbft": 43.7,
+   "wall_in": 0.687,
+   "id_in": 5.251,
+   "drift_in": 5.126
+  },
+  {
+   "od_in": 6.625,
+   "od_label": "6 5/8",
+   "od_mm": 168.3,
+   "weight_lbft": 47.1,
+   "wall_in": 0.75,
+   "id_in": 5.125,
+   "drift_in": 5.0
+  },
+  {
+   "od_in": 6.625,
+   "od_label": "6 5/8",
+   "od_mm": 168.3,
+   "weight_lbft": 50.4,
+   "wall_in": 0.812,
+   "id_in": 5.001,
+   "drift_in": 4.876
+  },
+  {
+   "od_in": 7.0,
+   "od_label": "7",
+   "od_mm": 177.8,
+   "weight_lbft": 17.0,
+   "wall_in": 0.231,
+   "id_in": 6.538,
+   "drift_in": 6.413
+  },
+  {
+   "od_in": 7.0,
+   "od_label": "7",
+   "od_mm": 177.8,
+   "weight_lbft": 20.0,
+   "wall_in": 0.272,
+   "id_in": 6.456,
+   "drift_in": 6.331
+  },
+  {
+   "od_in": 7.0,
+   "od_label": "7",
+   "od_mm": 177.8,
+   "weight_lbft": 23.0,
+   "wall_in": 0.317,
+   "id_in": 6.366,
+   "drift_in": 6.241
+  },
+  {
+   "od_in": 7.0,
+   "od_label": "7",
+   "od_mm": 177.8,
+   "weight_lbft": 26.0,
+   "wall_in": 0.362,
+   "id_in": 6.276,
+   "drift_in": 6.151
+  },
+  {
+   "od_in": 7.0,
+   "od_label": "7",
+   "od_mm": 177.8,
+   "weight_lbft": 29.0,
+   "wall_in": 0.408,
+   "id_in": 6.184,
+   "drift_in": 6.059
+  },
+  {
+   "od_in": 7.0,
+   "od_label": "7",
+   "od_mm": 177.8,
+   "weight_lbft": 32.0,
+   "wall_in": 0.453,
+   "id_in": 6.094,
+   "drift_in": 5.969
+  },
+  {
+   "od_in": 7.0,
+   "od_label": "7",
+   "od_mm": 177.8,
+   "weight_lbft": 35.0,
+   "wall_in": 0.498,
+   "id_in": 6.004,
+   "drift_in": 5.879
+  },
+  {
+   "od_in": 7.0,
+   "od_label": "7",
+   "od_mm": 177.8,
+   "weight_lbft": 38.0,
+   "wall_in": 0.54,
+   "id_in": 5.92,
+   "drift_in": 5.795
+  },
+  {
+   "od_in": 7.0,
+   "od_label": "7",
+   "od_mm": 177.8,
+   "weight_lbft": 41.0,
+   "wall_in": 0.59,
+   "id_in": 5.82,
+   "drift_in": 5.695
+  },
+  {
+   "od_in": 7.0,
+   "od_label": "7",
+   "od_mm": 177.8,
+   "weight_lbft": 42.7,
+   "wall_in": 0.625,
+   "id_in": 5.75,
+   "drift_in": 5.625
+  },
+  {
+   "od_in": 7.0,
+   "od_label": "7",
+   "od_mm": 177.8,
+   "weight_lbft": 46.4,
+   "wall_in": 0.687,
+   "id_in": 5.626,
+   "drift_in": 5.501
+  },
+  {
+   "od_in": 7.0,
+   "od_label": "7",
+   "od_mm": 177.8,
+   "weight_lbft": 50.1,
+   "wall_in": 0.75,
+   "id_in": 5.5,
+   "drift_in": 5.375
+  },
+  {
+   "od_in": 7.0,
+   "od_label": "7",
+   "od_mm": 177.8,
+   "weight_lbft": 53.6,
+   "wall_in": 0.812,
+   "id_in": 5.376,
+   "drift_in": 5.251
+  },
+  {
+   "od_in": 7.0,
+   "od_label": "7",
+   "od_mm": 177.8,
+   "weight_lbft": 57.1,
+   "wall_in": 0.875,
+   "id_in": 5.25,
+   "drift_in": 5.125
+  },
+  {
+   "od_in": 7.625,
+   "od_label": "7 5/8",
+   "od_mm": 193.7,
+   "weight_lbft": 24.0,
+   "wall_in": 0.3,
+   "id_in": 7.025,
+   "drift_in": 6.9
+  },
+  {
+   "od_in": 7.625,
+   "od_label": "7 5/8",
+   "od_mm": 193.7,
+   "weight_lbft": 26.4,
+   "wall_in": 0.328,
+   "id_in": 6.969,
+   "drift_in": 6.844
+  },
+  {
+   "od_in": 7.625,
+   "od_label": "7 5/8",
+   "od_mm": 193.7,
+   "weight_lbft": 29.7,
+   "wall_in": 0.375,
+   "id_in": 6.875,
+   "drift_in": 6.75
+  },
+  {
+   "od_in": 7.625,
+   "od_label": "7 5/8",
+   "od_mm": 193.7,
+   "weight_lbft": 33.7,
+   "wall_in": 0.43,
+   "id_in": 6.765,
+   "drift_in": 6.64
+  },
+  {
+   "od_in": 7.625,
+   "od_label": "7 5/8",
+   "od_mm": 193.7,
+   "weight_lbft": 39.0,
+   "wall_in": 0.5,
+   "id_in": 6.625,
+   "drift_in": 6.5
+  },
+  {
+   "od_in": 7.625,
+   "od_label": "7 5/8",
+   "od_mm": 193.7,
+   "weight_lbft": 42.8,
+   "wall_in": 0.562,
+   "id_in": 6.501,
+   "drift_in": 6.376
+  },
+  {
+   "od_in": 7.625,
+   "od_label": "7 5/8",
+   "od_mm": 193.7,
+   "weight_lbft": 45.3,
+   "wall_in": 0.595,
+   "id_in": 6.435,
+   "drift_in": 6.31
+  },
+  {
+   "od_in": 7.625,
+   "od_label": "7 5/8",
+   "od_mm": 193.7,
+   "weight_lbft": 47.1,
+   "wall_in": 0.625,
+   "id_in": 6.375,
+   "drift_in": 6.25
+  },
+  {
+   "od_in": 7.625,
+   "od_label": "7 5/8",
+   "od_mm": 193.7,
+   "weight_lbft": 51.2,
+   "wall_in": 0.687,
+   "id_in": 6.251,
+   "drift_in": 6.126
+  },
+  {
+   "od_in": 7.625,
+   "od_label": "7 5/8",
+   "od_mm": 193.7,
+   "weight_lbft": 53.0,
+   "wall_in": 0.712,
+   "id_in": 6.201,
+   "drift_in": 6.076
+  },
+  {
+   "od_in": 7.625,
+   "od_label": "7 5/8",
+   "od_mm": 193.7,
+   "weight_lbft": 55.3,
+   "wall_in": 0.75,
+   "id_in": 6.125,
+   "drift_in": 6.0
+  },
+  {
+   "od_in": 7.625,
+   "od_label": "7 5/8",
+   "od_mm": 193.7,
+   "weight_lbft": 59.0,
+   "wall_in": 0.811,
+   "id_in": 6.003,
+   "drift_in": 5.878
+  },
+  {
+   "od_in": 7.625,
+   "od_label": "7 5/8",
+   "od_mm": 193.7,
+   "weight_lbft": 59.2,
+   "wall_in": 0.812,
+   "id_in": 6.001,
+   "drift_in": 5.876
+  },
+  {
+   "od_in": 7.75,
+   "od_label": "7 3/4",
+   "od_mm": 196.9,
+   "weight_lbft": 46.1,
+   "wall_in": 0.595,
+   "id_in": 6.56,
+   "drift_in": 6.435
+  },
+  {
+   "od_in": 8.625,
+   "od_label": "8 5/8",
+   "od_mm": 219.1,
+   "weight_lbft": 24.0,
+   "wall_in": 0.264,
+   "id_in": 8.097,
+   "drift_in": 7.972
+  },
+  {
+   "od_in": 8.625,
+   "od_label": "8 5/8",
+   "od_mm": 219.1,
+   "weight_lbft": 28.0,
+   "wall_in": 0.304,
+   "id_in": 8.017,
+   "drift_in": 7.892
+  },
+  {
+   "od_in": 8.625,
+   "od_label": "8 5/8",
+   "od_mm": 219.1,
+   "weight_lbft": 32.0,
+   "wall_in": 0.352,
+   "id_in": 7.921,
+   "drift_in": 7.796
+  },
+  {
+   "od_in": 8.625,
+   "od_label": "8 5/8",
+   "od_mm": 219.1,
+   "weight_lbft": 36.0,
+   "wall_in": 0.4,
+   "id_in": 7.825,
+   "drift_in": 7.7
+  },
+  {
+   "od_in": 8.625,
+   "od_label": "8 5/8",
+   "od_mm": 219.1,
+   "weight_lbft": 40.0,
+   "wall_in": 0.45,
+   "id_in": 7.725,
+   "drift_in": 7.6
+  },
+  {
+   "od_in": 8.625,
+   "od_label": "8 5/8",
+   "od_mm": 219.1,
+   "weight_lbft": 44.0,
+   "wall_in": 0.5,
+   "id_in": 7.625,
+   "drift_in": 7.5
+  },
+  {
+   "od_in": 8.625,
+   "od_label": "8 5/8",
+   "od_mm": 219.1,
+   "weight_lbft": 49.0,
+   "wall_in": 0.557,
+   "id_in": 7.511,
+   "drift_in": 7.386
+  },
+  {
+   "od_in": 8.625,
+   "od_label": "8 5/8",
+   "od_mm": 219.1,
+   "weight_lbft": 52.0,
+   "wall_in": 0.595,
+   "id_in": 7.435,
+   "drift_in": 7.31
+  },
+  {
+   "od_in": 8.625,
+   "od_label": "8 5/8",
+   "od_mm": 219.1,
+   "weight_lbft": 54.0,
+   "wall_in": 0.625,
+   "id_in": 7.375,
+   "drift_in": 7.25
+  },
+  {
+   "od_in": 9.625,
+   "od_label": "9 5/8",
+   "od_mm": 244.5,
+   "weight_lbft": 32.3,
+   "wall_in": 0.312,
+   "id_in": 9.001,
+   "drift_in": 8.845
+  },
+  {
+   "od_in": 9.625,
+   "od_label": "9 5/8",
+   "od_mm": 244.5,
+   "weight_lbft": 36.0,
+   "wall_in": 0.352,
+   "id_in": 8.921,
+   "drift_in": 8.765
+  },
+  {
+   "od_in": 9.625,
+   "od_label": "9 5/8",
+   "od_mm": 244.5,
+   "weight_lbft": 40.0,
+   "wall_in": 0.395,
+   "id_in": 8.835,
+   "drift_in": 8.679
+  },
+  {
+   "od_in": 9.625,
+   "od_label": "9 5/8",
+   "od_mm": 244.5,
+   "weight_lbft": 43.5,
+   "wall_in": 0.435,
+   "id_in": 8.755,
+   "drift_in": 8.599
+  },
+  {
+   "od_in": 9.625,
+   "od_label": "9 5/8",
+   "od_mm": 244.5,
+   "weight_lbft": 47.0,
+   "wall_in": 0.472,
+   "id_in": 8.681,
+   "drift_in": 8.525
+  },
+  {
+   "od_in": 9.625,
+   "od_label": "9 5/8",
+   "od_mm": 244.5,
+   "weight_lbft": 53.5,
+   "wall_in": 0.545,
+   "id_in": 8.535,
+   "drift_in": 8.379
+  },
+  {
+   "od_in": 9.625,
+   "od_label": "9 5/8",
+   "od_mm": 244.5,
+   "weight_lbft": 58.4,
+   "wall_in": 0.595,
+   "id_in": 8.435,
+   "drift_in": 8.279
+  },
+  {
+   "od_in": 9.625,
+   "od_label": "9 5/8",
+   "od_mm": 244.5,
+   "weight_lbft": 59.4,
+   "wall_in": 0.609,
+   "id_in": 8.407,
+   "drift_in": 8.251
+  },
+  {
+   "od_in": 9.625,
+   "od_label": "9 5/8",
+   "od_mm": 244.5,
+   "weight_lbft": 61.1,
+   "wall_in": 0.625,
+   "id_in": 8.375,
+   "drift_in": 8.219
+  },
+  {
+   "od_in": 9.625,
+   "od_label": "9 5/8",
+   "od_mm": 244.5,
+   "weight_lbft": 64.9,
+   "wall_in": 0.672,
+   "id_in": 8.281,
+   "drift_in": 8.125
+  },
+  {
+   "od_in": 9.625,
+   "od_label": "9 5/8",
+   "od_mm": 244.5,
+   "weight_lbft": 70.3,
+   "wall_in": 0.734,
+   "id_in": 8.157,
+   "drift_in": 8.001
+  },
+  {
+   "od_in": 9.625,
+   "od_label": "9 5/8",
+   "od_mm": 244.5,
+   "weight_lbft": 71.8,
+   "wall_in": 0.75,
+   "id_in": 8.125,
+   "drift_in": 7.969
+  },
+  {
+   "od_in": 9.625,
+   "od_label": "9 5/8",
+   "od_mm": 244.5,
+   "weight_lbft": 75.6,
+   "wall_in": 0.797,
+   "id_in": 8.031,
+   "drift_in": 7.875
+  },
+  {
+   "od_in": 9.625,
+   "od_label": "9 5/8",
+   "od_mm": 244.5,
+   "weight_lbft": 80.8,
+   "wall_in": 0.859,
+   "id_in": 7.907,
+   "drift_in": 7.751
+  },
+  {
+   "od_in": 9.625,
+   "od_label": "9 5/8",
+   "od_mm": 244.5,
+   "weight_lbft": 86.0,
+   "wall_in": 0.922,
+   "id_in": 7.781,
+   "drift_in": 7.625
+  },
+  {
+   "od_in": 9.875,
+   "od_label": "9 7/8",
+   "od_mm": 250.8,
+   "weight_lbft": 62.8,
+   "wall_in": 0.625,
+   "id_in": 8.625,
+   "drift_in": 8.469
+  },
+  {
+   "od_in": 10.75,
+   "od_label": "10 3/4",
+   "od_mm": 273.1,
+   "weight_lbft": 32.75,
+   "wall_in": 0.279,
+   "id_in": 10.192,
+   "drift_in": 10.036
+  },
+  {
+   "od_in": 10.75,
+   "od_label": "10 3/4",
+   "od_mm": 273.1,
+   "weight_lbft": 40.5,
+   "wall_in": 0.35,
+   "id_in": 10.05,
+   "drift_in": 9.894
+  },
+  {
+   "od_in": 10.75,
+   "od_label": "10 3/4",
+   "od_mm": 273.1,
+   "weight_lbft": 45.5,
+   "wall_in": 0.4,
+   "id_in": 9.95,
+   "drift_in": 9.794
+  },
+  {
+   "od_in": 10.75,
+   "od_label": "10 3/4",
+   "od_mm": 273.1,
+   "weight_lbft": 51.0,
+   "wall_in": 0.45,
+   "id_in": 9.85,
+   "drift_in": 9.694
+  },
+  {
+   "od_in": 10.75,
+   "od_label": "10 3/4",
+   "od_mm": 273.1,
+   "weight_lbft": 55.5,
+   "wall_in": 0.495,
+   "id_in": 9.76,
+   "drift_in": 9.604
+  },
+  {
+   "od_in": 10.75,
+   "od_label": "10 3/4",
+   "od_mm": 273.1,
+   "weight_lbft": 60.7,
+   "wall_in": 0.545,
+   "id_in": 9.66,
+   "drift_in": 9.504
+  },
+  {
+   "od_in": 10.75,
+   "od_label": "10 3/4",
+   "od_mm": 273.1,
+   "weight_lbft": 65.7,
+   "wall_in": 0.595,
+   "id_in": 9.56,
+   "drift_in": 9.404
+  },
+  {
+   "od_in": 10.75,
+   "od_label": "10 3/4",
+   "od_mm": 273.1,
+   "weight_lbft": 71.1,
+   "wall_in": 0.65,
+   "id_in": 9.45,
+   "drift_in": 9.294
+  },
+  {
+   "od_in": 10.75,
+   "od_label": "10 3/4",
+   "od_mm": 273.1,
+   "weight_lbft": 73.2,
+   "wall_in": 0.672,
+   "id_in": 9.406,
+   "drift_in": 9.25
+  },
+  {
+   "od_in": 10.75,
+   "od_label": "10 3/4",
+   "od_mm": 273.1,
+   "weight_lbft": 75.9,
+   "wall_in": 0.7,
+   "id_in": 9.35,
+   "drift_in": 9.194
+  },
+  {
+   "od_in": 10.75,
+   "od_label": "10 3/4",
+   "od_mm": 273.1,
+   "weight_lbft": 79.2,
+   "wall_in": 0.734,
+   "id_in": 9.282,
+   "drift_in": 9.126
+  },
+  {
+   "od_in": 10.75,
+   "od_label": "10 3/4",
+   "od_mm": 273.1,
+   "weight_lbft": 80.9,
+   "wall_in": 0.75,
+   "id_in": 9.25,
+   "drift_in": 9.094
+  },
+  {
+   "od_in": 10.75,
+   "od_label": "10 3/4",
+   "od_mm": 273.1,
+   "weight_lbft": 85.3,
+   "wall_in": 0.797,
+   "id_in": 9.156,
+   "drift_in": 9.0
+  },
+  {
+   "od_in": 11.75,
+   "od_label": "11 3/4",
+   "od_mm": 298.5,
+   "weight_lbft": 42.0,
+   "wall_in": 0.333,
+   "id_in": 11.084,
+   "drift_in": 10.928
+  },
+  {
+   "od_in": 11.75,
+   "od_label": "11 3/4",
+   "od_mm": 298.5,
+   "weight_lbft": 47.0,
+   "wall_in": 0.375,
+   "id_in": 11.0,
+   "drift_in": 10.844
+  },
+  {
+   "od_in": 11.75,
+   "od_label": "11 3/4",
+   "od_mm": 298.5,
+   "weight_lbft": 54.0,
+   "wall_in": 0.435,
+   "id_in": 10.88,
+   "drift_in": 10.724
+  },
+  {
+   "od_in": 11.75,
+   "od_label": "11 3/4",
+   "od_mm": 298.5,
+   "weight_lbft": 60.0,
+   "wall_in": 0.489,
+   "id_in": 10.772,
+   "drift_in": 10.616
+  },
+  {
+   "od_in": 11.75,
+   "od_label": "11 3/4",
+   "od_mm": 298.5,
+   "weight_lbft": 65.0,
+   "wall_in": 0.534,
+   "id_in": 10.682,
+   "drift_in": 10.526
+  },
+  {
+   "od_in": 11.75,
+   "od_label": "11 3/4",
+   "od_mm": 298.5,
+   "weight_lbft": 71.0,
+   "wall_in": 0.582,
+   "id_in": 10.586,
+   "drift_in": 10.43
+  },
+  {
+   "od_in": 11.75,
+   "od_label": "11 3/4",
+   "od_mm": 298.5,
+   "weight_lbft": 75.0,
+   "wall_in": 0.618,
+   "id_in": 10.514,
+   "drift_in": 10.358
+  },
+  {
+   "od_in": 11.75,
+   "od_label": "11 3/4",
+   "od_mm": 298.5,
+   "weight_lbft": 79.0,
+   "wall_in": 0.656,
+   "id_in": 10.438,
+   "drift_in": 10.282
+  },
+  {
+   "od_in": 11.875,
+   "od_label": "11 7/8",
+   "od_mm": 301.6,
+   "weight_lbft": 71.8,
+   "wall_in": 0.582,
+   "id_in": 10.711,
+   "drift_in": 10.555
+  },
+  {
+   "od_in": 13.375,
+   "od_label": "13 3/8",
+   "od_mm": 339.7,
+   "weight_lbft": 48.0,
+   "wall_in": 0.33,
+   "id_in": 12.715,
+   "drift_in": 12.559
+  },
+  {
+   "od_in": 13.375,
+   "od_label": "13 3/8",
+   "od_mm": 339.7,
+   "weight_lbft": 54.5,
+   "wall_in": 0.38,
+   "id_in": 12.615,
+   "drift_in": 12.459
+  },
+  {
+   "od_in": 13.375,
+   "od_label": "13 3/8",
+   "od_mm": 339.7,
+   "weight_lbft": 61.0,
+   "wall_in": 0.43,
+   "id_in": 12.515,
+   "drift_in": 12.359
+  },
+  {
+   "od_in": 13.375,
+   "od_label": "13 3/8",
+   "od_mm": 339.7,
+   "weight_lbft": 68.0,
+   "wall_in": 0.48,
+   "id_in": 12.415,
+   "drift_in": 12.259
+  },
+  {
+   "od_in": 13.375,
+   "od_label": "13 3/8",
+   "od_mm": 339.7,
+   "weight_lbft": 72.0,
+   "wall_in": 0.514,
+   "id_in": 12.347,
+   "drift_in": 12.191
+  },
+  {
+   "od_in": 13.375,
+   "od_label": "13 3/8",
+   "od_mm": 339.7,
+   "weight_lbft": 77.0,
+   "wall_in": 0.55,
+   "id_in": 12.275,
+   "drift_in": 12.119
+  },
+  {
+   "od_in": 13.375,
+   "od_label": "13 3/8",
+   "od_mm": 339.7,
+   "weight_lbft": 80.7,
+   "wall_in": 0.58,
+   "id_in": 12.215,
+   "drift_in": 12.059
+  },
+  {
+   "od_in": 13.375,
+   "od_label": "13 3/8",
+   "od_mm": 339.7,
+   "weight_lbft": 86.0,
+   "wall_in": 0.625,
+   "id_in": 12.125,
+   "drift_in": 11.969
+  },
+  {
+   "od_in": 13.375,
+   "od_label": "13 3/8",
+   "od_mm": 339.7,
+   "weight_lbft": 92.0,
+   "wall_in": 0.67,
+   "id_in": 12.035,
+   "drift_in": 11.879
+  },
+  {
+   "od_in": 13.375,
+   "od_label": "13 3/8",
+   "od_mm": 339.7,
+   "weight_lbft": 98.0,
+   "wall_in": 0.719,
+   "id_in": 11.937,
+   "drift_in": 11.781
+  },
+  {
+   "od_in": 13.5,
+   "od_label": "13 1/2",
+   "od_mm": 342.9,
+   "weight_lbft": 80.4,
+   "wall_in": 0.576,
+   "id_in": 12.348,
+   "drift_in": 12.161
+  },
+  {
+   "od_in": 13.625,
+   "od_label": "13 5/8",
+   "od_mm": 346.1,
+   "weight_lbft": 88.2,
+   "wall_in": 0.625,
+   "id_in": 12.375,
+   "drift_in": 12.219
+  },
+  {
+   "od_in": 14.0,
+   "od_label": "14",
+   "od_mm": 355.6,
+   "weight_lbft": 82.5,
+   "wall_in": 0.562,
+   "id_in": 12.876,
+   "drift_in": 12.689
+  },
+  {
+   "od_in": 14.0,
+   "od_label": "14",
+   "od_mm": 355.6,
+   "weight_lbft": 94.8,
+   "wall_in": 0.656,
+   "id_in": 12.688,
+   "drift_in": 12.501
+  },
+  {
+   "od_in": 14.0,
+   "od_label": "14",
+   "od_mm": 355.6,
+   "weight_lbft": 99.3,
+   "wall_in": 0.688,
+   "id_in": 12.624,
+   "drift_in": 12.437
+  },
+  {
+   "od_in": 14.0,
+   "od_label": "14",
+   "od_mm": 355.6,
+   "weight_lbft": 110.0,
+   "wall_in": 0.772,
+   "id_in": 12.456,
+   "drift_in": 12.269
+  },
+  {
+   "od_in": 16.0,
+   "od_label": "16",
+   "od_mm": 406.4,
+   "weight_lbft": 65.0,
+   "wall_in": 0.375,
+   "id_in": 15.25,
+   "drift_in": 15.062
+  },
+  {
+   "od_in": 16.0,
+   "od_label": "16",
+   "od_mm": 406.4,
+   "weight_lbft": 75.0,
+   "wall_in": 0.438,
+   "id_in": 15.124,
+   "drift_in": 14.936
+  },
+  {
+   "od_in": 16.0,
+   "od_label": "16",
+   "od_mm": 406.4,
+   "weight_lbft": 84.0,
+   "wall_in": 0.495,
+   "id_in": 15.01,
+   "drift_in": 14.822
+  },
+  {
+   "od_in": 16.0,
+   "od_label": "16",
+   "od_mm": 406.4,
+   "weight_lbft": 94.5,
+   "wall_in": 0.562,
+   "id_in": 14.876,
+   "drift_in": 14.689
+  },
+  {
+   "od_in": 16.0,
+   "od_label": "16",
+   "od_mm": 406.4,
+   "weight_lbft": 109.0,
+   "wall_in": 0.656,
+   "id_in": 14.688,
+   "drift_in": 14.5
+  },
+  {
+   "od_in": 16.0,
+   "od_label": "16",
+   "od_mm": 406.4,
+   "weight_lbft": 118.0,
+   "wall_in": 0.715,
+   "id_in": 14.57,
+   "drift_in": 14.383
+  },
+  {
+   "od_in": 16.0,
+   "od_label": "16",
+   "od_mm": 406.4,
+   "weight_lbft": 128.0,
+   "wall_in": 0.781,
+   "id_in": 14.438,
+   "drift_in": 14.251
+  },
+  {
+   "od_in": 18.625,
+   "od_label": "18 5/8",
+   "od_mm": 473.1,
+   "weight_lbft": 87.5,
+   "wall_in": 0.435,
+   "id_in": 17.755,
+   "drift_in": 17.567
+  },
+  {
+   "od_in": 18.625,
+   "od_label": "18 5/8",
+   "od_mm": 473.1,
+   "weight_lbft": 94.5,
+   "wall_in": 0.468,
+   "id_in": 17.689,
+   "drift_in": 17.502
+  },
+  {
+   "od_in": 18.625,
+   "od_label": "18 5/8",
+   "od_mm": 473.1,
+   "weight_lbft": 96.5,
+   "wall_in": 0.485,
+   "id_in": 17.655,
+   "drift_in": 17.468
+  },
+  {
+   "od_in": 18.625,
+   "od_label": "18 5/8",
+   "od_mm": 473.1,
+   "weight_lbft": 109.0,
+   "wall_in": 0.563,
+   "id_in": 17.499,
+   "drift_in": 17.311
+  },
+  {
+   "od_in": 18.625,
+   "od_label": "18 5/8",
+   "od_mm": 473.1,
+   "weight_lbft": 114.0,
+   "wall_in": 0.579,
+   "id_in": 17.467,
+   "drift_in": 17.279
+  },
+  {
+   "od_in": 18.625,
+   "od_label": "18 5/8",
+   "od_mm": 473.1,
+   "weight_lbft": 115.0,
+   "wall_in": 0.594,
+   "id_in": 17.437,
+   "drift_in": 17.25
+  },
+  {
+   "od_in": 18.625,
+   "od_label": "18 5/8",
+   "od_mm": 473.1,
+   "weight_lbft": 126.0,
+   "wall_in": 0.636,
+   "id_in": 17.353,
+   "drift_in": 17.166
+  },
+  {
+   "od_in": 18.625,
+   "od_label": "18 5/8",
+   "od_mm": 473.1,
+   "weight_lbft": 136.0,
+   "wall_in": 0.693,
+   "id_in": 17.239,
+   "drift_in": 17.052
+  },
+  {
+   "od_in": 18.625,
+   "od_label": "18 5/8",
+   "od_mm": 473.1,
+   "weight_lbft": 139.0,
+   "wall_in": 0.72,
+   "id_in": 17.185,
+   "drift_in": 16.998
+  },
+  {
+   "od_in": 20.0,
+   "od_label": "20",
+   "od_mm": 508.0,
+   "weight_lbft": 94.0,
+   "wall_in": 0.438,
+   "id_in": 19.124,
+   "drift_in": 18.936
+  },
+  {
+   "od_in": 20.0,
+   "od_label": "20",
+   "od_mm": 508.0,
+   "weight_lbft": 106.5,
+   "wall_in": 0.5,
+   "id_in": 19.0,
+   "drift_in": 18.812
+  },
+  {
+   "od_in": 20.0,
+   "od_label": "20",
+   "od_mm": 508.0,
+   "weight_lbft": 118.5,
+   "wall_in": 0.563,
+   "id_in": 18.874,
+   "drift_in": 18.687
+  },
+  {
+   "od_in": 20.0,
+   "od_label": "20",
+   "od_mm": 508.0,
+   "weight_lbft": 133.0,
+   "wall_in": 0.635,
+   "id_in": 18.73,
+   "drift_in": 18.542
+  },
+  {
+   "od_in": 20.0,
+   "od_label": "20",
+   "od_mm": 508.0,
+   "weight_lbft": 147.0,
+   "wall_in": 0.709,
+   "id_in": 18.582,
+   "drift_in": 18.394
+  },
+  {
+   "od_in": 20.0,
+   "od_label": "20",
+   "od_mm": 508.0,
+   "weight_lbft": 169.0,
+   "wall_in": 0.812,
+   "id_in": 18.376,
+   "drift_in": 18.188
+  },
+  {
+   "od_in": 24.5,
+   "od_label": "24 1/2",
+   "od_mm": 622.3,
+   "weight_lbft": 133.0,
+   "wall_in": 0.5,
+   "id_in": 23.5,
+   "drift_in": 23.313
+  },
+  {
+   "od_in": 24.5,
+   "od_label": "24 1/2",
+   "od_mm": 622.3,
+   "weight_lbft": 140.0,
+   "wall_in": 0.531,
+   "id_in": 23.438,
+   "drift_in": 23.251
+  },
+  {
+   "od_in": 24.5,
+   "od_label": "24 1/2",
+   "od_mm": 622.3,
+   "weight_lbft": 162.0,
+   "wall_in": 0.625,
+   "id_in": 23.25,
+   "drift_in": 23.063
+  },
+  {
+   "od_in": 24.5,
+   "od_label": "24 1/2",
+   "od_mm": 622.3,
+   "weight_lbft": 165.0,
+   "wall_in": 0.635,
+   "id_in": 23.23,
+   "drift_in": 23.043
+  }
+ ]
+}

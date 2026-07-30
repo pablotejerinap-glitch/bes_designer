@@ -40,6 +40,17 @@ def _sg_liquid(fluid: Fluid) -> float:
     return sg_oil * (1.0 - fluid.water_cut) + fluid.water_sg * fluid.water_cut
 
 
+def _sg_max(fluid: Fluid) -> float:
+    """SG del fluido más pesado (agua o petróleo desgasificado).
+
+    Es el que define el **HP máximo** del motor (Brown §4.5325): durante el
+    arranque/desgasificado o produciendo agua antes de estabilizar, la bomba
+    puede mover el fluido más pesado, exigiendo la mayor potencia.
+    """
+    sg_oil = 141.5 / (131.5 + fluid.oil_api)
+    return max(fluid.water_sg, sg_oil)
+
+
 def calculate_tdh(
     reservoir: Reservoir,
     fluid: Fluid,

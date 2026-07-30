@@ -28,8 +28,16 @@ _VDROP_PER_AMP_PER_1000FT: dict[tuple[str, str], tuple[float, ...]] = {
     ("AL", "#4"): (0.779, 0.850, 0.895, 0.927),
 }
 
-# Approximate flat-cable armored thickness [in] for annular clearance check
+# Flat-cable radial (minor-axis) thickness [in], the dimension that competes for
+# the casing-motor annular clearance. Values #6-#1 are the established
+# approximations of the flat armored series; each is ~0.14-0.15 in over the AWG
+# conductor diameter (aislación + chaqueta + armadura), growing ~0.06 in per size
+# step near the large end. 1/0 is extrapolated on that basis (AWG 1/0 conductor
+# ~0.325 in) to 0.52 in — consistent with the series and bounded above by
+# commercial 1/0 flat 3C cable (~0.68 in for heavy-duty jacketed). Ref.: Takacs
+# (2018), ESP Manual §3.4, Table 3.6 (conductor diameters).
 _CABLE_FLAT_THICKNESS_IN: dict[str, float] = {
+    "1/0": 0.52,
     "#1": 0.46,
     "#2": 0.40,
     "#4": 0.35,
@@ -377,6 +385,33 @@ def estimate_axial_thrust(tdh_ft: float, sg_fluid: float, pump_series: str) -> f
     return dp_psi * area * _THRUST_MARGIN
 
 
+_MIN_COOLING_VELOCITY_FT_S = 1.0   # velocidad mínima de fluido para enfriar el motor
+_FT3_PER_BBL = 5.615
+_SECONDS_PER_DAY = 86400.0
+
+
+def fluid_velocity_past_motor(
+    flow_bpd: float, casing_id_in: float, motor_od_in: float
+) -> float:
+    """Velocidad del fluido en el anular casing-motor [ft/s].
+
+    El fluido producido sube por el espacio entre el motor y la pared del casing
+    y es lo que refrigera al motor. ``v = Q / A_anular`` con
+    ``A_anular = π/4·(ID_casing² − OD_motor²)``. Brown/Takacs recomiendan
+    ``v ≥ 1 ft/s``; por debajo, evaluar camisa de enfriamiento.
+
+    Raises:
+        ValueError: si el motor no entra en el casing (área anular ≤ 0).
+    """
+    import math
+    area_in2 = math.pi / 4.0 * (casing_id_in ** 2 - motor_od_in ** 2)
+    if area_in2 <= 0:
+        raise ValueError("el motor no entra en el casing (área anular ≤ 0)")
+    q_ft3_s = flow_bpd * _FT3_PER_BBL / _SECONDS_PER_DAY
+    area_ft2 = area_in2 / 144.0
+    return q_ft3_s / area_ft2
+
+
 def electrical_design_complete(
     motor_hp: float,
     pump_od: float,
@@ -387,6 +422,8 @@ def electrical_design_complete(
     tdh_ft: float | None = None,
     sg_fluid: float = 1.0,
     pump_series: str | None = None,
+    flow_bpd: float = 0.0,
+    use_vsd: bool = False,
 ) -> dict:
     """Complete electrical design: motor → seal → cable → voltage drop → transformer.
 
@@ -461,6 +498,39 @@ def electrical_design_complete(
     kva = calculate_kva(surface_v, motor["amperage"])
     transformer = select_transformer(kva)
 
+    # --- Controlador de superficie (tablero fijo o VSD); no fatal ---
+    controller: dict | None = None
+    controller_warning: str | None = None
+    try:
+        controller = catalog_manager.get_controller(
+            voltage=surface_v, kva=kva, amps=motor["amperage"], prefer_vsd=use_vsd
+        )
+    except ValueError:
+        controller_warning = (
+            f"Sin controlador en catálogo para {surface_v:.0f} V, {kva:.0f} kVA, "
+            f"{motor['amperage']:.0f} A."
+        )
+
+    # --- Enfriamiento del motor: velocidad de fluido en el anular ---
+    fluid_velocity: float = 0.0
+    cooling_ok = True
+    cooling_warning: str | None = None
+    if flow_bpd > 0:
+        try:
+            fluid_velocity = fluid_velocity_past_motor(
+                flow_bpd, well.casing_id, float(motor["od_inches"])
+            )
+            cooling_ok = fluid_velocity >= _MIN_COOLING_VELOCITY_FT_S
+            if not cooling_ok:
+                cooling_warning = (
+                    f"Velocidad de fluido {fluid_velocity:.2f} ft/s < "
+                    f"{_MIN_COOLING_VELOCITY_FT_S:.0f} ft/s: puede no enfriar el motor. "
+                    f"Evaluar camisa de enfriamiento (motor shroud)."
+                )
+        except ValueError:
+            cooling_ok = False
+            cooling_warning = "No se pudo evaluar el enfriamiento (motor no entra en el casing)."
+
     return {
         "motor": motor,
         "seal": seal,
@@ -471,4 +541,9 @@ def electrical_design_complete(
         "transformer": transformer,
         "axial_thrust_lbs": thrust_lbs,
         "seal_warning": seal_warning,
+        "fluid_velocity_ft_s": fluid_velocity,
+        "cooling_ok": cooling_ok,
+        "cooling_warning": cooling_warning,
+        "controller": controller,
+        "controller_warning": controller_warning,
     }
