@@ -125,7 +125,9 @@ bes_designer/
     ├── EJEMPLO_ESP01.md
     ├── BROWN_CHAPTER_SUMMARY.md       # ← Resumen Brown Vol 2b §4.5
     ├── BROWN_VOL4_NODAL_ANALYSIS.md   # ← Resumen Brown Vol 4 (nodal)
-    └── TESIS_CONTEXTO_COMPLETO.md     # ← este archivo
+    └── _trabajo/              # notas de trabajo, no entregables de la tesis
+        ├── TESIS_CONTEXTO_COMPLETO.md  # ← este archivo
+        └── MEMORIA_TECNICA_APP.md
 ```
 
 ### Convenciones técnicas

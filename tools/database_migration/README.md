@@ -66,8 +66,9 @@ los colores intercambiados respecto a los ejes; se asignó por física.
 **Estado del catálogo de bombas: 60 con curva** (23 legadas Brown +
 37 Alkhorayef). Verificación: `verify_database_v31.py` (semántica de
 subconjunto: las legadas idénticas, las nuevas amplían las consultas).
-Los archivos `_chart_*.png`, `_banda_*.png` y `_curva_*.png` son
-capturas de trabajo y pueden borrarse.
+Las capturas de trabajo de la digitalización (`_chart_*.png`,
+`_banda_*.png`) ya se borraron; sobrevive `_curva_wa550.png` porque la
+usa `generar_memoria_tecnica.py`.
 
 Resultados vigentes:
 
@@ -77,14 +78,16 @@ ESQUEMA v3 VERIFICADO: 132 registros idénticos a los JSON; selecciones
 de equipo e interpolación idénticas.
 ```
 
-## Archivos históricos (pueden borrarse)
+## `_historico/` — etapas superadas
 
-Etapa 1 (v1): `migrate_json_to_excel.py`, `excel_loader.py`,
-`verify_migration.py`, `_migrate_exec.py`, `_run_migration_tmp.py`.
-Etapa 2 (v2): `build_database.py`, `database_loader.py`,
-`verify_database.py`, `_build_runner.py`.
-Se conservan solo como historial de la evolución incremental
-(v1 plano → v2 normalizado → v3 auditado).
+Nada de esta carpeta se usa: está solo como historial de la evolución
+incremental del diseño (v1 plano → v2 normalizado → v3 auditado).
+
+| Etapa | Archivos |
+|---|---|
+| v1 (plano) | `migrate_json_to_excel.py`, `excel_loader.py`, `verify_migration.py`, `_migrate_exec.py`, `_run_migration_tmp.py` |
+| v2 (normalizado) | `build_database.py`, `database_loader.py`, `verify_database.py`, `_build_runner.py` |
+| respaldos | `pumps_RESPALDO_*.xlsx` — copias de `data_excel/pumps.xlsx` previas a cada importación |
 
 ## Integración (próximo paso, pendiente de aprobación)
 

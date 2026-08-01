@@ -1,7 +1,7 @@
 # BES Designer
 
 Herramienta de diseño automatizado para sistemas de Bombeo Electrosumergible (BES/ESP).
-Implementa la metodología completa de Kermit Brown — *The Technology of Artificial Lift Methods*, Vol. 2b, Cap. 4.5 — en 10 módulos Python con más de 570 tests automatizados, una API FastAPI y una SPA React.
+Implementa la metodología completa de Kermit Brown — *The Technology of Artificial Lift Methods*, Vol. 2b, Cap. 4.5 — en 10 módulos Python con 750 tests automatizados, una API FastAPI y una SPA React.
 
 A partir de los datos del pozo (reservorio, fluido, geometría, superficie y objetivos de producción), la herramienta selecciona y dimensiona el sistema completo: bomba + número de etapas, motor, cable, transformador y voltaje en superficie.
 
@@ -15,11 +15,12 @@ A partir de los datos del pozo (reservorio, fluido, geometría, superficie y obj
 - **TDH por Hazen-Williams** + perfil hidrostático
 - **Manejo de gas (GIP)** siguiendo Brown §4.53103
 - **Corrección por viscosidad** según el estándar Hydraulic Institute
-- **Ordenamiento por criterios de ingeniería**: 1. cercanía al BEP · 2. eficiencia · 3. menor potencia (lexicográfico, sin pesos)
-- **Top-3 recomendaciones** con diversificación de fabricante
+- **Ordenamiento por criterios de ingeniería**: 1. cercanía al BEP · 2. eficiencia · 3. menor potencia (lexicográfico, sin pesos ni puntajes). El fabricante es informativo y no influye en el orden.
+- **Top-3 recomendaciones** con la justificación construida a partir de los valores calculados
+- **Método métrico de cátedra** ("ESP 01") como motor paralelo en kg/cm² · m · °C · m³/d
 - **Reportes** PDF, Excel y JSON descargables desde la app
 - **Análisis de sensibilidad** sobre parámetros clave
-- **400+ tests** con pytest
+- **750 tests** con pytest
 
 ---
 
@@ -37,7 +38,8 @@ bes_designer/
 │   │   │   ├── tdh.py          # Total Dynamic Head (Brown §4.5324)
 │   │   │   ├── pump_design.py  # Etapas, HP, corrección por viscosidad HI
 │   │   │   ├── electrical.py   # Motor, cable, transformador
-│   │   │   └── gas_handling.py # GIP (Brown §4.53103)
+│   │   │   ├── gas_handling.py # GIP (Brown §4.53103)
+│   │   │   └── metric_design.py# Método métrico de cátedra "ESP 01"
 │   │   ├── catalogs/           # Catálogos de equipos (JSON) + CatalogManager
 │   │   ├── recommender/        # Selección y ordenamiento (select_top_n_pumps, ranking)
 │   │   ├── reports/            # PDF (ReportLab) · Excel (openpyxl)
@@ -56,8 +58,12 @@ bes_designer/
 │   ├── Dockerfile
 │   └── nginx.conf
 │
+├── tools/                      # Utilitarios de desarrollo, fuera del paquete
+│   ├── catalog_pipeline/       # Digitalización de PDFs de catálogo
+│   └── database_migration/     # Diseño de la base de datos (Excel → SQLite)
+│
+├── docs/                       # METHODOLOGY · FORMULAS · VALIDATION · USER_GUIDE
 ├── docker-compose.yml          # Levanta api + frontend
-├── docs/                       # USER_GUIDE · METHODOLOGY · VALIDATION
 ├── README.md
 └── CLAUDE.md
 ```
@@ -68,7 +74,7 @@ bes_designer/
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/placeholder/bes_designer.git
+git clone https://github.com/pablotejerinap-glitch/bes_designer.git
 cd bes_designer
 
 # 2. Crear y activar entorno virtual
@@ -81,7 +87,8 @@ source .venv/bin/activate        # Linux / macOS
 pip install -e backend
 ```
 
-Requiere **Python 3.10 o superior**.
+Requiere **Python 3.11 o superior** (el entorno de desarrollo usa 3.14) y
+**Node 18+** para el frontend.
 
 ---
 
@@ -90,23 +97,27 @@ Requiere **Python 3.10 o superior**.
 ### Interfaz gráfica (React)
 
 ```bash
-# 1. Backend (requerido)
+# 1. Backend (requerido) — desde backend/
 uvicorn bes.api.main:app --reload --port 8000
 
-# 2. Frontend
-cd frontend && npm install && npm run dev
+# 2. Frontend — desde frontend/
+npm install && npm run dev
 ```
 
-O todo junto con Docker: `docker compose up --build`
-(frontend :8080 · api :8000)
+La app abre en `http://localhost:5173` (Vite proxya `/api` al backend).
+O todo junto con Docker: `docker compose up --build` → frontend en
+`http://localhost:8080`, API en `http://localhost:8000` (`/docs` para el
+Swagger).
 
-La app abre en `http://localhost:8501`. Flujo típico:
+Flujo típico — la pantalla es de dos paneles: los datos del pozo a la
+izquierda, los resultados a la derecha.
 
-1. **Datos del Pozo** — completar las 5 pestañas (o cargar un ejemplo) → Guardar
-2. **Diseño BES** → Calcular → revisar las 3 opciones rankeadas
-3. **Comparación** — gráfico radar y tabla comparativa
-4. **Sensibilidad** — evaluar el impacto de variaciones en Pr, WC, GOR
-5. **Descargar** — PDF · Excel · JSON
+1. **Panel izquierdo** — cargar un caso de ejemplo o completar los datos del pozo (reservorio, fluido, geometría, superficie y objetivos) → Calcular
+2. **Diseño** — las 3 opciones ordenadas por criterios de ingeniería, con la comparación y las curvas de bomba
+3. **Curva IPR** — el análisis nodal del pozo
+4. **Sensibilidad** — impacto de variaciones en Pr, WC, GOR
+5. **Biblioteca ESP** — el catálogo de equipos disponible
+6. **Descargar** — PDF · Excel · JSON
 
 ### API Python
 
@@ -143,15 +154,17 @@ print(f"Bomba: {best.pump_model}, {best.num_stages} etapas, TDH={best.total_head
 
 ## Tests
 
+Todos los comandos se corren desde `backend/` (ahí viven `pyproject.toml` y `tests/`).
+
 ```bash
-# Suite completa
-pytest tests/ -v
+# Suite completa — 750 tests
+pytest
 
 # Solo integración (ejemplos del libro)
 pytest tests/test_integration.py -v
 
 # Con reporte de cobertura
-pytest tests/ --cov=core --cov=recommender --cov-report=term-missing
+pytest --cov=bes --cov-report=term-missing
 ```
 
 ---
@@ -161,10 +174,11 @@ pytest tests/ --cov=core --cov=recommender --cov-report=term-missing
 Compara los resultados de la app con los valores de referencia de Kermit Brown:
 
 ```bash
+# desde backend/
 python scripts/validate_all_examples.py
 ```
 
-Genera `docs/VALIDATION.md` con una tabla comparativa de TDH, etapas y HP para los tres ejemplos del libro (1A, 2A, 3A). Ver [docs/METHODOLOGY.md](docs/METHODOLOGY.md) para la descripción completa de las correlaciones implementadas.
+Genera `docs/VALIDATION.md` con una tabla comparativa de TDH, etapas y HP para los tres ejemplos del libro (1A, 2A, 3A). Ver [docs/METHODOLOGY.md](docs/METHODOLOGY.md) para la descripción completa de las correlaciones implementadas y [docs/FORMULAS.md](docs/FORMULAS.md) para las ecuaciones.
 
 ---
 
@@ -181,6 +195,23 @@ Genera `docs/VALIDATION.md` con una tabla comparativa de TDH, etapas y HP para l
 | Corrección viscosidad | Hydraulic Institute HI 9.6.7 |
 | Gas en bomba | Brown §4.53103 |
 
+Ver [docs/FORMULAS.md](docs/FORMULAS.md) para las ecuaciones con su archivo,
+línea y fuente bibliográfica.
+
+---
+
+## Documentación
+
+Índice completo en [docs/README.md](docs/README.md).
+
+| Documento | Contenido |
+|---|---|
+| [METHODOLOGY.md](docs/METHODOLOGY.md) | Metodología de cálculo paso a paso |
+| [FORMULAS.md](docs/FORMULAS.md) | Todas las fórmulas, con archivo, línea y fuente |
+| [VALIDATION.md](docs/VALIDATION.md) | Comparación app vs. libro |
+| [USER_GUIDE.md](docs/USER_GUIDE.md) | Guía de usuario |
+| [EJEMPLO_ESP01.md](docs/EJEMPLO_ESP01.md) | Ejercicio de cátedra, método métrico |
+
 ---
 
 ## Citación académica
@@ -190,7 +221,7 @@ Si usás este software en publicaciones académicas, citalo como:
 ```
 Tejerina, P. (2026). BES Designer: Herramienta de diseño automatizado para
 sistemas de Bombeo Electrosumergible (v1.0.0). Proyecto de Tesis de Grado,
-Ingeniería de Petróleo. https://github.com/placeholder/bes_designer
+Ingeniería de Petróleo. https://github.com/pablotejerinap-glitch/bes_designer
 ```
 
 Basado en:
