@@ -3,6 +3,12 @@
 Índice de `docs/`. El punto de entrada del proyecto es el
 [README raíz](../README.md).
 
+## Cómo está construida la aplicación
+
+| Documento | Contenido |
+|---|---|
+| [COMO_ESTA_ARMADA_LA_APP.md](COMO_ESTA_ARMADA_LA_APP.md) | Desglose parte por parte: las tres capas, el motor de cálculo módulo a módulo, catálogos, recomendador, API, frontend, la digitalización de las curvas, validación y despliegue. |
+
 ## Metodología y cálculo
 
 | Documento | Contenido |
