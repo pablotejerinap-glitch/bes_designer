@@ -5,7 +5,8 @@
     "reservoir": {
       "static_pressure": 1250.0,
       "bubble_point": 0.0,
-      "productivity_index": 10.0,
+      "test_pwf": 1000.0,
+      "test_rate": 2500.0,
       "ipr_method": "LINEAR",
       "reservoir_temp": 120.0,
       "drive_mechanism": "WATER_DRIVE",
@@ -67,7 +68,8 @@
     "reservoir": {
       "static_pressure": 2000.0,
       "bubble_point": 400.0,
-      "productivity_index": 0.95,
+      "test_pwf": 1600.0,
+      "test_rate": 380.0,
       "ipr_method": "LINEAR",
       "reservoir_temp": 170.0,
       "drive_mechanism": "WATER_DRIVE",
@@ -126,12 +128,13 @@
     "source": "Escenario interno del proyecto (no es el #2A impreso de Brown); 1000 bpd, M-34"
   },
   "example_2a_brown": {
-    "description": "Brown Vol.2b Seccion 4.538 Ejemplo #2A (impreso) - Petroleo sin gas libre, casing 5 1/2\", 1227 BFPD",
+    "description": "Brown Vol.2b Seccion 4.538 Ejemplo #2A (impreso) - Petroleo sin gas libre, casing 5 1/2\", 1227 BFPD NOTA: gas_fraction_pc_threshold=1.0 fuerza Hazen-Williams porque el libro resuelve este ejemplo como monofasico (indice 4.538 'oil well, no gas'); con el umbral por defecto la app detectaria 65% de gas libre en la admision y usaria Poettmann-Carpenter, apartandose de la premisa del libro.",
     "source": "Brown, K.E. (1980) The Technology of Artificial Lift Methods, Vol. 2b, Seccion 4.538 (valores impresos del libro)",
     "reservoir": {
       "static_pressure": 2000.0,
       "bubble_point": 2000.0,
-      "productivity_index": 1.2,
+      "test_pwf": 1600.0,
+      "test_rate": 437.3333,
       "ipr_method": "VOGEL",
       "reservoir_temp": 170.0,
       "drive_mechanism": "SOLUTION_GAS",
@@ -178,7 +181,8 @@
       "allow_gas_venting": false,
       "max_gip": 0.7,
       "design_life_years": 5.0,
-      "use_vsd": false
+      "use_vsd": false,
+      "gas_fraction_pc_threshold": 1.0
     },
     "book_reference": {
       "tdh_ft": 5830,
@@ -196,7 +200,8 @@
     "reservoir": {
       "static_pressure": 1000.0,
       "bubble_point": 2000.0,
-      "productivity_index": 1.5,
+      "test_pwf": 800.0,
+      "test_rate": 273.3333,
       "ipr_method": "VOGEL",
       "reservoir_temp": 160.0,
       "drive_mechanism": "SOLUTION_GAS",
@@ -260,7 +265,8 @@
     "reservoir": {
       "static_pressure": 1000.0,
       "bubble_point": 2000.0,
-      "productivity_index": 1.5,
+      "test_pwf": 800.0,
+      "test_rate": 273.3333,
       "ipr_method": "VOGEL",
       "reservoir_temp": 160.0,
       "drive_mechanism": "SOLUTION_GAS",
@@ -339,7 +345,8 @@
     "reservoir": {
       "static_pressure": 1000.0,
       "bubble_point": 2000.0,
-      "productivity_index": 1.0,
+      "test_pwf": 800.0,
+      "test_rate": 182.2222,
       "ipr_method": "VOGEL",
       "reservoir_temp": 160.0,
       "drive_mechanism": "SOLUTION_GAS",
@@ -504,7 +511,8 @@
     "reservoir": {
       "static_pressure": 1564.6,
       "bubble_point": 640.0,
-      "productivity_index": 1.154,
+      "test_pwf": 1251.7,
+      "test_rate": 328.9921,
       "ipr_method": "VOGEL",
       "reservoir_temp": 194.0,
       "drive_mechanism": "SOLUTION_GAS",
@@ -565,7 +573,8 @@
     "reservoir": {
       "static_pressure": 1564.6,
       "bubble_point": 640.0,
-      "productivity_index": 1.154,
+      "test_pwf": 1251.7,
+      "test_rate": 328.9921,
       "ipr_method": "VOGEL",
       "reservoir_temp": 194.0,
       "drive_mechanism": "SOLUTION_GAS",
@@ -626,7 +635,8 @@
     "reservoir": {
       "static_pressure": 1564.6,
       "bubble_point": 640.0,
-      "productivity_index": 1.154,
+      "test_pwf": 1251.7,
+      "test_rate": 328.9921,
       "ipr_method": "VOGEL",
       "reservoir_temp": 194.0,
       "drive_mechanism": "SOLUTION_GAS",
@@ -687,7 +697,8 @@
     "reservoir": {
       "static_pressure": 1564.6,
       "bubble_point": 640.0,
-      "productivity_index": 1.154,
+      "test_pwf": 1251.7,
+      "test_rate": 328.9921,
       "ipr_method": "VOGEL",
       "reservoir_temp": 194.0,
       "drive_mechanism": "SOLUTION_GAS",
@@ -748,7 +759,8 @@
     "reservoir": {
       "static_pressure": 2418.0,
       "bubble_point": 2418.0,
-      "productivity_index": 3.24,
+      "test_pwf": 1934.4,
+      "test_rate": 1427.5872,
       "ipr_method": "VOGEL",
       "reservoir_temp": 203.0,
       "drive_mechanism": "SOLUTION_GAS",

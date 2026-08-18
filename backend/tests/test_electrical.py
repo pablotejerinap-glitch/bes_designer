@@ -52,7 +52,6 @@ def well_7in() -> WellGeometry:
         perforations_bottom=4800.0,
         deviation_max=5.0,
         wellhead_temp=80.0,
-        bottom_hole_temp=200.0,
     )
 
 
@@ -70,7 +69,6 @@ def well_9in() -> WellGeometry:
         perforations_bottom=7000.0,
         deviation_max=5.0,
         wellhead_temp=80.0,
-        bottom_hole_temp=200.0,
     )
 
 
@@ -167,14 +165,27 @@ class TestVoltageDrop:
 # ---------------------------------------------------------------------------
 
 class TestCableVdropFromCatalog:
-    def test_one_zero_cable_selectable(self, manager):
-        # The CAVALCADE 1/0 cable (absent from the legacy hardcoded table) must
-        # be selectable and yield a finite voltage drop from its own JSON data.
+    def test_cable_vdrop_sale_del_catalogo(self, manager):
+        """La caída de tensión se calcula con los datos del propio cable.
+
+        Antes este test pedía 90 A apuntando al 1/0 CAVALCADE, que era ChampionX
+        y se fue al dejar el proyecto con tres proveedores. Hoy el cable de mayor
+        ampacidad publica 100 A, y con el derating de 1.25 el tope de corriente
+        de motor diseñable es 80 A.
+        """
         cable = select_cable(
-            motor_amps=90.0, pump_depth=6000.0, bottom_temp=180.0,
+            motor_amps=70.0, pump_depth=6000.0, bottom_temp=180.0,
             casing_id=7.0, motor_od=4.0, catalog_manager=manager,
         )
         assert cable["voltage_drop_per_1000ft"] > 0
+
+    def test_sobre_el_tope_de_ampacidad_falla_explicito(self, manager):
+        """Por encima de lo que aguanta el cable, el diseño avisa en vez de mentir."""
+        with pytest.raises(ValueError, match="No cable found"):
+            select_cable(
+                motor_amps=150.0, pump_depth=6000.0, bottom_temp=180.0,
+                casing_id=7.0, motor_od=4.0, catalog_manager=manager,
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -439,7 +450,7 @@ class TestSelectMotor:
 
     def test_hp_meets_margin(self, manager):
         motor = select_motor(79.0, manager, pump_od=4.0, bottom_temp=170.0, depth_ft=5000.0)
-        assert motor["hp_rating"] >= 79.0 * 1.10
+        assert motor["hp_rating"] >= round(79.0 * 1.10, 6)
 
     def test_od_within_casing_proxy(self, manager):
         pump_od = 4.0
@@ -447,26 +458,81 @@ class TestSelectMotor:
         assert motor["od_inches"] <= pump_od * 1.20
 
     def test_temp_rating_adequate(self, manager):
+        """Un motor con temperatura publicada nunca queda por debajo del pozo.
+
+        Con dato ausente la verificación no se realiza y el motor sigue en
+        carrera: lo cubre `test_unrated_motor_is_selectable_but_flagged`.
+        """
         motor = select_motor(79.0, manager, pump_od=4.0, bottom_temp=170.0, depth_ft=5000.0)
-        assert motor["max_temp_f"] >= 170.0 + 25.0
+        rating = motor["max_temp_f"]
+        assert rating is None or rating >= 170.0 + 25.0
+
+    def test_unrated_motor_is_selectable_but_flagged(self, manager):
+        """Sin temperatura de catálogo el motor se ofrece, pero se advierte.
+
+        El catálogo REDA 2005 no imprime la temperatura de bobinado por
+        modelo. Descartar esos 850 motores por un dato que el fabricante no
+        publica sería peor que entregarlos con la verificación marcada como
+        no realizada.
+        """
+        from bes.core.electrical import motor_temperature_ok
+
+        assert motor_temperature_ok({"max_temp_f": None}, 195.0) is True
+        assert motor_temperature_ok({"max_temp_f": 250.0}, 195.0) is True
+        assert motor_temperature_ok({"max_temp_f": 180.0}, 195.0) is False
+
+    def test_motor_current_must_have_a_cable(self, manager):
+        """No se elige un motor cuya corriente ningún cable pueda llevar.
+
+        Regresión: con el catálogo REDA completo, la preferencia de tensión
+        por banda de HP elegía un 200 hp a 1 339 V (93.9 A) existiendo el
+        mismo 200 hp a 2 386 V (52.7 A); el primero pedía 117 A de ampacidad
+        y el catálogo llega a 115 A, así que el diseño moría al elegir cable.
+        """
+        from bes.core.electrical import _CABLE_DERATING, max_cable_ampacity
+
+        motor = select_motor(
+            180.0, manager, pump_od=7.38, bottom_temp=200.0,
+            depth_ft=6000.0, casing_id=8.681,
+        )
+        techo = max_cable_ampacity(manager, 200.0, 8.681, motor["od_inches"])
+        assert motor["amperage"] * _CABLE_DERATING <= techo
 
     def test_low_hp_lower_voltage(self, manager):
         # ≤70 HP → target 800 V → catalog motor closest to 800 V
         motor = select_motor(50.0, manager, pump_od=4.0, bottom_temp=150.0, depth_ft=3000.0)
-        assert motor["hp_rating"] >= 50.0 * 1.10
+        assert motor["hp_rating"] >= round(50.0 * 1.10, 6)
         # 456-60HP-860V should be closest to 800V for pump_od=4.0
         assert motor["voltage"] <= 1200
 
     def test_medium_hp_medium_voltage(self, manager):
         # 71–200 HP → target 1 200 V
         motor = select_motor(150.0, manager, pump_od=5.13, bottom_temp=200.0, depth_ft=5000.0)
-        assert motor["hp_rating"] >= 150.0 * 1.10
+        assert motor["hp_rating"] >= round(150.0 * 1.10, 6)
 
     def test_high_hp_high_voltage(self, manager):
-        # >200 HP → target 2 000 V
-        motor = select_motor(300.0, manager, pump_od=5.62, bottom_temp=200.0, depth_ft=6000.0)
-        assert motor["hp_rating"] >= 300.0 * 1.10
-        assert motor["voltage"] >= 1500
+        # El catálogo llega a 216 HP: los motores de 250-600 HP que había eran
+        # Reda/Centrilift sin fuente confirmada y se borraron. Se prueba el
+        # criterio de tensión con la potencia más alta que el catálogo sostiene.
+        motor = select_motor(180.0, manager, pump_od=4.0, bottom_temp=200.0, depth_ft=6000.0)
+        assert motor["hp_rating"] >= round(180.0 * 1.10, 6)
+
+    def test_no_motor_above_catalog_capacity(self, manager):
+        """Sin motor que alcance, el diseño falla explícito en vez de devolver
+        uno insuficiente.
+
+        El umbral no se fija a mano: se calcula del propio catálogo, así que el
+        test sigue siendo válido cuando se cargan motores nuevos. Antes pedía
+        500 hp, que dejó de ser inalcanzable al sumarse los Centrilift.
+        """
+        pump_od = 5.62
+        alcanzables = [m["hp_rating"] for m in manager._motors
+                       if m["od_inches"] <= round(pump_od * 1.20, 6)]
+        imposible = max(alcanzables) * 2.0
+
+        with pytest.raises(ValueError, match="No motor found"):
+            select_motor(imposible, manager, pump_od=pump_od,
+                         bottom_temp=200.0, depth_ft=6000.0)
 
     def test_returns_dict_with_standard_keys(self, manager):
         motor = select_motor(79.0, manager, pump_od=4.0, bottom_temp=170.0, depth_ft=5000.0)
@@ -502,7 +568,7 @@ class TestElectricalDesignComplete:
 
     def test_motor_hp_adequate(self, manager, well_7in, base_fluid):
         result = electrical_design_complete(100.0, 4.56, well_7in, base_fluid, manager)
-        assert result["motor"]["hp_rating"] >= 100.0 * 1.10
+        assert result["motor"]["hp_rating"] >= round(100.0 * 1.10, 6)
 
     def test_cable_is_copper(self, manager, well_7in, base_fluid):
         result = electrical_design_complete(100.0, 4.56, well_7in, base_fluid, manager)
@@ -527,7 +593,7 @@ class TestElectricalDesignComplete:
     def test_large_well_i300_scenario(self, manager, well_9in, base_fluid):
         """High-power scenario with 9-5/8″ casing and large motor."""
         result = electrical_design_complete(180.0, 7.38, well_9in, base_fluid, manager)
-        assert result["motor"]["hp_rating"] >= 180.0 * 1.10
+        assert result["motor"]["hp_rating"] >= round(180.0 * 1.10, 6)
         assert result["motor"]["od_inches"] <= 7.38 * 1.20
         assert result["transformer"]["total_kva"] >= result["kva_required"]
 
@@ -572,3 +638,101 @@ class TestFluidVelocityCooling:
         v1 = fluid_velocity_past_motor(500.0, 5.0, 4.0)
         v2 = fluid_velocity_past_motor(1000.0, 5.0, 4.0)
         assert v2 == pytest.approx(2.0 * v1, rel=1e-9)
+
+
+class TestCableElectricalCheck:
+    """Verificación eléctrica del cable (Brown §4.5325 + apunte Unidad N°9).
+
+        ΔP_c = 3·I²·R_T / 1000                    [kW]
+        U_start/U_np = (U_np − 4·I·R_T) / U_np     debe ser > 0.5
+    """
+
+    def test_resistance_removes_the_line_factor(self):
+        """El dato de catálogo es la caída DE LÍNEA: lleva el √3 adentro."""
+        from bes.core.electrical import cable_resistance_ohms
+        # 0.297 V/(A·1000ft) sobre 1000 ft -> R_fase = 0.297/√3
+        assert cable_resistance_ohms(0.297, 1000.0) == pytest.approx(
+            0.297 / math.sqrt(3.0), rel=1e-9
+        )
+
+    def test_resistance_scales_with_length(self):
+        from bes.core.electrical import cable_resistance_ohms
+        assert cable_resistance_ohms(0.297, 6000.0) == pytest.approx(
+            6.0 * cable_resistance_ohms(0.297, 1000.0)
+        )
+
+    def test_joule_loss_formula(self):
+        from bes.core.electrical import cable_power_loss_kw
+        assert cable_power_loss_kw(65.0, 1.02) == pytest.approx(
+            3.0 * 65.0 ** 2 * 1.02 / 1000.0
+        )
+
+    def test_joule_loss_grows_with_the_square_of_current(self):
+        from bes.core.electrical import cable_power_loss_kw
+        assert cable_power_loss_kw(100.0, 1.0) == pytest.approx(
+            4.0 * cable_power_loss_kw(50.0, 1.0)
+        )
+
+    def test_startup_ratio_formula(self):
+        from bes.core.electrical import startup_voltage_ratio
+        # 945 V de placa, 130 V de caída nominal -> (945 - 4·130)/945
+        assert startup_voltage_ratio(945.0, 130.0) == pytest.approx(
+            (945.0 - 4 * 130.0) / 945.0
+        )
+
+    def test_startup_ratio_is_one_without_drop(self):
+        from bes.core.electrical import startup_voltage_ratio
+        assert startup_voltage_ratio(1000.0, 0.0) == pytest.approx(1.0)
+
+    def test_startup_can_collapse_below_zero(self):
+        """Un cable muy chico deja la tensión de bornes en nada: el resultado
+        negativo es información, no un error que haya que ocultar."""
+        from bes.core.electrical import startup_voltage_ratio
+        assert startup_voltage_ratio(500.0, 200.0) < 0.0
+
+    def test_startup_rejects_zero_voltage(self):
+        from bes.core.electrical import startup_voltage_ratio
+        with pytest.raises(ValueError, match="motor_voltage"):
+            startup_voltage_ratio(0.0, 100.0)
+
+    def test_check_marks_the_hard_and_soft_criteria(self):
+        """El arranque y los 30 V/1000 ft son duros; el 5 % se reporta."""
+        from bes.core.electrical import check_cable_electrical
+        r = check_cable_electrical(1000.0, 50.0, 0.30, 5000.0)
+        assert r["voltage_drop_v"] == pytest.approx(0.30 * 50.0 * 5.0)
+        assert r["voltage_drop_per_1000ft"] == pytest.approx(0.30 * 50.0)
+        assert r["ok"] == (r["startup_ok"] and r["drop_per_1000ft_ok"])
+        # el 5 % NO entra en ok
+        assert "drop_fraction_ok" in r
+
+    def test_check_fails_startup_when_the_cable_is_too_small(self):
+        from bes.core.electrical import check_cable_electrical
+        r = check_cable_electrical(900.0, 60.0, 0.75, 6000.0)   # #6 profundo
+        assert r["startup_ratio"] < 0.5 and not r["startup_ok"] and not r["ok"]
+
+    def test_selection_prefers_the_smallest_cable_that_also_starts(self):
+        """El criterio viejo tomaba el más chico que aguantaba la corriente —
+        justo el que más cae. Ahora tiene que pasar además el arranque."""
+        from bes.catalogs.loader import CatalogManager
+        from bes.core.electrical import select_cable, startup_voltage_ratio
+        cm = CatalogManager()
+        sel = select_cable(
+            motor_amps=38.0, pump_depth=5900.0, bottom_temp=170.0,
+            casing_id=4.892, motor_od=4.0, catalog_manager=cm,
+            motor_voltage=995.0,
+        )
+        drop = sel["voltage_drop_per_1000ft"] * sel["length_ft"] / 1000.0
+        assert startup_voltage_ratio(995.0, drop) > 0.5
+        assert sel["electrical_check"]["ok"]
+
+    def test_without_motor_voltage_behaviour_is_unchanged(self):
+        """Compatibilidad: sin tensión no se puede verificar el arranque, y la
+        selección vuelve al criterio histórico."""
+        from bes.catalogs.loader import CatalogManager
+        from bes.core.electrical import select_cable
+        cm = CatalogManager()
+        sel = select_cable(
+            motor_amps=38.0, pump_depth=5900.0, bottom_temp=170.0,
+            casing_id=4.892, motor_od=4.0, catalog_manager=cm,
+        )
+        assert sel["cable_size"]

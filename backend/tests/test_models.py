@@ -1,5 +1,7 @@
 """Unit tests for core/models.py — valid construction and validation errors."""
 
+import dataclasses
+
 import pytest
 from bes.core.models import (
     IPRMethod,
@@ -27,7 +29,6 @@ def valid_reservoir() -> Reservoir:
         ipr_method=IPRMethod.VOGEL,
         reservoir_temp=180.0,
         drive_mechanism=DriveMechanism.SOLUTION_GAS,
-        datum_depth=8500.0,
     )
 
 
@@ -59,7 +60,6 @@ def valid_well_geometry() -> WellGeometry:
         perforations_bottom=8800.0,
         deviation_max=15.0,
         wellhead_temp=75.0,
-        bottom_hole_temp=180.0,
     )
 
 
@@ -165,7 +165,7 @@ class TestReservoir:
             Reservoir(
                 static_pressure=-100.0, bubble_point=2200.0, productivity_index=1.5,
                 ipr_method=IPRMethod.LINEAR, reservoir_temp=180.0,
-                drive_mechanism=DriveMechanism.WATER_DRIVE, datum_depth=8500.0,
+                drive_mechanism=DriveMechanism.WATER_DRIVE,
             )
 
     def test_bubble_point_exceeds_static_pressure_warns(self):
@@ -173,7 +173,7 @@ class TestReservoir:
             Reservoir(
                 static_pressure=2000.0, bubble_point=2500.0, productivity_index=1.5,
                 ipr_method=IPRMethod.VOGEL, reservoir_temp=180.0,
-                drive_mechanism=DriveMechanism.SOLUTION_GAS, datum_depth=8500.0,
+                drive_mechanism=DriveMechanism.SOLUTION_GAS,
             )
 
     def test_zero_productivity_index(self):
@@ -181,7 +181,7 @@ class TestReservoir:
             Reservoir(
                 static_pressure=3500.0, bubble_point=2200.0, productivity_index=0.0,
                 ipr_method=IPRMethod.LINEAR, reservoir_temp=180.0,
-                drive_mechanism=DriveMechanism.GAS_CAP, datum_depth=8500.0,
+                drive_mechanism=DriveMechanism.GAS_CAP,
             )
 
 
@@ -247,7 +247,7 @@ class TestWellGeometry:
                 total_depth=9000.0, casing_od=7.0, casing_weight=23.0,
                 casing_id=6.366, tubing_od=2.875, tubing_id=2.441,
                 perforations_top=8800.0, perforations_bottom=8600.0,
-                deviation_max=15.0, wellhead_temp=75.0, bottom_hole_temp=180.0,
+                deviation_max=15.0, wellhead_temp=75.0,
             )
 
     def test_perforations_below_total_depth(self):
@@ -256,7 +256,7 @@ class TestWellGeometry:
                 total_depth=9000.0, casing_od=7.0, casing_weight=23.0,
                 casing_id=6.366, tubing_od=2.875, tubing_id=2.441,
                 perforations_top=8600.0, perforations_bottom=9500.0,
-                deviation_max=15.0, wellhead_temp=75.0, bottom_hole_temp=180.0,
+                deviation_max=15.0, wellhead_temp=75.0,
             )
 
     def test_casing_id_larger_than_od(self):
@@ -265,7 +265,7 @@ class TestWellGeometry:
                 total_depth=9000.0, casing_od=7.0, casing_weight=23.0,
                 casing_id=7.5, tubing_od=2.875, tubing_id=2.441,
                 perforations_top=8600.0, perforations_bottom=8800.0,
-                deviation_max=15.0, wellhead_temp=75.0, bottom_hole_temp=180.0,
+                deviation_max=15.0, wellhead_temp=75.0,
             )
 
     def test_tubing_od_larger_than_casing_id(self):
@@ -274,7 +274,7 @@ class TestWellGeometry:
                 total_depth=9000.0, casing_od=7.0, casing_weight=23.0,
                 casing_id=6.366, tubing_od=6.5, tubing_id=5.9,
                 perforations_top=8600.0, perforations_bottom=8800.0,
-                deviation_max=15.0, wellhead_temp=75.0, bottom_hole_temp=180.0,
+                deviation_max=15.0, wellhead_temp=75.0,
             )
 
     def test_invalid_deviation(self):
@@ -283,16 +283,28 @@ class TestWellGeometry:
                 total_depth=9000.0, casing_od=7.0, casing_weight=23.0,
                 casing_id=6.366, tubing_od=2.875, tubing_id=2.441,
                 perforations_top=8600.0, perforations_bottom=8800.0,
-                deviation_max=95.0, wellhead_temp=75.0, bottom_hole_temp=180.0,
+                deviation_max=95.0, wellhead_temp=75.0,
             )
 
-    def test_bhtemp_less_than_wellhead(self):
-        with pytest.raises(ValueError, match="bottom_hole_temp"):
+    def test_la_geometria_ya_no_lleva_temperatura_de_fondo(self):
+        """La temperatura de fondo es la del reservorio: no se duplica acá.
+
+        Estaba en los dos lados y se podían cargar dos números distintos para
+        la misma magnitud física. Ahora el perfil geotérmico se arma con
+        ``well.wellhead_temp`` arriba y ``reservoir.reservoir_temp`` abajo
+        (:func:`bes.core.tdh.temp_at_depth`).
+        """
+        campos = {f.name for f in dataclasses.fields(WellGeometry)}
+        assert "bottom_hole_temp" not in campos
+        assert "wellhead_temp" in campos
+
+    def test_rechaza_temperatura_de_cabezal_no_positiva(self):
+        with pytest.raises(ValueError, match="wellhead_temp"):
             WellGeometry(
                 total_depth=9000.0, casing_od=7.0, casing_weight=23.0,
                 casing_id=6.366, tubing_od=2.875, tubing_id=2.441,
                 perforations_top=8600.0, perforations_bottom=8800.0,
-                deviation_max=15.0, wellhead_temp=180.0, bottom_hole_temp=75.0,
+                deviation_max=15.0, wellhead_temp=0.0,
             )
 
 
@@ -467,3 +479,74 @@ class TestDesignResult:
                 flow_rate_achieved=1510.0, operating_frequency=60.0,
                 gip_fraction=-0.1,
             )
+
+
+class TestProfundidadDeSuccion:
+    """La profundidad de succión es opcional y manda sobre el cálculo por margen."""
+
+    def _well(self, **over):
+        base = dict(
+            total_depth=6150.0, casing_od=5.5, casing_weight=17.0, casing_id=4.892,
+            tubing_od=2.375, tubing_id=1.995, perforations_top=5900.0,
+            perforations_bottom=6030.0, deviation_max=0.0,
+            wellhead_temp=120.0,
+        )
+        base.update(over)
+        return WellGeometry(**base)
+
+    def test_por_defecto_no_se_carga(self):
+        assert self._well().pump_setting_depth is None
+
+    def test_acepta_una_profundidad_valida(self):
+        # El #2A de Brown: bomba a 5850 ft, punzados desde 5900 ft.
+        assert self._well(pump_setting_depth=5850.0).pump_setting_depth == 5850.0
+
+    def test_rechaza_por_debajo_de_los_punzados(self):
+        """La bomba va POR ENCIMA del intervalo punzado, nunca debajo."""
+        with pytest.raises(ValueError, match="above perforations_top"):
+            self._well(pump_setting_depth=5950.0)
+
+    def test_rechaza_justo_en_el_tope_de_punzados(self):
+        with pytest.raises(ValueError, match="above perforations_top"):
+            self._well(pump_setting_depth=5900.0)
+
+    def test_rechaza_profundidad_no_positiva(self):
+        with pytest.raises(ValueError, match="pump_setting_depth must be > 0"):
+            self._well(pump_setting_depth=0.0)
+
+
+class TestResolucionDeProfundidadDeBomba:
+    """Cómo elige el selector entre la cargada a mano y la del margen."""
+
+    def _well(self, **over):
+        base = dict(
+            total_depth=6150.0, casing_od=5.5, casing_weight=17.0, casing_id=4.892,
+            tubing_od=2.375, tubing_id=1.995, perforations_top=5900.0,
+            perforations_bottom=6030.0, deviation_max=0.0,
+            wellhead_temp=120.0,
+        )
+        base.update(over)
+        return WellGeometry(**base)
+
+    def _objectives(self, margen=50.0):
+        return DesignObjectives(
+            target_flow_rate=1000.0, safety_margin_depth=margen,
+            allow_gas_venting=False, max_gip=0.7, design_life_years=5.0,
+            use_vsd=False,
+        )
+
+    def test_sin_cargar_usa_punzados_menos_margen(self):
+        from bes.recommender.pump_selector import _resolve_pump_depth
+        assert _resolve_pump_depth(self._well(), self._objectives(50.0)) == 5850.0
+
+    def test_cargada_manda_sobre_el_margen(self):
+        """Con la succión cargada, el margen de seguridad queda sin efecto."""
+        from bes.recommender.pump_selector import _resolve_pump_depth
+        well = self._well(pump_setting_depth=4000.0)
+        # el margen dice 5850, pero la succión cargada dice 4000
+        assert _resolve_pump_depth(well, self._objectives(50.0)) == 4000.0
+        assert _resolve_pump_depth(well, self._objectives(500.0)) == 4000.0
+
+    def test_un_margen_absurdo_no_saca_la_bomba_a_superficie(self):
+        from bes.recommender.pump_selector import _resolve_pump_depth
+        assert _resolve_pump_depth(self._well(), self._objectives(99999.0)) == 100.0

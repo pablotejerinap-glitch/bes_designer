@@ -13,6 +13,7 @@ import type {
   DesignInputs,
   DriveMechanism,
   FluidInput,
+  IPRFromTestResponse,
   IPRMethod,
   ObjectivesInput,
   ReservoirInput,
@@ -29,14 +30,24 @@ interface NumField {
   label: string;
   unit?: string;
   step?: number;
+  /** Aclaración bajo la etiqueta, p. ej. para marcar un campo opcional. */
+  description?: string;
+  /** Vacío viaja como null en vez de 0, para campos que el backend admite sin valor. */
+  optional?: boolean;
 }
 
+// El índice de productividad NO se carga: es un resultado del ensayo. Acá se
+// piden las magnitudes que efectivamente se miden en el pozo (la Pwf y el
+// caudal estabilizados) y el backend despeja J con el método IPR elegido.
 const RESERVOIR_NUM: NumField[] = [
-  { key: "static_pressure", label: "Presión estática", unit: "psia" },
-  { key: "bubble_point", label: "Presión de burbuja", unit: "psia" },
-  { key: "productivity_index", label: "Índice de productividad", unit: "STB/d/psi", step: 0.1 },
+  // Todas las presiones del formulario se rotulan "psi": la distinción psia/psi
+  // que traía el dominio confundía sin aportar, porque el formulario nunca pide
+  // una presión manométrica. Los valores siguen siendo absolutos.
+  { key: "static_pressure", label: "Presión estática", unit: "psi" },
+  { key: "bubble_point", label: "Presión de burbuja", unit: "psi" },
+  { key: "test_pwf", label: "Ensayo · Pwf medida", unit: "psi" },
+  { key: "test_rate", label: "Ensayo · caudal medido", unit: "STB/d" },
   { key: "reservoir_temp", label: "Temperatura de reservorio", unit: "°F" },
-  { key: "datum_depth", label: "Profundidad de referencia", unit: "ft TVD" },
 ];
 
 const FLUID_NUM: NumField[] = [
@@ -45,8 +56,8 @@ const FLUID_NUM: NumField[] = [
   { key: "gor", label: "GOR", unit: "scf/STB" },
   { key: "gas_sg", label: "SG del gas", unit: "aire=1", step: 0.01 },
   { key: "water_sg", label: "SG de la salmuera", step: 0.01 },
-  { key: "oil_viscosity_dead", label: "Viscosidad dead-oil", unit: "cp", step: 0.1 },
-  { key: "viscosity_temp_ref", label: "Temp. ref. viscosidad", unit: "°F" },
+  { key: "oil_viscosity_dead", label: "Viscosidad del petróleo", unit: "cp", step: 0.1 },
+  { key: "viscosity_temp_ref", label: "Temp. de la viscosidad", unit: "°F" },
   // Pb del fluido no se pide acá: es el mismo punto de burbuja del reservorio
   // ("Presión de burbuja"). App sincroniza fluid.bubble_point_pressure =
   // reservoir.bubble_point para que IPR y PVT usen un único valor.
@@ -62,13 +73,21 @@ const WELL_TOP: NumField[] = [
 const WELL_BOTTOM: NumField[] = [
   { key: "perforations_top", label: "Tope perforaciones", unit: "ft MD" },
   { key: "perforations_bottom", label: "Base perforaciones", unit: "ft MD" },
+  // Opcional: vacío = se calcula como tope de punzados menos el margen de
+  // seguridad de la sección de objetivos. Cargarla manda sobre ese cálculo.
+  {
+    key: "pump_setting_depth",
+    label: "Profundidad de succión",
+    unit: "ft MD",
+    description: "opcional · vacío = punzados − margen",
+    optional: true,
+  },
   { key: "deviation_max", label: "Desviación máxima", unit: "°", step: 0.5 },
   { key: "wellhead_temp", label: "Temp. boca de pozo", unit: "°F" },
-  { key: "bottom_hole_temp", label: "Temp. de fondo", unit: "°F" },
 ];
 
 const SURFACE_NUM: NumField[] = [
-  { key: "wellhead_pressure_required", label: "Presión requerida en cabeza", unit: "psi" },
+  { key: "wellhead_pressure_required", label: "Presión en cabeza (Pth)", unit: "psi" },
   { key: "flowline_length", label: "Longitud flowline", unit: "ft" },
   { key: "flowline_id", label: "ID flowline", unit: "in", step: 0.1 },
   { key: "flowline_elevation_change", label: "Cambio de elevación", unit: "ft" },
@@ -87,7 +106,6 @@ const IPR_OPTIONS: { value: IPRMethod; label: string }[] = [
   { value: "linear", label: "Linear (Darcy)" },
   { value: "vogel", label: "Vogel" },
   { value: "fetkovich", label: "Fetkovich" },
-  { value: "combined", label: "Combined" },
 ];
 
 const DRIVE_OPTIONS: { value: DriveMechanism; label: string }[] = [
@@ -132,9 +150,15 @@ export function WellForm({ value, onChange }: Props) {
           <Grid.Col span={{ base: 12, xs: 6 }} key={f.key}>
             <NumberInput
               label={f.label}
-              value={obj[f.key]}
+              description={f.description}
+              value={obj[f.key] ?? ""}
               step={f.step ?? 1}
-              onChange={(v) => setNum(section, f.key, v)}
+              onChange={(v) =>
+                f.optional
+                  ? setRaw(section, f.key, toNumOrNull(v))
+                  : setNum(section, f.key, v)
+              }
+              min={f.optional ? 0 : undefined}
               hideControls
               rightSection={
                 f.unit ? (
@@ -166,6 +190,39 @@ export function WellForm({ value, onChange }: Props) {
   useEffect(() => {
     api.tubulars().then(setTubulars).catch(() => setTubulars(null));
   }, []);
+
+  // --- Entregabilidad derivada del ensayo (solo lectura) ---
+  // J no es un dato: sale de invertir el modelo IPR sobre el punto ensayado.
+  // El despeje vive en el backend, acá sólo se muestra lo que devuelve. Un
+  // ensayo inválido (Pwf >= Pr) deja el bloque vacío; el error real lo da
+  // /api/design al calcular.
+  const [derived, setDerived] = useState<IPRFromTestResponse | null>(null);
+  const { static_pressure, bubble_point, test_pwf, test_rate, ipr_method, fetkovich_n } =
+    reservoir;
+  useEffect(() => {
+    let cancelled = false;
+    if (!(static_pressure > 0 && test_rate > 0 && test_pwf >= 0 && test_pwf < static_pressure)) {
+      setDerived(null);
+      return;
+    }
+    const t = setTimeout(() => {
+      api
+        .iprFromTest({
+          static_pressure,
+          bubble_point,
+          test_pwf,
+          test_rate,
+          ipr_method,
+          fetkovich_n,
+        })
+        .then((d) => !cancelled && setDerived(d))
+        .catch(() => !cancelled && setDerived(null));
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [static_pressure, bubble_point, test_pwf, test_rate, ipr_method, fetkovich_n]);
 
   function setWell(fields: Partial<WellInput>) {
     onChange({ ...value, well: { ...value.well, ...fields } });
@@ -305,21 +362,11 @@ export function WellForm({ value, onChange }: Props) {
             </Grid.Col>
           </Grid>
 
-          {/* C y n solo aplican a Fetkovich, y ahí son obligatorios: el
-              backend rechaza el diseño con 422 si faltan. */}
+          {/* n sólo aplica a Fetkovich y ahí es obligatorio: un ensayo de un
+              solo punto no permite ajustar C y n a la vez, así que n se carga
+              y C se despeja. El backend rechaza con 422 si falta. */}
           {reservoir.ipr_method === "fetkovich" && (
             <Grid mt="xs">
-              <Grid.Col span={{ base: 12, sm: 6 }}>
-                <NumberInput
-                  label="Coeficiente C de Fetkovich"
-                  description="STB/d/psia^(2n) — de un ensayo multi-rate"
-                  value={reservoir.fetkovich_c ?? ""}
-                  step={0.0001}
-                  decimalScale={6}
-                  onChange={(v) => setRaw("reservoir", "fetkovich_c", toNumOrNull(v))}
-                  hideControls
-                />
-              </Grid.Col>
               <Grid.Col span={{ base: 12, sm: 6 }}>
                 <NumberInput
                   label="Exponente n de Fetkovich"
@@ -334,6 +381,67 @@ export function WellForm({ value, onChange }: Props) {
                 />
               </Grid.Col>
             </Grid>
+          )}
+
+          <Divider my="sm" label="Derivado del ensayo" labelPosition="left" />
+          {derived ? (
+            <Grid gutter="xs">
+              <Grid.Col span={{ base: 12, sm: 4 }}>
+                <NumberInput
+                  label="Índice de productividad"
+                  description={
+                    reservoir.ipr_method === "fetkovich"
+                      ? "secante en el ensayo — informativo"
+                      : "calculado, no editable"
+                  }
+                  value={Number(derived.productivity_index.toFixed(4))}
+                  rightSection={<Text size="xs" c="dimmed" pr={8}>STB/d/psi</Text>}
+                  rightSectionPointerEvents="none"
+                  rightSectionWidth="auto"
+                  readOnly
+                  hideControls
+                />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 4 }}>
+                <NumberInput
+                  label="Draw-down del ensayo"
+                  value={Number(derived.drawdown_psi.toFixed(1))}
+                  rightSection={<Text size="xs" c="dimmed" pr={8}>psi</Text>}
+                  rightSectionPointerEvents="none"
+                  rightSectionWidth="auto"
+                  readOnly
+                  hideControls
+                />
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, sm: 4 }}>
+                <NumberInput
+                  label="AOF"
+                  description="caudal a Pwf = 0"
+                  value={Number(derived.aof.toFixed(1))}
+                  rightSection={<Text size="xs" c="dimmed" pr={8}>STB/d</Text>}
+                  rightSectionPointerEvents="none"
+                  rightSectionWidth="auto"
+                  readOnly
+                  hideControls
+                />
+              </Grid.Col>
+              {derived.fetkovich_c != null && (
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <NumberInput
+                    label="Coeficiente C de Fetkovich"
+                    description="despejado del ensayo con el n cargado"
+                    value={Number(derived.fetkovich_c.toPrecision(6))}
+                    readOnly
+                    hideControls
+                  />
+                </Grid.Col>
+              )}
+            </Grid>
+          ) : (
+            <Text size="xs" c="dimmed">
+              Cargá un ensayo válido (Pwf menor que la presión estática y caudal
+              mayor que cero) para ver el índice de productividad.
+            </Text>
           )}
         </Accordion.Panel>
       </Accordion.Item>
@@ -429,6 +537,24 @@ export function WellForm({ value, onChange }: Props) {
             checked={objectives.use_vsd}
             onChange={(e) => setRaw("objectives", "use_vsd", e.currentTarget.checked)}
           />
+          {/* Sin variador la bomba gira a la frecuencia de línea: el campo sólo
+              tiene sentido con VSD, y el backend lo rechaza si no lo hay. */}
+          {objectives.use_vsd && (
+            <NumberInput
+              mt="sm"
+              label="Frecuencia de diseño"
+              description="Hz — vacío usa la frecuencia de red"
+              value={objectives.design_frequency_hz ?? ""}
+              min={20}
+              max={90}
+              step={1}
+              decimalScale={1}
+              onChange={(v) =>
+                setRaw("objectives", "design_frequency_hz", toNumOrNull(v))
+              }
+              hideControls
+            />
+          )}
         </Accordion.Panel>
       </Accordion.Item>
     </Accordion>

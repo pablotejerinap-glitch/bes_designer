@@ -11,7 +11,7 @@ from typing import Optional
 import numpy as np
 from scipy.interpolate import interp1d
 
-from bes.core.models import PumpCurve, PumpPerformancePoint
+from bes.core.models import PumpCurve, PumpHousing, PumpPerformancePoint
 
 CATALOG_DIR = Path(__file__).parent
 """Directorio de los JSON de catalogo. Viaja con el paquete: no depende del
@@ -42,6 +42,22 @@ def _parse_pumps(raw: list[dict]) -> list[PumpCurve]:
             )
             for pt in entry["performance_curve"]
         ]
+        # Bloque de carcasas opcional: si el catálogo publica la ficha de cada
+        # carcasa (código, material, OD, presión propia) se carga tal cual; si
+        # solo trae las longitudes, PumpCurve las sintetiza desde
+        # ``housing_options``. Agregar el bloque no requiere tocar código.
+        housings = [
+            PumpHousing(
+                stages=int(h["stages"]),
+                code=str(h.get("code", "")),
+                material=str(h.get("material", "")),
+                od_in=float(h.get("od_in", 0.0)),
+                pressure_limit_psi=float(h.get("pressure_limit_psi", 0.0)),
+                length_ft=float(h.get("length_ft", 0.0)),
+                weight_lbs=float(h.get("weight_lbs", 0.0)),
+            )
+            for h in entry.get("housings", [])
+        ]
         pumps.append(
             PumpCurve(
                 manufacturer=entry["manufacturer"],
@@ -55,6 +71,8 @@ def _parse_pumps(raw: list[dict]) -> list[PumpCurve]:
                 housing_options=entry["housing_options"],
                 points=points,
                 housing_pressure_limit_psi=entry.get("housing_pressure_limit_psi", 0.0),
+                housings=housings,
+                catalog_frequency_hz=entry.get("catalog_frequency_hz", 60.0),
             )
         )
     return pumps
@@ -104,6 +122,12 @@ class CatalogManager:
         self._controllers: list[dict] = _load_optional(
             base / "controllers.json", "controllers"
         )
+        # Datos mecánicos por serie (eje, presión de carcasa, cojinetes). Una
+        # serie ausente = sin dato: la verificación se reporta como no realizada.
+        self._pump_series: dict[str, dict] = {
+            str(s["series"]): s
+            for s in _load_optional(base / "pump_series.json", "series")
+        }
         # Tablas dimensionales Tenaris (API 5CT): OD + peso -> ID y drift.
         # Resuelven el ID del casing/tubing que el usuario casi nunca tiene a
         # mano (los catalogos publican OD y peso nominal, no el ID).
@@ -264,9 +288,13 @@ class CatalogManager:
         Raises:
             ValueError: If no cable in the catalog meets the requirements.
         """
+        # Un cable sin ampacidad ni temperatura publicadas no es verificable, y
+        # elegirlo sería afirmar algo que el catálogo no dice. Quedan cargados
+        # como referencia (calibre, dimensiones, peso) pero fuera de la consulta.
         candidates = [
             c for c in self._cables
-            if c["max_amps"] >= amps and c["max_temp_f"] >= temp_f
+            if c.get("max_amps") is not None and c.get("max_temp_f") is not None
+            and c["max_amps"] >= amps and c["max_temp_f"] >= temp_f
         ]
         if not candidates:
             raise ValueError(
@@ -324,6 +352,7 @@ class CatalogManager:
         temp_f: float,
         thrust_lbs: float,
         prefer_type: str = "labyrinth",
+        manufacturer: str | None = None,
     ) -> dict:
         """Select the most economical protector for the given conditions.
 
@@ -341,6 +370,9 @@ class CatalogManager:
             temp_f: Required temperature rating [°F] (use bottomhole temp).
             thrust_lbs: Estimated axial thrust load [lbs].
             prefer_type: Preferred seal type (``"labyrinth"``/``"bag"``/``"combined"``).
+            manufacturer: Cuando se indica, el protector debe ser de ese
+                fabricante. Es la regla de aparejo único: bomba, motor y sello
+                salen del mismo proveedor (ver ``.claude/rules/domain.md``).
 
         Returns:
             Seal catalog dict.
@@ -348,20 +380,38 @@ class CatalogManager:
         Raises:
             ValueError: If no compatible seal carries the load at temperature.
         """
+        def _at_least(value, floor: float) -> bool:
+            """Un dato ausente no descalifica: la verificación queda sin hacer.
+
+            Ni Wood Group ni REDA publican empuje y temperatura por modelo de
+            protector —el empuje va en gráficos contra temperatura de fondo y la
+            temperatura depende del elastómero de la bolsa, que el código del
+            modelo no declara—. Descartarlos dejaría fuera 85 protectores reales
+            por un dato que el fabricante no imprime.
+            """
+            return True if value is None else value >= floor
+
         compatible = [
             s for s in self._seals
             if motor_series in s.get("compatible_motor_series", [])
-            and s.get("max_temp_f", 0) >= temp_f
-            and s.get("thrust_capacity_lbs", 0) >= thrust_lbs
+            and _at_least(s.get("max_temp_f"), temp_f)
+            and _at_least(s.get("thrust_capacity_lbs"), thrust_lbs)
+            and (manufacturer is None
+                 or (s.get("manufacturer") or "") == manufacturer)
         ]
         if not compatible:
+            de_quien = f" de {manufacturer}" if manufacturer else ""
             raise ValueError(
-                f"No protector for motor series {motor_series} carrying "
+                f"No protector{de_quien} for motor series {motor_series} carrying "
                 f"{thrust_lbs:.0f} lbs at {temp_f:.0f} °F"
             )
         preferred = [s for s in compatible if s.get("type") == prefer_type]
         pool = preferred if preferred else compatible
-        return min(pool, key=lambda s: s["thrust_capacity_lbs"])
+        # Con capacidad publicada gana el más chico que aguanta (criterio de
+        # economía). Los de capacidad desconocida van al final: se ofrecen sólo
+        # si no hay ninguno verificado.
+        return min(pool, key=lambda s: (s.get("thrust_capacity_lbs") is None,
+                                        s.get("thrust_capacity_lbs") or 0.0))
 
     # ------------------------------------------------------------------
     # Gas-handler queries
@@ -410,6 +460,24 @@ class CatalogManager:
     def get_all_controllers(self) -> list[dict]:
         """Return every surface controller in the catalog."""
         return list(self._controllers)
+
+    def get_pump_series(self, series: str) -> dict | None:
+        """Mechanical data of a pump series; ``None`` when the catalog has none.
+
+        Shaft diameter and limits, housing pressure ratings and thrust-bearing
+        staging are properties of the **series** hardware, not of the hydraulic
+        model, so they are keyed by series. Returning ``None`` rather than
+        defaults is deliberate: a caller must be able to tell "not verified"
+        from "verified and passed".
+
+        Args:
+            series: Series designation as it appears in ``PumpCurve.series``
+                (e.g. ``"400"``).
+
+        Returns:
+            The series record, or ``None`` if the series is not in the catalog.
+        """
+        return self._pump_series.get(str(series))
 
     def get_controller(
         self, voltage: float, kva: float, amps: float, prefer_vsd: bool = False

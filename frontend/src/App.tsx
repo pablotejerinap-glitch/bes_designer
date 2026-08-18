@@ -22,12 +22,15 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { api, ApiError, downloadBlob } from "./api/client";
-import type { DesignInputs, DesignResponse, ExampleWell, PumpSummary } from "./api/types";
+import { EXAMPLE_CASES, EXAMPLE_ORDER } from "./exampleCases";
+import type { DesignInputs, DesignResponse, PumpSummary } from "./api/types";
 import { WellForm } from "./components/WellForm";
 import { ResultsView } from "./components/ResultsView";
 import { SensitivityView } from "./components/SensitivityView";
 import { IprPanel } from "./components/IprPanel";
 import { PumpLibrary } from "./components/PumpLibrary";
+import { AffinityPanel } from "./components/AffinityPanel";
+import { GasIncrementView } from "./components/GasIncrementView";
 import { IconDownload, IconFolderOpen, IconMoon, IconSave, IconSun } from "./components/icons";
 
 type Health = "checking" | "ok" | "error";
@@ -52,6 +55,71 @@ function syncPb(di: DesignInputs): DesignInputs {
   return { ...di, fluid: { ...di.fluid, bubble_point_pressure: di.reservoir.bubble_point } };
 }
 
+// Punto de partida del formulario. NO es un caso de ejemplo: son los valores
+// que no se pueden dejar vacíos sin romper la validación del dominio (geometría
+// de casing y tubing, temperaturas, frecuencia de red). Todo lo que define al
+// pozo —presiones, ensayo, fluido, caudal objetivo— arranca en cero y lo carga
+// el usuario. Los ejemplos precargados viven aparte (exampleCases.ts) y se
+// ofrecen desde "Abrir": el formulario sigue arrancando en blanco.
+const BLANK_INPUTS: DesignInputs = {
+  reservoir: {
+    static_pressure: 0,
+    bubble_point: 0,
+    test_pwf: 0,
+    test_rate: 0,
+    ipr_method: "vogel",
+    reservoir_temp: 0,
+    drive_mechanism: "solution_gas",
+    fetkovich_n: null,
+  },
+  fluid: {
+    oil_api: 0,
+    water_cut: 0,
+    gor: 0,
+    gas_sg: 0.65,
+    water_sg: 1.05,
+    oil_viscosity_dead: 0,
+    viscosity_temp_ref: 100,
+    bubble_point_pressure: 0,
+    h2s_content: 0,
+    co2_content: 0,
+    sand_production: false,
+  },
+  well: {
+    total_depth: 0,
+    casing_od: 5.5,
+    casing_weight: 17,
+    casing_id: 4.892,
+    tubing_od: 2.875,
+    tubing_id: 2.441,
+    perforations_top: 0,
+    perforations_bottom: 0,
+    deviation_max: 0,
+    wellhead_temp: 100,
+  },
+  surface: {
+    wellhead_pressure_required: 0,
+    flowline_length: 0,
+    flowline_id: 3,
+    flowline_elevation_change: 0,
+    separator_pressure: 0,
+    power_supply_voltage: 480,
+    frequency: 50,
+  },
+  objectives: {
+    target_flow_rate: 0,
+    safety_margin_depth: 0,
+    allow_gas_venting: true,
+    max_gip: 0.1,
+    design_life_years: 5,
+    use_vsd: false,
+    design_frequency_hz: null,
+  },
+};
+
+// Sólo los casos del usuario. Los ejemplos NO se mezclan acá: viven en
+// EXAMPLE_CASES y el menú los muestra en su propia sección, así queda claro
+// cuáles son datos de referencia y cuáles guardó el usuario.
 function readCases(): SavedCases {
   try {
     const raw = localStorage.getItem(CASES_KEY);
@@ -66,9 +134,8 @@ export function App() {
   const scheme = useComputedColorScheme("light");
 
   const [health, setHealth] = useState<Health>("checking");
-  const [examples, setExamples] = useState<ExampleWell[]>([]);
   const [catalogPumps, setCatalogPumps] = useState<PumpSummary[]>([]);
-  const [inputs, setInputs] = useState<DesignInputs | null>(null);
+  const [inputs, setInputs] = useState<DesignInputs | null>(syncPb(BLANK_INPUTS));
   const [calculating, setCalculating] = useState(false);
   const [manualPumpModel, setManualPumpModel] = useState<string | null>(null);
   const [manualCalculating, setManualCalculating] = useState(false);
@@ -94,9 +161,6 @@ export function App() {
       try {
         await api.health();
         setHealth("ok");
-        const ex = await api.examples();
-        setExamples(ex);
-        if (ex.length > 0) setInputs(syncPb(structuredClone(ex[0].inputs)));
         const cat = await api.catalogs();
         setCatalogPumps(cat.pumps);
       } catch (e) {
@@ -109,16 +173,6 @@ export function App() {
       }
     })();
   }, []);
-
-  function loadExample(key: string | null) {
-    const ex = examples.find((e) => e.key === key);
-    if (ex) {
-      setInputs(syncPb(structuredClone(ex.inputs)));
-      setResult(null);
-      setManualResult(null);
-      setManualPumpModel(null);
-    }
-  }
 
   async function calculate() {
     if (!inputs) return;
@@ -197,9 +251,22 @@ export function App() {
     notifications.show({ color: "teal", message: `Caso "${name}" guardado en este navegador.` });
   }
 
+  // El caso guardado gana sobre el ejemplo del mismo nombre: lo que el usuario
+  // guardó nunca lo pisa un dato de referencia.
   function openCase(name: string) {
-    const saved = savedCases[name];
+    const saved = savedCases[name] ?? EXAMPLE_CASES[name];
     if (!saved) return;
+    // Casos guardados antes de que la entregabilidad se cargara como ensayo:
+    // traen el índice de productividad ya procesado y no el punto medido. No se
+    // reconstruye acá (sería lógica de negocio en el front) — se avisa para que
+    // el usuario cargue la Pwf y el caudal del ensayo.
+    const r = saved.reservoir as Partial<typeof saved.reservoir>;
+    if (r.test_pwf == null || r.test_rate == null) {
+      notifications.show({
+        color: "yellow",
+        message: `El caso "${name}" es anterior al ingreso por ensayo: completá la Pwf y el caudal medidos en Reservorio.`,
+      });
+    }
     setInputs(syncPb(structuredClone(saved)));
     setCaseName(name);
     setResult(null);
@@ -217,6 +284,9 @@ export function App() {
   }));
 
   const caseNames = Object.keys(savedCases).sort();
+  // Un ejemplo cuyo nombre el usuario ya reutilizó para guardar lo suyo sale de
+  // la lista de ejemplos: aparece una sola vez, en "Casos guardados".
+  const ejemplosVisibles = EXAMPLE_ORDER.filter((name) => !(name in savedCases));
 
   return (
     <div className="app-root">
@@ -242,21 +312,28 @@ export function App() {
         </Button>
         <Menu position="bottom-start" withinPortal>
           <Menu.Target>
-            <Button
-              variant="default"
-              leftSection={<IconFolderOpen />}
-              disabled={caseNames.length === 0}
-            >
+            <Button variant="default" leftSection={<IconFolderOpen />}>
               Abrir
             </Button>
           </Menu.Target>
-          <Menu.Dropdown>
-            <Menu.Label>Casos guardados</Menu.Label>
-            {caseNames.map((name) => (
+          <Menu.Dropdown mah="70vh" style={{ overflowY: "auto" }}>
+            <Menu.Label>Ejemplos precargados</Menu.Label>
+            {ejemplosVisibles.map((name) => (
               <Menu.Item key={name} onClick={() => openCase(name)}>
                 {name}
               </Menu.Item>
             ))}
+            {caseNames.length > 0 && (
+              <>
+                <Menu.Divider />
+                <Menu.Label>Casos guardados</Menu.Label>
+                {caseNames.map((name) => (
+                  <Menu.Item key={name} onClick={() => openCase(name)}>
+                    {name}
+                  </Menu.Item>
+                ))}
+              </>
+            )}
           </Menu.Dropdown>
         </Menu>
 
@@ -307,15 +384,6 @@ export function App() {
       <div className="app-main">
         <aside className="app-inputs">
           <div className="app-inputs-scroll">
-            <Select
-              label="Casos ejemplos"
-              placeholder="Elegí un ejemplo…"
-              data={examples.map((e) => ({ value: e.key, label: e.label }))}
-              onChange={loadExample}
-              disabled={examples.length === 0}
-              searchable
-              mb="sm"
-            />
 
             {inputs ? (
               <WellForm value={inputs} onChange={(v) => setInputs(syncPb(v))} />
@@ -370,6 +438,8 @@ export function App() {
               <Tabs.Tab value="design">Diseño</Tabs.Tab>
               <Tabs.Tab value="ipr">Curva IPR</Tabs.Tab>
               <Tabs.Tab value="sensitivity">Sensibilidad</Tabs.Tab>
+              <Tabs.Tab value="gas">Pozo con gas</Tabs.Tab>
+              <Tabs.Tab value="affinity">Leyes de afinidad</Tabs.Tab>
               <Tabs.Tab value="library">Biblioteca ESP</Tabs.Tab>
             </Tabs.List>
 
@@ -379,8 +449,7 @@ export function App() {
                   <Card>
                     <Title order={3}>Sin diseño calculado</Title>
                     <Text c="dimmed" size="sm" mt={4}>
-                      Configurá las entradas en el panel izquierdo (o cargá un ejemplo del
-                      libro) y presioná "Calcular diseño BES". Las recomendaciones, la curva
+                      Cargá los datos del pozo en el panel izquierdo y presioná "Calcular diseño BES". Las recomendaciones, la curva
                       de la bomba y el análisis nodal aparecen acá.
                     </Text>
                   </Card>
@@ -403,6 +472,18 @@ export function App() {
 
             <Tabs.Panel value="sensitivity">
               <SensitivityView inputs={inputs} />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="gas">
+              <GasIncrementView inputs={inputs} />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="affinity">
+              <AffinityPanel
+                pumps={catalogPumps}
+                active={tab === "affinity"}
+                defaultFlow={inputs?.objectives.target_flow_rate ?? null}
+              />
             </Tabs.Panel>
 
             <Tabs.Panel value="library">

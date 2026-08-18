@@ -22,45 +22,25 @@ def _sg_liquid_simple(oil_api: float, water_cut: float, water_sg: float) -> floa
     return sg_oil * (1.0 - water_cut) + water_sg * water_cut
 
 
-def _vogel_pwf(reservoir, q: float) -> float:
-    """Compute Pwf for a given flow rate using Vogel or linear IPR."""
-    pr = reservoir.static_pressure
-    pi = reservoir.productivity_index
-    pb = reservoir.bubble_point
-
-    if reservoir.ipr_method.name == "LINEAR":
-        return max(0.0, pr - q / pi)
-
-    # Vogel / Combined / Fetkovich → use Vogel
-    if pb >= pr:  # depleted: fully two-phase
-        qmax = pi * pr / 1.8
-    else:
-        q_at_pb = pi * (pr - pb)
-        qmax = q_at_pb + pi * pb / 1.8
-
-    ratio = min(q / max(qmax, 1e-6), 1.0)
-    # Solve 0.8x^2 + 0.2x + (ratio-1) = 0 for x = Pwf/ref
-    ref_p = pr
-    disc = 0.04 + 3.2 * (1.0 - ratio)
-    if disc < 0:
-        return 0.0
-    x = (-0.2 + disc ** 0.5) / 1.6
-    return max(0.0, x * ref_p)
-
-
 def _ipr_q(reservoir, pwf: float) -> float:
     """Flow rate at a given Pwf — delegates to the canonical core.ipr models.
 
     Avoids re-implementing the IPR equations here (a previous local copy
     introduced a discontinuity at Pwf = Pb because it used the total AOF
     as the Vogel multiplier instead of (PI·Pb/1.8)).
+
+    VOGEL usa el **generalizado** (``vogel_composite_ipr``): recta arriba de la
+    presión de burbuja, Vogel abajo. Es la misma función que resuelve la Pwf de
+    diseño, así que el gráfico y el cálculo no pueden divergir. Antes se
+    llamaba a ``vogel_ipr`` con ``qmax = J·Pr/1.8``, o sea Vogel puro desde Pr:
+    la curva salía doblada desde el primer punto, sin el tramo recto que exige
+    el flujo monofásico por encima de Pb.
     """
-    from bes.core.ipr import linear_ipr, vogel_ipr, combined_ipr
+    from bes.core.ipr import fetkovich_ipr, linear_ipr, vogel_composite_ipr
     from bes.core.models import IPRMethod
 
     pr = reservoir.static_pressure
     pi = reservoir.productivity_index
-    pb = reservoir.bubble_point
     method = reservoir.ipr_method
 
     pwf_clamped = max(0.0, min(pwf, pr))
@@ -68,13 +48,13 @@ def _ipr_q(reservoir, pwf: float) -> float:
     if method is IPRMethod.LINEAR:
         return max(0.0, linear_ipr(pr, pwf_clamped, pi))
 
-    if method is IPRMethod.VOGEL or pb >= pr:
-        # Pure Vogel — used when reservoir is fully below bubble point too
-        qmax = pi * pr / 1.8
-        return max(0.0, vogel_ipr(pr, pwf_clamped, qmax))
+    if method is IPRMethod.FETKOVICH:
+        # C and n are guaranteed by Reservoir.__post_init__ for this method.
+        n = reservoir.fetkovich_n if reservoir.fetkovich_n is not None else 1.0
+        return max(0.0, fetkovich_ipr(pr, pwf_clamped, reservoir.fetkovich_c, n))
 
-    # COMBINED (default for Pr > Pb): linear above Pb, Vogel below — C0 continuous
-    return max(0.0, combined_ipr(pr, pb, pwf_clamped, pi))
+    # VOGEL generalizado: recta hasta Pb, Vogel de Pb para abajo.
+    return max(0.0, vogel_composite_ipr(pr, reservoir.bubble_point, pwf_clamped, pi))
 
 
 # ---------------------------------------------------------------------------
@@ -219,6 +199,21 @@ def plot_pump_curve(pump: "PumpCurve", operating_flow: float, stages: int) -> go
     fig.add_vline(x=pump.bep_flow, line_dash="dash", line_color="#9C27B0", line_width=1,
                   annotation_text="BEP", annotation_position="top")
 
+    # Rango operativo recomendado del fabricante — la banda sombreada que traen
+    # las curvas de catálogo. Sus límites NO son simétricos respecto del BEP:
+    # el inferior lo fija el empuje descendente sobre los cojinetes y el
+    # superior el ascendente, que son mecanismos distintos.
+    #
+    # OJO: va DESPUÉS de las trazas. add_vrect descarta los subplots vacíos
+    # (exclude_empty_subplots=True por defecto), así que llamarlo antes del
+    # primer add_trace no dibuja nada y no avisa.
+    fig.add_vrect(
+        x0=pump.min_flow, x1=pump.max_flow,
+        fillcolor="#90CAF9", opacity=0.15, line_width=0, layer="below",
+        annotation_text="Rango operativo recomendado",
+        annotation_position="top left",
+    )
+
     fig.update_layout(
         title=f"Curva de Bomba — {pump.model} ({stages} etapas)",
         xaxis_title="Caudal (STB/d)",
@@ -257,13 +252,6 @@ def plot_pump_catalog_curve(pump: "PumpCurve") -> go.Figure:
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
 
-    # Rango operativo recomendado (sombreado)
-    fig.add_vrect(
-        x0=pump.min_flow, x1=pump.max_flow,
-        fillcolor="#90CAF9", opacity=0.12, line_width=0,
-        annotation_text="Rango operativo", annotation_position="top left",
-    )
-
     fig.add_trace(go.Scatter(
         x=flows, y=heads, name="Head (ft/etapa)",
         line=dict(color="#1565C0", width=2.5),
@@ -291,6 +279,21 @@ def plot_pump_catalog_curve(pump: "PumpCurve") -> go.Figure:
         hovertemplate=f"BEP<br>q={pump.bep_flow:.0f} STB/d<br>Eff=%{{y:.1f}}%<extra></extra>",
     ), secondary_y=True)
     fig.add_vline(x=pump.bep_flow, line_dash="dash", line_color="#9C27B0", line_width=1)
+
+    # Rango operativo del fabricante — la banda sombreada que traen
+    # las curvas de catálogo. Sus límites NO son simétricos respecto del BEP:
+    # el inferior lo fija el empuje descendente sobre los cojinetes y el
+    # superior el ascendente, que son mecanismos distintos.
+    #
+    # OJO: va DESPUÉS de las trazas. add_vrect descarta los subplots vacíos
+    # (exclude_empty_subplots=True por defecto), así que llamarlo antes del
+    # primer add_trace no dibuja nada y no avisa.
+    fig.add_vrect(
+        x0=pump.min_flow, x1=pump.max_flow,
+        fillcolor="#90CAF9", opacity=0.15, line_width=0, layer="below",
+        annotation_text="Rango operativo",
+        annotation_position="top left",
+    )
 
     fig.update_layout(
         title=(f"Curva de catálogo — {pump.manufacturer} {pump.model} "
@@ -492,23 +495,8 @@ def plot_sensitivity_analysis(
 
 
 # ---------------------------------------------------------------------------
-# 5. Nodal analysis — single method
+# 5. Nodal analysis
 # ---------------------------------------------------------------------------
-
-_METHOD_LABELS = {
-    "hagedorn_brown":       "Hagedorn-Brown",
-    "beggs_brill":          "Beggs-Brill",
-    "duns_ros":             "Duns & Ros",
-    "poettmann_carpenter":  "Poettmann & Carpenter",
-}
-
-_METHOD_COLORS_COMPARISON = {
-    "hagedorn_brown":       "#E65100",   # orange
-    "beggs_brill":          "#6A1B9A",   # purple
-    "duns_ros":             "#00838F",   # teal/cyan
-    "poettmann_carpenter":  "#4E342E",   # brown
-}
-
 
 def plot_nodal_analysis(
     reservoir,
@@ -518,7 +506,6 @@ def plot_nodal_analysis(
     pump=None,
     stages=None,
     pump_depth=None,
-    method: str = "hagedorn_brown",
 ) -> go.Figure:
     """Professional nodal-analysis chart (IPR + outflow curves + operating points).
 
@@ -530,18 +517,17 @@ def plot_nodal_analysis(
         pump: Optional PumpCurve catalog entry.
         stages: Number of pump stages (required when *pump* is given).
         pump_depth: Pump setting depth [ft TVD].
-        method: Multiphase correlation to use.
 
     Returns:
         Plotly Figure with IPR, natural and (optionally) pump outflow curves,
         operating-point markers, a shaded benefit zone, and a summary
         annotation box.
     """
-    from bes.core.nodal_analysis import find_operating_point
+    from bes.core.nodal_analysis import METHOD_LABEL, find_operating_point
 
     result = find_operating_point(
         reservoir, fluid, well, surface,
-        method=method, pump=pump, stages=stages, pump_depth=pump_depth,
+        pump=pump, stages=stages, pump_depth=pump_depth,
     )
 
     q_ipr   = result["q_ipr"]
@@ -551,7 +537,7 @@ def plot_nodal_analysis(
     pwf_pmp = result["pwf_outflow_pump"]
     nat_op  = result["natural_flow"]
     pmp_op  = result["pump_flow"]
-    method_label = _METHOD_LABELS.get(method, method)
+    method_label = METHOD_LABEL
 
     fig = go.Figure()
 
@@ -676,97 +662,259 @@ def plot_nodal_analysis(
     return fig
 
 
-# ---------------------------------------------------------------------------
-# 6. Nodal analysis — four-method comparison
-# ---------------------------------------------------------------------------
-
-def plot_nodal_comparison(
-    reservoir,
-    fluid,
-    well,
-    surface,
-    pump=None,
-    stages=None,
-    pump_depth=None,
+def plot_affinity_curves(
+    pump: "PumpCurve",
+    frequencies: list[float],
+    diameter_ratio: float = 1.0,
+    sg_ratio: float = 1.0,
+    target_flow: float | None = None,
 ) -> go.Figure:
-    """Overlay the four outflow curves on one IPR to compare correlations.
+    """Familia de curvas de la misma bomba a distintas frecuencias.
 
-    Runs ``compare_methods`` internally and plots:
-    - The shared IPR in blue.
-    - Each method's outflow curve (with pump if provided, else natural)
-      in its own colour.
-    - Operating-point markers for each method.
+    Muestra de un vistazo lo que dicen las leyes de afinidad: al bajar la
+    frecuencia la curva se corre hacia caudales menores (Q ∝ N) y baja mucho más
+    rápido en altura (H ∝ N²), mientras el rango operativo se comprime en la
+    misma proporción que el caudal. La eficiencia no cambia, por eso no se
+    grafica: sería la misma curva desplazada.
 
     Args:
-        reservoir, fluid, well, surface, pump, stages, pump_depth:
-            Same arguments as ``find_operating_point``.
+        pump: PumpCurve del catálogo.
+        frequencies: Frecuencias a dibujar [Hz]. Se ordenan de menor a mayor.
+        diameter_ratio: ``D₂/D₁`` si el impulsor está rebajado.
+        sg_ratio: ``SG₂/SG₁`` para la ley de potencia.
+        target_flow: Caudal objetivo [STB/d]. Si se pasa, se marca con una
+            vertical para leer a ojo qué frecuencia lo alcanza dentro del rango.
 
     Returns:
-        Plotly Figure.
+        Plotly Figure con head/etapa a la izquierda y HP/etapa a la derecha.
     """
-    from bes.core.nodal_analysis import compare_methods
+    from bes.core.affinity import scale_curve
 
-    results = compare_methods(
-        reservoir, fluid, well, surface,
-        pump=pump, stages=stages, pump_depth=pump_depth,
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    palette = ["#B0BEC5", "#64B5F6", "#1565C0", "#0D47A1", "#4A148C", "#880E4F"]
+
+    for i, freq in enumerate(sorted(frequencies)):
+        curve = scale_curve(pump, freq, diameter_ratio=diameter_ratio, sg_ratio=sg_ratio)
+        color = palette[i % len(palette)]
+        flows = [p["flow_bpd"] for p in curve["points"]]
+        heads = [p["head_ft_per_stage"] for p in curve["points"]]
+        hps = [p["hp_per_stage"] for p in curve["points"]]
+        base = freq == pump.catalog_frequency_hz
+
+        fig.add_trace(go.Scatter(
+            x=flows, y=heads, name=f"{freq:.0f} Hz",
+            legendgroup=f"{freq:.0f}",
+            line=dict(color=color, width=3 if base else 2),
+            hovertemplate=(f"{freq:.0f} Hz<br>q=%{{x:.0f}} STB/d"
+                           "<br>Head=%{y:.2f} ft/etapa<extra></extra>"),
+        ), secondary_y=False)
+
+        fig.add_trace(go.Scatter(
+            x=flows, y=hps, name=f"HP {freq:.0f} Hz",
+            legendgroup=f"{freq:.0f}", showlegend=False,
+            line=dict(color=color, width=1.5, dash="dash"),
+            hovertemplate=(f"{freq:.0f} Hz<br>q=%{{x:.0f}} STB/d"
+                           "<br>HP=%{y:.3f}/etapa<extra></extra>"),
+        ), secondary_y=True)
+
+        # BEP de cada frecuencia: se corre linealmente con el caudal.
+        fig.add_trace(go.Scatter(
+            x=[curve["bep_flow"]], y=[curve["bep_head_per_stage"]],
+            mode="markers", showlegend=False, legendgroup=f"{freq:.0f}",
+            marker=dict(color=color, size=10, symbol="star"),
+            hovertemplate=(f"BEP {freq:.0f} Hz<br>q={curve['bep_flow']:.0f} STB/d"
+                           f"<br>Head={curve['bep_head_per_stage']:.2f} ft/etapa"
+                           "<extra></extra>"),
+        ), secondary_y=False)
+
+    if target_flow and target_flow > 0:
+        fig.add_vline(
+            x=target_flow, line_dash="dot", line_color="#D32F2F", line_width=2,
+            annotation_text=f"Objetivo {target_flow:.0f} STB/d",
+            annotation_position="top right",
+        )
+
+    fig.update_layout(
+        title=(f"Leyes de afinidad — {pump.manufacturer} {pump.model} "
+               f"(curva de catálogo a {pump.catalog_frequency_hz:.0f} Hz)"),
+        xaxis_title="Caudal (STB/d)",
+        template="plotly_white",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(t=70, b=50, l=60, r=60),
     )
+    fig.update_yaxes(title_text="Head (ft/etapa)", secondary_y=False, rangemode="tozero")
+    fig.update_yaxes(title_text="HP/etapa", secondary_y=True, rangemode="tozero")
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# 8. Escalera de incrementos de presión (Brown Fig. 4.56B)
+# ---------------------------------------------------------------------------
+
+def plot_gas_increment_ladder(
+    rows: list[dict],
+    *,
+    p_intake: float,
+    p_discharge: float,
+    pump_model: str = "",
+    total_stages: int | None = None,
+    max_labels: int = 12,
+) -> go.Figure:
+    """Diagrama de escalera del método de incrementos — Brown Vol. 2b Fig. 4.56B.
+
+    Reproduce la figura del libro: una columna vertical con la admisión abajo y
+    la descarga arriba, el **caudal de mezcla a la izquierda** de cada peldaño,
+    la **presión a la derecha**, el ΔP de cada tramo sobre el eje y el ΔP total
+    acotado al costado.
+
+    Dice de un vistazo lo que la tabla hace leer fila por fila: que el volumen
+    **baja** al subir la presión, porque el gas se comprime y parte pasa a
+    solución. Es el motivo de todo el método — con gas el caudal no es constante
+    a lo largo de la bomba, así que no se puede resolver con un caudal único.
+
+    Agrega sobre el libro las **etapas de cada tramo**, que es lo que el ΔP
+    cuesta y lo que la figura impresa no muestra.
+
+    La escala vertical es lineal en presión, así que la separación entre
+    peldaños es proporcional al ΔP: si el último escalón quedó con el resto de
+    la división, se ve corto y queda marcado.
+
+    Args:
+        rows: Filas de ``pressure_increment_design`` (``increment_table``).
+            Cada una aporta ``p_lo``/``p_hi``, ``q_lo_bpd``/``q_hi_bpd`` y
+            ``stages``.
+        p_intake: Presión de admisión [psia] — la base de la escalera.
+        p_discharge: Presión de descarga [psia] — el tope.
+        pump_model: Modelo de bomba, para el título.
+        total_stages: Etapas totales, para el título.
+        max_labels: Tope de peldaños rotulados. Con más tramos que esto se
+            rotula uno de cada *k* (los extremos siempre), para que las
+            etiquetas no se pisen. Las líneas se dibujan todas.
+
+    Returns:
+        Plotly Figure. Agnóstico de framework: la API lo serializa con
+        ``to_json()``.
+
+    Raises:
+        ValueError: Si ``rows`` viene vacío — no hay escalera que dibujar.
+    """
+    if not rows:
+        raise ValueError("plot_gas_increment_ladder necesita al menos un intervalo")
+
+    # Fronteras: el extremo superior de un tramo es el inferior del siguiente,
+    # así que alcanza con los 'lo' más el 'hi' del último.
+    p_bounds = [float(r["p_lo"]) for r in rows] + [float(rows[-1]["p_hi"])]
+    q_bounds = [float(r["q_lo_bpd"]) for r in rows] + [float(rows[-1]["q_hi_bpd"])]
+
+    # Geometría en unidades de eje X (no de margen: el front pisa los márgenes).
+    X_RUNG = 1.0        # medio ancho del peldaño
+    X_VOL = -1.25       # etiqueta de caudal, a la izquierda
+    X_PRES = 1.25       # etiqueta de presión, a la derecha
+    X_BRACKET = 2.75    # acotación del ΔP total
+    AZUL, NARANJA, GRIS, VIOLETA = "#1565C0", "#E65100", "#616161", "#6A1B9A"
+
+    # Con muchos tramos las etiquetas se pisan: se rotula uno de cada k.
+    paso = max(1, -(-len(rows) // max_labels))   # ceil
+    def rotula(i: int) -> bool:
+        return i % paso == 0 or i == len(rows) - 1
 
     fig = go.Figure()
 
-    # ── Shared IPR ───────────────────────────────────────────────────────────
-    ipr_q   = results["_ipr"]["q"]
-    ipr_pwf = results["_ipr"]["pwf"]
+    # --- columna y peldaños --------------------------------------------------
+    fig.add_shape(
+        type="line", x0=0, x1=0, y0=p_intake, y1=p_discharge,
+        line=dict(color=AZUL, width=2.5), layer="below",
+    )
+    for p in p_bounds:
+        fig.add_shape(
+            type="line", x0=-X_RUNG, x1=X_RUNG, y0=p, y1=p,
+            line=dict(color=AZUL, width=2),
+        )
+
+    # --- caudal (izquierda) y presión (derecha) en cada frontera -------------
+    for i, (p, q) in enumerate(zip(p_bounds, q_bounds)):
+        if not (rotula(i) or i == len(p_bounds) - 1):
+            continue
+        fig.add_annotation(
+            x=X_VOL, y=p, text=f"<b>{q:,.0f}</b> b/d".replace(",", " "),
+            showarrow=False, xanchor="right", yanchor="middle",
+            font=dict(size=12, color=AZUL),
+        )
+        fig.add_annotation(
+            x=X_PRES, y=p, text=f"<b>{p:,.0f}</b> psi".replace(",", " "),
+            showarrow=False, xanchor="left", yanchor="middle",
+            font=dict(size=12, color=GRIS),
+        )
+
+    # --- ΔP y etapas de cada tramo, sobre el eje -----------------------------
+    dp_nominal = max((float(r["delta_p"]) for r in rows), default=0.0)
+    for i, r in enumerate(rows):
+        if not rotula(i):
+            continue
+        dp = float(r["delta_p"])
+        medio = 0.5 * (float(r["p_lo"]) + float(r["p_hi"]))
+        # El último tramo suele quedar con el resto de la división: se marca.
+        resto = i == len(rows) - 1 and abs(dp - dp_nominal) > 1e-6
+        texto = f"ΔP = {dp:,.0f}".replace(",", " ")
+        if resto:
+            texto += " *"
+        fig.add_annotation(
+            x=0, y=medio, text=f"<b>{texto}</b><br><span style='font-size:10px'>"
+                               f"{r['stages']} etapas</span>",
+            showarrow=False, xanchor="center", yanchor="middle",
+            font=dict(size=11, color=NARANJA if not resto else VIOLETA),
+            bgcolor="rgba(255,255,255,0.88)", borderpad=3,
+        )
+
+    # --- acotación del ΔP total ---------------------------------------------
+    delta_total = p_discharge - p_intake
+    fig.add_shape(type="line", x0=X_BRACKET, x1=X_BRACKET,
+                  y0=p_intake, y1=p_discharge,
+                  line=dict(color=VIOLETA, width=1.5))
+    for p in (p_intake, p_discharge):
+        fig.add_shape(type="line", x0=X_BRACKET - 0.18, x1=X_BRACKET + 0.18,
+                      y0=p, y1=p, line=dict(color=VIOLETA, width=1.5))
+    fig.add_annotation(
+        x=X_BRACKET + 0.28, y=0.5 * (p_intake + p_discharge),
+        text=f"<b>ΔP TOTAL = {delta_total:,.0f} psi</b>".replace(",", " "),
+        showarrow=False, xanchor="left", yanchor="middle", textangle=-90,
+        font=dict(size=12, color=VIOLETA),
+    )
+
+    # --- extremos ------------------------------------------------------------
+    fig.add_annotation(
+        x=0, y=p_intake, yshift=-24, text="<b>ADMISIÓN</b>", showarrow=False,
+        xanchor="center", font=dict(size=11, color=AZUL),
+    )
+    fig.add_annotation(
+        x=0, y=p_discharge, yshift=24, text="<b>DESCARGA</b>", showarrow=False,
+        xanchor="center", font=dict(size=11, color=AZUL),
+    )
+
+    # --- hover: los dos extremos de cada frontera ---------------------------
     fig.add_trace(go.Scatter(
-        x=ipr_q, y=ipr_pwf,
-        name="IPR (Inflow)",
-        line=dict(color="#1565C0", width=3),
-        hovertemplate="q = %{x:.0f} STB/D<br>Pwf = %{y:.0f} psi<extra>IPR</extra>",
+        x=[0.0] * len(p_bounds), y=p_bounds, mode="markers",
+        marker=dict(size=9, color=AZUL),
+        customdata=q_bounds, showlegend=False,
+        hovertemplate="P = %{y:.0f} psia<br>Caudal de mezcla = %{customdata:.0f} b/d"
+                      "<extra></extra>",
     ))
 
-    _methods_order = ("hagedorn_brown", "beggs_brill", "duns_ros", "poettmann_carpenter")
+    titulo = "Incrementos de presión — Brown Vol. 2b Fig. 4.56B"
+    if pump_model:
+        detalle = pump_model
+        if total_stages is not None:
+            detalle += f", {total_stages} etapas"
+        titulo += f"<br><span style='font-size:12px;color:#616161'>{detalle}</span>"
 
-    for m in _methods_order:
-        res   = results[m]
-        color = _METHOD_COLORS_COMPARISON[m]
-        label = _METHOD_LABELS[m]
-        q_out = res["q_outflow"]
-        # Show pump curve if available, otherwise natural
-        pwf_show = (res["pwf_outflow_pump"]
-                    if res["pwf_outflow_pump"] is not None
-                    else res["pwf_outflow_natural"])
-
-        fig.add_trace(go.Scatter(
-            x=q_out, y=pwf_show,
-            name=label,
-            line=dict(color=color, width=2),
-            hovertemplate=f"q = %{{x:.0f}} STB/D<br>Pwf = %{{y:.0f}} psi<extra>{label}</extra>",
-        ))
-
-        op = res["pump_flow"] or res["natural_flow"]
-        if op:
-            fig.add_trace(go.Scatter(
-                x=[op["q"]], y=[op["pwf"]],
-                mode="markers",
-                marker=dict(color=color, size=12, symbol="circle",
-                            line=dict(color="white", width=2)),
-                showlegend=False,
-                hovertemplate=(
-                    f"{label}<br>q = {op['q']:.0f} STB/D"
-                    f"<br>Pwf = {op['pwf']:.0f} psi<extra></extra>"
-                ),
-            ))
-
-    pump_suffix = f" con BES ({pump.model})" if pump is not None else " (flujo natural)"
+    # El rango en X se fija a mano porque toda la figura son anotaciones: sin
+    # esto Plotly ajusta al único trace (x = 0) y las etiquetas quedan afuera.
     fig.update_layout(
-        title=f"Comparación de Correlaciones — Análisis Nodal{pump_suffix}",
-        xaxis_title="Caudal de Producción (STB/D)",
-        yaxis_title="Presión de Fondo Pwf (psi)",
+        title=titulo,
         template="plotly_white",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02,
-                    xanchor="right", x=1),
-        hovermode="x unified",
-        xaxis=dict(showgrid=True, gridcolor="#eee"),
-        yaxis=dict(showgrid=True, gridcolor="#eee"),
-        margin=dict(t=70, b=55, l=65, r=20),
+        showlegend=False,
+        xaxis=dict(range=[-3.0, 4.3], visible=False, fixedrange=True),
+        yaxis=dict(title_text="Presión (psia)", showgrid=False, zeroline=False),
+        margin=dict(t=80, b=40, l=60, r=20),
     )
     return fig

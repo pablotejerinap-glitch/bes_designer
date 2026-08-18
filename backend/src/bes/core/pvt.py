@@ -483,3 +483,240 @@ def mixture_specific_gravity(fluid: Fluid, p: float, t: float) -> float:
     """
     props = fluid_properties_at_conditions(fluid, p, t)
     return props["mixture_density"] / _RHO_WATER_SC
+
+
+# ===========================================================================
+# TABLA PVT MEDIDA — tiene prioridad sobre las correlaciones
+# ===========================================================================
+#
+# Una correlación es un ajuste estadístico sobre cientos de crudos que no son
+# el nuestro. Un análisis PVT de laboratorio es el fluido del pozo. Cuando el
+# dato medido existe, manda; la correlación queda de respaldo para las
+# propiedades que la tabla no publica.
+#
+# Cada valor que sale de acá viaja con su ORIGEN (`sources`), porque en la
+# tesis hay que poder decir de dónde salió cada número. Los tres orígenes son:
+#
+#     "pvt"          interpolado de la tabla de laboratorio
+#     "correlacion"  calculado con Standing / DAK / Beggs-Robinson / McCain
+#     "supuesto"     valor fijado a mano, sin respaldo experimental
+# ---------------------------------------------------------------------------
+
+from dataclasses import dataclass, field   # noqa: E402  (sección auto-contenida)
+
+#: Propiedades que una tabla PVT puede publicar y este módulo sabe consumir.
+PVT_TABLE_FIELDS = ("rs", "bo", "bg", "bw", "z", "mu_oil")
+
+#: Orígenes posibles de un valor PVT, de mayor a menor jerarquía.
+PVT_SOURCE_TABLE = "pvt"
+PVT_SOURCE_CORRELATION = "correlacion"
+PVT_SOURCE_ASSUMED = "supuesto"
+
+
+@dataclass(frozen=True)
+class PVTPoint:
+    """Una fila del análisis PVT: las propiedades medidas a una presión.
+
+    Los campos son **opcionales** porque un informe de laboratorio rara vez
+    publica las seis columnas. Lo que falte se completa con la correlación y
+    queda marcado como tal en ``sources``.
+
+    Args:
+        pressure: Presión de la fila [psia]. Debe ser > 0.
+        rs: Gas en solución [scf/STB].
+        bo: Factor volumétrico del petróleo [rb/STB].
+        bg: Factor volumétrico del gas [bbl/scf].
+        bw: Factor volumétrico del agua [bbl/STB].
+        z: Factor de compresibilidad del gas [-].
+        mu_oil: Viscosidad del petróleo vivo [cp].
+    """
+
+    pressure: float
+    rs: float | None = None
+    bo: float | None = None
+    bg: float | None = None
+    bw: float | None = None
+    z: float | None = None
+    mu_oil: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.pressure <= 0:
+            raise ValueError(f"pressure must be > 0, got {self.pressure}")
+
+
+@dataclass
+class PVTTable:
+    """Análisis PVT de laboratorio: filas ordenadas por presión.
+
+    Interpola **linealmente** entre filas y no extrapola: fuera del rango
+    medido devuelve ``None`` para todas las propiedades, de modo que el
+    resolvedor caiga a la correlación en vez de inventar un valor. Extrapolar
+    un PVT es exactamente el tipo de dato falso que el capítulo 25 del pliego
+    prohíbe.
+
+    Args:
+        points: Filas del informe. Se ordenan solas por presión.
+        source: De dónde sale la tabla — va textual a los reportes.
+            Ej.: ``"PVT experimental pozo LLL-1001, informe 2024-03"``.
+        temperature_f: Temperatura del ensayo [°F]. Informativa: si difiere
+            mucho de la de evaluación, :func:`resolve_pvt` avisa.
+
+    Raises:
+        ValueError: Si no hay al menos dos filas, o si hay presiones repetidas.
+    """
+
+    points: list[PVTPoint]
+    source: str = "PVT experimental"
+    temperature_f: float | None = None
+    warnings: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if len(self.points) < 2:
+            raise ValueError(
+                f"PVTTable necesita al menos 2 filas para interpolar, "
+                f"recibió {len(self.points)}"
+            )
+        self.points = sorted(self.points, key=lambda pt: pt.pressure)
+        presiones = [pt.pressure for pt in self.points]
+        if len(set(presiones)) != len(presiones):
+            raise ValueError("PVTTable tiene presiones repetidas")
+
+    @property
+    def pressure_range(self) -> tuple[float, float]:
+        """Presión mínima y máxima medidas [psia]."""
+        return self.points[0].pressure, self.points[-1].pressure
+
+    def covers(self, p: float) -> bool:
+        """¿La presión *p* cae dentro del rango medido?"""
+        lo, hi = self.pressure_range
+        return lo <= p <= hi
+
+    def at(self, p: float) -> dict[str, float | None]:
+        """Interpola las propiedades a la presión *p*.
+
+        Returns:
+            dict con las claves de :data:`PVT_TABLE_FIELDS`. Cada una vale
+            ``None`` si la tabla no la publica o si *p* cae fuera del rango.
+        """
+        if not self.covers(p):
+            return {campo: None for campo in PVT_TABLE_FIELDS}
+
+        # Fila exacta, o el par que encierra a p.
+        lo = max((pt for pt in self.points if pt.pressure <= p),
+                 key=lambda pt: pt.pressure)
+        hi = min((pt for pt in self.points if pt.pressure >= p),
+                 key=lambda pt: pt.pressure)
+
+        if lo.pressure == hi.pressure:
+            return {campo: getattr(lo, campo) for campo in PVT_TABLE_FIELDS}
+
+        peso = (p - lo.pressure) / (hi.pressure - lo.pressure)
+        salida: dict[str, float | None] = {}
+        for campo in PVT_TABLE_FIELDS:
+            v_lo = getattr(lo, campo)
+            v_hi = getattr(hi, campo)
+            # Sólo se interpola si LAS DOS filas publican la propiedad.
+            salida[campo] = (
+                v_lo + peso * (v_hi - v_lo)
+                if v_lo is not None and v_hi is not None
+                else None
+            )
+        return salida
+
+
+#: Diferencia de temperatura a partir de la cual se avisa que la tabla PVT
+#: está medida lejos de la condición evaluada. Bo y Rs dependen de T, así que
+#: una tabla levantada a otra temperatura deja de ser el fluido del problema.
+PVT_TEMP_TOLERANCE_F = 20.0
+
+
+def resolve_pvt(
+    p: float,
+    t: float,
+    fluid: Fluid,
+    table: "PVTTable | None" = None,
+) -> dict:
+    """Rs, Bo, Bg, Bw y Z a P y T, con el origen de cada valor.
+
+    Jerarquía del pliego (§5): **tabla de laboratorio > correlación**. Para
+    cada propiedad por separado, porque un informe puede publicar Rs y Bo pero
+    no Bg.
+
+    Rs se acota al GOR total del pozo: no puede haber más gas disuelto que el
+    que el pozo produce, ni siquiera si la tabla lo dice.
+
+    Args:
+        p: Presión [psia]. Debe ser > 0.
+        t: Temperatura [°F].
+        fluid: Fluido — aporta GOR, °API, SG del gas y presión de burbuja.
+        table: Análisis PVT medido. ``None`` = sólo correlaciones.
+
+    Returns:
+        dict con ``rs``, ``bo``, ``bg``, ``bw``, ``z``, más:
+          - ``sources``   dict propiedad → origen (``"pvt"`` / ``"correlacion"``)
+          - ``warnings``  lista de avisos (tabla fuera de rango, T distinta…)
+
+    Raises:
+        ValueError: Si p <= 0.
+    """
+    if p <= 0:
+        raise ValueError(f"p must be > 0, got {p}")
+
+    medido = table.at(p) if table is not None else {c: None for c in PVT_TABLE_FIELDS}
+    origenes: dict[str, str] = {}
+    avisos: list[str] = []
+
+    if table is not None:
+        if not table.covers(p):
+            lo, hi = table.pressure_range
+            avisos.append(
+                f"La tabla PVT ({table.source}) cubre {lo:.0f}–{hi:.0f} psia y "
+                f"se evaluó a {p:.0f} psia: fuera de rango. No se extrapola — "
+                f"se usan correlaciones en ese punto."
+            )
+        if (
+            table.temperature_f is not None
+            and abs(table.temperature_f - t) > PVT_TEMP_TOLERANCE_F
+        ):
+            avisos.append(
+                f"La tabla PVT está medida a {table.temperature_f:.0f} °F y se "
+                f"evaluó a {t:.0f} °F ({abs(table.temperature_f - t):.0f} °F de "
+                f"diferencia). Rs y Bo dependen de la temperatura: verificar que "
+                f"la tabla corresponda a la condición del problema."
+            )
+
+    def _tomar(campo: str, calcular):
+        """Devuelve el valor medido si existe; si no, el de la correlación."""
+        v = medido.get(campo)
+        if v is not None:
+            origenes[campo] = PVT_SOURCE_TABLE
+            return float(v)
+        origenes[campo] = PVT_SOURCE_CORRELATION
+        return calcular()
+
+    pb = fluid.bubble_point_pressure
+    gor = fluid.gor
+
+    rs = _tomar(
+        "rs",
+        lambda: (
+            standing_rs(p, t, fluid.oil_api, fluid.gas_sg, pb) if pb > 0 else gor
+        ),
+    )
+    # Tope físico: el gas disuelto no puede superar al que produce el pozo.
+    rs = min(rs, gor)
+
+    bo = _tomar("bo", lambda: standing_bo(rs, t, fluid.oil_api, fluid.gas_sg))
+    z = _tomar("z", lambda: gas_z_factor(p, t, fluid.gas_sg))
+    bg = _tomar("bg", lambda: gas_bg(p, t, z))
+    bw = _tomar("bw", lambda: water_bw(p, t))
+
+    return {
+        "rs": rs,
+        "bo": bo,
+        "bg": bg,
+        "bw": bw,
+        "z": z,
+        "sources": origenes,
+        "warnings": avisos,
+    }

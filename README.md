@@ -1,7 +1,7 @@
 # BES Designer
 
 Herramienta de diseño automatizado para sistemas de Bombeo Electrosumergible (BES/ESP).
-Implementa la metodología completa de Kermit Brown — *The Technology of Artificial Lift Methods*, Vol. 2b, Cap. 4.5 — en 10 módulos Python con 750 tests automatizados, una API FastAPI y una SPA React.
+Implementa la metodología completa de Kermit Brown — *The Technology of Artificial Lift Methods*, Vol. 2b, Cap. 4.5 — en 10 módulos Python con 855 tests automatizados, una API FastAPI y una SPA React.
 
 A partir de los datos del pozo (reservorio, fluido, geometría, superficie y objetivos de producción), la herramienta selecciona y dimensiona el sistema completo: bomba + número de etapas, motor, cable, transformador y voltaje en superficie.
 
@@ -9,18 +9,23 @@ A partir de los datos del pozo (reservorio, fluido, geometría, superficie y obj
 
 ## Características
 
-- **IPR multi-método**: Vogel, Linear, Fetkovich, Combined
+- **IPR multi-método**: Vogel, Linear, Fetkovich
 - **PVT completo**: Standing (Bo, Rs, Pb), Dranchuk-Abou-Kassem (z-factor), Beggs-Robinson (viscosidad)
-- **Traverse de presión multifásico**: Hagedorn-Brown + Beggs-Brill para pozos desviados
+- **Traverse de presión multifásico**: Poettmann & Carpenter (1952) — única correlación del simulador
 - **TDH por Hazen-Williams** + perfil hidrostático
 - **Manejo de gas (GIP)** siguiendo Brown §4.53103
-- **Corrección por viscosidad** según el estándar Hydraulic Institute
+- **Crudos viscosos**: procedimiento de Riling (Brown §4.53112) con las tablas
+  4.520/4.521 como camino principal, más el modelo Hydraulic Institute en el
+  ajuste de Turzo et al. (Takács §4.2.2) para verificar la bomba elegida. Se
+  aplica solo por debajo de 28 °API; arriba el crudo es liviano
 - **Ordenamiento por criterios de ingeniería**: 1. cercanía al BEP · 2. eficiencia · 3. menor potencia (lexicográfico, sin pesos ni puntajes). El fabricante es informativo y no influye en el orden.
+- **Optimización automática de carcasas**: busca la mejor combinación del catálogo (ajuste exacto → mínimo excedente → menos carcasas → arreglo más estandarizado) con la presión de trabajo como restricción obligatoria
 - **Top-3 recomendaciones** con la justificación construida a partir de los valores calculados
+- **Leyes de afinidad**: sección aparte para explorar la misma bomba a distintas frecuencias del variador (Q ∝ N·D, H ∝ N²·D², HP ∝ N³·D³·SG), con la frecuencia que alcanza un caudal objetivo
 - **Método métrico de cátedra** ("ESP 01") como motor paralelo en kg/cm² · m · °C · m³/d
 - **Reportes** PDF, Excel y JSON descargables desde la app
 - **Análisis de sensibilidad** sobre parámetros clave
-- **750 tests** con pytest
+- **855 tests** con pytest
 
 ---
 
@@ -32,11 +37,15 @@ bes_designer/
 │   ├── src/bes/                # Paquete instalable (pip install -e backend/)
 │   │   ├── core/               # Motor de cálculo (dominio puro, sin frameworks)
 │   │   │   ├── models.py       # Dataclasses y validación
-│   │   │   ├── ipr.py          # IPR: Vogel, Linear, Fetkovich, Combined
+│   │   │   ├── ipr.py          # IPR: Vogel, Linear, Fetkovich          
 │   │   │   ├── pvt.py          # PVT: Standing, DAK z-factor, Beggs-Robinson
-│   │   │   ├── multiphase.py   # Hagedorn-Brown, Beggs-Brill, traverse
+│   │   │   ├── multiphase.py   # Poettmann & Carpenter + traverse de presión
 │   │   │   ├── tdh.py          # Total Dynamic Head (Brown §4.5324)
-│   │   │   ├── pump_design.py  # Etapas, HP, corrección por viscosidad HI
+│   │   │   ├── pump_design.py  # Etapas, HP, selección de bomba
+│   │   │   ├── viscosity.py    # Crudos viscosos < 28 °API: Riling + Hydraulic Institute
+│   │   │   ├── affinity.py     # Leyes de afinidad (frecuencia, diámetro, SG)
+│   │   │   ├── housing.py      # Optimización de carcasas + presión de trabajo
+│   │   │   ├── mechanical.py   # Verificación de eje y cojinete de empuje
 │   │   │   ├── electrical.py   # Motor, cable, transformador
 │   │   │   ├── gas_handling.py # GIP (Brown §4.53103)
 │   │   │   └── metric_design.py# Método métrico de cátedra "ESP 01"
@@ -47,8 +56,8 @@ bes_designer/
 │   │   ├── plotting/           # Gráficos Plotly (agnósticos, los usa la API)
 │   │   └── api/                # Backend FastAPI (routers, schemas, mappers)
 │   ├── tests/                  # Suite pytest
-│   ├── data/                   # example_wells.json (ejemplos de Brown)
-│   ├── scripts/                # validate_all_examples.py, ingest, generación
+│   ├── data/
+│   ├── scripts/                # ingest y generación de catálogos
 │   ├── pyproject.toml
 │   ├── requirements*.txt
 │   └── Dockerfile
@@ -62,7 +71,7 @@ bes_designer/
 │   ├── catalog_pipeline/       # Digitalización de PDFs de catálogo
 │   └── database_migration/     # Diseño de la base de datos (Excel → SQLite)
 │
-├── docs/                       # METHODOLOGY · FORMULAS · VALIDATION · USER_GUIDE
+├── docs/                       # METHODOLOGY · FORMULAS · USER_GUIDE · ejemplos resueltos
 ├── docker-compose.yml          # Levanta api + frontend
 ├── README.md
 └── CLAUDE.md
@@ -136,7 +145,6 @@ reservoir = Reservoir(
     ipr_method=IPRMethod.VOGEL,
     reservoir_temp=180.0,
     drive_mechanism=DriveMechanism.SOLUTION_GAS,
-    datum_depth=5000.0,
 )
 # ... (Fluid, WellGeometry, SurfaceConditions, DesignObjectives)
 
@@ -157,7 +165,7 @@ print(f"Bomba: {best.pump_model}, {best.num_stages} etapas, TDH={best.total_head
 Todos los comandos se corren desde `backend/` (ahí viven `pyproject.toml` y `tests/`).
 
 ```bash
-# Suite completa — 750 tests
+# Suite completa — 855 tests
 pytest
 
 # Solo integración (ejemplos del libro)
@@ -171,14 +179,19 @@ pytest --cov=bes --cov-report=term-missing
 
 ## Validación
 
-Compara los resultados de la app con los valores de referencia de Kermit Brown:
+Los ejemplos numerados de Brown se validan por test unitario, no por script:
 
 ```bash
 # desde backend/
-python scripts/validate_all_examples.py
+pytest tests/test_integration.py -v
 ```
 
-Genera `docs/VALIDATION.md` con una tabla comparativa de TDH, etapas y HP para los tres ejemplos del libro (1A, 2A, 3A). Ver [docs/METHODOLOGY.md](docs/METHODOLOGY.md) para la descripción completa de las correlaciones implementadas y [docs/FORMULAS.md](docs/FORMULAS.md) para las ecuaciones.
+Los casos resueltos paso a paso están en `docs/`: el #3B de manejo de gas
+(`EJEMPLO_3B_BROWN.md`), el de crudos viscosos (`CRUDOS_VISCOSOS.md`) y el
+métrico de cátedra (`EJEMPLO_ESP01.md`).
+
+Ver [docs/METHODOLOGY.md](docs/METHODOLOGY.md) para la descripción completa de las
+correlaciones implementadas y [docs/FORMULAS.md](docs/FORMULAS.md) para las ecuaciones.
 
 ---
 
@@ -186,13 +199,13 @@ Genera `docs/VALIDATION.md` con una tabla comparativa de TDH, etapas y HP para l
 
 | Módulo | Método |
 |---|---|
-| IPR | Vogel (1968), Linear, Fetkovich (1973), Combined |
+| IPR | Vogel (1968), Linear (Darcy), Fetkovich (1973) |
 | PVT | Standing (1947): Bo, Rs, Pb |
 | z-factor | Dranchuk & Abou-Kassem (1975) |
 | Viscosidad | Beggs & Robinson (1975) |
-| Presión de admisión | Hagedorn & Brown (1965), Beggs & Brill (1973) |
+| Presión de admisión | Poettmann & Carpenter (1952) |
 | TDH | Hazen-Williams + columna hidrostática (Brown §4.5324) |
-| Corrección viscosidad | Hydraulic Institute HI 9.6.7 |
+| Corrección viscosidad | Riling (Brown §4.53112) · Hydraulic Institute / Turzo et al. (2000) |
 | Gas en bomba | Brown §4.53103 |
 
 Ver [docs/FORMULAS.md](docs/FORMULAS.md) para las ecuaciones con su archivo,
@@ -208,8 +221,9 @@ línea y fuente bibliográfica.
 |---|---|
 | [METHODOLOGY.md](docs/METHODOLOGY.md) | Metodología de cálculo paso a paso |
 | [FORMULAS.md](docs/FORMULAS.md) | Todas las fórmulas, con archivo, línea y fuente |
-| [VALIDATION.md](docs/VALIDATION.md) | Comparación app vs. libro |
 | [USER_GUIDE.md](docs/USER_GUIDE.md) | Guía de usuario |
+| [CRUDOS_VISCOSOS.md](docs/CRUDOS_VISCOSOS.md) | Corrección por viscosidad, con ejemplo resuelto |
+| [EJEMPLO_3B_BROWN.md](docs/EJEMPLO_3B_BROWN.md) | Manejo de gas por incrementos de presión |
 | [EJEMPLO_ESP01.md](docs/EJEMPLO_ESP01.md) | Ejercicio de cátedra, método métrico |
 
 ---

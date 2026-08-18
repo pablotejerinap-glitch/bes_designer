@@ -25,7 +25,6 @@ from bes.core.models import (
 )
 from bes.core.tdh import calculate_tdh, friction_loss_hazen_williams
 from bes.core.pump_design import (
-    apply_viscosity_correction,
     calculate_motor_hp,
     calculate_stages,
     check_pump_operating_range,
@@ -79,7 +78,6 @@ def base_reservoir() -> Reservoir:
         ipr_method=IPRMethod.VOGEL,
         reservoir_temp=130.0,
         drive_mechanism=DriveMechanism.SOLUTION_GAS,
-        datum_depth=3500.0,
     )
 
 
@@ -115,7 +113,6 @@ def base_well() -> WellGeometry:
         perforations_bottom=3400.0,
         deviation_max=5.0,
         wellhead_temp=70.0,
-        bottom_hole_temp=130.0,
     )
 
 
@@ -147,6 +144,44 @@ def base_objectives() -> DesignObjectives:
 # ---------------------------------------------------------------------------
 # 1 — Hazen-Williams friction losses
 # ---------------------------------------------------------------------------
+
+# Pozo sintético para las verificaciones de carcasa y de HP máximo. Cargado a
+# mano acá: los casos precargados se retiraron del proyecto. Petróleo con gas,
+# casing 5-1/2", donde la D-40 diseña.
+def _manual_well():
+    from bes.core.models import (
+        Reservoir, Fluid, WellGeometry, SurfaceConditions, DesignObjectives,
+        IPRMethod, DriveMechanism,
+    )
+    res = Reservoir(
+        static_pressure=2000.0, bubble_point=2000.0,
+        test_pwf=1000.0, test_rate=933.3,          # ⇒ J ≈ 1.2 STB/d/psi
+        ipr_method=IPRMethod.VOGEL, reservoir_temp=170.0,
+        drive_mechanism=DriveMechanism.SOLUTION_GAS,
+    )
+    fluid = dict(
+        oil_api=30.0, water_cut=0.15, gor=350.0, gas_sg=0.75, water_sg=1.02,
+        oil_viscosity_dead=5.0, viscosity_temp_ref=100.0,
+        bubble_point_pressure=2000.0, h2s_content=0.0, co2_content=0.0,
+        sand_production=False,
+    )
+    well = WellGeometry(
+        total_depth=6150.0, casing_od=5.5, casing_weight=17.0, casing_id=4.892,
+        tubing_od=2.375, tubing_id=1.995, perforations_top=5900.0,
+        perforations_bottom=6030.0, deviation_max=0.0,
+        wellhead_temp=120.0,
+    )
+    surf = SurfaceConditions(
+        wellhead_pressure_required=200.0, flowline_length=1000.0,
+        flowline_id=3.0, flowline_elevation_change=0.0,
+        separator_pressure=100.0, power_supply_voltage=7200.0, frequency=60.0,
+    )
+    obj = DesignObjectives(
+        target_flow_rate=1227.0, safety_margin_depth=50.0,
+        allow_gas_venting=False, max_gip=0.7, design_life_years=5.0,
+        use_vsd=False, gas_fraction_pc_threshold=1.0,
+    )
+    return res, fluid, well, surf, obj
 
 class TestHazenWilliams:
     """Validate friction_loss_hazen_williams formula."""
@@ -205,7 +240,7 @@ class TestCalculateTDH:
         return Reservoir(
             static_pressure=3000.0, bubble_point=500.0, productivity_index=2.0,
             ipr_method=IPRMethod.LINEAR, reservoir_temp=160.0,
-            drive_mechanism=DriveMechanism.WATER_DRIVE, datum_depth=5000.0,
+            drive_mechanism=DriveMechanism.WATER_DRIVE,
         )
 
     @pytest.fixture(scope="class")
@@ -224,7 +259,7 @@ class TestCalculateTDH:
             total_depth=5500.0, casing_od=7.0, casing_weight=23.0,
             casing_id=6.366, tubing_od=2.875, tubing_id=2.441,
             perforations_top=4800.0, perforations_bottom=5000.0,
-            deviation_max=3.0, wellhead_temp=75.0, bottom_hole_temp=160.0,
+            deviation_max=3.0, wellhead_temp=75.0,
         )
 
     @pytest.fixture(scope="class")
@@ -424,76 +459,6 @@ class TestCheckPumpOperatingRange:
         assert r["near_bep"] is True
 
 
-# ---------------------------------------------------------------------------
-# 6 — Viscosity correction (HI method)
-# ---------------------------------------------------------------------------
-
-class TestApplyViscosityCorrection:
-
-    def test_water_unity_factors(self, d40):
-        pt = d40.points[5]
-        r = apply_viscosity_correction(
-            pump=d40, flow=pt.flow_rate, head=pt.head_per_stage,
-            hp=pt.hp_per_stage, viscosity_ssu=20.0,
-        )
-        assert r["q_factor"] == pytest.approx(1.0)
-        assert r["h_factor"] == pytest.approx(1.0)
-        assert r["e_factor"] == pytest.approx(1.0)
-        assert r["corrected_flow"] == pytest.approx(pt.flow_rate)
-        assert r["corrected_head"] == pytest.approx(pt.head_per_stage)
-
-    def test_high_viscosity_reduces_head(self, d40):
-        r = apply_viscosity_correction(
-            pump=d40, flow=1300.0, head=22.0, hp=0.347, viscosity_ssu=200.0,
-        )
-        assert r["h_factor"] < 1.0
-        assert r["corrected_head"] < 22.0
-
-    def test_high_viscosity_increases_hp(self, d40):
-        # Lower efficiency → more shaft power required
-        r = apply_viscosity_correction(
-            pump=d40, flow=1300.0, head=22.0, hp=0.347, viscosity_ssu=500.0,
-        )
-        assert r["corrected_hp"] > 0.347
-
-    def test_returns_all_keys(self, d40):
-        r = apply_viscosity_correction(
-            pump=d40, flow=1300.0, head=22.0, hp=0.347, viscosity_ssu=100.0,
-        )
-        for k in ("q_factor", "h_factor", "e_factor", "hp_factor",
-                  "corrected_flow", "corrected_head", "corrected_hp"):
-            assert k in r
-
-    def test_factors_in_valid_range(self, d40):
-        r = apply_viscosity_correction(
-            pump=d40, flow=1300.0, head=22.0, hp=0.347, viscosity_ssu=150.0,
-        )
-        assert 0.0 < r["q_factor"] <= 1.0
-        assert 0.0 < r["h_factor"] <= 1.0
-        assert 0.0 < r["e_factor"] <= 1.0
-
-    def test_hp_factor_increases_with_viscosity(self, d40):
-        r_low = apply_viscosity_correction(
-            pump=d40, flow=1300.0, head=22.0, hp=0.347, viscosity_ssu=50.0,
-        )
-        r_high = apply_viscosity_correction(
-            pump=d40, flow=1300.0, head=22.0, hp=0.347, viscosity_ssu=400.0,
-        )
-        assert r_high["hp_factor"] > r_low["hp_factor"]
-
-    def test_correction_monotone_with_viscosity(self, d40):
-        # Head factor should decrease as viscosity increases
-        ssu_vals = [30, 60, 100, 200, 400]
-        h_factors = [
-            apply_viscosity_correction(d40, 1300.0, 22.0, 0.347, v)["h_factor"]
-            for v in ssu_vals
-        ]
-        assert all(h_factors[i] >= h_factors[i + 1] for i in range(len(h_factors) - 1))
-
-
-# ---------------------------------------------------------------------------
-# 7 — Full design workflow (integration)
-# ---------------------------------------------------------------------------
 
 class TestDesignPumpComplete:
     """Integration tests for design_pump_complete end-to-end."""
@@ -587,8 +552,8 @@ class TestDesignPumpComplete:
         """High-flow 9-5/8" casing well — I-300 must appear in candidates."""
         reservoir = Reservoir(
             static_pressure=2500.0, bubble_point=800.0, productivity_index=15.0,
-            ipr_method=IPRMethod.COMBINED, reservoir_temp=185.0,
-            drive_mechanism=DriveMechanism.SOLUTION_GAS, datum_depth=7000.0,
+            ipr_method=IPRMethod.VOGEL, reservoir_temp=185.0,
+            drive_mechanism=DriveMechanism.SOLUTION_GAS,
         )
         fluid = Fluid(
             oil_api=32.0, water_cut=0.20, gor=200.0, gas_sg=0.65,
@@ -607,7 +572,6 @@ class TestDesignPumpComplete:
             perforations_bottom=7000.0,
             deviation_max=5.0,
             wellhead_temp=80.0,
-            bottom_hole_temp=185.0,
         )
         surface = SurfaceConditions(
             wellhead_pressure_required=100.0, flowline_length=500.0,
@@ -668,14 +632,19 @@ class TestDesignPumpByModel:
     def test_pump_too_large_for_casing_raises(self, base_reservoir, base_fluid,
                                                base_well, base_surface,
                                                base_objectives, manager):
-        # SM18500 (OD 8.75") does not fit base_well's 8-5/8" casing (ID 7.825").
-        big_pump = next(p for p in manager.get_all_pumps() if p.model == "SM18500")
+        # Ninguna bomba del catálogo supera el casing de 8-5/8" del pozo base,
+        # así que la prueba usa un casing angosto: la L16000N (OD 7.25")
+        # no entra en 5-1/2".
+        import dataclasses
+        base_well = dataclasses.replace(
+            base_well, casing_od=5.5, casing_weight=17.0, casing_id=4.892)
+        big_pump = next(p for p in manager.get_all_pumps() if p.model == "L16000N")
         assert big_pump.od >= base_well.casing_id
         with pytest.raises(ValueError, match="casing"):
             design_pump_by_model(
                 base_reservoir, base_fluid, base_well, base_surface,
                 base_objectives, pump_setting_depth=3000.0, catalog_manager=manager,
-                pump_model="SM18500",
+                pump_model="L16000N",
             )
 
     def test_flow_outside_curve_range_raises(self, base_fluid, base_well,
@@ -685,7 +654,7 @@ class TestDesignPumpByModel:
         reservoir = Reservoir(
             static_pressure=1500.0, bubble_point=700.0, productivity_index=5.0,
             ipr_method=IPRMethod.VOGEL, reservoir_temp=130.0,
-            drive_mechanism=DriveMechanism.SOLUTION_GAS, datum_depth=3500.0,
+            drive_mechanism=DriveMechanism.SOLUTION_GAS,
         )
         objectives = DesignObjectives(
             target_flow_rate=1800.0, safety_margin_depth=200.0,
@@ -738,18 +707,10 @@ class TestHousingPressure:
     def _build(self):
         import json
         from bes.catalogs.loader import CatalogManager
-        from bes.core.models import (
-            Reservoir, Fluid, WellGeometry, SurfaceConditions, DesignObjectives,
-            IPRMethod, DriveMechanism,
-        )
         cm = CatalogManager()
-        ex = json.load(open("data/example_wells.json"))["example_2a_brown"]
-        r = dict(ex["reservoir"])
-        r["ipr_method"] = IPRMethod[r["ipr_method"]]
-        r["drive_mechanism"] = DriveMechanism[r["drive_mechanism"]]
-        res = Reservoir(**r)
-        fl = Fluid(**ex["fluid"]); w = WellGeometry(**ex["well"])
-        su = SurfaceConditions(**ex["surface"]); ob = DesignObjectives(**ex["objectives"])
+        res, fdict, w, su, ob = _manual_well()
+        from bes.core.models import Fluid
+        fl = Fluid(**fdict)
         psd = max(w.perforations_top - ob.safety_margin_depth, 100.0)
         return cm, res, fl, w, su, ob, psd
 
@@ -764,17 +725,52 @@ class TestHousingPressure:
         assert c["housing_pressure_limit_psi"] == 5000.0
         assert c["housing_pressure_ok"] is True  # 2A queda holgado
 
-    def test_warns_when_limit_exceeded(self):
+    def test_rejects_when_limit_exceeded(self):
+        """Una combinación sobre-presionada nunca se devuelve: el optimizador
+        agota las alternativas del catálogo y, si ninguna entra, la bomba se
+        descarta. Con un modelo elegido a mano el rechazo explica el motivo."""
         from bes.core.pump_design import design_pump_by_model
         cm, res, fl, w, su, ob, psd = self._build()
         pump = next(p for p in cm.get_all_pumps() if p.model == "D-40")
         pump.housing_pressure_limit_psi = 500.0  # límite artificialmente bajo
         try:
-            c = design_pump_by_model(res, fl, w, su, ob, psd, cm, "D-40")
-            assert c["housing_pressure_ok"] is False
-            assert any("carcasa" in wtxt.lower() for wtxt in c["warnings"])
+            with pytest.raises(ValueError, match="presión admisible"):
+                design_pump_by_model(res, fl, w, su, ob, psd, cm, "D-40")
         finally:
             pump.housing_pressure_limit_psi = 5000.0  # restaurar
+
+    def test_over_pressured_pump_drops_out_of_the_candidates(self):
+        """En el camino automático el descarte es silencioso: la bomba no se
+        ofrece, en vez de recomendarse con una advertencia."""
+        from bes.core.pump_design import design_pump_complete
+        cm, res, fl, w, su, ob, psd = self._build()
+        pump = next(p for p in cm.get_all_pumps() if p.model == "D-40")
+        before = [c["pump_model"] for c in
+                  design_pump_complete(res, fl, w, su, ob, psd, cm)]
+        assert "D-40" in before
+        pump.housing_pressure_limit_psi = 500.0
+        try:
+            after = [c["pump_model"] for c in
+                     design_pump_complete(res, fl, w, su, ob, psd, cm)]
+            assert "D-40" not in after
+        finally:
+            pump.housing_pressure_limit_psi = 5000.0
+
+    def test_per_housing_detail_is_cumulative(self):
+        """La presión reportada crece carcasa a carcasa desde la admisión y la
+        superior es la que ve el diferencial completo."""
+        from bes.core.pump_design import design_pump_by_model
+        cm, res, fl, w, su, ob, psd = self._build()
+        c = design_pump_by_model(res, fl, w, su, ob, psd, cm, "D-40")
+        detail = c["housing_detail"]
+        assert detail, "el diseño debe reportar el detalle por carcasa"
+        pressures = [d["pressure_psi"] for d in detail]
+        assert pressures == sorted(pressures)
+        assert detail[-1]["pressure_psi"] == pytest.approx(
+            c["max_housing_pressure_psi"]
+        )
+        assert all(d["pressure_ok"] for d in detail)
+        assert c["housing_rationale"].startswith("Se seleccion")
 
 
 class TestMotorHpMaxVsOperative:
@@ -783,19 +779,12 @@ class TestMotorHpMaxVsOperative:
     def _build(self, overrides=None):
         import json
         from bes.catalogs.loader import CatalogManager
-        from bes.core.models import (
-            Reservoir, Fluid, WellGeometry, SurfaceConditions, DesignObjectives,
-            IPRMethod, DriveMechanism,
-        )
+        from bes.core.models import Fluid
         cm = CatalogManager()
-        ex = json.load(open("data/example_wells.json"))["example_2a_brown"]
-        r = dict(ex["reservoir"]); r["ipr_method"] = IPRMethod[r["ipr_method"]]
-        r["drive_mechanism"] = DriveMechanism[r["drive_mechanism"]]
-        fdict = dict(ex["fluid"])
+        res, fdict, w, su, ob = _manual_well()
         if overrides:
-            fdict.update(overrides)
-        res = Reservoir(**r); fl = Fluid(**fdict); w = WellGeometry(**ex["well"])
-        su = SurfaceConditions(**ex["surface"]); ob = DesignObjectives(**ex["objectives"])
+            fdict = {**fdict, **overrides}
+        fl = Fluid(**fdict)
         psd = max(w.perforations_top - ob.safety_margin_depth, 100.0)
         return cm, res, fl, w, su, ob, psd
 
@@ -815,3 +804,294 @@ class TestMotorHpMaxVsOperative:
         cm, res, fl, w, su, ob, psd = self._build(overrides={"water_cut": 1.0})
         c = design_pump_by_model(res, fl, w, su, ob, psd, cm, "D-40")
         assert c["motor_hp_max"] == pytest.approx(c["total_pump_hp"], rel=1e-9)
+
+
+# ===========================================================================
+# Friction-correlation switch driven by the free-gas fraction at the intake
+# ===========================================================================
+
+class TestFrictionCorrelationSwitch:
+    """The free-gas fraction at the pump intake decides which correlation
+    computes the tubing pressure loss: Hazen-Williams while the stream is
+    essentially liquid, Poettmann-Carpenter once the gas is significant.
+
+    The threshold lives in ``DesignObjectives.gas_fraction_pc_threshold`` so a
+    case can state its own criterion (the printed Brown examples pin it at 1.0
+    because the book solves them single-phase)."""
+
+    @pytest.fixture(scope="class")
+    def res(self):
+        return Reservoir(
+            static_pressure=2500.0, bubble_point=2400.0,
+            ipr_method=IPRMethod.VOGEL, reservoir_temp=180.0,
+            drive_mechanism=DriveMechanism.SOLUTION_GAS,
+            productivity_index=2.0,
+        )
+
+    @pytest.fixture(scope="class")
+    def gassy(self):
+        """Saturated oil with a high GOR — plenty of free gas at the intake."""
+        return Fluid(
+            oil_api=32.0, water_cut=0.20, gor=600.0, gas_sg=0.70,
+            water_sg=1.03, oil_viscosity_dead=4.0, viscosity_temp_ref=100.0,
+            bubble_point_pressure=2400.0, h2s_content=0.0, co2_content=0.0,
+            sand_production=False,
+        )
+
+    @pytest.fixture(scope="class")
+    def dead(self):
+        """Dead oil (GOR = 0) — there is no gas to come out of solution."""
+        return Fluid(
+            oil_api=32.0, water_cut=0.20, gor=0.0, gas_sg=0.70,
+            water_sg=1.03, oil_viscosity_dead=4.0, viscosity_temp_ref=100.0,
+            bubble_point_pressure=0.0, h2s_content=0.0, co2_content=0.0,
+            sand_production=False,
+        )
+
+    @pytest.fixture(scope="class")
+    def wel(self):
+        return WellGeometry(
+            total_depth=6200.0, casing_od=7.0, casing_weight=23.0,
+            casing_id=6.366, tubing_od=2.875, tubing_id=2.441,
+            perforations_top=6000.0, perforations_bottom=6100.0,
+            deviation_max=0.0, wellhead_temp=100.0,
+        )
+
+    @pytest.fixture(scope="class")
+    def sur(self):
+        return SurfaceConditions(
+            wellhead_pressure_required=150.0, flowline_length=500.0,
+            flowline_id=3.0, flowline_elevation_change=0.0,
+            separator_pressure=80.0, power_supply_voltage=4160.0, frequency=60.0,
+        )
+
+    def _obj(self, threshold: float = 0.10) -> DesignObjectives:
+        return DesignObjectives(
+            target_flow_rate=900.0, safety_margin_depth=100.0,
+            allow_gas_venting=False, max_gip=0.50,
+            design_life_years=3.0, use_vsd=False,
+            gas_fraction_pc_threshold=threshold,
+        )
+
+    def _tdh(self, res, flu, wel, sur, threshold=0.10, fg=None):
+        return calculate_tdh(
+            res, flu, wel, sur, self._obj(threshold),
+            pump_depth=5900.0, pip=400.0, free_gas_fraction=fg,
+        )
+
+    def test_dead_oil_uses_hazen_williams(self, res, dead, wel, sur):
+        out = self._tdh(res, dead, wel, sur)
+        assert out["free_gas_fraction"] == pytest.approx(0.0)
+        assert out["friction_method"] == "hazen_williams"
+        assert out["tubing_friction_ft"] == pytest.approx(
+            friction_loss_hazen_williams(900.0, wel.tubing_id, 5900.0)
+        )
+
+    def test_gassy_oil_uses_poettmann_carpenter(self, res, gassy, wel, sur):
+        out = self._tdh(res, gassy, wel, sur)
+        assert out["free_gas_fraction"] > 0.10
+        assert out["friction_method"] == "poettmann_carpenter"
+
+    def test_threshold_is_respected(self, res, gassy, wel, sur):
+        """Same gassy well, threshold above its gas fraction → back to H-W."""
+        out = self._tdh(res, gassy, wel, sur, threshold=1.0)
+        assert out["friction_method"] == "hazen_williams"
+        assert out["tubing_friction_ft"] == pytest.approx(
+            friction_loss_hazen_williams(900.0, wel.tubing_id, 5900.0)
+        )
+
+    def test_switch_happens_exactly_at_the_threshold(self, res, gassy, wel, sur):
+        """Strictly above switches; exactly at the threshold does not."""
+        assert self._tdh(res, gassy, wel, sur, 0.30, fg=0.30)["friction_method"] \
+            == "hazen_williams"
+        assert self._tdh(res, gassy, wel, sur, 0.30, fg=0.3001)["friction_method"] \
+            == "poettmann_carpenter"
+
+    def test_only_the_friction_term_changes(self, res, gassy, wel, sur):
+        """The hybrid substitutes friction alone: lift and wellhead head keep
+        the produced-liquid SG, so they must be identical under both methods."""
+        hw = self._tdh(res, gassy, wel, sur, threshold=1.0)
+        pc = self._tdh(res, gassy, wel, sur, threshold=0.10)
+        assert pc["vertical_lift_ft"] == pytest.approx(hw["vertical_lift_ft"])
+        assert pc["wellhead_pressure_head_ft"] == pytest.approx(
+            hw["wellhead_pressure_head_ft"]
+        )
+        assert pc["tubing_friction_ft"] != pytest.approx(hw["tubing_friction_ft"])
+        # TDH differs by exactly the friction difference — nothing else moved.
+        assert pc["tdh_ft"] - hw["tdh_ft"] == pytest.approx(
+            pc["tubing_friction_ft"] - hw["tubing_friction_ft"]
+        )
+
+    def test_gas_expansion_weights_the_top_of_the_string(self, res, gassy, wel, sur):
+        """Why a single mid-point evaluation is not enough: the gas expands as
+        the pressure drops, so the mixture is much faster near the wellhead and
+        the friction gradient there is far larger than at the pump."""
+        pc = self._tdh(res, gassy, wel, sur)
+        assert pc["pc_mixture_velocity_top_ft_s"] > pc["pc_mixture_velocity_bottom_ft_s"]
+        assert pc["pc_friction_gradient_top_psi_ft"] > pc["pc_friction_gradient_bottom_psi_ft"]
+
+    def test_gravity_term_is_not_double_counted(self, res, gassy, wel, sur):
+        """The P&C gravity gradient must never reach the TDH: the vertical-lift
+        term already represents the column."""
+        pc = self._tdh(res, gassy, wel, sur)
+        friction_only_ft = pc["pc_friction_psi"] * 2.31 / pc["sg_liquid"]
+        assert pc["tubing_friction_ft"] == pytest.approx(friction_only_ft)
+
+    def test_threshold_out_of_range_rejected(self):
+        with pytest.raises(ValueError, match="gas_fraction_pc_threshold"):
+            self._obj(1.5)
+
+
+# ===========================================================================
+# Optimización automática de carcasas (bes/core/housing.py)
+# ===========================================================================
+
+class TestHousingOptimizer:
+    """El módulo busca la mejor combinación en vez de aplicar una regla fija.
+    Los tests fijan el ORDEN de los criterios, que es lo que define 'mejor'."""
+
+    @staticmethod
+    def _h(*specs):
+        """Atajo: _h(200, 150) -> carcasas sin metadatos; acepta dicts."""
+        from bes.core.models import PumpHousing
+        out = []
+        for s in specs:
+            out.append(PumpHousing(**s) if isinstance(s, dict) else PumpHousing(stages=s))
+        return out
+
+    def _opt(self, required, housings, shutin=20.0, sg=1.0, limit=5000.0):
+        from bes.core.housing import optimize_housings
+        return optimize_housings(required, housings, shutin, sg, limit)
+
+    def test_exact_match_wins(self):
+        """Criterio 1: si existe combinación exacta, se elige."""
+        r = self._opt(400, self._h(100, 150, 200))
+        assert r["housing_size_stages"] == 400
+        assert r["dummy_stages"] == 0
+        assert r["housings"] == [(200, 2)]
+
+    def test_minimises_surplus_before_housing_count(self):
+        """Criterio 2 manda sobre el 3: se aceptan más carcasas si eso reduce
+        el excedente. 100 = 60+40 (2 carcasas, exacto) es mejor que 1x110."""
+        r = self._opt(100, self._h(110, 60, 40))
+        assert r["housing_size_stages"] == 100
+        assert r["dummy_stages"] == 0
+        assert r["n_housings"] == 2
+
+    def test_minimises_housing_count_at_equal_surplus(self):
+        """Criterio 3: a igual excedente, menos carcasas."""
+        r = self._opt(200, self._h(200, 100))
+        assert r["n_housings"] == 1
+        assert r["housings"] == [(200, 1)]
+
+    def test_prefers_fewer_distinct_lengths(self):
+        """Criterio 5: entre soluciones equivalentes, la más estandarizada."""
+        r = self._opt(200, self._h(100, 50))
+        assert r["housings"] == [(100, 2)]      # no 100+50+50
+
+    def test_surplus_is_minimal_when_no_exact_match(self):
+        r = self._opt(245, self._h(50, 75, 100, 125, 150, 175, 200, 225, 250))
+        assert r["housing_size_stages"] == 250
+        assert r["dummy_stages"] == 5
+        assert r["n_housings"] == 1
+
+    def test_tandem_when_stages_exceed_largest_housing(self):
+        r = self._opt(500, self._h(200, 150, 100))
+        assert r["housing_size_stages"] == 500
+        assert sum(n for _, n in r["housings"]) == r["n_housings"] >= 3
+
+    def test_pressure_is_a_hard_constraint(self):
+        """Ninguna combinación sobre el límite puede devolverse."""
+        assert self._opt(300, self._h(300), shutin=40.0, limit=1000.0) is None
+
+    def test_search_continues_past_infeasible_combinations(self):
+        """La combinación de menor excedente puede ser inviable por presión; el
+        algoritmo sigue buscando en vez de rendirse. Con 6 etapas de reserva la
+        carcasa chica entra y la grande no."""
+        from bes.core.models import PumpHousing
+        r = self._opt(
+            100,
+            [PumpHousing(stages=100, pressure_limit_psi=1000),
+             PumpHousing(stages=50, pressure_limit_psi=9000)],
+            shutin=40.0, sg=1.0, limit=0.0,
+        )
+        assert r is not None
+        assert r["housings"] == [(50, 2)]       # la de 100 se descarta por presión
+        assert r["pressure_ok"] is True
+
+    def test_pressure_accumulates_from_the_intake(self):
+        """MaxP = P(Q=0) x etapas activas acumuladas x Pem, carcasa a carcasa."""
+        r = self._opt(400, self._h(200), shutin=20.0, sg=1.0)
+        d = r["detail"]
+        assert [x["active_stages_below"] for x in d] == [200, 400]
+        assert d[0]["pressure_psi"] == pytest.approx(20.0 * 200 * 1.0 / 2.31)
+        assert d[1]["pressure_psi"] == pytest.approx(20.0 * 400 * 1.0 / 2.31)
+        assert r["max_housing_pressure_psi"] == pytest.approx(d[-1]["pressure_psi"])
+
+    def test_dummy_stages_develop_no_head(self):
+        """Las etapas ciegas no generan presión: la acumulada se topa en las
+        activas requeridas, no en la capacidad instalada."""
+        r = self._opt(245, self._h(250), shutin=20.0, sg=1.0)
+        assert r["detail"][-1]["active_stages_below"] == 245
+        assert r["detail"][-1]["pressure_psi"] == pytest.approx(20.0 * 245 / 2.31)
+
+    def test_highest_rated_housing_goes_on_top(self):
+        """Donde la presión es mayor va la carcasa mejor calificada."""
+        from bes.core.models import PumpHousing
+        r = self._opt(
+            300,
+            [PumpHousing(stages=150, code="STD", pressure_limit_psi=3000),
+             PumpHousing(stages=150, code="HP", pressure_limit_psi=6000)],
+            shutin=30.0, sg=1.0, limit=0.0,
+        )
+        assert [d["code"] for d in r["detail"]] == ["STD", "HP"]
+
+    def test_does_not_over_specify_when_standard_suffices(self):
+        """Criterio 5: no elegir carcasa de alta presión si la estándar entra."""
+        from bes.core.models import PumpHousing
+        r = self._opt(
+            150,
+            [PumpHousing(stages=150, code="STD", pressure_limit_psi=5000),
+             PumpHousing(stages=150, code="HP", pressure_limit_psi=9000)],
+            shutin=20.0, sg=1.0, limit=0.0,
+        )
+        assert [d["code"] for d in r["detail"]] == ["STD"]
+
+    def test_missing_limit_is_reported_not_assumed(self):
+        """Sin dato de presión no se afirma que la verificación pasó."""
+        r = self._opt(100, self._h(100), limit=0.0)
+        assert r["pressure_verified"] is False
+        assert "no pudo realizarse" in r["rationale"]
+
+    def test_rationale_matches_the_selection(self):
+        r = self._opt(400, self._h(100, 150, 200))
+        assert "2 carcasas de 200 etapas" in r["rationale"]
+        assert "exactamente las 400 etapas" in r["rationale"]
+        assert "sin etapas excedentes" in r["rationale"]
+
+    def test_scales_to_a_catalog_of_many_short_housings(self):
+        """Alkhorayef publica 15 longitudes cortas: la búsqueda debe seguir
+        siendo instantánea y encontrar el ajuste exacto."""
+        import time
+        sizes = [4, 8, 13, 18, 22, 27, 31, 36, 40, 45, 50, 54, 59, 63, 68]
+        t0 = time.perf_counter()
+        r = self._opt(245, self._h(*sizes), shutin=27.8, sg=0.9)
+        elapsed = time.perf_counter() - t0
+        assert r["dummy_stages"] == 0
+        assert elapsed < 2.0, f"la búsqueda tardó {elapsed:.2f} s"
+
+    def test_rejects_invalid_input(self):
+        from bes.core.housing import optimize_housings
+        with pytest.raises(ValueError, match="required_stages"):
+            optimize_housings(0, self._h(100), 20.0, 1.0, 5000.0)
+        with pytest.raises(ValueError, match="no housings"):
+            optimize_housings(100, [], 20.0, 1.0, 5000.0)
+
+    def test_select_housing_wrapper_still_matches_the_optimizer(self):
+        """El envoltorio histórico no duplica lógica: delega."""
+        from bes.core.pump_design import select_housing
+        w = select_housing(245, [50, 75, 100, 125, 150, 175, 200, 225, 250], 250)
+        r = self._opt(245, self._h(50, 75, 100, 125, 150, 175, 200, 225, 250))
+        assert w["housing_size_stages"] == r["housing_size_stages"]
+        assert w["n_housings"] == r["n_housings"]
+        assert w["housings"] == r["housings"]

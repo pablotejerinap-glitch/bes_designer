@@ -145,16 +145,28 @@ def _pwf_op(reservoir, target_q: float) -> float:
 _CHART_W, _CHART_H = 900, 500
 
 
-def _load_pump(model: str):
+def _load_pump(model: str, frequency_hz: float = 0.0):
     """Look the pump up in the bundled catalog; None if it cannot be resolved.
 
     The charts are a nice-to-have: if the catalog is unavailable the report is
     still generated, just without the pump-curve figure.
+
+    Args:
+        model: Catalog model name.
+        frequency_hz: Frequency the design runs at. 0 = leave the catalog curve
+            as published.
     """
     try:
         from bes.catalogs.loader import CatalogManager
+        from bes.core.affinity import pump_at_frequency
         cat = CatalogManager()
-        return next((p for p in cat.get_all_pumps() if p.model == model), None)
+        pump = next((p for p in cat.get_all_pumps() if p.model == model), None)
+        if pump is None:
+            return None
+        # El catálogo publica a 60 Hz; el diseño puede correr a otra frecuencia.
+        # Dibujar la curva sin escalar mostraría una bomba que no es la del
+        # diseño (head, HP y rango operativo distintos).
+        return pump_at_frequency(pump, frequency_hz) if frequency_hz else pump
     except Exception:
         return None
 
@@ -289,7 +301,7 @@ def _charts_matplotlib(dr, reservoir, fluid, well, surface, pump) -> list[tuple[
 
 def _render_charts(dr, reservoir, fluid, well, surface) -> tuple[list[tuple[str, bytes]], str]:
     """Return (charts, engine). engine is 'plotly+kaleido' or 'matplotlib' or 'none'."""
-    pump = _load_pump(dr.pump_model)
+    pump = _load_pump(dr.pump_model, dr.operating_frequency)
     try:
         charts = _charts_plotly(dr, reservoir, fluid, well, surface, pump)
         if charts:
@@ -317,7 +329,7 @@ def _methodology(dr, reservoir, fluid, well, surface, objectives) -> dict:
     t_pump = None
     try:
         t_pump = (well.wellhead_temp + (dr.pump_setting_depth / well.total_depth)
-                  * (well.bottom_hole_temp - well.wellhead_temp))
+                  * (reservoir.reservoir_temp - well.wellhead_temp))
     except Exception:
         t_pump = getattr(reservoir, "reservoir_temp", None)
     M["t_pump"] = t_pump
@@ -571,7 +583,6 @@ def generate_design_report(
             ["Método IPR", reservoir.ipr_method.name, "—"],
             ["Temperatura", _num(reservoir.reservoir_temp, ".0f"), "°F"],
             ["Mecanismo de empuje", reservoir.drive_mechanism.name, "—"],
-            ["Profundidad datum", _num(reservoir.datum_depth, ",.0f"), "ft"],
         ], col_widths=col_w))
         story.append(Spacer(1, 6))
 
@@ -605,7 +616,7 @@ def generate_design_report(
             ["Perforaciones base", _num(well.perforations_bottom, ",.0f"), "ft"],
             ["Desviación máxima", _num(well.deviation_max, ".1f"), "°"],
             ["Temperatura cabezal", _num(well.wellhead_temp, ".0f"), "°F"],
-            ["Temperatura de fondo (BHT)", _num(well.bottom_hole_temp, ".0f"), "°F"],
+            ["Temperatura de fondo (BHT)", _num(reservoir.reservoir_temp, ".0f"), "°F"],
         ], col_widths=col_w))
         story.append(Spacer(1, 6))
 
@@ -730,6 +741,33 @@ def generate_design_report(
         f"{_num(dr.flow_rate_achieved, ',.0f')} STB/d&nbsp;&nbsp;|&nbsp;&nbsp;"
         f"Eficiencia = {_num(dr.pump_efficiency, '.1%')}",
     ))
+
+    # 3.5b Housings
+    if dr.housing_detail:
+        _combo = " + ".join(
+            f"{h['stages']} et" + (f" [{h['code']}]" if h["code"] else "")
+            for h in dr.housing_detail
+        )
+        _check = (
+            ("OK" if dr.housing_pressure_ok else "FAIL")
+            if dr.housing_pressure_verified else "sin verificar (el catálogo no "
+            "publica la presión admisible)"
+        )
+        story.append(_method_block(
+            "3.5b  Optimización de Carcasas (Pump Housings)",
+            "Las etapas se alojan en carcasas de longitudes discretas del catálogo. "
+            "La combinación se busca entre todas las posibles y se elige por criterios "
+            "estrictos: ajuste exacto de etapas, mínimo excedente, mínima cantidad de "
+            "carcasas y arreglo más estandarizado. La presión de la carcasa a caudal "
+            "cero (Brown, 1980, Sección 4.5451) es restricción obligatoria: una "
+            "combinación que la supere se descarta.",
+            "MaxP = P<sub>(Q=0)</sub> × N<sub>etapas activas</sub> × Pem",
+            f"Arreglo = {_combo}&nbsp;&nbsp;|&nbsp;&nbsp;"
+            f"Instaladas = {dr.housing_size_stages} et "
+            f"({dr.dummy_stages} ciegas)&nbsp;&nbsp;|&nbsp;&nbsp;"
+            f"MaxP = {_num(dr.max_housing_pressure_psi, ',.0f')} psi&nbsp;&nbsp;|"
+            f"&nbsp;&nbsp;Verificación = {_check}<br/><br/>{dr.housing_rationale}",
+        ))
 
     # 3.6 Power & motor
     story.append(_method_block(

@@ -1,0 +1,436 @@
+{
+  "_source": "Kermit Brown, «The Technology of Artificial Lift Methods», Vol. 2b, Tablas 4.520 y 4.521 — «Performance correction chart: approximate changes due to viscosity and specific gravity». Transcritas del impreso. Se usan en el paso 6 del procedimiento de Riling (§4.53112) para crudos viscosos.",
+  "_note_potencia": "La columna de potencia se publica en el libro como «valor × γ_o», donde γ_o es la gravedad específica del petróleo a temperatura de bombeo (definida en el pie de cada tabla). En el escaneo el símbolo γ_o se degrada y aparece como «80». La filmina del ejercicio de cátedra lo escribe explícito: «117.3 * 1.02 = 119.34». Acá se guarda SOLO el porcentaje; multiplicar por γ_o es responsabilidad de quien lo usa.",
+  "_verificacion": "Cada fila cumple la relación interna que se desprende de la definición de potencia hidráulica: C_HP = (C_Q · C_H / η_nuevo) · η_agua · 100. Contrastadas las 38 filas, 30 coinciden dentro de 1.5 puntos porcentuales y la mayoría dentro de 0.1. Ver tests/test_viscosity.py.",
+  "_unidades": {
+    "ssu": "Segundos Saybolt Universal, a temperatura de bombeo",
+    "capacity_factor": "% del caudal que la bomba da con agua",
+    "head_factor": "% de la altura que la bomba da con agua",
+    "new_efficiency": "rendimiento resultante con el fluido viscoso [%]",
+    "hp_factor": "% de la potencia con agua, a multiplicar después por γ_o"
+  },
+  "tables": {
+    "60": {
+      "_label": "Tabla 4.520 — bombas de 60 % de rendimiento máximo",
+      "water_efficiency_pct": 60.0,
+      "rows": [
+        {
+          "ssu": 50,
+          "capacity_factor": 100.0,
+          "head_factor": 100.0,
+          "new_efficiency": 57.5,
+          "hp_factor": 104.0
+        },
+        {
+          "ssu": 80,
+          "capacity_factor": 98.5,
+          "head_factor": 99.5,
+          "new_efficiency": 54.0,
+          "hp_factor": 107.8
+        },
+        {
+          "ssu": 100,
+          "capacity_factor": 98.0,
+          "head_factor": 99.0,
+          "new_efficiency": 52.0,
+          "hp_factor": 110.8
+        },
+        {
+          "ssu": 150,
+          "capacity_factor": 96.0,
+          "head_factor": 96.0,
+          "new_efficiency": 47.5,
+          "hp_factor": 116.3
+        },
+        {
+          "ssu": 200,
+          "capacity_factor": 94.0,
+          "head_factor": 94.0,
+          "new_efficiency": 44.5,
+          "hp_factor": 119.1
+        },
+        {
+          "ssu": 300,
+          "capacity_factor": 91.0,
+          "head_factor": 91.0,
+          "new_efficiency": 40.0,
+          "hp_factor": 124.2
+        },
+        {
+          "ssu": 400,
+          "capacity_factor": 88.0,
+          "head_factor": 89.0,
+          "new_efficiency": 37.0,
+          "hp_factor": 127.0
+        },
+        {
+          "ssu": 500,
+          "capacity_factor": 85.0,
+          "head_factor": 86.0,
+          "new_efficiency": 34.0,
+          "hp_factor": 128.0
+        },
+        {
+          "ssu": 600,
+          "capacity_factor": 83.0,
+          "head_factor": 84.5,
+          "new_efficiency": 32.5,
+          "hp_factor": 129.5
+        },
+        {
+          "ssu": 700,
+          "capacity_factor": 80.5,
+          "head_factor": 82.5,
+          "new_efficiency": 30.5,
+          "hp_factor": 130.0
+        },
+        {
+          "ssu": 800,
+          "capacity_factor": 79.0,
+          "head_factor": 81.0,
+          "new_efficiency": 29.0,
+          "hp_factor": 131.0
+        },
+        {
+          "ssu": 900,
+          "capacity_factor": 77.0,
+          "head_factor": 80.0,
+          "new_efficiency": 27.5,
+          "hp_factor": 132.0
+        },
+        {
+          "ssu": 1000,
+          "capacity_factor": 75.0,
+          "head_factor": 78.0,
+          "new_efficiency": 26.5,
+          "hp_factor": 133.0
+        },
+        {
+          "ssu": 1500,
+          "capacity_factor": 69.0,
+          "head_factor": 72.5,
+          "new_efficiency": 22.0,
+          "hp_factor": 136.5
+        },
+        {
+          "ssu": 2000,
+          "capacity_factor": 63.0,
+          "head_factor": 67.5,
+          "new_efficiency": 19.5,
+          "hp_factor": 131.0
+        },
+        {
+          "ssu": 2500,
+          "capacity_factor": 58.0,
+          "head_factor": 63.0,
+          "new_efficiency": 17.0,
+          "hp_factor": 129.0
+        },
+        {
+          "ssu": 3000,
+          "capacity_factor": 54.0,
+          "head_factor": 60.5,
+          "new_efficiency": 15.0,
+          "hp_factor": 127.5
+        },
+        {
+          "ssu": 4000,
+          "capacity_factor": 47.0,
+          "head_factor": 50.5,
+          "new_efficiency": 12.0,
+          "hp_factor": 118.7
+        },
+        {
+          "ssu": 5000,
+          "capacity_factor": 41.0,
+          "head_factor": 45.0,
+          "new_efficiency": 10.0,
+          "hp_factor": 111.0
+        }
+      ]
+    },
+    "70": {
+      "_label": "Tabla 4.521 — bombas de 70 % de rendimiento máximo",
+      "water_efficiency_pct": 70.0,
+      "rows": [
+        {
+          "ssu": 50,
+          "capacity_factor": 100.0,
+          "head_factor": 100.0,
+          "new_efficiency": 69.5,
+          "hp_factor": 100.8
+        },
+        {
+          "ssu": 80,
+          "capacity_factor": 99.5,
+          "head_factor": 100.0,
+          "new_efficiency": 67.5,
+          "hp_factor": 103.1
+        },
+        {
+          "ssu": 100,
+          "capacity_factor": 99.0,
+          "head_factor": 99.5,
+          "new_efficiency": 65.5,
+          "hp_factor": 105.3
+        },
+        {
+          "ssu": 150,
+          "capacity_factor": 98.0,
+          "head_factor": 98.5,
+          "new_efficiency": 62.0,
+          "hp_factor": 109.0
+        },
+        {
+          "ssu": 200,
+          "capacity_factor": 96.5,
+          "head_factor": 97.0,
+          "new_efficiency": 59.0,
+          "hp_factor": 111.0
+        },
+        {
+          "ssu": 300,
+          "capacity_factor": 94.0,
+          "head_factor": 94.5,
+          "new_efficiency": 55.0,
+          "hp_factor": 113.1
+        },
+        {
+          "ssu": 400,
+          "capacity_factor": 92.0,
+          "head_factor": 92.0,
+          "new_efficiency": 51.5,
+          "hp_factor": 115.0
+        },
+        {
+          "ssu": 500,
+          "capacity_factor": 90.5,
+          "head_factor": 90.5,
+          "new_efficiency": 49.0,
+          "hp_factor": 117.0
+        },
+        {
+          "ssu": 600,
+          "capacity_factor": 89.0,
+          "head_factor": 89.5,
+          "new_efficiency": 47.5,
+          "hp_factor": 117.3
+        },
+        {
+          "ssu": 700,
+          "capacity_factor": 87.0,
+          "head_factor": 88.0,
+          "new_efficiency": 45.7,
+          "hp_factor": 117.3
+        },
+        {
+          "ssu": 800,
+          "capacity_factor": 85.5,
+          "head_factor": 86.0,
+          "new_efficiency": 44.0,
+          "hp_factor": 117.0
+        },
+        {
+          "ssu": 900,
+          "capacity_factor": 84.0,
+          "head_factor": 85.0,
+          "new_efficiency": 43.0,
+          "hp_factor": 116.2
+        },
+        {
+          "ssu": 1000,
+          "capacity_factor": 83.0,
+          "head_factor": 84.0,
+          "new_efficiency": 42.0,
+          "hp_factor": 116.0
+        },
+        {
+          "ssu": 1500,
+          "capacity_factor": 78.0,
+          "head_factor": 79.0,
+          "new_efficiency": 37.0,
+          "hp_factor": 113.5
+        },
+        {
+          "ssu": 2000,
+          "capacity_factor": 74.0,
+          "head_factor": 75.5,
+          "new_efficiency": 34.7,
+          "hp_factor": 112.6
+        },
+        {
+          "ssu": 2500,
+          "capacity_factor": 70.5,
+          "head_factor": 72.5,
+          "new_efficiency": 32.0,
+          "hp_factor": 111.6
+        },
+        {
+          "ssu": 3000,
+          "capacity_factor": 67.0,
+          "head_factor": 69.5,
+          "new_efficiency": 30.0,
+          "hp_factor": 108.8
+        },
+        {
+          "ssu": 4000,
+          "capacity_factor": 61.0,
+          "head_factor": 64.0,
+          "new_efficiency": 27.0,
+          "hp_factor": 101.2
+        },
+        {
+          "ssu": 5000,
+          "capacity_factor": 55.0,
+          "head_factor": 60.0,
+          "new_efficiency": 25.0,
+          "hp_factor": 92.4
+        }
+      ]
+    }
+  },
+  "centrilift_table": {
+    "_label": "Tabla 4.1 — Viscosity Correction Factors According to Centrilift",
+    "_source": "Takács, G., «Electrical Submersible Pumps Manual», 2.ª ed., Elsevier 2018, Tabla 4.1 (pág. 160), §4.2.3 «Other Models». Transcrita del impreso. Es la versión moderna, publicada por Centrilift, de la misma familia de tablas de fabricante que Brown reproduce como 4.520 / 4.521.",
+    "_estructura": "A diferencia de las de Brown, esta tabla NO depende del rendimiento de la bomba y da el factor de eficiencia como multiplicador absoluto (C_eta), no como rendimiento resultante. Agrega una columna propia de potencia al freno (C_BHP) que se usa con la ec. 4.13: BHP_visc = C_BHP * BHP_agua * gamma_l.",
+    "_grilla": "La grilla en SSU es idéntica a la de las Tablas 4.520/4.521 de Brown (50, 80, 100, 150, 200, 300 ... 5000): son dos escaneos independientes de la misma familia de tablas de fabricante, lo que permite contrastarlas fila por fila.",
+    "_anomalia": "La fila de 4000 SSU publica C_eta = 0.278, que rompe la tendencia monótona 0.218 (3000 SSU) -> 0.149 (5000 SSU). Es un error de imprenta: el valor coherente sería ~0.178. Las tablas de Brown a 4000 SSU no tienen el salto. Se transcribe TAL COMO ESTÁ IMPRESO y se avisa; no se corrige en silencio.",
+    "_uso": "Tabla de contraste, no el camino principal. El diseño usa las Tablas 4.520/4.521 de Brown (procedimiento de Riling) y el modelo Hydraulic Institute. Esta sirve para acotar cuánta dispersión hay entre fuentes.",
+    "rows": [
+      {
+        "ssu": 50,
+        "capacity_factor": 100.0,
+        "head_factor": 100.0,
+        "efficiency_factor": 94.5,
+        "bhp_factor": 105.8
+      },
+      {
+        "ssu": 80,
+        "capacity_factor": 98.0,
+        "head_factor": 99.0,
+        "efficiency_factor": 87.0,
+        "bhp_factor": 111.5
+      },
+      {
+        "ssu": 100,
+        "capacity_factor": 97.0,
+        "head_factor": 98.5,
+        "efficiency_factor": 82.5,
+        "bhp_factor": 115.8
+      },
+      {
+        "ssu": 150,
+        "capacity_factor": 94.7,
+        "head_factor": 97.0,
+        "efficiency_factor": 73.6,
+        "bhp_factor": 124.8
+      },
+      {
+        "ssu": 200,
+        "capacity_factor": 92.4,
+        "head_factor": 95.8,
+        "efficiency_factor": 67.4,
+        "bhp_factor": 134.1
+      },
+      {
+        "ssu": 300,
+        "capacity_factor": 88.6,
+        "head_factor": 93.3,
+        "efficiency_factor": 56.6,
+        "bhp_factor": 146.0
+      },
+      {
+        "ssu": 400,
+        "capacity_factor": 84.7,
+        "head_factor": 90.9,
+        "efficiency_factor": 49.7,
+        "bhp_factor": 154.9
+      },
+      {
+        "ssu": 500,
+        "capacity_factor": 81.9,
+        "head_factor": 89.7,
+        "efficiency_factor": 46.2,
+        "bhp_factor": 159.0
+      },
+      {
+        "ssu": 600,
+        "capacity_factor": 79.2,
+        "head_factor": 88.3,
+        "efficiency_factor": 43.4,
+        "bhp_factor": 161.1
+      },
+      {
+        "ssu": 700,
+        "capacity_factor": 76.6,
+        "head_factor": 86.8,
+        "efficiency_factor": 41.0,
+        "bhp_factor": 162.2
+      },
+      {
+        "ssu": 800,
+        "capacity_factor": 74.5,
+        "head_factor": 85.8,
+        "efficiency_factor": 39.0,
+        "bhp_factor": 163.9
+      },
+      {
+        "ssu": 900,
+        "capacity_factor": 72.7,
+        "head_factor": 84.6,
+        "efficiency_factor": 36.8,
+        "bhp_factor": 167.1
+      },
+      {
+        "ssu": 1000,
+        "capacity_factor": 70.8,
+        "head_factor": 83.3,
+        "efficiency_factor": 34.9,
+        "bhp_factor": 169.0
+      },
+      {
+        "ssu": 1500,
+        "capacity_factor": 65.9,
+        "head_factor": 79.9,
+        "efficiency_factor": 30.7,
+        "bhp_factor": 171.5
+      },
+      {
+        "ssu": 2000,
+        "capacity_factor": 62.1,
+        "head_factor": 77.1,
+        "efficiency_factor": 27.2,
+        "bhp_factor": 176.0
+      },
+      {
+        "ssu": 2500,
+        "capacity_factor": 59.0,
+        "head_factor": 75.0,
+        "efficiency_factor": 24.5,
+        "bhp_factor": 180.6
+      },
+      {
+        "ssu": 3000,
+        "capacity_factor": 56.2,
+        "head_factor": 73.3,
+        "efficiency_factor": 21.8,
+        "bhp_factor": 189.0
+      },
+      {
+        "ssu": 4000,
+        "capacity_factor": 51.8,
+        "head_factor": 70.2,
+        "efficiency_factor": 27.8,
+        "bhp_factor": 204.3
+      },
+      {
+        "ssu": 5000,
+        "capacity_factor": 47.9,
+        "head_factor": 67.7,
+        "efficiency_factor": 14.9,
+        "bhp_factor": 217.6
+      }
+    ],
+    "_contraste": "Contrastada contra Brown, la tabla de Centrilift NO queda entre las dos: es más severa con el caudal y más benigna con la altura. En capacidad queda por debajo de la tabla de 60 % en 15 de las 19 filas (a 400 SSU: 84.7 % contra 88.0 % y 92.0 %); en altura queda por encima de la de 60 % en 17 de 19, y a partir de 1500 SSU supera incluso a la de 70 % (a 3000 SSU: 73.3 % contra 60.5 % y 69.5 %). O sea que la dispersión entre fuentes llega a ~13 puntos porcentuales en el extremo viscoso. Ese es el orden de incertidumbre real del método tabulado, y el motivo por el que el diseño se ancla en una sola fuente (Brown) en vez de promediar."
+  }
+}

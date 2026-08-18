@@ -12,15 +12,11 @@ from __future__ import annotations
 from dataclasses import replace
 
 from bes.core.models import Fluid, PumpCurve, Reservoir, SurfaceConditions, WellGeometry
-from bes.core.nodal_analysis import compare_methods, find_operating_point
+from bes.core.nodal_analysis import METHOD_KEY, METHOD_LABEL, find_operating_point
 
-# Canonical multiphase-correlation labels, shared by every front-end.
-NODAL_METHOD_LABELS: dict[str, str] = {
-    "hagedorn_brown":      "Hagedorn-Brown",
-    "beggs_brill":         "Beggs-Brill",
-    "duns_ros":            "Duns & Ros",
-    "poettmann_carpenter": "Poettmann & Carpenter",
-}
+# Única correlación multifásica del simulador (ver bes.core.multiphase).
+NODAL_METHOD_KEY = METHOD_KEY
+NODAL_METHOD_LABEL = METHOD_LABEL
 
 
 def apply_reservoir_decline(reservoir: Reservoir, pr_decline_pct: float) -> Reservoir:
@@ -43,14 +39,13 @@ def _single_metrics(
     fluid: Fluid,
     well: WellGeometry,
     surface: SurfaceConditions,
-    method: str,
     pump: PumpCurve | None,
     stages: int | None,
     pump_depth: float | None,
 ) -> dict[str, float]:
     result = find_operating_point(
         reservoir, fluid, well, surface,
-        method=method, pump=pump, stages=stages, pump_depth=pump_depth,
+        pump=pump, stages=stages, pump_depth=pump_depth,
     )
     nat = result["natural_flow"]
     pmp = result["pump_flow"]
@@ -66,84 +61,39 @@ def _single_metrics(
     }
 
 
-def _comparison_rows(
-    reservoir: Reservoir,
-    fluid: Fluid,
-    well: WellGeometry,
-    surface: SurfaceConditions,
-    pump: PumpCurve | None,
-    stages: int | None,
-    pump_depth: float | None,
-) -> list[dict]:
-    cmp_results = compare_methods(
-        reservoir, fluid, well, surface,
-        pump=pump, stages=stages, pump_depth=pump_depth,
-    )
-    rows: list[dict] = []
-    for m_key, m_label in NODAL_METHOD_LABELS.items():
-        res = cmp_results[m_key]
-        q_n = res["natural_flow"]["q"] if res["natural_flow"] else 0.0
-        q_p = res["pump_flow"]["q"]    if res["pump_flow"]    else 0.0
-        pwf = res["pump_flow"]["pwf"]  if res["pump_flow"]    else 0.0
-        rows.append({
-            "method_key":      m_key,
-            "method_label":    m_label,
-            "q_natural":       q_n,
-            "q_pump":          q_p,
-            "incremental":     q_p - q_n,
-            "pwf_operating":   pwf,
-            "pump_efficiency": res["pump_efficiency"],
-        })
-    return rows
-
-
 def run_nodal_analysis(
     reservoir: Reservoir,
     fluid: Fluid,
     well: WellGeometry,
     surface: SurfaceConditions,
     *,
-    method: str = "hagedorn_brown",
     pr_decline_pct: float = 0.0,
-    compare_all: bool = False,
     pump: PumpCurve | None = None,
     stages: int | None = None,
     pump_depth: float | None = None,
 ) -> dict:
     """Run a nodal analysis and return raw numeric results.
 
+    Las pérdidas de carga se calculan siempre por Poettmann & Carpenter.
+
     Args:
         reservoir, fluid, well, surface: Domain inputs.
-        method: Multiphase correlation key (see ``NODAL_METHOD_LABELS``).
         pr_decline_pct: Reservoir-pressure decline to simulate [%].
-        compare_all: If True, evaluate all four correlations for the table.
         pump, stages, pump_depth: Optional pump context (from the top design).
 
     Returns:
         dict with keys ``reservoir_eff`` (the effective Reservoir after decline),
-        ``pr_decline_pct``, ``has_pump``, ``method``, ``mode`` ("single"|"compare"),
-        and either ``metrics`` (single mode) or ``comparison`` (compare mode).
+        ``pr_decline_pct``, ``has_pump``, ``method`` and ``metrics``.
         All values are raw numbers — formatting is the front-end's job.
     """
     reservoir_eff = apply_reservoir_decline(reservoir, pr_decline_pct)
 
-    out: dict = {
+    return {
         "reservoir_eff":  reservoir_eff,
         "pr_decline_pct": pr_decline_pct,
         "has_pump":       pump is not None,
-        "method":         method,
-        "compare_all":    compare_all,
-    }
-
-    if compare_all:
-        out["mode"] = "compare"
-        out["comparison"] = _comparison_rows(
+        "method":         NODAL_METHOD_KEY,
+        "metrics": _single_metrics(
             reservoir_eff, fluid, well, surface, pump, stages, pump_depth,
-        )
-    else:
-        out["mode"] = "single"
-        out["metrics"] = _single_metrics(
-            reservoir_eff, fluid, well, surface, method, pump, stages, pump_depth,
-        )
-
-    return out
+        ),
+    }

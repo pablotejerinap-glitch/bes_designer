@@ -101,17 +101,24 @@ Primera sección a completar. Contiene **5 pestañas**:
 |---|---|---|
 | Presión estática | Presión promedio del reservorio (Pr) | psi |
 | Punto de burbuja | Presión de burbuja del fluido (Pb) | psi |
-| Índice de productividad | PI medido en prueba | STB/d/psi |
+| Ensayo · Pwf medida | Presión de fondo fluyente del ensayo estabilizado | psi |
+| Ensayo · caudal medido | Caudal bruto de líquido del mismo ensayo | STB/d |
 | Método IPR | Correlación a aplicar | — |
 | Temperatura | Temperatura estática de fondo | °F |
-| Profundidad datum | Referencia de profundidad para presiones | ft TVD |
+| Longitud del caño | Profundidad de referencia de las presiones | ft TVD |
 | Mecanismo de empuje | Fuente de energía del reservorio | — |
+
+> **El índice de productividad no se carga.** Se deriva del ensayo con el método
+> IPR elegido y se muestra en solo lectura, junto al draw-down y al AOF, en el
+> bloque "Derivado del ensayo". Es la magnitud que efectivamente se mide en el
+> pozo la que entra al cálculo. Con el método **Fetkovich** hay que cargar además
+> el exponente *n*: un ensayo de un solo punto no permite ajustar *C* y *n* a la
+> vez, así que la app despeja *C* y muestra el valor resultante.
 
 **Métodos IPR disponibles:**
 - **LINEAR**: Darcy / línea recta (arriba del punto de burbuja)
 - **VOGEL**: Correlación de Vogel (drive por gas en solución)
 - **FETKOVICH**: IPR empírica de Fetkovich
-- **COMBINED**: Linear sobre Pb, Vogel bajo Pb
 
 #### Pestaña: Fluido
 Propiedades PVT del crudo producido: gravedad API, corte de agua, GOR, gravedades específicas de gas y agua, viscosidad, contenidos de H₂S y CO₂.
@@ -127,7 +134,20 @@ Dimensiones del pozo: profundidad total, diámetros de casing y tubing, interval
 Condiciones en superficie: presión mínima en cabezal (WHP), flowline (longitud, diámetro, elevación), presión del separador, voltaje disponible y frecuencia de red.
 
 #### Pestaña: Objetivos
-Tasa objetivo (STB/d), GIP máximo permitido, margen de seguridad en profundidad de bomba, vida útil de diseño, opción de variador de velocidad (VSD).
+Tasa objetivo (STB/d), GIP máximo permitido, margen de seguridad en profundidad de bomba, vida útil de diseño, opción de variador de velocidad (VSD) y el umbral de gas que elige la correlación de pérdida de carga.
+
+> **Gas para usar Poettmann-Carpenter.** La app calcula la fracción de gas libre
+> en la admisión *antes* del TDH y con ella elige cómo computar la pérdida de
+> carga en el tubing: por debajo del umbral usa Hazen-Williams (flujo
+> monofásico), por encima usa Poettmann-Carpenter para flujo multifásico
+> vertical. El default es 0.10. La correlación efectivamente usada aparece en
+> la tabla de resultados de cada opción.
+
+> **Frecuencia de diseño (VSD).** Al activar el variador aparece un campo para
+> fijar la frecuencia a la que va a girar la bomba. Vacío = la frecuencia de red
+> de la pestaña Superficie. La curva de catálogo se reescala a esa frecuencia
+> con las leyes de afinidad **antes** de elegir la bomba, así que a 50 Hz el
+> rango operativo, las etapas y el HP son los que corresponden.
 
 #### Botones de acción
 
@@ -147,6 +167,12 @@ El motor evalúa cada bomba del catálogo y selecciona las **mejores 3 opciones*
 
 - **TDH** (Total Dynamic Head) y su desglose (elevación vertical, fricción en tubing, cabezal)
 - **Selección de bomba:** modelo, OD, número de etapas, eficiencia, HP
+- **Carcasas (pump housings):** la combinación se elige automáticamente — no se
+  carga a mano. La tabla muestra cada carcasa de la admisión a la descarga con
+  sus etapas, código y material (si el catálogo los publica), las etapas activas
+  acumuladas, la presión calculada, la admisible y el resultado de la
+  verificación, más una justificación de por qué se eligió esa combinación. Un
+  arreglo que supere la presión admisible nunca se ofrece: esa bomba se descarta
 - **Diseño del motor:** modelo, HP, voltaje, amperaje
 - **Diseño del cable:** tipo, calibre AWG, caída de tensión, voltaje en superficie
 - **Transformador:** potencia en kVA recomendada
@@ -191,7 +217,29 @@ El gráfico muestra la curva de sensibilidad y marca el punto de diseño base.
 
 ---
 
-### 4.5 📥 Descargar Reportes
+### 4.5 🔁 Leyes de afinidad
+
+Sección independiente del diseño: un banco de pruebas sobre la curva de catálogo
+de cualquier bomba. Se elige la bomba, se marcan las frecuencias a comparar
+(40–70 Hz) y opcionalmente se ajusta el diámetro del impulsor (D₂/D₁) y la
+gravedad específica del fluido (SG₂/SG₁).
+
+Muestra la familia de curvas superpuestas y una tabla con, por frecuencia: la
+relación de velocidad N₂/N₁, las rpm del eje, el rango operativo desplazado, el
+BEP, y el head, HP y eficiencia por etapa.
+
+Si se carga un **caudal objetivo**, además despeja la frecuencia que lleva el BEP
+de esa bomba a ese caudal (f₂ = f₁·Q₂/Q₁) — la pregunta típica de un diseño con
+variador.
+
+> **Qué esperar.** Al bajar la frecuencia el caudal cae en proporción directa
+> pero la altura cae con el cuadrado, así que reducir velocidad no sale gratis en
+> capacidad de elevación. La eficiencia no cambia: es invariante ante el cambio
+> de velocidad.
+
+---
+
+### 4.6 📥 Descargar Reportes
 
 Al final de la sección **Diseño BES**, aparecen tres botones de descarga:
 
@@ -222,7 +270,7 @@ Al final de la sección **Diseño BES**, aparecen tres botones de descarga:
 
 | Módulo | Método implementado |
 |---|---|
-| **IPR** | Vogel (1968), Linear (Darcy), Fetkovich, Combined |
+| **IPR** | Vogel (1968), Linear (Darcy), Fetkovich (1973) |
 | **PVT** | Standing (1947): Bo, Rs, Pb; Dranchuk-Abou-Kassem (1975): z-factor |
 | **Presión de admisión** | Hagedorn-Brown (1965), Beggs-Brill (1973) |
 | **TDH** | Hazen-Williams (fricción) + columna hidrostática (Brown §4.5324) |

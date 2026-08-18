@@ -52,7 +52,6 @@ def reservoir() -> Reservoir:
         ipr_method=IPRMethod.VOGEL,
         reservoir_temp=180.0,
         drive_mechanism=DriveMechanism.SOLUTION_GAS,
-        datum_depth=5000.0,
     )
 
 
@@ -87,7 +86,6 @@ def well() -> WellGeometry:
         perforations_bottom=4800.0,
         deviation_max=5.0,
         wellhead_temp=80.0,
-        bottom_hole_temp=180.0,
     )
 
 
@@ -515,11 +513,11 @@ class TestSelectPumpByModel:
     def test_pump_too_large_for_casing_raises(
         self, manager, reservoir, fluid, well, surface, objectives
     ):
-        # well.casing_id = 6.366in (7in casing); SM18500 (OD 8.75in) can't fit.
+        # well.casing_id = 6.366in (7in casing); L16000N (OD 8.75in) can't fit.
         with pytest.raises(ValueError, match="casing"):
             select_pump_by_model(
                 reservoir, fluid, well, surface, objectives, manager,
-                pump_model="SM18500",
+                pump_model="L16000N",
             )
 
 

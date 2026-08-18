@@ -5,9 +5,10 @@ tanto la API (``fig.to_json()`` → el front lo renderiza con react-plotly.js)
 como la app Streamlit. Ver ``.claude/rules/architecture.md``.
 """
 from bes.plotting.plots import (
+    plot_affinity_curves,
+    plot_gas_increment_ladder,
     plot_ipr_curve,
     plot_nodal_analysis,
-    plot_nodal_comparison,
     plot_pressure_profile,
     plot_pump_catalog_curve,
     plot_pump_curve,
@@ -15,9 +16,10 @@ from bes.plotting.plots import (
 )
 
 __all__ = [
+    "plot_affinity_curves",
+    "plot_gas_increment_ladder",
     "plot_ipr_curve",
     "plot_nodal_analysis",
-    "plot_nodal_comparison",
     "plot_pressure_profile",
     "plot_pump_catalog_curve",
     "plot_pump_curve",

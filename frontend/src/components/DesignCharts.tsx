@@ -78,7 +78,13 @@ export function DesignCharts({
   design: DesignResult;
   inputs: DesignInputs;
 }) {
-  const { pump_model, num_stages, flow_rate_achieved, pump_setting_depth } = design;
+  const {
+    pump_model,
+    num_stages,
+    flow_rate_achieved,
+    pump_setting_depth,
+    operating_frequency,
+  } = design;
 
   const curve = useFigure(
     () =>
@@ -87,9 +93,10 @@ export function DesignCharts({
           pump_model,
           operating_flow: flow_rate_achieved,
           stages: num_stages,
+          frequency: operating_frequency,
         })
         .then((r) => r.figure),
-    [pump_model, flow_rate_achieved, num_stages]
+    [pump_model, flow_rate_achieved, num_stages, operating_frequency]
   );
 
   const nodal = useFigure(

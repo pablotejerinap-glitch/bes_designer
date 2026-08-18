@@ -44,9 +44,6 @@ q / q_max = 1 − 0.2·(Pwf/Pr) − 0.8·(Pwf/Pr)²
 
 donde `q_max = PI·Pr / 1.8` es el caudal máximo (Pwf = 0).
 
-#### COMBINED (recomendado)
-Linear para Pwf > Pb; Vogel para Pwf ≤ Pb, garantizando continuidad en Pb.
-
 #### FETKOVICH
 ```
 q = C · (Pr² − Pwf²)ⁿ
@@ -226,7 +223,7 @@ Clasificación de la distancia al BEP (solo visualización, nunca ordena):
 
 3. **Fluido incompresible en tubing.** La fricción en tubing (Hazen-Williams) asume fluido monofásico. El efecto del gas libre en la tubería se ignora en el TDH (la fase gas solo afecta el cálculo del PIP y el GIP).
 
-4. **Temperatura lineal.** El perfil de temperatura en el pozo se asume lineal entre `wellhead_temp` y `bottom_hole_temp`.
+4. **Temperatura lineal.** El perfil de temperatura en el pozo se asume lineal entre `well.wellhead_temp` y `reservoir.reservoir_temp` (`bes.core.tdh.temp_at_depth`). La temperatura de fondo **no** se carga aparte: es la del reservorio.
 
 5. **Sin slippage de gas en la bomba.** Para el cálculo de HP se asume que el gas libre pasa por la bomba sin cambio de fase. Los efectos de segregación fase-gas dentro del rodete no se modelan.
 
@@ -251,7 +248,9 @@ Clasificación de la distancia al BEP (solo visualización, nunca ordena):
 | Sin cálculo de fuerza axial | No se verifica la carga sobre el sello/protector | Revisar el límite de empuje axial de la bomba con el fabricante |
 | Temperatura de motor estimada | Se usa T_bottom_hole como temperatura del motor | La temperatura real del motor depende del flujo refrigerante; verificar con el fabricante |
 | Sin modelo de degradación | No proyecta cambios de PI o GOR en el tiempo | Correr el análisis de sensibilidad para distintos escenarios de declinación |
-| Hagedorn-Brown para baja tensión superficial | Puede sobreestimar el holdup de líquido con gas amargo | Usar Beggs-Brill manualmente si H₂S > 5 000 ppm |
+| Una sola correlación multifásica (Poettmann-Carpenter) | No reproduce los ejemplos del libro resueltos con Hagedorn-Brown. En el #3B la presión de descarga da 1120 psi contra 1300 impresos (−14 %), y de ahí 175 etapas contra 209 | Documentado en `docs/EJEMPLO_3B_BROWN.md`. P&C es una de las cinco correlaciones que el propio libro habilita para ese paso |
+| Método de incrementos: último escalón con resto | Con un salto que no sea múltiplo de 200 psi, el último incremento queda corto (p. ej. 20 psi) y distorsiona su conteo de etapas | Elegir un `increment_psi` que divida el salto, o repartir el paso de forma pareja |
+| Método de incrementos: bomba distinta por escalón | Sin `fixed_pump_model` se arman combinaciones de 3-4 modelos apilados, que no son construibles | Pasar `fixed_pump_model` con la bomba elegida, como hace el libro |
 | Un solo fase de motor por diseño | No se evalúa el apilamiento de dos motores | Agregar al catálogo motores compuestos si aplica |
 
 ---
@@ -308,7 +307,7 @@ Clasificación de la distancia al BEP (solo visualización, nunca ordena):
 Entrada: Reservoir · Fluid · WellGeometry · SurfaceConditions · DesignObjectives
         │
         ▼
-    IPR (Vogel / Linear / Fetkovich / Combined)
+    IPR (Vogel / Linear / Fetkovich)
     → Pwf en la tasa objetivo
         │
         ▼

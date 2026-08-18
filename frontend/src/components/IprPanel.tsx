@@ -15,7 +15,6 @@ const METHOD_LABELS: Record<string, string> = {
   linear: "Linear (Darcy)",
   vogel: "Vogel",
   fetkovich: "Fetkovich",
-  combined: "Combinada (Linear + Vogel)",
 };
 
 export function IprPanel({
@@ -33,12 +32,10 @@ export function IprPanel({
 
   useEffect(() => {
     if (!active || !debounced) return;
-    // Fetkovich sin C y n daría 422 seguro: mejor avisar sin pegarle a la API.
-    if (
-      debounced.ipr_method === "fetkovich" &&
-      (debounced.fetkovich_c == null || debounced.fetkovich_n == null)
-    ) {
-      setError("El método Fetkovich requiere el coeficiente C y el exponente n (sección Reservorio).");
+    // Fetkovich sin n daría 422 seguro: mejor avisar sin pegarle a la API.
+    // (C no se carga: se despeja del ensayo, pero necesita el n.)
+    if (debounced.ipr_method === "fetkovich" && debounced.fetkovich_n == null) {
+      setError("El método Fetkovich requiere el exponente n (sección Reservorio).");
       return;
     }
     let alive = true;

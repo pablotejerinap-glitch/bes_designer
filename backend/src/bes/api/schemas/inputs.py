@@ -17,7 +17,6 @@ class IPRMethodStr(str, Enum):
     linear = "linear"
     vogel = "vogel"
     fetkovich = "fetkovich"
-    combined = "combined"
 
 
 class DriveMechanismStr(str, Enum):
@@ -28,22 +27,46 @@ class DriveMechanismStr(str, Enum):
 
 
 class ReservoirSchema(BaseModel):
+    """Reservorio. La entregabilidad se carga como **ensayo de producción**
+    (``test_pwf`` + ``test_rate``), que es el dato que se mide en el pozo; el
+    índice de productividad se deriva de ahí con el método IPR elegido."""
+
     static_pressure: float = Field(..., gt=0, description="Presión estática [psia]")
     bubble_point: float = Field(..., ge=0, description="Presión de burbuja [psia]")
-    productivity_index: float = Field(..., gt=0, description="PI [STB/d/psi]")
+    test_pwf: float = Field(
+        ..., ge=0,
+        description="Ensayo — presión de fondo fluyente medida [psia]. "
+                    "Debe ser menor que la presión estática.",
+    )
+    test_rate: float = Field(
+        ..., gt=0,
+        description="Ensayo — caudal bruto de líquido medido [STB/d].",
+    )
     ipr_method: IPRMethodStr
     reservoir_temp: float = Field(..., gt=0, description="Temp. de reservorio [°F]")
     drive_mechanism: DriveMechanismStr
-    datum_depth: float = Field(..., gt=0, description="Profundidad de referencia [ft TVD]")
-    fetkovich_c: float | None = Field(
-        None, gt=0,
-        description="Coeficiente C de Fetkovich [STB/d/psia^(2n)], de un ensayo "
-                    "multi-rate. Obligatorio si ipr_method es 'fetkovich'.",
-    )
     fetkovich_n: float | None = Field(
         None, ge=0.5, le=1.0,
         description="Exponente n de Fetkovich [-]. 1.0 = laminar, 0.5 = turbulento "
-                    "pleno. Obligatorio si ipr_method es 'fetkovich'.",
+                    "pleno. Obligatorio si ipr_method es 'fetkovich': un ensayo de "
+                    "un solo punto no permite ajustar C y n a la vez.",
+    )
+
+
+class IPRFromTestRequest(BaseModel):
+    """Entrada mínima para derivar la entregabilidad de un ensayo."""
+
+    static_pressure: float = Field(..., gt=0, description="Presión estática [psia]")
+    test_pwf: float = Field(..., ge=0, description="Pwf del ensayo [psia]")
+    test_rate: float = Field(..., gt=0, description="Caudal del ensayo [STB/d]")
+    ipr_method: IPRMethodStr
+    bubble_point: float = Field(
+        ..., ge=0,
+        description="Presión de burbuja [psia]. La usa VOGEL para separar el "
+                    "tramo recto de la IPR (arriba de Pb) del curvo (abajo).",
+    )
+    fetkovich_n: float | None = Field(
+        None, ge=0.5, le=1.0, description="Exponente n de Fetkovich [-]",
     )
 
 
@@ -72,7 +95,11 @@ class WellSchema(BaseModel):
     perforations_bottom: float = Field(..., gt=0, description="Base de perforaciones [ft MD]")
     deviation_max: float = Field(..., ge=0, le=90, description="Desviación máxima [°]")
     wellhead_temp: float = Field(..., gt=0, description="Temp. en boca de pozo [°F]")
-    bottom_hole_temp: float = Field(..., gt=0, description="Temp. de fondo [°F]")
+    pump_setting_depth: float | None = Field(
+        None, gt=0,
+        description="Profundidad de succión [ft MD]. Opcional: si se omite se "
+                    "calcula como tope de punzados menos margen de seguridad.",
+    )
 
 
 class SurfaceSchema(BaseModel):
@@ -89,9 +116,23 @@ class ObjectivesSchema(BaseModel):
     target_flow_rate: float = Field(..., gt=0, description="Caudal objetivo [STB/d]")
     safety_margin_depth: float = Field(..., ge=0, description="Margen de profundidad [ft]")
     allow_gas_venting: bool
-    max_gip: float = Field(..., ge=0, le=1, description="Fracción máxima de gas en bomba [0-1]")
+    max_gip: float = Field(
+        0.10, ge=0, le=1,
+        description="FRACCIÓN máxima de gas libre admisible a la entrada de la "
+                    "bomba [0-1], ya descontados el venteo y el separador. Por "
+                    "encima, el diseño BES no converge y hay que evaluar otro "
+                    "método de levantamiento. Es fracción V_gas/(V_gas+V_líq), "
+                    "no relación V_gas/V_líq.",
+    )
     design_life_years: float = Field(..., gt=0, description="Vida de diseño [años]")
     use_vsd: bool
+    design_frequency_hz: float | None = Field(
+        None, ge=20, le=90,
+        description="Frecuencia de operación de la bomba [Hz]. Vacío = la frecuencia "
+                    "de red. Sólo válido con use_vsd: sin variador la bomba gira a la "
+                    "frecuencia de línea. La curva se reescala a esta frecuencia con "
+                    "las leyes de afinidad antes de seleccionar.",
+    )
 
 
 class DesignInputs(BaseModel):

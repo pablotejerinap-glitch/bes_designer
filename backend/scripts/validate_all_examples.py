@@ -81,11 +81,13 @@ def _build_dataclasses(ex: dict):
         reservoir = Reservoir(
             static_pressure=r["static_pressure"],
             bubble_point=r["bubble_point"],
-            productivity_index=r["productivity_index"],
             ipr_method=IPRMethod[r["ipr_method"]],
             reservoir_temp=r["reservoir_temp"],
             drive_mechanism=DriveMechanism[r["drive_mechanism"]],
             datum_depth=r["datum_depth"],
+            test_pwf=r.get("test_pwf"),
+            test_rate=r.get("test_rate"),
+            productivity_index=r.get("productivity_index"),
             fetkovich_c=r.get("fetkovich_c"),
             fetkovich_n=r.get("fetkovich_n"),
         )
@@ -135,6 +137,7 @@ def _build_dataclasses(ex: dict):
         max_gip=o["max_gip"],
         design_life_years=o["design_life_years"],
         use_vsd=o["use_vsd"],
+        gas_fraction_pc_threshold=o.get("gas_fraction_pc_threshold", 0.10),
     )
 
     return reservoir, fluid, well, surface, objectives

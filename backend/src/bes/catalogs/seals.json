@@ -2,367 +2,2214 @@
   "_note": "Seal (protector/equalizer) catalog. Thrust capacity covers both upthrust and downthrust loads from the pump string.",
   "seals": [
     {
-      "manufacturer": "Reda",
-      "series": "375",
-      "model": "VSEAL-375-LAB",
+      "manufacturer": "Wood Group ESP",
+      "series": "300",
+      "model": "TR3 STANDARD LABYRINTH",
       "type": "labyrinth",
       "compatible_motor_series": [
-        "375"
+        "300"
       ],
-      "od_inches": 3.75,
-      "length_ft": 2.8,
-      "thrust_capacity_lbs": 6500,
-      "max_temp_f": 250,
-      "_source": "Valores consistentes con protectores estándar Reda VSEAL (serie 375) — fuente específica no confirmada"
+      "od_inches": 3.38,
+      "length_ft": 5.1,
+      "weight_lbs": 90.0,
+      "shaft_diameter_in": 0.75,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 160.0,
+      "shaft_hp_high_strength": 256.0,
+      "part_number": "913020",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 300. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
     },
     {
-      "manufacturer": "Reda",
-      "series": "375",
-      "model": "VSEAL-375-BAG",
+      "manufacturer": "Wood Group ESP",
+      "series": "387",
+      "model": "TR387 STANDARD LABYRINTH",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "387"
+      ],
+      "od_inches": 3.87,
+      "length_ft": 5.3,
+      "weight_lbs": 125.0,
+      "shaft_diameter_in": 0.875,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 256.0,
+      "shaft_hp_high_strength": 410.0,
+      "part_number": "116007",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 387. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "387",
+      "model": "TR387 STANDARD LABYRINTH UT",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "387"
+      ],
+      "od_inches": 3.87,
+      "length_ft": 5.3,
+      "weight_lbs": 125.0,
+      "shaft_diameter_in": 0.875,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 256.0,
+      "shaft_hp_high_strength": 410.0,
+      "part_number": "116048",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 387. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "387",
+      "model": "TR387-SBG SINGLE BAG PFSB",
       "type": "bag",
       "compatible_motor_series": [
-        "375"
+        "387"
       ],
-      "od_inches": 3.75,
-      "length_ft": 3.2,
-      "thrust_capacity_lbs": 5000,
-      "max_temp_f": 250,
-      "_source": "Valores consistentes con protectores estándar Reda VSEAL (serie 375) — fuente específica no confirmada"
-    },
-    {
-      "manufacturer": "Reda",
-      "series": "375",
-      "model": "VSEAL-375-COMB",
-      "type": "combined",
-      "compatible_motor_series": [
-        "375"
-      ],
-      "od_inches": 3.75,
+      "od_inches": 3.87,
       "length_ft": 4.5,
-      "thrust_capacity_lbs": 8000,
-      "max_temp_f": 250,
-      "_source": "Valores consistentes con protectores estándar Reda VSEAL (serie 375) — fuente específica no confirmada"
+      "weight_lbs": 125.0,
+      "shaft_diameter_in": 0.875,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 256.0,
+      "shaft_hp_high_strength": 410.0,
+      "part_number": "116087",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 387. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
     },
     {
-      "manufacturer": "Reda",
-      "series": "456",
-      "model": "VSEAL-456-LAB",
-      "type": "labyrinth",
-      "compatible_motor_series": [
-        "456"
-      ],
-      "od_inches": 4.56,
-      "length_ft": 3.5,
-      "thrust_capacity_lbs": 11000,
-      "max_temp_f": 250,
-      "_source": "Valores consistentes con protectores estándar Reda VSEAL (serie 456) — fuente específica no confirmada"
-    },
-    {
-      "manufacturer": "Reda",
-      "series": "456",
-      "model": "VSEAL-456-BAG",
+      "manufacturer": "Wood Group ESP",
+      "series": "387",
+      "model": "TR387-SBG SINGLE BAG PFSB CR",
       "type": "bag",
       "compatible_motor_series": [
-        "456"
+        "387"
       ],
-      "od_inches": 4.56,
-      "length_ft": 4.0,
-      "thrust_capacity_lbs": 9000,
-      "max_temp_f": 250,
-      "_source": "Valores consistentes con protectores estándar Reda VSEAL (serie 456) — fuente específica no confirmada"
+      "od_inches": 3.87,
+      "length_ft": 4.5,
+      "weight_lbs": 125.0,
+      "shaft_diameter_in": 0.875,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 256.0,
+      "shaft_hp_high_strength": 410.0,
+      "part_number": "116088",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 387. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
     },
     {
-      "manufacturer": "Reda",
-      "series": "456",
-      "model": "VSEAL-456-COMB",
-      "type": "combined",
+      "manufacturer": "Wood Group ESP",
+      "series": "400",
+      "model": "TR4 STANDARD LABYRINTH",
+      "type": "labyrinth",
       "compatible_motor_series": [
-        "456"
+        "400"
       ],
-      "od_inches": 4.56,
+      "od_inches": 4.0,
+      "length_ft": 5.3,
+      "weight_lbs": 124.0,
+      "shaft_diameter_in": 0.875,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 256.0,
+      "shaft_hp_high_strength": 410.0,
+      "part_number": "934359",
+      "part_number_abrasion_resistant": "130898",
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 400. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "400",
+      "model": "TR4 98L STANDARD LABYRINTH",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "400"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 5.3,
+      "weight_lbs": 130.0,
+      "shaft_diameter_in": 0.875,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 256.0,
+      "shaft_hp_high_strength": 410.0,
+      "part_number": "140691",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 400. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "400",
+      "model": "TR4 98L STANDARD LABYRINTH W/HSS",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "400"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 5.3,
+      "weight_lbs": 130.0,
+      "shaft_diameter_in": 0.875,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 256.0,
+      "shaft_hp_high_strength": 410.0,
+      "part_number": "140692",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 400. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "400",
+      "model": "TR4 STANDARD LABYRINTH HI-LD",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "400"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 5.3,
+      "weight_lbs": 125.0,
+      "shaft_diameter_in": 0.875,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 256.0,
+      "shaft_hp_high_strength": 410.0,
+      "part_number": "110300",
+      "part_number_abrasion_resistant": "130899",
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 400. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "400",
+      "model": "TR4 STANDARD LABYRINTH HI-LD W/HSS",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "400"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 5.3,
+      "weight_lbs": 125.0,
+      "shaft_diameter_in": 0.875,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 256.0,
+      "shaft_hp_high_strength": 410.0,
+      "part_number": "120618",
+      "part_number_abrasion_resistant": "130900",
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 400. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "400",
+      "model": "TR4 SBG SINGLE BAG PFSB",
+      "type": "bag",
+      "compatible_motor_series": [
+        "400"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 4.5,
+      "weight_lbs": 100.0,
+      "shaft_diameter_in": 0.875,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 256.0,
+      "shaft_hp_high_strength": 410.0,
+      "part_number": "1008275",
+      "part_number_abrasion_resistant": "130852",
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 400. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "400",
+      "model": "TR4 SBG SINGLE BAG PFSB CR",
+      "type": "bag",
+      "compatible_motor_series": [
+        "400"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 4.5,
+      "weight_lbs": 100.0,
+      "shaft_diameter_in": 0.875,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 256.0,
+      "shaft_hp_high_strength": 410.0,
+      "part_number": "1008267",
+      "part_number_abrasion_resistant": "130851",
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 400. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "400",
+      "model": "TR4 SBG SINGLE BAG PFSB HI-LD/HI-TEMP",
+      "type": "bag",
+      "compatible_motor_series": [
+        "400"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 4.5,
+      "weight_lbs": 101.0,
+      "shaft_diameter_in": 0.875,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 256.0,
+      "shaft_hp_high_strength": 410.0,
+      "part_number": "120377",
+      "part_number_abrasion_resistant": "130860",
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 400. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "400",
+      "model": "TR4 SBG SINGLE BAG PFSB HI-LD/HI-TEMP CR",
+      "type": "bag",
+      "compatible_motor_series": [
+        "400"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 4.5,
+      "weight_lbs": 101.0,
+      "shaft_diameter_in": 0.875,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 256.0,
+      "shaft_hp_high_strength": 410.0,
+      "part_number": "120381",
+      "part_number_abrasion_resistant": "130859",
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 400. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "400",
+      "model": "TR4 DBG DOUBLE BAG PFDB",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "400"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 6.1,
+      "weight_lbs": 140.0,
+      "shaft_diameter_in": 0.875,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 256.0,
+      "shaft_hp_high_strength": 410.0,
+      "part_number": "1008291",
+      "part_number_abrasion_resistant": "130854",
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 400. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "400",
+      "model": "TR4 DBG DOUBLE BAG PFDB CR",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "400"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 6.1,
+      "weight_lbs": 140.0,
+      "shaft_diameter_in": 0.875,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 256.0,
+      "shaft_hp_high_strength": 410.0,
+      "part_number": "1008283",
+      "part_number_abrasion_resistant": "130853",
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 400. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 STANDARD LABYRINTH",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "500"
+      ],
+      "od_inches": 5.13,
       "length_ft": 5.8,
-      "thrust_capacity_lbs": 15000,
-      "max_temp_f": 250,
-      "_source": "Valores consistentes con protectores estándar Reda VSEAL (serie 456) — fuente específica no confirmada"
+      "weight_lbs": 190.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "948356",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
     },
     {
-      "manufacturer": "Reda",
-      "series": "540",
-      "model": "VSEAL-540-LAB",
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 STANDARD LABYRINTH HI-LD",
       "type": "labyrinth",
       "compatible_motor_series": [
-        "540"
+        "500"
       ],
-      "od_inches": 5.4,
-      "length_ft": 4.5,
-      "thrust_capacity_lbs": 18000,
-      "max_temp_f": 300,
-      "_source": "Valores consistentes con protectores estándar Reda VSEAL (serie 540) — fuente específica no confirmada"
+      "od_inches": 5.13,
+      "length_ft": 5.8,
+      "weight_lbs": 190.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "111450",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
     },
     {
-      "manufacturer": "Reda",
-      "series": "540",
-      "model": "VSEAL-540-BAG",
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 STANDARD LABYRINTH HI-LD CR",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "500"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 5.8,
+      "weight_lbs": 190.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "120356",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 SBG SINGLE BAG",
       "type": "bag",
       "compatible_motor_series": [
-        "540"
+        "500"
       ],
-      "od_inches": 5.4,
-      "length_ft": 5.0,
-      "thrust_capacity_lbs": 15000,
-      "max_temp_f": 300,
-      "_source": "Valores consistentes con protectores estándar Reda VSEAL (serie 540) — fuente específica no confirmada"
+      "od_inches": 5.13,
+      "length_ft": 4.4,
+      "weight_lbs": 200.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "121517",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
     },
     {
-      "manufacturer": "Reda",
-      "series": "540",
-      "model": "VSEAL-540-COMB",
-      "type": "combined",
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 SBG SINGLE BAG PFSB",
+      "type": "bag",
       "compatible_motor_series": [
-        "540"
+        "500"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 4.4,
+      "weight_lbs": 200.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "1019595",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 SBG SINGLE BAG PFSB HI-LD",
+      "type": "bag",
+      "compatible_motor_series": [
+        "500"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 4.4,
+      "weight_lbs": 200.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "121431",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 SBG SINGLE BAG PFSB CR",
+      "type": "bag",
+      "compatible_motor_series": [
+        "500"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 4.4,
+      "weight_lbs": 200.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "1019587",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 SBG SINGLE BAG PFSB CR HI-LD",
+      "type": "bag",
+      "compatible_motor_series": [
+        "500"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 4.4,
+      "weight_lbs": 200.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "121432",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 DBG DOUBLE BAG PFDB",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "500"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 6.3,
+      "weight_lbs": 250.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "1019611",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 DBG DOUBLE BAG PFDB HI-LD",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "500"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 6.3,
+      "weight_lbs": 250.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "121433",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 DBG DOUBLE BAG PFDB HI-LD/HI-TEMP",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "500"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 6.3,
+      "weight_lbs": 250.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "121741",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 DBG DOUBLE BAG PFDB HI-TEMP",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "500"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 6.3,
+      "weight_lbs": 250.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "121516",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 DBG DOUBLE BAG PFDB CR",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "500"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 6.3,
+      "weight_lbs": 250.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "1019603",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 DBG DOUBLE BAG PFDB CR HI-LD",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "500"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 6.3,
+      "weight_lbs": 250.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "121434",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 AR 2 CHAMBER LABYRINTH HL",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "500"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 5.6,
+      "weight_lbs": 230.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "548220",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 AR 2 CHAMBER LABYRINTH HL CR",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "500"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 5.6,
+      "weight_lbs": 230.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "548221",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 AR 4 CHAMBER LABYRINTH HL",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "500"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 9.7,
+      "weight_lbs": 400.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "548218",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 AR 4 CHAMBER LABYRINTH HL CR",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "500"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 9.7,
+      "weight_lbs": 400.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "548219",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 AR 2 CHAMBER BAG/LAB HL",
+      "type": "bag",
+      "compatible_motor_series": [
+        "500"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 5.6,
+      "weight_lbs": 240.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "540100",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 AR 2 CHAMBER BAG/LAB HL CR",
+      "type": "bag",
+      "compatible_motor_series": [
+        "500"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 5.6,
+      "weight_lbs": 240.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "540101",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "500",
+      "model": "TR5 AR 2 CHAMBER BAG/LAB HL AFLAS",
+      "type": "bag",
+      "compatible_motor_series": [
+        "500"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 5.6,
+      "weight_lbs": 240.0,
+      "shaft_diameter_in": 1.188,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 637.0,
+      "shaft_hp_high_strength": 1019.0,
+      "part_number": "540112",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 500. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "700",
+      "model": "TR7 STANDARD",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "700"
+      ],
+      "od_inches": 7.38,
+      "length_ft": 6.0,
+      "weight_lbs": 334.0,
+      "shaft_diameter_in": 1.5,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 1000.0,
+      "shaft_hp_high_strength": 1600.0,
+      "part_number": "961680",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 700. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "series": "700",
+      "model": "TR7 STANDARD HI-LD",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "700"
+      ],
+      "od_inches": 7.38,
+      "length_ft": 6.0,
+      "weight_lbs": 334.0,
+      "shaft_diameter_in": 1.5,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "shaft_hp_standard": 1000.0,
+      "shaft_hp_high_strength": 1600.0,
+      "part_number": "147426",
+      "part_number_abrasion_resistant": null,
+      "_source": "Seals.pdf, sección SEAL SECTION, serie 700. Longitud, peso, part number y límites de eje son los impresos. El PDF NO publica capacidad de empuje como número (está en los gráficos de empuje vs. BHT) ni temperatura máxima por modelo: ambos quedan en null."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "325",
+      "model": "REDA-325-66L",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "375"
+      ],
+      "od_inches": null,
+      "length_ft": 5.1,
+      "weight_lbs": 110.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": false,
+      "high_strength_shaft": false,
+      "part_number": "416727",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 325 (atornilla a motores serie 375). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "325",
+      "model": "REDA-325-PF-SB-HTM",
+      "type": "bag",
+      "compatible_motor_series": [
+        "375"
+      ],
+      "od_inches": null,
+      "length_ft": 3.7,
+      "weight_lbs": 80.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": false,
+      "high_strength_shaft": false,
+      "part_number": "975359",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 325 (atornilla a motores serie 375). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "325",
+      "model": "REDA-325-PF-SB-HTM-HL",
+      "type": "bag",
+      "compatible_motor_series": [
+        "375"
+      ],
+      "od_inches": null,
+      "length_ft": 3.7,
+      "weight_lbs": 80.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "939579",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 325 (atornilla a motores serie 375). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "375",
+      "model": "REDA-375-66L",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "375"
+      ],
+      "od_inches": 3.75,
+      "length_ft": 5.3,
+      "weight_lbs": 115.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": false,
+      "high_strength_shaft": false,
+      "part_number": "661843",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 375 (atornilla a motores serie 375). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "400",
+      "model": "REDA-400-LSL",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "456"
+      ],
+      "od_inches": null,
+      "length_ft": 5.9,
+      "weight_lbs": 151.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": false,
+      "high_strength_shaft": false,
+      "part_number": "1049006",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 400 (atornilla a motores serie 456). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "400",
+      "model": "REDA-400-LSL-HL",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "456"
+      ],
+      "od_inches": null,
+      "length_ft": 5.9,
+      "weight_lbs": 151.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "1048941",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 400 (atornilla a motores serie 456). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "400",
+      "model": "REDA-400-LSB",
+      "type": "bag",
+      "compatible_motor_series": [
+        "456"
+      ],
+      "od_inches": null,
+      "length_ft": 5.9,
+      "weight_lbs": 155.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": false,
+      "high_strength_shaft": false,
+      "part_number": "1039593",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 400 (atornilla a motores serie 456). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "400",
+      "model": "REDA-400-LSB-HL",
+      "type": "bag",
+      "compatible_motor_series": [
+        "456"
+      ],
+      "od_inches": null,
+      "length_ft": 5.9,
+      "weight_lbs": 155.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "1048958",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 400 (atornilla a motores serie 456). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "400",
+      "model": "REDA-400-BSL",
+      "type": "bag",
+      "compatible_motor_series": [
+        "456"
+      ],
+      "od_inches": null,
+      "length_ft": 5.9,
+      "weight_lbs": 156.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": false,
+      "high_strength_shaft": false,
+      "part_number": "1074152",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 400 (atornilla a motores serie 456). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "400",
+      "model": "REDA-400-BSB-HL",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "456"
+      ],
+      "od_inches": null,
+      "length_ft": 5.9,
+      "weight_lbs": 156.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "1155183",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 400 (atornilla a motores serie 456). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "400",
+      "model": "REDA-400-LSLSL",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "456"
+      ],
+      "od_inches": null,
+      "length_ft": 8.2,
+      "weight_lbs": 190.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": false,
+      "high_strength_shaft": false,
+      "part_number": "1076363",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 400 (atornilla a motores serie 456). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "400",
+      "model": "REDA-400-LSBPB",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "456"
+      ],
+      "od_inches": null,
+      "length_ft": 8.2,
+      "weight_lbs": 200.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": false,
+      "high_strength_shaft": false,
+      "part_number": "1094309",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 400 (atornilla a motores serie 456). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "400",
+      "model": "REDA-400-LSLSB",
+      "type": "bag",
+      "compatible_motor_series": [
+        "456"
+      ],
+      "od_inches": null,
+      "length_ft": 8.2,
+      "weight_lbs": 200.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": false,
+      "high_strength_shaft": false,
+      "part_number": "1108513",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 400 (atornilla a motores serie 456). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "400",
+      "model": "REDA-400-LSLSL-HL",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "456"
+      ],
+      "od_inches": null,
+      "length_ft": 8.2,
+      "weight_lbs": 190.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "1039015",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 400 (atornilla a motores serie 456). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "400",
+      "model": "REDA-400-LSBPB-HL",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "456"
+      ],
+      "od_inches": null,
+      "length_ft": 8.2,
+      "weight_lbs": 200.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "1048990",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 400 (atornilla a motores serie 456). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "400",
+      "model": "REDA-400-LSLSB-HL",
+      "type": "bag",
+      "compatible_motor_series": [
+        "456"
+      ],
+      "od_inches": null,
+      "length_ft": 8.2,
+      "weight_lbs": 200.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "1108521",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 400 (atornilla a motores serie 456). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "400",
+      "model": "REDA-400-LSBSB-HL",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "456"
+      ],
+      "od_inches": null,
+      "length_ft": 8.2,
+      "weight_lbs": 209.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "1274935",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 400 (atornilla a motores serie 456). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "400",
+      "model": "REDA-400-LSLSL-HL-HSS",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "456"
+      ],
+      "od_inches": null,
+      "length_ft": 8.2,
+      "weight_lbs": 190.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": true,
+      "part_number": "1096320",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 400 (atornilla a motores serie 456). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "400",
+      "model": "REDA-400-BPBSL-HL-AFL",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "456"
+      ],
+      "od_inches": null,
+      "length_ft": 8.2,
+      "weight_lbs": 206.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "1246495",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 400 (atornilla a motores serie 456). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "540",
+      "model": "REDA-540-LSL",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "540",
+        "562"
       ],
       "od_inches": 5.4,
+      "length_ft": 6.5,
+      "weight_lbs": 276.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": false,
+      "high_strength_shaft": false,
+      "part_number": "1068394",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 540 (atornilla a motores serie 540, 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "540",
+      "model": "REDA-540-LSL-HL",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "540",
+        "562"
+      ],
+      "od_inches": 5.4,
+      "length_ft": 6.5,
+      "weight_lbs": 276.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "1067693",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 540 (atornilla a motores serie 540, 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "540",
+      "model": "REDA-540-LSB",
+      "type": "bag",
+      "compatible_motor_series": [
+        "540",
+        "562"
+      ],
+      "od_inches": 5.4,
+      "length_ft": 6.5,
+      "weight_lbs": 282.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": false,
+      "high_strength_shaft": false,
+      "part_number": "1068402",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 540 (atornilla a motores serie 540, 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "540",
+      "model": "REDA-540-LSB-HL",
+      "type": "bag",
+      "compatible_motor_series": [
+        "540",
+        "562"
+      ],
+      "od_inches": 5.4,
+      "length_ft": 6.5,
+      "weight_lbs": 282.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "1133289",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 540 (atornilla a motores serie 540, 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "540",
+      "model": "REDA-540-BSL",
+      "type": "bag",
+      "compatible_motor_series": [
+        "540",
+        "562"
+      ],
+      "od_inches": 5.4,
+      "length_ft": 6.5,
+      "weight_lbs": 285.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": false,
+      "high_strength_shaft": false,
+      "part_number": "1075530",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 540 (atornilla a motores serie 540, 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "540",
+      "model": "REDA-540-BSB",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "540",
+        "562"
+      ],
+      "od_inches": 5.4,
+      "length_ft": 6.5,
+      "weight_lbs": 292.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": false,
+      "high_strength_shaft": false,
+      "part_number": "1134873",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 540 (atornilla a motores serie 540, 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "540",
+      "model": "REDA-540-BSB-HL",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "540",
+        "562"
+      ],
+      "od_inches": 5.4,
+      "length_ft": 6.5,
+      "weight_lbs": 292.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "1263631",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 540 (atornilla a motores serie 540, 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "540",
+      "model": "REDA-540-LSLSL",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "540",
+        "562"
+      ],
+      "od_inches": 5.4,
+      "length_ft": 8.9,
+      "weight_lbs": 370.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": false,
+      "high_strength_shaft": false,
+      "part_number": "1076371",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 540 (atornilla a motores serie 540, 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "540",
+      "model": "REDA-540-LSBPB",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "540",
+        "562"
+      ],
+      "od_inches": 5.4,
+      "length_ft": 8.9,
+      "weight_lbs": 382.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": false,
+      "high_strength_shaft": false,
+      "part_number": "1045400",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 540 (atornilla a motores serie 540, 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "540",
+      "model": "REDA-540-LSLSL-HL",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "540",
+        "562"
+      ],
+      "od_inches": 5.4,
+      "length_ft": 8.9,
+      "weight_lbs": 370.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "1067685",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 540 (atornilla a motores serie 540, 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "540",
+      "model": "REDA-540-LSBPB-HL",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "540",
+        "562"
+      ],
+      "od_inches": 5.4,
+      "length_ft": 8.9,
+      "weight_lbs": 382.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "1067701",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 540 (atornilla a motores serie 540, 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "540",
+      "model": "REDA-540-LSLSB-HL",
+      "type": "bag",
+      "compatible_motor_series": [
+        "540",
+        "562"
+      ],
+      "od_inches": 5.4,
+      "length_ft": 8.9,
+      "weight_lbs": 370.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "1108547",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 540 (atornilla a motores serie 540, 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "540",
+      "model": "REDA-540-LSLSL-HL-HSS",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "540",
+        "562"
+      ],
+      "od_inches": 5.4,
+      "length_ft": 8.9,
+      "weight_lbs": 370.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": true,
+      "part_number": "2006413",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 540 (atornilla a motores serie 540, 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "540",
+      "model": "REDA-540-BSBSL",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "540",
+        "562"
+      ],
+      "od_inches": 5.4,
+      "length_ft": 8.9,
+      "weight_lbs": 382.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": false,
+      "high_strength_shaft": false,
+      "part_number": "1075548",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 540 (atornilla a motores serie 540, 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "540",
+      "model": "REDA-540-BPBSL-HL",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "540",
+        "562"
+      ],
+      "od_inches": 5.4,
+      "length_ft": 8.9,
+      "weight_lbs": 382.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "1108505",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 540 (atornilla a motores serie 540, 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "562",
+      "model": "REDA-562-BPBSL-HL-HSS",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "540",
+        "562"
+      ],
+      "od_inches": 5.62,
+      "length_ft": 8.9,
+      "weight_lbs": 385.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": true,
+      "part_number": "1178425",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 562 (atornilla a motores serie 540, 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "562",
+      "model": "REDA-562-LSBPB-HL-HSS",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "540",
+        "562"
+      ],
+      "od_inches": 5.62,
+      "length_ft": 8.9,
+      "weight_lbs": 385.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": true,
+      "part_number": "1192707",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 562 (atornilla a motores serie 540, 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "562",
+      "model": "REDA-562-LSLSL-HL-HSS",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "540",
+        "562"
+      ],
+      "od_inches": 5.62,
+      "length_ft": 8.9,
+      "weight_lbs": 385.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": true,
+      "part_number": "2009980",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 562 (atornilla a motores serie 540, 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "738",
+      "model": "REDA-738-66L-HL",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "562"
+      ],
+      "od_inches": 7.38,
+      "length_ft": 6.4,
+      "weight_lbs": 334.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "1201383",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 738 (atornilla a motores serie 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "738",
+      "model": "REDA-738-66L-HL-HSS",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "562"
+      ],
+      "od_inches": 7.38,
+      "length_ft": 6.4,
+      "weight_lbs": 334.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": true,
+      "part_number": "X20138V",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 738 (atornilla a motores serie 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "738",
+      "model": "REDA-738-66L-HL-HTM-HSS",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "562"
+      ],
+      "od_inches": 7.38,
+      "length_ft": 6.4,
+      "weight_lbs": 334.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": true,
+      "part_number": "X20138Y",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 738 (atornilla a motores serie 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "738",
+      "model": "REDA-738-BPBSL-HL-HSS",
+      "type": "double_bag",
+      "compatible_motor_series": [
+        "562"
+      ],
+      "od_inches": 7.38,
+      "length_ft": 11.9,
+      "weight_lbs": 500.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": true,
+      "part_number": "100040681",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 738 (atornilla a motores serie 562). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "738",
+      "model": "REDA-738-PF-SB-HL",
+      "type": "bag",
+      "compatible_motor_series": [
+        "738"
+      ],
+      "od_inches": 7.38,
+      "length_ft": 6.4,
+      "weight_lbs": 334.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "0978429",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 738 (atornilla a motores serie 738). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "REDA",
+      "series": "738",
+      "model": "REDA-738-PF-SB-HL-HTM",
+      "type": "bag",
+      "compatible_motor_series": [
+        "738"
+      ],
+      "od_inches": 7.38,
+      "length_ft": 6.4,
+      "weight_lbs": 334.0,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "high_load_bearing": true,
+      "high_strength_shaft": false,
+      "part_number": "J97842C",
+      "_source": "REDA_ESP_Catalog.pdf, «Modular Protector Configurations», serie 738 (atornilla a motores serie 738). Longitud, peso y part number impresos. El catálogo NO publica capacidad de empuje ni temperatura por modelo: la temperatura depende del elastómero de la bolsa (HSN 300 °F, Viton 351 °F, Aflas 399 °F) y el modelo no lo declara."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "338",
+      "model": "DSFB4",
+      "type": "bag",
+      "compatible_motor_series": [
+        "375"
+      ],
+      "od_inches": 3.38,
+      "length_ft": 4.5,
+      "weight_lbs": 82.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Elastomer Type, 2 Chamber, Carbon Steel",
+      "_source": "Baker 2019 catalogo bombas.pdf p.193, tabla «338 Series Seals for 375 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "338",
+      "model": "DSFC4",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "375"
+      ],
+      "od_inches": 3.38,
+      "length_ft": 4.5,
+      "weight_lbs": 82.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Labyrinth Type, 2 Chamber, Carbon Steel",
+      "_source": "Baker 2019 catalogo bombas.pdf p.193, tabla «338 Series Seals for 375 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "338",
+      "model": "DURA+2B",
+      "type": "bag",
+      "compatible_motor_series": [
+        "375"
+      ],
+      "od_inches": 3.38,
+      "length_ft": null,
+      "weight_lbs": null,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "2 CHAMBER, BAG / BAG",
+      "_source": "Baker 2019 catalogo bombas.pdf p.193, tabla «338 Series Seals for 375 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "338",
+      "model": "DURA+L/2B",
+      "type": "combination",
+      "compatible_motor_series": [
+        "375"
+      ],
+      "od_inches": 3.38,
+      "length_ft": null,
+      "weight_lbs": null,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "3 CHAMBER, LAB / BAG / BAG",
+      "_source": "Baker 2019 catalogo bombas.pdf p.193, tabla «338 Series Seals for 375 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "338",
+      "model": "DURA+L/L",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "375"
+      ],
+      "od_inches": 3.38,
+      "length_ft": null,
+      "weight_lbs": null,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "2 CHAMBER, LAB / LAB",
+      "_source": "Baker 2019 catalogo bombas.pdf p.193, tabla «338 Series Seals for 375 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "338",
+      "model": "DURA+L/PB",
+      "type": "combination",
+      "compatible_motor_series": [
+        "375"
+      ],
+      "od_inches": 3.38,
+      "length_ft": null,
+      "weight_lbs": null,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "3 CHAMBER, LAB / 2 PARALLEL BAGS",
+      "_source": "Baker 2019 catalogo bombas.pdf p.193, tabla «338 Series Seals for 375 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "400",
+      "model": "FSFB3",
+      "type": "combination",
+      "compatible_motor_series": [
+        "450"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 4.4,
+      "weight_lbs": 123.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Single seal, two chambers, B/L, Sealast bladder, coupling to 1\" 6 tooth motor",
+      "_source": "Baker 2019 catalogo bombas.pdf p.194, tabla «400 Series Seals for 450 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "400",
+      "model": "FSB3",
+      "type": "combination",
+      "compatible_motor_series": [
+        "450"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 5.6,
+      "weight_lbs": 158.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Single seal, Three chambers, B/L/L, Sealast bladder, coupling to 1\" 6 tooth",
+      "_source": "Baker 2019 catalogo bombas.pdf p.194, tabla «400 Series Seals for 450 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "400",
+      "model": "FSB3 UT",
+      "type": "combination",
+      "compatible_motor_series": [
+        "450"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 5.6,
+      "weight_lbs": 158.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Upper tandem seal, Three chambers, B/L/L, Sealast bladder, coupling to .875\"",
+      "_source": "Baker 2019 catalogo bombas.pdf p.194, tabla «400 Series Seals for 450 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "400",
+      "model": "FSB3 LT",
+      "type": "combination",
+      "compatible_motor_series": [
+        "450"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 5.6,
+      "weight_lbs": 158.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Lower tandem seal, Three chambers, B/L/L, Sealast bladder, coupling to 1\" 6",
+      "_source": "Baker 2019 catalogo bombas.pdf p.194, tabla «400 Series Seals for 450 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "400",
+      "model": "FSB3DB",
+      "type": "combination",
+      "compatible_motor_series": [
+        "450"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 6.1,
+      "weight_lbs": 169.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Single seal, three chambers, B/B/L, Sealast bladder, coupling to 1\" 6 tooth",
+      "_source": "Baker 2019 catalogo bombas.pdf p.194, tabla «400 Series Seals for 450 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "400",
+      "model": "FSC3",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "450"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 4.4,
+      "weight_lbs": 123.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Single seal, three chambers, L/L/L, coupling to 1\" 6 tooth motor shaft.",
+      "_source": "Baker 2019 catalogo bombas.pdf p.194, tabla «400 Series Seals for 450 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "400",
+      "model": "FSC3 UT",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "450"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 4.4,
+      "weight_lbs": 123.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Upper tandem seal, Three chambers, L/L/L, coupling to .875\" 6 tooth LT seal",
+      "_source": "Baker 2019 catalogo bombas.pdf p.194, tabla «400 Series Seals for 450 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "400",
+      "model": "FSC3 LT",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "450"
+      ],
+      "od_inches": 4.0,
+      "length_ft": 4.4,
+      "weight_lbs": 123.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Lower tandem seal, three chambers, L/L/L, coupling to 1\" 6 tooth motor shaft.",
+      "_source": "Baker 2019 catalogo bombas.pdf p.194, tabla «400 Series Seals for 450 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "400",
+      "model": "DURA+2B",
+      "type": "bag",
+      "compatible_motor_series": [
+        "450"
+      ],
+      "od_inches": 4.0,
+      "length_ft": null,
+      "weight_lbs": null,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "2 CHAMBER, BAG / BAG",
+      "_source": "Baker 2019 catalogo bombas.pdf p.194, tabla «400 Series Seals for 450 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "400",
+      "model": "DURA+L/2B",
+      "type": "combination",
+      "compatible_motor_series": [
+        "450"
+      ],
+      "od_inches": 4.0,
+      "length_ft": null,
+      "weight_lbs": null,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "3 CHAMBER, LAB / BAG / BAG",
+      "_source": "Baker 2019 catalogo bombas.pdf p.194, tabla «400 Series Seals for 450 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "400",
+      "model": "DURA+L/L",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "450"
+      ],
+      "od_inches": 4.0,
+      "length_ft": null,
+      "weight_lbs": null,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "2 CHAMBER, LAB / LAB",
+      "_source": "Baker 2019 catalogo bombas.pdf p.194, tabla «400 Series Seals for 450 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "400",
+      "model": "DURA+L/PB",
+      "type": "combination",
+      "compatible_motor_series": [
+        "450"
+      ],
+      "od_inches": 4.0,
+      "length_ft": null,
+      "weight_lbs": null,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "3 CHAMBER, LAB / 2 PARALLEL BAGS",
+      "_source": "Baker 2019 catalogo bombas.pdf p.194, tabla «400 Series Seals for 450 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "400",
+      "model": "DURA+PB",
+      "type": "bag",
+      "compatible_motor_series": [
+        "450"
+      ],
+      "od_inches": 4.0,
+      "length_ft": null,
+      "weight_lbs": null,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "2 CHAMBER, 2 PARALLEL BAGS",
+      "_source": "Baker 2019 catalogo bombas.pdf p.194, tabla «400 Series Seals for 450 Series Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "513",
+      "model": "GSFB3",
+      "type": "combination",
+      "compatible_motor_series": [
+        "562"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 4.95,
+      "weight_lbs": 208.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Single seal, two chambers, B/L, Sealast bladder, coupling to 1.19\" 6 tooth motor",
+      "_source": "Baker 2019 catalogo bombas.pdf p.195, tabla «513 Seals for 562 Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "513",
+      "model": "GSB3",
+      "type": "combination",
+      "compatible_motor_series": [
+        "562"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 6.3,
+      "weight_lbs": 263.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Upper tandem seal, three chambers, B/L/L, Sealast bladder, coupling to 1.00\"",
+      "_source": "Baker 2019 catalogo bombas.pdf p.195, tabla «513 Seals for 562 Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "513",
+      "model": "GSB3 UT",
+      "type": "combination",
+      "compatible_motor_series": [
+        "562"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 6.3,
+      "weight_lbs": 263.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Upper tandem seal, three chambers, B/L/L, Sealast bladder, coupling to 1.00\"",
+      "_source": "Baker 2019 catalogo bombas.pdf p.195, tabla «513 Seals for 562 Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "513",
+      "model": "GSB3 LT",
+      "type": "combination",
+      "compatible_motor_series": [
+        "562"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 6.3,
+      "weight_lbs": 263.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Lower tandem seal, three chambers, B/L/L, Sealast bladder, coupling to 1.19\" 6",
+      "_source": "Baker 2019 catalogo bombas.pdf p.195, tabla «513 Seals for 562 Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "513",
+      "model": "GSB3DB",
+      "type": "combination",
+      "compatible_motor_series": [
+        "562"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 6.9,
+      "weight_lbs": 267.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Single seal, three chambers, B/B/L, Sealast bladder, coupling to 1.19\" 6 tooth",
+      "_source": "Baker 2019 catalogo bombas.pdf p.195, tabla «513 Seals for 562 Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "513",
+      "model": "GSC3",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "562"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 6.3,
+      "weight_lbs": 263.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Single seal, three chambers, L/L/L, coupling to 1\" 6 tooth motor shaft.",
+      "_source": "Baker 2019 catalogo bombas.pdf p.195, tabla «513 Seals for 562 Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "513",
+      "model": "GSC3 UT",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "562"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 6.3,
+      "weight_lbs": 263.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Upper tandem seal, three chambers, L/L/L, coupling to 1.00\" 6 tooth LT seal",
+      "_source": "Baker 2019 catalogo bombas.pdf p.195, tabla «513 Seals for 562 Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "513",
+      "model": "GSC3 LT",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "562"
+      ],
+      "od_inches": 5.13,
+      "length_ft": 6.3,
+      "weight_lbs": 263.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Lower tandem seal, three chambers, L/L/L, coupling to 1.19\" 6 tooth motor",
+      "_source": "Baker 2019 catalogo bombas.pdf p.195, tabla «513 Seals for 562 Motors». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "675",
+      "model": "HSB3",
+      "type": "bag",
+      "compatible_motor_series": [
+        "562",
+        "725",
+        "880"
+      ],
+      "od_inches": 6.75,
+      "length_ft": 6.8,
+      "weight_lbs": 477.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Elastomer Type, 3 Chamber, Carbon Steel",
+      "_source": "Baker 2019 catalogo bombas.pdf p.197, tabla «675 & 875 Series Seals for 562, 725 & 880». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "675",
+      "model": "HSC3",
+      "type": "labyrinth",
+      "compatible_motor_series": [
+        "562",
+        "725",
+        "880"
+      ],
+      "od_inches": 6.75,
+      "length_ft": 6.8,
+      "weight_lbs": 477.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Labyrinth Type, 3 Chamber, Carbon Steel",
+      "_source": "Baker 2019 catalogo bombas.pdf p.197, tabla «675 & 875 Series Seals for 562, 725 & 880». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "675",
+      "model": "HS/KM",
+      "type": "unknown",
+      "compatible_motor_series": [
+        "562",
+        "725",
+        "880"
+      ],
+      "od_inches": 6.75,
+      "length_ft": 0.5,
+      "weight_lbs": 36.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "675 Seal-562 Motor, Standard Fastener",
+      "_source": "Baker 2019 catalogo bombas.pdf p.197, tabla «675 & 875 Series Seals for 562, 725 & 880». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "675",
+      "model": "HS/KMX",
+      "type": "unknown",
+      "compatible_motor_series": [
+        "562",
+        "725",
+        "880"
+      ],
+      "od_inches": 6.75,
+      "length_ft": 0.5,
+      "weight_lbs": 36.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "675 Seal-562 Motor, Corrosion Resistant Fastener",
+      "_source": "Baker 2019 catalogo bombas.pdf p.197, tabla «675 & 875 Series Seals for 562, 725 & 880». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
+    },
+    {
+      "manufacturer": "Centrilift",
+      "series": "675",
+      "model": "ISFB3",
+      "type": "bag",
+      "compatible_motor_series": [
+        "562",
+        "725",
+        "880"
+      ],
+      "od_inches": 6.75,
       "length_ft": 7.0,
-      "thrust_capacity_lbs": 22000,
-      "max_temp_f": 300,
-      "_source": "Valores consistentes con protectores estándar Reda VSEAL (serie 540) — fuente específica no confirmada"
+      "weight_lbs": 820.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Elastomer Type, 2 Chamber, Carbon Steel",
+      "_source": "Baker 2019 catalogo bombas.pdf p.197, tabla «675 & 875 Series Seals for 562, 725 & 880». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
     },
     {
       "manufacturer": "Centrilift",
-      "series": "544",
-      "model": "PSEAL-544-LAB",
-      "type": "labyrinth",
-      "compatible_motor_series": [
-        "544"
-      ],
-      "od_inches": 5.44,
-      "length_ft": 4.6,
-      "thrust_capacity_lbs": 19000,
-      "max_temp_f": 300,
-      "_source": "Valores consistentes con protectores estándar Centrilift (serie 544) — fuente específica no confirmada"
-    },
-    {
-      "manufacturer": "Centrilift",
-      "series": "544",
-      "model": "PSEAL-544-BAG",
+      "series": "675",
+      "model": "ISFB3DB",
       "type": "bag",
       "compatible_motor_series": [
-        "544"
-      ],
-      "od_inches": 5.44,
-      "length_ft": 5.2,
-      "thrust_capacity_lbs": 16000,
-      "max_temp_f": 300,
-      "_source": "Valores consistentes con protectores estándar Centrilift (serie 544) — fuente específica no confirmada"
-    },
-    {
-      "manufacturer": "Centrilift",
-      "series": "544",
-      "model": "PSEAL-544-COMB",
-      "type": "combined",
-      "compatible_motor_series": [
-        "544"
-      ],
-      "od_inches": 5.44,
-      "length_ft": 7.5,
-      "thrust_capacity_lbs": 24000,
-      "max_temp_f": 300,
-      "_source": "Valores consistentes con protectores estándar Centrilift (serie 544) — fuente específica no confirmada"
-    },
-    {
-      "manufacturer": "Centrilift",
-      "series": "562",
-      "model": "PSEAL-562-LAB",
-      "type": "labyrinth",
-      "compatible_motor_series": [
-        "562"
-      ],
-      "od_inches": 5.62,
-      "length_ft": 5.0,
-      "thrust_capacity_lbs": 24000,
-      "max_temp_f": 350,
-      "_source": "Valores consistentes con protectores estándar Centrilift (serie 562) — fuente específica no confirmada"
-    },
-    {
-      "manufacturer": "Centrilift",
-      "series": "562",
-      "model": "PSEAL-562-BAG",
-      "type": "bag",
-      "compatible_motor_series": [
-        "562"
-      ],
-      "od_inches": 5.62,
-      "length_ft": 5.8,
-      "thrust_capacity_lbs": 20000,
-      "max_temp_f": 350,
-      "_source": "Valores consistentes con protectores estándar Centrilift (serie 562) — fuente específica no confirmada"
-    },
-    {
-      "manufacturer": "Centrilift",
-      "series": "562",
-      "model": "PSEAL-562-COMB",
-      "type": "combined",
-      "compatible_motor_series": [
-        "562"
-      ],
-      "od_inches": 5.62,
-      "length_ft": 8.5,
-      "thrust_capacity_lbs": 30000,
-      "max_temp_f": 350,
-      "_source": "Valores consistentes con protectores estándar Centrilift (serie 562) — fuente específica no confirmada"
-    },
-    {
-      "manufacturer": "ChampionX",
-      "series": "300",
-      "model": "VIGIL-300-LABY",
-      "type": "labyrinth",
-      "compatible_motor_series": [
-        "375"
-      ],
-      "od_inches": 3.75,
-      "length_ft": 3.8,
-      "thrust_capacity_lbs": 6500,
-      "max_temp_f": 400,
-      "shaft_hp_standard": 256,
-      "shaft_hp_high_strength": 410,
-      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED. Public VIGIL solution sheet (championx.com UNBRIDLED_VIGIL_Solution_Sheet_0321.pdf) confirms ultra-high-load tilt-pad thrust bearings, Monel/Inconel shafts and 5.5-9 in casing range, but publishes NO numeric thrust/temperature ratings (web search verified Jun 2026)"
-    },
-    {
-      "manufacturer": "ChampionX",
-      "series": "300",
-      "model": "VIGIL-300-BAG",
-      "type": "bag",
-      "compatible_motor_series": [
-        "375"
-      ],
-      "od_inches": 3.75,
-      "length_ft": 4.2,
-      "thrust_capacity_lbs": 5000,
-      "max_temp_f": 400,
-      "shaft_hp_standard": 256,
-      "shaft_hp_high_strength": 410,
-      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED. Public VIGIL solution sheet (championx.com UNBRIDLED_VIGIL_Solution_Sheet_0321.pdf) confirms ultra-high-load tilt-pad thrust bearings, Monel/Inconel shafts and 5.5-9 in casing range, but publishes NO numeric thrust/temperature ratings (web search verified Jun 2026)"
-    },
-    {
-      "manufacturer": "ChampionX",
-      "series": "300",
-      "model": "VIGIL-300-COMB",
-      "type": "combined",
-      "compatible_motor_series": [
-        "375"
-      ],
-      "od_inches": 3.75,
-      "length_ft": 5.5,
-      "thrust_capacity_lbs": 8000,
-      "max_temp_f": 400,
-      "shaft_hp_standard": 256,
-      "shaft_hp_high_strength": 410,
-      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED. Public VIGIL solution sheet (championx.com UNBRIDLED_VIGIL_Solution_Sheet_0321.pdf) confirms ultra-high-load tilt-pad thrust bearings, Monel/Inconel shafts and 5.5-9 in casing range, but publishes NO numeric thrust/temperature ratings (web search verified Jun 2026)"
-    },
-    {
-      "manufacturer": "ChampionX",
-      "series": "400",
-      "model": "VIGIL-400-LABY",
-      "type": "labyrinth",
-      "compatible_motor_series": [
-        "400"
-      ],
-      "od_inches": 4.0,
-      "length_ft": 3.8,
-      "thrust_capacity_lbs": 9000,
-      "max_temp_f": 400,
-      "shaft_hp_standard": 256,
-      "shaft_hp_high_strength": 410,
-      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED. Public VIGIL solution sheet (championx.com UNBRIDLED_VIGIL_Solution_Sheet_0321.pdf) confirms ultra-high-load tilt-pad thrust bearings, Monel/Inconel shafts and 5.5-9 in casing range, but publishes NO numeric thrust/temperature ratings (web search verified Jun 2026)"
-    },
-    {
-      "manufacturer": "ChampionX",
-      "series": "400",
-      "model": "VIGIL-400-BAG",
-      "type": "bag",
-      "compatible_motor_series": [
-        "400"
-      ],
-      "od_inches": 4.0,
-      "length_ft": 4.2,
-      "thrust_capacity_lbs": 7500,
-      "max_temp_f": 400,
-      "shaft_hp_standard": 256,
-      "shaft_hp_high_strength": 410,
-      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED. Public VIGIL solution sheet (championx.com UNBRIDLED_VIGIL_Solution_Sheet_0321.pdf) confirms ultra-high-load tilt-pad thrust bearings, Monel/Inconel shafts and 5.5-9 in casing range, but publishes NO numeric thrust/temperature ratings (web search verified Jun 2026)"
-    },
-    {
-      "manufacturer": "ChampionX",
-      "series": "400",
-      "model": "VIGIL-400-COMB",
-      "type": "combined",
-      "compatible_motor_series": [
-        "400"
-      ],
-      "od_inches": 4.0,
-      "length_ft": 5.5,
-      "thrust_capacity_lbs": 12000,
-      "max_temp_f": 400,
-      "shaft_hp_standard": 256,
-      "shaft_hp_high_strength": 410,
-      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED. Public VIGIL solution sheet (championx.com UNBRIDLED_VIGIL_Solution_Sheet_0321.pdf) confirms ultra-high-load tilt-pad thrust bearings, Monel/Inconel shafts and 5.5-9 in casing range, but publishes NO numeric thrust/temperature ratings (web search verified Jun 2026)"
-    },
-    {
-      "manufacturer": "ChampionX",
-      "series": "500",
-      "model": "VIGIL-500-LABY",
-      "type": "labyrinth",
-      "compatible_motor_series": [
-        "540",
-        "544",
         "562",
-        "513"
+        "725",
+        "880"
       ],
-      "od_inches": 5.13,
-      "length_ft": 3.8,
-      "thrust_capacity_lbs": 18000,
-      "max_temp_f": 400,
-      "shaft_hp_standard": 637,
-      "shaft_hp_high_strength": 1019,
-      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED. Public VIGIL solution sheet (championx.com UNBRIDLED_VIGIL_Solution_Sheet_0321.pdf) confirms ultra-high-load tilt-pad thrust bearings, Monel/Inconel shafts and 5.5-9 in casing range, but publishes NO numeric thrust/temperature ratings (web search verified Jun 2026)"
+      "od_inches": 6.75,
+      "length_ft": 7.0,
+      "weight_lbs": 820.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Elastomer Type, 2 Chamber, Double Bag, Carbon Steel",
+      "_source": "Baker 2019 catalogo bombas.pdf p.197, tabla «675 & 875 Series Seals for 562, 725 & 880». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
     },
     {
-      "manufacturer": "ChampionX",
-      "series": "500",
-      "model": "VIGIL-500-BAG",
-      "type": "bag",
+      "manufacturer": "Centrilift",
+      "series": "675",
+      "model": "ISFC3",
+      "type": "labyrinth",
       "compatible_motor_series": [
-        "540",
-        "544",
         "562",
-        "513"
+        "725",
+        "880"
       ],
-      "od_inches": 5.13,
-      "length_ft": 4.2,
-      "thrust_capacity_lbs": 15000,
-      "max_temp_f": 400,
-      "shaft_hp_standard": 637,
-      "shaft_hp_high_strength": 1019,
-      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED. Public VIGIL solution sheet (championx.com UNBRIDLED_VIGIL_Solution_Sheet_0321.pdf) confirms ultra-high-load tilt-pad thrust bearings, Monel/Inconel shafts and 5.5-9 in casing range, but publishes NO numeric thrust/temperature ratings (web search verified Jun 2026)"
-    },
-    {
-      "manufacturer": "ChampionX",
-      "series": "500",
-      "model": "VIGIL-500-COMB",
-      "type": "combined",
-      "compatible_motor_series": [
-        "540",
-        "544",
-        "562",
-        "513"
-      ],
-      "od_inches": 5.13,
-      "length_ft": 5.5,
-      "thrust_capacity_lbs": 22000,
-      "max_temp_f": 400,
-      "shaft_hp_standard": 637,
-      "shaft_hp_high_strength": 1019,
-      "_source": "ChampionX VIGIL data sheet (series/OD/shaft_hp real); thrust_capacity_lbs & max_temp_f ESTIMATED. Public VIGIL solution sheet (championx.com UNBRIDLED_VIGIL_Solution_Sheet_0321.pdf) confirms ultra-high-load tilt-pad thrust bearings, Monel/Inconel shafts and 5.5-9 in casing range, but publishes NO numeric thrust/temperature ratings (web search verified Jun 2026)"
+      "od_inches": 6.75,
+      "length_ft": 7.0,
+      "weight_lbs": 820.0,
+      "shaft_diameter_in": null,
+      "thrust_capacity_lbs": null,
+      "max_temp_f": null,
+      "part_number": null,
+      "description": "Labyrinth Type, 2 Chamber, Carbon Steel",
+      "_source": "Baker 2019 catalogo bombas.pdf p.197, tabla «675 & 875 Series Seals for 562, 725 & 880». Capacidad de empuje, temperatura máxima y diámetro de eje: el catálogo no los publica en esta tabla, quedan en null."
     }
-  ]
+  ],
+  "_purge": "PURGA 2026-08-05: se eliminaron 15 protectores Reda VSEAL y Centrilift PSEAL sin fuente confirmada. Quedan 9 ChampionX VIGIL, cuya serie, OD y límite de eje son reales; su capacidad de empuje y temperatura máxima siguen marcadas como ESTIMATED en el _source de cada uno.",
+  "_extraccion_2026_08": {
+    "fuentes": [
+      "TESIS/CATALOGOS/WoodGroup/Seals.pdf (Wood Group ESP, marzo 2001)",
+      "TESIS/CATALOGOS/REDA-SLB/REDA_ESP_Catalog.pdf (Schlumberger, 2005)"
+    ],
+    "extraido_con": "tools/catalog_pipeline/extract_catalogs.py",
+    "agregados": 82,
+    "limitacion": "Ninguno de los dos catalogos publica capacidad de empuje ni temperatura maxima por modelo: el empuje va en graficos contra temperatura de fondo y la temperatura depende del elastomero de la bolsa, que el codigo del modelo no declara. Ambos campos quedan null y get_seal los trata como verificacion no realizada."
+  },
+  "_digitalizacion_centrilift_2026_08": "34 protectores Centrilift del «Baker Hughes Technical Catalog — Artificial Lift ESP» (nov-2019), pp.193-195 y 197 (series de sello 338, 400, 513 y 675/875). Cada fila con medidas se verifico convirtiendo ft<->m y lb<->kg contra los valores que el propio catalogo publica lado a lado. Los 9 modelos de la familia DURA+ se cargan sin medidas: el catalogo los lista pero no publica largo ni peso. Capacidad de empuje, temperatura maxima y diametro de eje: no figuran en estas tablas, quedan en null (verificacion no realizada, no aprobada). PENDIENTE: la serie 538 (p.196) no se extrajo porque ahi el codigo de modelo aparece en una linea separada de su descripcion; sus sellos son para motores 562, ya cubiertos por la serie 513.",
+  "_purga_proveedores_2026_08": "El proyecto trabaja con tres proveedores: REDA, Centrilift y Wood Group ESP. Todo registro de otro fabricante se elimino. Ademas se normalizo la escritura del fabricante a una sola forma por proveedor: convivian «Reda» y «REDA», que con la regla de aparejo de un solo fabricante contarian como dos distintos. Las 3 bombas «Brown (libro)» (I-300, I-42B, M-34) se conservan: no son un proveedor sino los ejemplos numerados de Kermit Brown Vol. 2b que anclan la validacion del motor de calculo."
 }

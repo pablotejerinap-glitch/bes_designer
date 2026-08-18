@@ -15,6 +15,7 @@ import { api, ApiError, downloadBlob } from "../api/client";
 import type { DesignInputs, DesignResponse, Recommendation } from "../api/types";
 import { DesignCharts } from "./DesignCharts";
 import { ComparisonView } from "./ComparisonView";
+import { FormulaTraceSection } from "./FormulaTrace";
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
@@ -73,7 +74,47 @@ function RecPanel({
       `${Math.round(d.max_housing_pressure_psi)} / ${Math.round(d.housing_pressure_limit_psi)} psi ${d.housing_pressure_ok ? "✓" : "⚠ excede"}`,
     ],
     ["OD bomba", `${d.pump_od.toFixed(2)} in`],
+    [
+      "Eje",
+      d.shaft_check?.verified
+        ? `${d.shaft_check.hp_shaft.toFixed(1)} / ${d.shaft_check.limit_std.toFixed(0)} hp — ${
+            d.shaft_check.shaft_type === "high_strength" ? "alta resistencia" : "estándar"
+          } ${d.shaft_check.ok ? "✓" : "⚠"}`
+        : "sin verificar (el catálogo no tiene la serie)",
+    ],
+    [
+      "Cojinete de empuje",
+      d.bearing_check?.verified
+        ? `${d.bearing_check.stages} / ${d.bearing_check.limit_stages} etapas — ${
+            d.bearing_check.bearing_type === "high_load" ? "alta carga" : "estándar"
+          } (máx ${d.bearing_check.bht_max_f.toFixed(0)} °F) ${d.bearing_check.ok ? "✓" : "⚠"}`
+        : "sin verificar (el catálogo no tiene la serie)",
+    ],
+    [
+      "Carga axial sobre el sello",
+      `${Math.round(d.bearing_load_lbs)} lbs (Ho × Pem × A_eje)`,
+    ],
+    [
+      "Tope de etapas",
+      d.staging_ceiling?.governing
+        ? `${d.staging_ceiling.governing} — manda ${
+            {
+              by_housing_pressure: "la presión de carcasa",
+              by_shaft: "el eje",
+              by_bearing: "el cojinete",
+            }[d.staging_ceiling.governing_by] ?? d.staging_ceiling.governing_by
+          } (carcasa ${d.staging_ceiling.by_housing_pressure || "—"} · eje ${
+            d.staging_ceiling.by_shaft || "—"
+          } · cojinete ${d.staging_ceiling.by_bearing || "—"})`
+        : "sin datos de serie",
+    ],
     ["TDH", `${Math.round(d.total_head_required)} ft`],
+    [
+      "Pérdida de carga en tubing",
+      d.friction_method === "poettmann_carpenter"
+        ? `Poettmann-Carpenter (gas en admisión ${(d.gip_fraction * 100).toFixed(0)} % > umbral ${(d.gas_fraction_threshold * 100).toFixed(0)} %)`
+        : `Hazen-Williams (gas en admisión ${(d.gip_fraction * 100).toFixed(0)} % ≤ umbral ${(d.gas_fraction_threshold * 100).toFixed(0)} %)`,
+    ],
     ["Profundidad de asentamiento", `${Math.round(d.pump_setting_depth)} ft`],
     ["Presión de admisión (PIP)", `${Math.round(d.intake_pressure)} psi`],
     ["Motor", `${d.motor_manufacturer} ${d.motor_model}`],
@@ -131,7 +172,67 @@ function RecPanel({
         </Table.Tbody>
       </Table>
 
+      {d.housing_detail.length > 0 && (
+        <>
+          <Title order={5} mt="lg">
+            Carcasas (pump housings)
+          </Title>
+          <Text size="sm" c="dimmed" mb="xs">
+            {d.housing_rationale}
+          </Text>
+          <Table striped withTableBorder>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>#</Table.Th>
+                <Table.Th>Etapas</Table.Th>
+                <Table.Th>Código</Table.Th>
+                <Table.Th>Material</Table.Th>
+                <Table.Th>Etapas activas acum.</Table.Th>
+                <Table.Th>Presión</Table.Th>
+                <Table.Th>Admisible</Table.Th>
+                <Table.Th>Verificación</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {d.housing_detail.map((h) => (
+                <Table.Tr key={h.position}>
+                  <Table.Td>{h.position}</Table.Td>
+                  <Table.Td>{h.stages}</Table.Td>
+                  <Table.Td>{h.code || "—"}</Table.Td>
+                  <Table.Td>{h.material || "—"}</Table.Td>
+                  <Table.Td>{h.active_stages_below}</Table.Td>
+                  <Table.Td>{Math.round(h.pressure_psi)} psi</Table.Td>
+                  <Table.Td>{h.limit_known ? `${Math.round(h.limit_psi)} psi` : "sin dato"}</Table.Td>
+                  <Table.Td>
+                    {!h.limit_known ? (
+                      <Badge color="gray" variant="light">
+                        Sin verificar
+                      </Badge>
+                    ) : h.pressure_ok ? (
+                      <Badge color="teal" variant="light">
+                        OK
+                      </Badge>
+                    ) : (
+                      <Badge color="red" variant="light">
+                        FAIL
+                      </Badge>
+                    )}
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+          <Text size="xs" c="dimmed" mt={4}>
+            La posición 1 es la carcasa de admisión. La presión se acumula con
+            las etapas activas por debajo (MaxP = P<sub>Q=0</sub> × etapas ×
+            Pem), así que la carcasa superior es la crítica.
+          </Text>
+        </>
+      )}
+
       <DesignCharts design={d} inputs={inputs} />
+
+      <FormulaTraceSection formulas={d.formulas} />
 
       <Group mt="md">
         <Button onClick={() => download("pdf")} loading={busy === "pdf"} variant="light">

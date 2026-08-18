@@ -9,8 +9,9 @@
 |---|---|
 | [METHODOLOGY.md](METHODOLOGY.md) | Metodología de cálculo completa, paso a paso, con la referencia a Brown de cada etapa. Incluye §7, el método métrico de cátedra "ESP 01". |
 | [FORMULAS.md](FORMULAS.md) | Compendio de todas las fórmulas implementadas, con archivo, línea y fuente bibliográfica. |
-| [VALIDATION.md](VALIDATION.md) | Tabla comparativa app vs. libro (TDH, etapas, HP) para los ejemplos de Brown. Se regenera con `backend/scripts/validate_all_examples.py`. |
 | [EJEMPLO_ESP01.md](EJEMPLO_ESP01.md) | Desarrollo del ejercicio de cátedra "ESP 01" en unidades métricas, los 17 pasos. |
+| [EJEMPLO_3B_BROWN.md](EJEMPLO_3B_BROWN.md) | Ejemplo #3B de Brown (bomba manejando gas): los cinco pasos del método de incrementos, qué reproduce la app y por qué difiere del libro. |
+| [CRUDOS_VISCOSOS.md](CRUDOS_VISCOSOS.md) | Procedimiento de Riling (§4.53112) para crudos viscosos: los ocho pasos, las figuras 4L, las tablas 4.520/4.521, un ejemplo resuelto y qué falta antes de programarlo. |
 
 ## Fuentes resumidas
 

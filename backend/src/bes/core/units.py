@@ -138,18 +138,26 @@ def head_m_to_psi(h_m: float, sg: float) -> float:
 
 # ---------------------------------------------------------------------------
 # Affinity laws (centrifugal pump speed change; Brown Table 4.21)
+#
+# Atajos de velocidad pura para el camino métrico. La implementación completa
+# —con diámetro de impulsor y gravedad específica— vive en ``bes.core.affinity``
+# y es la que usan estas tres funciones: una sola fuente de verdad para las
+# leyes, dos formas de llamarlas.
 # ---------------------------------------------------------------------------
 
 def affinity_flow(q: float, n_from: float, n_to: float) -> float:
     """Scale flow rate by the affinity law: Q2 = Q1·(N2/N1)."""
-    return q * (n_to / n_from)
+    from bes.core.affinity import scale_flow
+    return scale_flow(q, n_from, n_to)
 
 
 def affinity_head(h: float, n_from: float, n_to: float) -> float:
     """Scale head by the affinity law: H2 = H1·(N2/N1)²."""
-    return h * (n_to / n_from) ** 2
+    from bes.core.affinity import scale_head
+    return scale_head(h, n_from, n_to)
 
 
 def affinity_power(hp: float, n_from: float, n_to: float) -> float:
     """Scale power by the affinity law: HP2 = HP1·(N2/N1)³."""
-    return hp * (n_to / n_from) ** 3
+    from bes.core.affinity import scale_power
+    return scale_power(hp, n_from, n_to)

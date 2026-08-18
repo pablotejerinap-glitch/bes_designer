@@ -30,6 +30,37 @@ if TYPE_CHECKING:
 
 _BBL_TO_FT3 = 5.615
 
+# Entradas del catálogo de bombas que NO son un proveedor comercial. Hoy solo
+# «Brown (libro)»: I-300, I-42B y M-34 no salen de un catálogo sino de los
+# ejemplos numerados de Kermit Brown Vol. 2b (1980), y son las anclas de
+# validación del motor de cálculo. La regla de aparejo único no les aplica
+# porque no existe un «motor Brown»: se les arma el aparejo con lo que haya.
+_NO_ES_PROVEEDOR = {"Brown (libro)"}
+
+
+def _aparejo_manufacturer(pump_manufacturer: str) -> str | None:
+    """Fabricante al que hay que atarse para armar el aparejo.
+
+    Devuelve ``None`` —sin restricción— para las bombas que no vienen de un
+    proveedor comercial. Para todo el resto devuelve el fabricante de la bomba,
+    de modo que motor y sello salgan de ahí y de ningún otro lado.
+    """
+    return None if pump_manufacturer in _NO_ES_PROVEEDOR else pump_manufacturer
+
+
+def _resolve_pump_depth(well: "WellGeometry", objectives: "DesignObjectives") -> float:
+    """Profundidad de succión: la cargada a mano, o la calculada por margen.
+
+    Si ``well.pump_setting_depth`` viene cargada, manda esa: es una instalación
+    existente o un caso del libro, donde la profundidad viene dada. Si no, la
+    bomba se asienta ``safety_margin_depth`` por encima del tope de punzados
+    (Brown §4.532), con un piso de 100 ft para que un margen absurdo no la
+    saque a la superficie.
+    """
+    if well.pump_setting_depth is not None:
+        return float(well.pump_setting_depth)
+    return max(well.perforations_top - objectives.safety_margin_depth, 100.0)
+
 
 def _parse_awg(size_str: str) -> int:
     """Convert cable-size string (e.g. '#4') to an integer AWG number."""
@@ -37,38 +68,6 @@ def _parse_awg(size_str: str) -> int:
         return int(size_str.replace("#", "").strip())
     except (ValueError, AttributeError):
         return 4  # conservative fallback
-
-
-def _gip_fraction_at_pip(
-    fluid: Fluid,
-    pip: float,
-    bottom_temp: float,
-    pump_setting_depth: float,
-    well: "WellGeometry",
-) -> float:
-    """Estimate free-gas volume fraction at the pump intake pressure."""
-    pb = fluid.bubble_point_pressure
-    gor = fluid.gor
-    wc = fluid.water_cut
-    t = bottom_temp
-
-    rs = min(
-        standing_rs(pip, t, fluid.oil_api, fluid.gas_sg, pb) if pb > 0 else gor,
-        gor,
-    )
-    free_gas = max(gor - rs, 0.0)
-
-    z = gas_z_factor(pip, t, fluid.gas_sg)
-    bg = gas_bg(pip, t, z)
-    bo = standing_bo(rs, t, fluid.oil_api, fluid.gas_sg)
-    bw = water_bw(pip, t)
-
-    v_oil = (1.0 - wc) * bo
-    v_water = wc * bw
-    v_gas = (1.0 - wc) * free_gas * bg
-    v_total = v_oil + v_water + v_gas
-
-    return v_gas / v_total if v_total > 0.0 else 0.0
 
 
 def _build_design_result(
@@ -82,6 +81,7 @@ def _build_design_result(
     gip: float,
     gas_handler: dict | None = None,
     sensor: dict | None = None,
+    gas_fraction_threshold: float = 0.10,
 ) -> DesignResult:
     """Assemble a DesignResult from pump and electrical design dicts."""
     cable_awg = _parse_awg(elec["cable"]["cable_size"])
@@ -97,6 +97,7 @@ def _build_design_result(
         warnings.append(seal_warning)
     if elec.get("cooling_warning"):
         warnings.append(elec["cooling_warning"])
+    warnings.extend(elec.get("cable_warnings") or [])
     if elec.get("controller_warning"):
         warnings.append(elec["controller_warning"])
 
@@ -127,16 +128,28 @@ def _build_design_result(
         transformer_kva=float(elec["transformer"]["total_kva"]),
         system_efficiency=system_eff,
         flow_rate_achieved=target_rate,
-        operating_frequency=surface.frequency,
+        operating_frequency=float(
+            pump_dict.get("operating_frequency_hz", surface.frequency)
+        ),
         gip_fraction=max(0.0, min(1.0, gip)),
         warnings=warnings,
+        formulas=pump_dict.get("formulas", []),
         alternatives=[],
+        friction_method=str(pump_dict.get("friction_method", "hazen_williams")),
+        gas_fraction_threshold=float(gas_fraction_threshold),
         housing_size_stages=int(pump_dict.get("housing_size_stages", 0)),
         dummy_stages=int(pump_dict.get("dummy_stages", 0)),
         n_housings=int(pump_dict.get("n_housings", 1)),
         max_housing_pressure_psi=float(pump_dict.get("max_housing_pressure_psi", 0.0)),
         housing_pressure_limit_psi=float(pump_dict.get("housing_pressure_limit_psi", 0.0)),
         housing_pressure_ok=bool(pump_dict.get("housing_pressure_ok", True)),
+        housing_detail=list(pump_dict.get("housing_detail", [])),
+        housing_rationale=str(pump_dict.get("housing_rationale", "")),
+        housing_pressure_verified=bool(pump_dict.get("housing_pressure_verified", False)),
+        shaft_check=dict(pump_dict.get("shaft_check", {})),
+        bearing_check=dict(pump_dict.get("bearing_check", {})),
+        bearing_load_lbs=float(pump_dict.get("bearing_load_lbs", 0.0)),
+        staging_ceiling=dict(pump_dict.get("staging_ceiling", {})),
         fluid_velocity_ft_s=float(elec.get("fluid_velocity_ft_s", 0.0)),
         cooling_ok=bool(elec.get("cooling_ok", True)),
         motor_hp_max=float(pump_dict.get("motor_hp_max", pump_dict["total_pump_hp"])),
@@ -146,7 +159,11 @@ def _build_design_result(
         seal_manufacturer=(seal["manufacturer"] if seal else ""),
         seal_model=(seal["model"] if seal else ""),
         seal_type=(seal["type"] if seal else ""),
-        seal_thrust_capacity_lbs=(float(seal["thrust_capacity_lbs"]) if seal else 0.0),
+        # 0.0 significa «no publicada»: ni Wood Group ni REDA imprimen la
+        # capacidad de empuje por modelo, la dan en gráficos contra temperatura.
+        seal_thrust_capacity_lbs=float(
+            (seal or {}).get("thrust_capacity_lbs") or 0.0
+        ),
         axial_thrust_lbs=float(elec.get("axial_thrust_lbs", 0.0)),
         gas_handler_manufacturer=(gas_handler["manufacturer"] if gas_handler else ""),
         gas_handler_model=(gas_handler["model"] if gas_handler else ""),
@@ -195,12 +212,7 @@ def select_top_n_pumps(
     Raises:
         ValueError: If no qualifying pumps are found in the catalog.
     """
-    # Pump sits safety_margin_depth above the top perforation (Brown §4.532).
-    # Floor at 100 ft guards against absurd margins producing a surface pump.
-    pump_setting_depth = max(
-        well.perforations_top - objectives.safety_margin_depth,
-        100.0,
-    )
+    pump_setting_depth = _resolve_pump_depth(well, objectives)
 
     pump_candidates = design_pump_complete(
         reservoir=reservoir,
@@ -217,14 +229,15 @@ def select_top_n_pumps(
             "No qualifying pump candidates found for the given well conditions."
         )
 
-    # Build a lookup from model name → PumpCurve object
-    pump_lookup = {p.model: p for p in catalog.get_all_pumps()}
-
     # Order all candidates by the strict engineering key:
     # (1) BEP distance asc, (2) efficiency desc, (3) required power asc.
+    #
+    # La bomba viene con el candidato ya escalada a la frecuencia de operación:
+    # el BEP se corre con la frecuencia (Q ∝ N), así que releerla del catálogo
+    # ordenaría por el BEP de 60 Hz aunque el pozo corra a 50.
     ranked: list[tuple[tuple, dict, object]] = []
     for cand in pump_candidates:
-        pump_obj = pump_lookup.get(cand["pump_model"])
+        pump_obj = cand.get("pump_curve")
         if pump_obj is None:
             continue
         key = ranking_key(
@@ -241,7 +254,7 @@ def select_top_n_pumps(
     # ensamblar (p. ej. su motor sobre HP-máximo exige un cable que no entra en
     # el casing), y en ese caso hay que seguir bajando en el ranking en vez de
     # devolver menos diseños (o ninguno).
-    bottom_temp = well.bottom_hole_temp
+    bottom_temp = reservoir.reservoir_temp
     results: list[DesignResult] = []
 
     for _key, cand, pump_obj in ranked:
@@ -259,6 +272,30 @@ def select_top_n_pumps(
     return results
 
 
+def assemble_design(
+    cand: dict,
+    pump_obj,
+    well: "WellGeometry",
+    surface: "SurfaceConditions",
+    fluid: "Fluid",
+    objectives: "DesignObjectives",
+    catalog: "CatalogManager",
+    pump_setting_depth: float,
+    bottom_temp: float,
+) -> DesignResult:
+    """Armado del aparejo a partir de un candidato ya diseñado hidráulicamente.
+
+    Punto de entrada público de :func:`_assemble_design`, para que el camino de
+    diseño por incrementos de presión (pozos con gas) use **el mismo** armado
+    que el convencional: motor, sello, cable, transformador, VSD, manejador de
+    gas y sensor, con la regla de un solo fabricante incluida.
+    """
+    return _assemble_design(
+        cand, pump_obj, well, surface, fluid, objectives, catalog,
+        pump_setting_depth, bottom_temp,
+    )
+
+
 def _assemble_design(
     cand: dict,
     pump_obj,
@@ -272,6 +309,8 @@ def _assemble_design(
 ) -> DesignResult:
     """Electrical design + gas handler + sensor + ``DesignResult`` assembly
     for one already hydraulically-designed candidate.
+
+    El aparejo se arma con un solo fabricante (ver ``_aparejo_manufacturer``).
 
     Shared by :func:`select_top_n_pumps` (which catches failures per
     candidate and skips to the next-best alternative) and
@@ -293,15 +332,21 @@ def _assemble_design(
         pump_series=pump_obj.series,
         flow_bpd=objectives.target_flow_rate,
         use_vsd=objectives.use_vsd,
+        # NO MEZCLAR FABRICANTES: el motor y el sello tienen que salir del mismo
+        # proveedor que la bomba. Si ese proveedor no tiene con qué, la bomba se
+        # descarta —select_top_n_pumps la saltea, select_pump_by_model levanta el
+        # error— en vez de armar un aparejo mixto en silencio.
+        manufacturer=_aparejo_manufacturer(pump_obj.manufacturer),
+        bottom_temp_f=bottom_temp,
     )
 
-    gip = _gip_fraction_at_pip(
-        fluid=fluid,
-        pip=cand["pip_psi"],
-        bottom_temp=bottom_temp,
-        pump_setting_depth=pump_setting_depth,
-        well=well,
-    )
+    # La fracción de gas libre en la admisión ya viene calculada de
+    # design_pump_complete (se evalúa una sola vez, antes del TDH, porque es la
+    # que decide la correlación de fricción). Acá sólo se lee.
+    gip = cand.get("free_gas_fraction")
+    if gip is None:
+        from bes.core.gas_handling import free_gas_fraction_at_intake
+        gip = free_gas_fraction_at_intake(fluid, cand["pip_psi"], bottom_temp)
 
     # Gas handler recommended only when free gas at intake is non-trivial.
     gas_handler = None
@@ -330,6 +375,7 @@ def _assemble_design(
         gip=gip,
         gas_handler=gas_handler,
         sensor=sensor,
+        gas_fraction_threshold=objectives.gas_fraction_pc_threshold,
     )
 
 
@@ -365,10 +411,7 @@ def select_pump_by_model(
         ValueError: If the pump doesn't exist, doesn't fit the casing, or
             the design cannot be completed at the target conditions.
     """
-    pump_setting_depth = max(
-        well.perforations_top - objectives.safety_margin_depth,
-        100.0,
-    )
+    pump_setting_depth = _resolve_pump_depth(well, objectives)
 
     cand = design_pump_by_model(
         reservoir=reservoir,
@@ -384,5 +427,5 @@ def select_pump_by_model(
 
     return _assemble_design(
         cand, pump_obj, well, surface, fluid, objectives, catalog,
-        pump_setting_depth, well.bottom_hole_temp,
+        pump_setting_depth, reservoir.reservoir_temp,
     )

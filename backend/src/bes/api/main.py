@@ -13,7 +13,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from bes.api.routers import catalogs, design, examples, nodal, plots, reports, sensitivity
+from bes.api.routers import (
+    affinity, catalogs, design, gas, ipr, nodal, plots, reports, sensitivity,
+)
 
 app = FastAPI(
     title="BES Designer API",
@@ -59,5 +61,7 @@ app.include_router(catalogs.router)
 app.include_router(nodal.router)
 app.include_router(sensitivity.router)
 app.include_router(reports.router)
-app.include_router(examples.router)
 app.include_router(plots.router)
+app.include_router(ipr.router)
+app.include_router(affinity.router)
+app.include_router(gas.router)

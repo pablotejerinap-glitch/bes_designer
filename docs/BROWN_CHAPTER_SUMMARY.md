@@ -421,7 +421,7 @@ Tres casos:
 
 | Sección Brown | Módulo del proyecto | Notas |
 |---|---|---|
-| 4.522 IPR | `bes/core/ipr.py` | Vogel, Linear, Fetkovich, Combined ya implementados |
+| 4.522 IPR | `bes/core/ipr.py` | Vogel, Linear y Fetkovich implementados |
 | PVT (Standing) | `bes/core/pvt.py` | Standing, DAK, Beggs-Robinson |
 | 4.5324 TDH | `bes/core/tdh.py` | Hazen-Williams + lift + WHP head |
 | 4.5325 Cable | `bes/core/electrical.py`, `bes/catalogs/cables.json` | Tabla 4.52 → `get_cable(amps, temp_f, voltage)` |

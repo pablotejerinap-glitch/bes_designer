@@ -27,15 +27,19 @@ _DRIVE_BY_NAME = {m.name.lower(): m for m in DriveMechanism}
 
 
 def to_reservoir(s: ReservoirSchema) -> Reservoir:
+    """ReservoirSchema -> Reservoir.
+
+    ``productivity_index`` (y el C de Fetkovich) no viajan por la API: los
+    deriva ``Reservoir.__post_init__`` del ensayo, con el método IPR elegido.
+    """
     return Reservoir(
         static_pressure=s.static_pressure,
         bubble_point=s.bubble_point,
-        productivity_index=s.productivity_index,
         ipr_method=_IPR_BY_NAME[s.ipr_method.value],
         reservoir_temp=s.reservoir_temp,
         drive_mechanism=_DRIVE_BY_NAME[s.drive_mechanism.value],
-        datum_depth=s.datum_depth,
-        fetkovich_c=s.fetkovich_c,
+        test_pwf=s.test_pwf,
+        test_rate=s.test_rate,
         fetkovich_n=s.fetkovich_n,
     )
 

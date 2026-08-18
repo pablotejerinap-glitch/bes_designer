@@ -270,7 +270,7 @@ def generate_recommendations(
             "well_depth_ft":        well.total_depth,
             "casing_id_in":         well.casing_id,
             "reservoir_pressure_psi": reservoir.static_pressure,
-            "bottom_hole_temp_f":   well.bottom_hole_temp,
+            "bottom_hole_temp_f":   reservoir.reservoir_temp,
         },
         "ordering_criteria": [
             "1. Cercanía al BEP (|q − q_BEP| / q_BEP, ascendente)",
@@ -345,7 +345,7 @@ def generate_recommendation_for_pump(
             "well_depth_ft":        well.total_depth,
             "casing_id_in":         well.casing_id,
             "reservoir_pressure_psi": reservoir.static_pressure,
-            "bottom_hole_temp_f":   well.bottom_hole_temp,
+            "bottom_hole_temp_f":   reservoir.reservoir_temp,
         },
         "ordering_criteria": [
             "Selección manual del usuario — no se aplica ordenamiento por criterios.",

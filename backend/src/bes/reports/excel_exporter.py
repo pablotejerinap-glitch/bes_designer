@@ -153,7 +153,6 @@ def _build_inputs(ws, well_data: dict) -> None:
             ("Método IPR",          reservoir.ipr_method.name,               "—"),
             ("Temperatura",         round(reservoir.reservoir_temp, 0),      "°F"),
             ("Mecanismo de empuje", reservoir.drive_mechanism.name,          "—"),
-            ("Profundidad datum",   round(reservoir.datum_depth, 0),         "ft"),
         ])
 
     if fluid:
@@ -181,7 +180,7 @@ def _build_inputs(ws, well_data: dict) -> None:
             ("Perforaciones base",  round(well.perforations_bottom, 0),    "ft"),
             ("Desviación máx.",     round(well.deviation_max, 1),          "°"),
             ("Temp. cabezal",       round(well.wellhead_temp, 0),          "°F"),
-            ("BHT",                 round(well.bottom_hole_temp, 0),       "°F"),
+            ("BHT",                 round(reservoir.reservoir_temp, 0),    "°F"),
         ])
 
     if surface:
@@ -287,6 +286,18 @@ def _build_bomba(ws, dr: DesignResult) -> None:
         ("Modelo",                  dr.pump_model,                    "—"),
         ("OD",                      round(dr.pump_od, 3),             "in"),
         ("Número de etapas",        dr.num_stages,                    "—"),
+        ("Carcasas (housings)",     " + ".join(
+            f"{h['stages']} et" + (f" [{h['code']}]" if h["code"] else "")
+            for h in dr.housing_detail
+        ) or "—",                                                     "—"),
+        ("Capacidad instalada",     dr.housing_size_stages,           "etapas"),
+        ("Etapas ciegas (dummy)",   dr.dummy_stages,                  "etapas"),
+        ("MaxP carcasa superior",   round(dr.max_housing_pressure_psi, 0), "psi"),
+        ("Presión admisible",       round(dr.housing_pressure_limit_psi, 0)
+                                    if dr.housing_pressure_verified else "sin dato", "psi"),
+        ("Verificación de presión", ("OK" if dr.housing_pressure_ok else "FAIL")
+                                    if dr.housing_pressure_verified else "sin verificar", "—"),
+        ("Criterio de carcasas",    dr.housing_rationale or "—",      "—"),
         ("Eficiencia bomba",        f"{dr.pump_efficiency:.1%}",      "—"),
         ("Head / etapa",            round(dr.head_per_stage, 1),      "ft/etapa"),
         ("HP / etapa",              round(dr.hp_per_stage, 3),        "hp/etapa"),

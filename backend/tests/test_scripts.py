@@ -15,7 +15,27 @@ import pytest
 _ROOT = Path(__file__).resolve().parent.parent
 _SCRIPTS = _ROOT / "scripts"
 
-SCRIPT_NAMES = sorted(p.stem for p in _SCRIPTS.glob("*.py") if not p.stem.startswith("_"))
+# Scripts retirados: se conservan como registro histórico pero abortan al
+# importarse, así que quedan fuera de los chequeos de import y de rutas.
+_RETIRED = {"generate_pump_curves"}
+
+SCRIPT_NAMES = sorted(
+    p.stem for p in _SCRIPTS.glob("*.py")
+    if not p.stem.startswith("_") and p.stem not in _RETIRED
+)
+
+
+def test_retired_scripts_refuse_to_run() -> None:
+    """Un script retirado no puede volver a correr por accidente."""
+    for name in _RETIRED:
+        path = _SCRIPTS / f"{name}.py"
+        if not path.exists():
+            continue
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        with pytest.raises(SystemExit, match="RETIRADO"):
+            spec.loader.exec_module(module)
 
 
 def _load(name: str):

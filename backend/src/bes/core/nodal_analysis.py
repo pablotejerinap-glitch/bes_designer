@@ -1,17 +1,15 @@
 """
-Nodal analysis engine for BES/ESP well design.
+Análisis nodal para el diseño de pozos con BES/ESP.
 
-Computes outflow (deliverability) curves, intersects them with the IPR to
-find operating points, and compares results across the four available
-multiphase correlations.
+Construye las curvas de entrega (outflow) y las cruza con el IPR para hallar el
+punto de operación, con y sin bomba. Las pérdidas de carga en el tubing se
+calculan siempre por Poettmann & Carpenter (ver ``bes.core.multiphase``).
 
-Typical workflow
-----------------
-1. Call ``outflow_curve_natural`` or ``outflow_curve_with_pump`` to get
-   the required Pwf as a function of surface rate.
-2. Call ``find_operating_point`` to find where the IPR crosses the outflow
-   curve (with and/or without pump).
-3. Call ``compare_methods`` to run all four correlations in one shot.
+Flujo de uso
+------------
+1. ``outflow_curve_natural`` / ``outflow_curve_with_pump`` dan la Pwf requerida
+   en función del caudal de superficie.
+2. ``find_operating_point`` busca dónde el IPR corta la curva de outflow.
 """
 
 from __future__ import annotations
@@ -25,14 +23,9 @@ from bes.core.ipr import generate_ipr_curve
 from bes.core.tdh import _sg_liquid, friction_loss_hazen_williams
 from bes.core.multiphase import pressure_traverse
 
-_METHODS = ("hagedorn_brown", "beggs_brill", "duns_ros", "poettmann_carpenter")
-
-_METHOD_LABELS = {
-    "hagedorn_brown":       "Hagedorn-Brown",
-    "beggs_brill":          "Beggs-Brill",
-    "duns_ros":             "Duns & Ros",
-    "poettmann_carpenter":  "Poettmann & Carpenter",
-}
+# Única correlación multifásica del simulador.
+METHOD_KEY = "poettmann_carpenter"
+METHOD_LABEL = "Poettmann & Carpenter"
 
 
 # ---------------------------------------------------------------------------
@@ -43,7 +36,7 @@ def outflow_curve_natural(
     fluid: Fluid,
     well: WellGeometry,
     surface: SurfaceConditions,
-    method: str = "hagedorn_brown",
+    bottom_temp_f: float,
     n_points: int = 30,
     q_max: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -60,7 +53,8 @@ def outflow_curve_natural(
         fluid: Fluid PVT properties.
         well: Well geometry (tubing ID, depths, temperatures).
         surface: Surface conditions (separator pressure, flowline geometry).
-        method: Multiphase correlation — one of ``_METHODS``.
+        bottom_temp_f: Temperatura de fondo [°F] — ``reservoir.reservoir_temp``.
+            Es el extremo inferior del perfil geotérmico del traverse.
         n_points: Number of rate evaluation points (excluding q = 0).
         q_max: Upper rate limit [STB/d].  Defaults to 5 000 STB/d.
 
@@ -70,9 +64,6 @@ def outflow_curve_natural(
         in the holdup-dominated region at low rates, increasing once
         friction dominates (the left branch is the unstable heading region).
     """
-    if method not in _METHODS:
-        raise ValueError(f"Unknown method '{method}'. Use one of {_METHODS}.")
-
     q_max = q_max or 5000.0
     sg = _sg_liquid(fluid)
 
@@ -82,8 +73,8 @@ def outflow_curve_natural(
     q_arr = np.linspace(1.0, q_max, n_points)
     pwf_arr = np.empty(n_points)
 
-    # Temperature at total_depth (linear interpolation)
-    t_bottom = well.bottom_hole_temp
+    # Extremo inferior del perfil geotérmico: la temperatura de reservorio.
+    t_bottom = bottom_temp_f
 
     for i, q in enumerate(q_arr):
         dp_fl = friction_loss_hazen_williams(
@@ -105,9 +96,7 @@ def outflow_curve_natural(
                 p_start=p_wh,
                 t_start=well.wellhead_temp,
                 t_end=t_bottom,
-                method=method,
                 n_segments=20,
-                direction="down",
             )
             pwf_arr[i] = float(pressures[-1])
         except Exception:
@@ -126,7 +115,7 @@ def outflow_curve_with_pump(
     pump: PumpCurve,
     stages: int,
     pump_depth: float,
-    method: str = "hagedorn_brown",
+    bottom_temp_f: float,
     n_points: int = 30,
     q_max: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -145,7 +134,6 @@ def outflow_curve_with_pump(
         stages: Number of installed pump stages.
         pump_depth: Pump setting depth [ft TVD] (informational, not used
             in current head model but reserved for future depth corrections).
-        method: Multiphase correlation.
         n_points: Number of rate evaluation points.
         q_max: Upper rate limit [STB/d].  Defaults to 5 000 STB/d.
 
@@ -154,7 +142,7 @@ def outflow_curve_with_pump(
         ``outflow_curve_natural``.
     """
     q_full, pwf_nat = outflow_curve_natural(
-        fluid, well, surface, method, n_points, q_max
+        fluid, well, surface, bottom_temp_f, n_points, q_max
     )
 
     sg = _sg_liquid(fluid)
@@ -175,7 +163,6 @@ def find_operating_point(
     fluid: Fluid,
     well: WellGeometry,
     surface: SurfaceConditions,
-    method: str = "hagedorn_brown",
     pump: PumpCurve | None = None,
     stages: int | None = None,
     pump_depth: float | None = None,
@@ -190,7 +177,6 @@ def find_operating_point(
         fluid: Fluid PVT properties.
         well: Well geometry.
         surface: Surface conditions.
-        method: Multiphase correlation.
         pump: PumpCurve catalog entry (optional).
         stages: Number of pump stages (required when *pump* is given).
         pump_depth: Pump setting depth [ft TVD] (required when *pump* given).
@@ -221,7 +207,7 @@ def find_operating_point(
     n_pts = 60
 
     q_out, pwf_nat = outflow_curve_natural(
-        fluid, well, surface, method, n_pts, q_max_out
+        fluid, well, surface, reservoir.reservoir_temp, n_pts, q_max_out
     )
 
     # 3. Natural operating point
@@ -236,7 +222,7 @@ def find_operating_point(
     if pump is not None and stages is not None and pump_depth is not None:
         _, pwf_pump_curve = outflow_curve_with_pump(
             fluid, well, surface, pump, stages, pump_depth,
-            method, n_pts, q_max_out,
+            reservoir.reservoir_temp, n_pts, q_max_out,
         )
         pump_result = _intersect(q_ipr, pwf_ipr, q_out, pwf_pump_curve)
 
@@ -253,57 +239,30 @@ def find_operating_point(
     q_nat_val  = nat_result["q"]  if nat_result  else 0.0
     q_pump_val = pump_result["q"] if pump_result else 0.0
 
+    # El incremental solo existe si hay DOS puntos de operación que restar.
+    # Si falta alguno —porque no se pidió bomba, o porque el pozo no cruza la
+    # curva— no se resta contra un cero ficticio: eso daría un incremental
+    # negativo del tamaño del caudal natural, que no significa nada.
+    # Quien necesite distinguir los dos casos mira `pump_flow`: es None cuando
+    # se pidió bomba y aun así no hubo punto de operación.
+    if nat_result is not None and pump_result is not None:
+        incremental = q_pump_val - q_nat_val
+    else:
+        incremental = 0.0
+
     return {
         "natural_flow":         nat_result,
         "pump_flow":            pump_result,
         "pump_dp_psi":          pump_dp_psi,
         "pump_efficiency":      pump_eff,
-        "incremental_rate":     q_pump_val - q_nat_val,
-        "method_used":          method,
+        "incremental_rate":     incremental,
+        "method_used":          METHOD_KEY,
         "q_ipr":                q_ipr,
         "pwf_ipr":              pwf_ipr,
         "q_outflow":            q_out,
         "pwf_outflow_natural":  pwf_nat,
         "pwf_outflow_pump":     pwf_pump_curve,
     }
-
-
-def compare_methods(
-    reservoir: Reservoir,
-    fluid: Fluid,
-    well: WellGeometry,
-    surface: SurfaceConditions,
-    pump: PumpCurve,
-    stages: int,
-    pump_depth: float,
-) -> dict:
-    """Run nodal analysis with all four multiphase correlations.
-
-    Args:
-        reservoir, fluid, well, surface, pump, stages, pump_depth:
-            Same as ``find_operating_point``.
-
-    Returns:
-        Dictionary keyed by method name, each value is the result dict
-        from ``find_operating_point``.  An extra ``'_ipr'`` key holds the
-        shared IPR arrays ``{'q': ndarray, 'pwf': ndarray}``.
-    """
-    results: dict = {}
-    ipr_q: np.ndarray | None = None
-    ipr_pwf: np.ndarray | None = None
-
-    for m in _METHODS:
-        res = find_operating_point(
-            reservoir, fluid, well, surface,
-            method=m, pump=pump, stages=stages, pump_depth=pump_depth,
-        )
-        results[m] = res
-        if ipr_q is None:
-            ipr_q  = res["q_ipr"]
-            ipr_pwf = res["pwf_ipr"]
-
-    results["_ipr"] = {"q": ipr_q, "pwf": ipr_pwf}
-    return results
 
 
 # ---------------------------------------------------------------------------

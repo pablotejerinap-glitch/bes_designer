@@ -26,10 +26,8 @@ import pytest
 from bes.catalogs.loader import CatalogManager
 from bes.core.ipr import (
     calculate_pwf_for_target_rate,
-    fetkovich_future_c,
     fetkovich_ipr,
     generate_ipr_curve,
-    vogel_future_qmax,
     vogel_ipr,
 )
 from bes.core.models import (
@@ -66,7 +64,6 @@ def _beggs_reservoir(**overrides) -> Reservoir:
         ipr_method=IPRMethod.FETKOVICH,
         reservoir_temp=180.0,
         drive_mechanism=DriveMechanism.SOLUTION_GAS,
-        datum_depth=5000.0,
         fetkovich_c=C_BEGGS,
         fetkovich_n=N_BEGGS,
     )
@@ -171,120 +168,7 @@ class TestValidation:
 
 
 # ---------------------------------------------------------------------------
-# 5. Future IPR — Fetkovich C decline (Beggs Eq. 2-74, Example 2-10)
-# ---------------------------------------------------------------------------
-
-# In Beggs Example 2-10 the C = 0.00044 / n = 0.854 pair used above is itself
-# the FUTURE IPR obtained from present conditions:
-C_PRESENT = 0.00079
-PR_PRESENT = 3600.0
-PR_FUTURE = 2000.0     # = PR of the table anchored above
-
-
-class TestFetkovichFutureIPR:
-    def test_cf_matches_printed_value(self):
-        """C_F = C_P·(P̄RF/P̄RP) = 0.00079·(2000/3600) → 0.00044 (printed)."""
-        c_f = fetkovich_future_c(C_PRESENT, PR_PRESENT, PR_FUTURE)
-        assert c_f == pytest.approx(0.00044, rel=0.01)
-
-    def test_pressure_ratio_uses_absolute_psia(self):
-        """Convention guard (Beggs Ex. 2-11 footnote): the correction-factor
-        ratio uses ABSOLUTE pressures. This test fails if someone converts
-        the ratio to gauge (psig) inside the function."""
-        c_f = fetkovich_future_c(C_PRESENT, PR_PRESENT, PR_FUTURE)
-        # Exact analytic value with the psia ratio
-        assert c_f == pytest.approx(C_PRESENT * (2000.0 / 3600.0), rel=1e-12)
-        # A gauge-pressure ratio gives a measurably different number
-        c_f_gauge = C_PRESENT * ((2000.0 - 14.7) / (3600.0 - 14.7))
-        assert c_f != pytest.approx(c_f_gauge, rel=1e-4)
-
-    def test_future_ipr_reproduces_beggs_table(self):
-        """The future curve (C_F, same n) must reproduce the printed table."""
-        c_f = fetkovich_future_c(C_PRESENT, PR_PRESENT, PR_FUTURE)
-        for pwf, q_book in BEGGS_TABLE:
-            q = fetkovich_ipr(PR_FUTURE, pwf, c_f, N_BEGGS)
-            if q_book == 0.0:
-                assert q == pytest.approx(0.0, abs=1e-9)
-            else:
-                assert q == pytest.approx(q_book, rel=0.02), f"Pwf={pwf}"
-
-    def test_qmax_consistency_eq_2_77(self):
-        """Internal consistency: qmax_F/qmax_P = (P̄RF/P̄RP)^(2n+1) (Eq. 2-77,
-        algebraic consequence of Eq. 2-74 — not a separate method)."""
-        c_f = fetkovich_future_c(C_PRESENT, PR_PRESENT, PR_FUTURE)
-        aof_p = fetkovich_ipr(PR_PRESENT, 0.0, C_PRESENT, N_BEGGS)
-        aof_f = fetkovich_ipr(PR_FUTURE, 0.0, c_f, N_BEGGS)
-        expected_ratio = (PR_FUTURE / PR_PRESENT) ** (2.0 * N_BEGGS + 1.0)
-        assert aof_f / aof_p == pytest.approx(expected_ratio, rel=0.005)
-
-    def test_no_decline_returns_identical_curve(self):
-        """P̄RF = P̄RP → C_F = C_P and the curve is unchanged."""
-        c_f = fetkovich_future_c(C_PRESENT, PR_PRESENT, PR_PRESENT)
-        assert c_f == pytest.approx(C_PRESENT, rel=1e-12)
-        for pwf in (3600.0, 2500.0, 1200.0, 0.0):
-            q_p = fetkovich_ipr(PR_PRESENT, pwf, C_PRESENT, N_BEGGS)
-            q_f = fetkovich_ipr(PR_PRESENT, pwf, c_f, N_BEGGS)
-            assert q_f == pytest.approx(q_p, rel=1e-12)
-
-    def test_decline_is_monotonic(self):
-        """P̄RF < P̄RP → C_F < C_P and AOF_F < AOF_P."""
-        c_f = fetkovich_future_c(C_PRESENT, PR_PRESENT, PR_FUTURE)
-        assert c_f < C_PRESENT
-        aof_p = fetkovich_ipr(PR_PRESENT, 0.0, C_PRESENT, N_BEGGS)
-        aof_f = fetkovich_ipr(PR_FUTURE, 0.0, c_f, N_BEGGS)
-        assert aof_f < aof_p
-
-    def test_invalid_inputs_rejected(self):
-        with pytest.raises(ValueError, match="c_present"):
-            fetkovich_future_c(0.0, PR_PRESENT, PR_FUTURE)
-        with pytest.raises(ValueError, match="pr_present"):
-            fetkovich_future_c(C_PRESENT, 0.0, PR_FUTURE)
-        with pytest.raises(ValueError, match="pr_future"):
-            fetkovich_future_c(C_PRESENT, PR_PRESENT, -100.0)
-
-
-# ---------------------------------------------------------------------------
-# 6. Future IPR — Vogel cubic AOF decline (Beggs Eq. 2-78, Example 2-11)
-# ---------------------------------------------------------------------------
-
-class TestVogelFutureQmax:
-    """Standalone helper anchored to Beggs Example 2-11.
-
-    Printed anchors: qmax_P = 1097 STB/d at P̄RP = 2100 psia (2085 psig);
-    P̄RF = 1915 psia (1900 psig) → qmax_F = 832 STB/d, and Vogel at
-    Pwf = 1485 psig gives qo(F) = 295 STB/d.
-
-    NOTE: the nodal Pr-decline slider does NOT use this law for VOGEL —
-    the existing Brown-validated path keeps PI constant (linear qmax
-    decline). Discrepancy documented in REPORTE_FETKOVICH.md.
-    """
-
-    def test_qmax_future_832(self):
-        # Cubic ratio in ABSOLUTE pressures (psia) per the book's footnote
-        qmax_f = vogel_future_qmax(1097.0, 2100.0, 1915.0)
-        assert qmax_f == pytest.approx(832.0, rel=0.01)
-
-    def test_vogel_rate_at_future_conditions_295(self):
-        # Vogel's own equation is stated in gauge pressures in the book:
-        # P̄RF = 1900 psig, Pwf = 1485 psig, qmax_F = 832 STB/d → 295 STB/d
-        qmax_f = vogel_future_qmax(1097.0, 2100.0, 1915.0)
-        q = vogel_ipr(pr=1900.0, pwf=1485.0, qmax=qmax_f)
-        assert q == pytest.approx(295.0, rel=0.01)
-
-    def test_no_decline_identity(self):
-        assert vogel_future_qmax(1097.0, 2100.0, 2100.0) == pytest.approx(
-            1097.0, rel=1e-12
-        )
-
-    def test_invalid_inputs_rejected(self):
-        with pytest.raises(ValueError, match="qmax_present"):
-            vogel_future_qmax(0.0, 2100.0, 1915.0)
-        with pytest.raises(ValueError, match="pr_future"):
-            vogel_future_qmax(1097.0, 2100.0, 0.0)
-
-
-# ---------------------------------------------------------------------------
-# 7. End-to-end design with FETKOVICH
+# 5. End-to-end design with FETKOVICH
 # ---------------------------------------------------------------------------
 
 class TestEndToEndDesign:
@@ -311,7 +195,7 @@ class TestEndToEndDesign:
             total_depth=5000.0, casing_od=7.0, casing_weight=23.0, casing_id=6.366,
             tubing_od=2.875, tubing_id=2.441,
             perforations_top=4500.0, perforations_bottom=4800.0,
-            deviation_max=5.0, wellhead_temp=80.0, bottom_hole_temp=180.0,
+            deviation_max=5.0, wellhead_temp=80.0,
         )
         surface = SurfaceConditions(
             wellhead_pressure_required=100.0, flowline_length=1000.0,

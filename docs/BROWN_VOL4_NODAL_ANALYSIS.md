@@ -92,7 +92,7 @@ Funciona razonablemente bien hasta WC ≤ 50%. Sirve también para resolver `P_w
 P_wf = 0.125·P̄_R · [−1 + √(81 − 80·q/q_max)]
 ```
 
-#### 2.223 Combined linear + Vogel (ya en `bes/core/ipr.py` como `IPRMethod.COMBINED`)
+#### 2.223 Combined linear + Vogel (NO implementada — retirada de la app)
 
 Si `P̄_R > P_b`:
 
@@ -380,7 +380,7 @@ Donde:
 |---|---|---|
 | §1 Concepto Nodal | `bes/core/nodal_analysis.py` (existe) | ✅ |
 | §2.221 Vogel | `bes/core/ipr.py` | ✅ |
-| §2.223 Combined | `bes/core/ipr.py` (IPRMethod.COMBINED) | ✅ |
+| §2.223 Combined | — (retirada: la app expone Linear, Vogel y Fetkovich) | ❌ |
 | §2.224 Standing FE | — | ❌ NO implementado |
 | §2.225 Couto FE | — | ❌ NO implementado |
 | §2.226 Fetkovich 4-point | `bes/core/ipr.py` (IPRMethod.FETKOVICH) | ✅ |

@@ -4,19 +4,33 @@ Unit tests for core/ipr.py.
 Numerical references:
   - Vogel Example #2A: Brown Vol. 2b p.70, Pr=2000 psi, Pwf=340 psi,
     qmax=1188 STB/d → q ≈ 1117 STB/d (book rounds intermediate steps).
-  - Standing combined IPR continuity at Pb verified analytically.
 """
 
 import numpy as np
 import pytest
+from scipy.optimize import brentq
 
-from bes.core.models import DriveMechanism, IPRMethod, Reservoir
+from bes.core.models import (
+    DesignObjectives,
+    DriveMechanism,
+    Fluid,
+    IPRMethod,
+    Reservoir,
+    SurfaceConditions,
+    WellGeometry,
+)
 from bes.core.ipr import (
     calculate_pwf_for_target_rate,
-    combined_ipr,
     fetkovich_ipr,
     generate_ipr_curve,
     linear_ipr,
+    productivity_index_from_test,
+    vogel_j_from_test,
+    vogel_aof,
+    effective_bubble_point,
+    ipr_trace,
+    ipr_validity_warning,
+    vogel_composite_ipr,
     vogel_ipr,
     vogel_qmax_from_test,
 )
@@ -41,7 +55,6 @@ def make_reservoir(
         ipr_method=method,
         reservoir_temp=160.0,
         drive_mechanism=DriveMechanism.SOLUTION_GAS,
-        datum_depth=7500.0,
         fetkovich_c=fetkovich_c,
         fetkovich_n=fetkovich_n,
     )
@@ -144,52 +157,6 @@ class TestVogelQmaxFromTest:
 
 
 # ---------------------------------------------------------------------------
-# combined_ipr
-# ---------------------------------------------------------------------------
-
-class TestCombinedIPR:
-    def test_above_pb_matches_linear(self):
-        """Above bubble point the combined IPR must equal the linear IPR."""
-        pr, pb, pi = 3000.0, 2000.0, 1.2
-        for pwf in [2800, 2500, 2100, 2000]:
-            assert combined_ipr(pr, pb, pwf, pi) == pytest.approx(
-                linear_ipr(pr, pwf, pi), rel=1e-9
-            )
-
-    def test_continuity_at_pb(self):
-        """q must be continuous at Pwf = Pb (no jump)."""
-        pr, pb, pi = 3000.0, 2000.0, 1.2
-        eps = 1e-4
-        q_above = combined_ipr(pr, pb, pb + eps, pi)
-        q_below = combined_ipr(pr, pb, pb - eps, pi)
-        assert q_above == pytest.approx(q_below, abs=0.01)
-
-    def test_zero_at_pr(self):
-        assert combined_ipr(pr=3000, pb=2000, pwf=3000, pi=1.5) == pytest.approx(0.0)
-
-    def test_aof_below_pb(self):
-        """AOF = PI*(Pr-Pb) + PI*Pb/1.8 — verify at Pwf=0."""
-        pr, pb, pi = 3000.0, 2000.0, 1.2
-        expected_aof = pi * (pr - pb) + pi * pb / 1.8
-        assert combined_ipr(pr, pb, 0.0, pi) == pytest.approx(expected_aof, rel=1e-9)
-
-    def test_monotonically_decreasing_with_pwf(self):
-        pr, pb, pi = 3000.0, 2000.0, 1.2
-        pwf_values = np.linspace(0, pr, 30)
-        q_values = [combined_ipr(pr, pb, pwf, pi) for pwf in pwf_values]
-        # q increases as pwf decreases → reversed list is sorted ascending
-        assert q_values == sorted(q_values, reverse=True)
-
-    def test_negative_pi_raises(self):
-        with pytest.raises(ValueError, match="pi"):
-            combined_ipr(pr=3000, pb=2000, pwf=1000, pi=-1)
-
-    def test_pb_above_pr_raises(self):
-        with pytest.raises(ValueError, match="pb"):
-            combined_ipr(pr=2000, pb=2500, pwf=1000, pi=1.0)
-
-
-# ---------------------------------------------------------------------------
 # fetkovich_ipr
 # ---------------------------------------------------------------------------
 
@@ -232,30 +199,19 @@ class TestCalculatePwfForTargetRate:
         assert q_back == pytest.approx(target, abs=0.5)
 
     def test_roundtrip_vogel(self):
-        res = make_reservoir(IPRMethod.VOGEL, pr=2000, pi=1.5)
+        """Vogel invierte contra el COMPUESTO, no contra Vogel puro.
+
+        El reservorio de prueba es subsaturado (Pr = 2000 > Pb = 1500), así que
+        la IPR tiene tramo recto. Invertir con Vogel puro desde Pr —lo que hacía
+        el módulo— no vuelve al caudal pedido.
+        """
+        res = make_reservoir(IPRMethod.VOGEL, pr=2000, pb=1500, pi=1.5)
         target = 600.0
         pwf = calculate_pwf_for_target_rate(res, target)
-        qmax = res.productivity_index * res.static_pressure / 1.8
-        q_back = vogel_ipr(pr=res.static_pressure, pwf=pwf, qmax=qmax)
-        assert q_back == pytest.approx(target, abs=0.5)
-
-    def test_roundtrip_combined_above_pb(self):
-        """Target rate achievable above Pb → should land in linear region."""
-        res = make_reservoir(IPRMethod.COMBINED, pr=3000, pb=2000, pi=1.2)
-        # q_b = 1.2 * (3000 - 2000) = 1200; choose target < q_b
-        target = 800.0
-        pwf = calculate_pwf_for_target_rate(res, target)
-        assert pwf > res.bubble_point  # must still be above Pb
-        q_back = combined_ipr(res.static_pressure, res.bubble_point, pwf, res.productivity_index)
-        assert q_back == pytest.approx(target, abs=0.5)
-
-    def test_roundtrip_combined_below_pb(self):
-        """Target rate requiring Pwf below Pb → must enter Vogel region."""
-        res = make_reservoir(IPRMethod.COMBINED, pr=3000, pb=2000, pi=1.2)
-        target = 1500.0  # above q_b=1200, requires sub-Pb Pwf
-        pwf = calculate_pwf_for_target_rate(res, target)
-        assert pwf < res.bubble_point
-        q_back = combined_ipr(res.static_pressure, res.bubble_point, pwf, res.productivity_index)
+        q_back = vogel_composite_ipr(
+            pr=res.static_pressure, pb=res.bubble_point,
+            pwf=pwf, pi=res.productivity_index,
+        )
         assert q_back == pytest.approx(target, abs=0.5)
 
     def test_roundtrip_fetkovich(self):
@@ -331,11 +287,6 @@ class TestGenerateIPRCurve:
         q, _ = generate_ipr_curve(res, n_points=50)
         assert np.all(np.diff(q) >= -1e-9)
 
-    def test_q_monotonically_nondecreasing_combined(self):
-        res = make_reservoir(IPRMethod.COMBINED, pr=3000, pb=2000, pi=1.2)
-        q, _ = generate_ipr_curve(res, n_points=50)
-        assert np.all(np.diff(q) >= -1e-9)
-
     def test_q_monotonically_nondecreasing_fetkovich(self):
         res = make_reservoir(IPRMethod.FETKOVICH, pr=3000,
                              fetkovich_c=1e-5, fetkovich_n=0.8)
@@ -350,28 +301,409 @@ class TestGenerateIPRCurve:
         assert q[-1] == pytest.approx(1.5 * 2000, rel=1e-6)  # Pwf = 0
 
     def test_boundary_values_vogel(self):
-        res = make_reservoir(IPRMethod.VOGEL, pr=2000, pi=1.8)
+        """AOF del Vogel generalizado: J(Pr − Pb) + J·Pb/1.8."""
+        res = make_reservoir(IPRMethod.VOGEL, pr=2000, pb=1500, pi=1.8)
         q, pwf = generate_ipr_curve(res, n_points=50)
         assert q[0] == pytest.approx(0.0, abs=1e-6)
-        expected_aof = 1.8 * 2000 / 1.8  # = PI*Pr/1.8 * ... = 2000
-        assert q[-1] == pytest.approx(expected_aof, rel=1e-6)
+        esperado = 1.8 * (2000 - 1500) + 1.8 * 1500 / 1.8    # = 900 + 1500
+        assert q[-1] == pytest.approx(esperado, rel=1e-6)
 
-    def test_combined_continuity_across_pb(self):
-        """q must be C0-continuous at Pb (value match, not slope).
+    def test_el_tramo_sobre_la_burbuja_es_una_recta(self):
+        """Lo que el gráfico mostraba curvo y no lo era.
 
-        The combined IPR has a kink (slope change) at Pb but no value jump.
-        We verify this by evaluating the function directly at Pb ± 1e-4 psi,
-        not via coarse array neighbors which would show a large finite-difference
-        even for a perfectly continuous function.
+        Con Pwf por encima de Pb el flujo en el reservorio es monofásico: la
+        IPR es la recta de Darcy, con pendiente J. El módulo aplicaba Vogel
+        desde Pr en todo el rango y curvaba también ese tramo.
         """
-        pr, pb, pi = 3000.0, 2000.0, 1.2
-        res = make_reservoir(IPRMethod.COMBINED, pr=pr, pb=pb, pi=pi)
-        eps = 1e-4
-        q_above = combined_ipr(pr, pb, pb + eps, pi)
-        q_below = combined_ipr(pr, pb, pb - eps, pi)
-        assert q_above == pytest.approx(q_below, abs=0.01)
+        res = make_reservoir(IPRMethod.VOGEL, pr=4500, pb=2900, pi=0.6)
+        q, pwf = generate_ipr_curve(res, n_points=200)
+        arriba = [(qq, pp) for qq, pp in zip(q, pwf) if pp >= res.bubble_point]
+        assert len(arriba) > 10
+        # Toda la rama de arriba tiene que caer sobre la misma recta.
+        for qq, pp in arriba:
+            assert qq == pytest.approx(0.6 * (4500 - pp), rel=1e-9)
+
+    def test_la_curva_no_tiene_quiebre_en_la_burbuja(self):
+        """Los dos tramos empalman con la MISMA pendiente (Beggs §2)."""
+        pr, pb, j = 4500.0, 2900.0, 0.6
+        e = 1e-4
+        q_arr = vogel_composite_ipr(pr, pb, pb + e, j)
+        q_ab = vogel_composite_ipr(pr, pb, pb - e, j)
+        assert q_arr == pytest.approx(q_ab, abs=1e-3)          # continua
+        m_arr = (vogel_composite_ipr(pr, pb, pb + 2 * e, j) - q_arr) / -e
+        m_ab = (q_ab - vogel_composite_ipr(pr, pb, pb - 2 * e, j)) / -e
+        assert m_arr == pytest.approx(j, rel=1e-4)
+        assert m_ab == pytest.approx(j, rel=1e-4)
 
     def test_fetkovich_missing_c_raises(self):
         # The missing-parameter error now fires at Reservoir construction.
         with pytest.raises(ValueError, match="fetkovich_c"):
             make_reservoir(IPRMethod.FETKOVICH)
+
+
+# ---------------------------------------------------------------------------
+# Deliverability from a production test
+# ---------------------------------------------------------------------------
+
+class TestProductivityIndexFromTest:
+    """The derivation must be the exact inverse of each IPR model: feeding the
+    test point back through the model has to return the rate that was measured.
+    That round-trip is the only property worth asserting — it is what makes the
+    IPR curve pass through the point the engineer measured in the well."""
+
+    def test_linear_is_darcy_definition(self):
+        out = productivity_index_from_test(
+            pr=1250.0, pwf_test=1000.0, q_test=2500.0, method=IPRMethod.LINEAR
+        )
+        assert out["productivity_index"] == pytest.approx(10.0)
+        assert out["drawdown_psi"] == pytest.approx(250.0)
+        assert out["aof"] == pytest.approx(12500.0)
+        assert out["qmax_vogel"] is None and out["fetkovich_c"] is None
+
+    def test_linear_roundtrip(self):
+        pr, pwf, q = 3000.0, 1800.0, 960.0
+        pi = productivity_index_from_test(
+            pr, pwf, q, IPRMethod.LINEAR
+        )["productivity_index"]
+        assert linear_ipr(pr, pwf, pi) == pytest.approx(q, rel=1e-12)
+
+    def test_vogel_saturado_equivale_a_vogel_puro(self):
+        """Sin Pb (o con Pb >= Pr) se degrada a Vogel puro, como antes."""
+        pr, pwf, q = 2000.0, 340.0, 1117.0
+        out = productivity_index_from_test(pr, pwf, q, IPRMethod.VOGEL)
+        qmax = vogel_qmax_from_test(pr, pwf, q)
+        assert out["aof"] == pytest.approx(qmax)
+        assert out["productivity_index"] * pr / 1.8 == pytest.approx(qmax)
+        assert vogel_ipr(pr, pwf, qmax) == pytest.approx(q, rel=1e-12)
+
+    def test_vogel_subsaturado_pasa_por_el_punto_de_ensayo(self):
+        """El ajuste tiene que reproducir el ensayo, sea cual sea el tramo."""
+        pr, pb = 4500.0, 2900.0
+        for pwf, etiqueta in ((2200.0, "ensayo BAJO la burbuja"),
+                              (3600.0, "ensayo SOBRE la burbuja")):
+            out = productivity_index_from_test(
+                pr, pwf, 1200.0, IPRMethod.VOGEL, bubble_point=pb
+            )
+            j = out["productivity_index"]
+            assert vogel_composite_ipr(pr, pb, pwf, j) == pytest.approx(
+                1200.0, rel=1e-9
+            ), etiqueta
+
+    def test_vogel_puro_sobreestima_el_indice_de_productividad(self):
+        """El bug que tenía la app, fijado como número.
+
+        Pr = 4500, Pb = 2900, ensayo de 1200 STB/d a 2200 psi. Ignorar la
+        burbuja daba J = 0.6751 en vez de 0.5393: un 25 % de más.
+        """
+        pr, pb, pwf, q = 4500.0, 2900.0, 2200.0, 1200.0
+        j_ok = productivity_index_from_test(
+            pr, pwf, q, IPRMethod.VOGEL, bubble_point=pb
+        )["productivity_index"]
+        j_malo = 1.8 * vogel_qmax_from_test(pr, pwf, q) / pr
+        assert j_ok == pytest.approx(0.5393, abs=0.0005)
+        assert j_malo == pytest.approx(0.6751, abs=0.0005)
+        assert j_malo / j_ok == pytest.approx(1.25, abs=0.01)
+
+    def test_fetkovich_derives_c_for_the_given_n(self):
+        pr, pwf, q, n = 2000.0, 1200.0, 350.0, 0.85
+        out = productivity_index_from_test(
+            pr, pwf, q, IPRMethod.FETKOVICH, fetkovich_n=n
+        )
+        assert out["fetkovich_n"] == pytest.approx(n)
+        assert fetkovich_ipr(pr, pwf, out["fetkovich_c"], n) == pytest.approx(
+            q, rel=1e-12
+        )
+        assert out["aof"] == pytest.approx(fetkovich_ipr(pr, 0.0, out["fetkovich_c"], n))
+
+    def test_fetkovich_defaults_to_laminar_n(self):
+        out = productivity_index_from_test(
+            2000.0, 1200.0, 350.0, IPRMethod.FETKOVICH
+        )
+        assert out["fetkovich_n"] == pytest.approx(1.0)
+
+    @pytest.mark.parametrize("method", list(IPRMethod))
+    def test_zero_drawdown_rejected(self, method):
+        with pytest.raises(ValueError, match="draw-down"):
+            productivity_index_from_test(
+                2000.0, 2000.0, 500.0, method, fetkovich_n=0.8
+            )
+
+    @pytest.mark.parametrize("method", list(IPRMethod))
+    def test_non_positive_rate_rejected(self, method):
+        with pytest.raises(ValueError, match="q_test"):
+            productivity_index_from_test(
+                2000.0, 1200.0, 0.0, method, fetkovich_n=0.8
+            )
+
+
+class TestReservoirDerivesFromTest:
+    """Reservoir must accept the test point and fill PI in itself, so every
+    downstream calculation keeps reading ``reservoir.productivity_index``."""
+
+    def _res(self, **over) -> Reservoir:
+        kwargs = dict(
+            static_pressure=1250.0,
+            bubble_point=0.0,
+            ipr_method=IPRMethod.LINEAR,
+            reservoir_temp=160.0,
+            drive_mechanism=DriveMechanism.WATER_DRIVE,
+            test_pwf=1000.0,
+            test_rate=2500.0,
+        )
+        kwargs.update(over)
+        return Reservoir(**kwargs)
+
+    def test_pi_is_derived(self):
+        assert self._res().productivity_index == pytest.approx(10.0)
+
+    def test_explicit_pi_wins_over_the_test(self):
+        """A published PI (the book examples) must not be overwritten."""
+        assert self._res(productivity_index=4.2).productivity_index == pytest.approx(4.2)
+
+    def test_fetkovich_c_derived_from_test_and_n(self):
+        res = self._res(ipr_method=IPRMethod.FETKOVICH, fetkovich_n=0.854)
+        assert res.fetkovich_c is not None
+        assert fetkovich_ipr(1250.0, 1000.0, res.fetkovich_c, 0.854) == pytest.approx(
+            2500.0, rel=1e-9
+        )
+
+    def test_fetkovich_without_n_still_raises(self):
+        with pytest.raises(ValueError, match="fetkovich_n"):
+            self._res(ipr_method=IPRMethod.FETKOVICH)
+
+    def test_half_a_test_is_rejected(self):
+        with pytest.raises(ValueError, match="both test_pwf and test_rate"):
+            self._res(test_rate=None)
+
+    def test_no_test_and_no_pi_is_rejected(self):
+        with pytest.raises(ValueError, match="productivity_index"):
+            self._res(test_pwf=None, test_rate=None)
+
+
+# ---------------------------------------------------------------------------
+# Vogel generalizado — regresión contra los ejemplos del Beggs
+# ---------------------------------------------------------------------------
+
+class TestVogelGeneralizadoBeggs:
+    """Beggs, *Production Optimization Using Nodal Analysis*, §2.
+
+    Los ejemplos del libro llevan flow efficiency (FE); el proyecto no modela
+    daño de formación, así que se trabaja con FE = 1. El Ejemplo 2-2 ya es
+    FE = 1 y sirve de regresión exacta.
+    """
+
+    def test_ejemplo_2_2_reservorio_saturado(self):
+        """Pr = 2085 < Pb = 2100: saturado, Vogel puro en todo el rango."""
+        pr, pb = 2085.0, 2100.0
+        j = vogel_j_from_test(pr, pb, 1765.0, 282.0)
+        assert vogel_aof(pr, pb, j) == pytest.approx(1097.0, abs=2.0)
+        assert vogel_composite_ipr(pr, pb, 1485.0, j) == pytest.approx(496.0, abs=2.0)
+
+    def test_ejemplo_2_2_pwf_para_un_caudal(self):
+        pr, pb = 2085.0, 2100.0
+        j = vogel_j_from_test(pr, pb, 1765.0, 282.0)
+        pwf = brentq(lambda p: vogel_composite_ipr(pr, pb, p, j) - 400.0, 0.0, pr)
+        assert pwf == pytest.approx(1618.0, abs=5.0)
+
+    def test_ejemplo_2_5b_subsaturado_con_ensayo_bajo_la_burbuja(self):
+        """Pr = 4000 > Pb = 2000, ensayo a 1200 psi. Caso 2 del libro.
+
+        Con FE = 1 la cuenta a mano da J = 378/2657.8 = 0.14222; el libro
+        publica 0.14 resolviendo con FE = 0.7, que redondea al mismo valor.
+        """
+        pr, pb = 4000.0, 2000.0
+        j = vogel_j_from_test(pr, pb, 1200.0, 378.0)
+        assert j == pytest.approx(0.14222, abs=0.0002)
+        assert vogel_composite_ipr(pr, pb, 1200.0, j) == pytest.approx(378.0, rel=1e-9)
+
+    def test_el_saturado_colapsa_exactamente_a_vogel_puro(self):
+        """Con Pb >= Pr el compuesto y Vogel puro tienen que dar lo mismo."""
+        pr, pb, j = 3000.0, 3500.0, 0.5
+        for pwf in (3000.0, 2000.0, 1000.0, 0.0):
+            assert vogel_composite_ipr(pr, pb, pwf, j) == pytest.approx(
+                vogel_ipr(pr, pwf, j * pr / 1.8), rel=1e-12
+            )
+
+    def test_la_burbuja_acotada_a_la_estatica(self):
+        assert effective_bubble_point(2000.0, 3000.0) == 2000.0
+        assert effective_bubble_point(2000.0, 1500.0) == 1500.0
+        assert effective_bubble_point(2000.0, 0.0) == 2000.0
+
+    def test_el_aof_crece_con_la_burbuja_mas_baja(self):
+        """Menos gas libre = más aporte: un reservorio menos saturado da más."""
+        pr, j = 4000.0, 0.5
+        aofs = [vogel_aof(pr, pb, j) for pb in (4000.0, 3000.0, 2000.0, 1000.0)]
+        assert aofs == sorted(aofs), "el AOF tiene que subir al bajar Pb"
+
+
+# ---------------------------------------------------------------------------
+# Lineal y Fetkovich — validez y regresión
+# ---------------------------------------------------------------------------
+
+class TestValidezDelMetodoLineal:
+    """La recta de Darcy es correcta como fórmula, pero tiene rango.
+
+    No se «corrige» — el usuario que elige Lineal está pidiendo la recta. Lo
+    que corresponde es avisarle cuando la está usando donde no vale.
+    """
+
+    def _res(self, metodo, pb=2900.0):
+        return Reservoir(
+            static_pressure=4500.0, bubble_point=pb, ipr_method=metodo,
+            reservoir_temp=220.0, drive_mechanism=DriveMechanism.SOLUTION_GAS,
+            test_pwf=3600.0, test_rate=540.0,
+            fetkovich_n=0.85 if metodo is IPRMethod.FETKOVICH else None,
+        )
+
+    def test_avisa_bajo_la_burbuja(self):
+        aviso = ipr_validity_warning(self._res(IPRMethod.LINEAR), 2000.0)
+        assert aviso is not None
+        assert "bifásico" in aviso and "Vogel" in aviso
+
+    def test_no_avisa_sobre_la_burbuja(self):
+        assert ipr_validity_warning(self._res(IPRMethod.LINEAR), 3500.0) is None
+
+    def test_no_avisa_para_vogel(self):
+        """Vogel ya contempla el tramo bifásico: no hay nada que advertir."""
+        assert ipr_validity_warning(self._res(IPRMethod.VOGEL), 2000.0) is None
+
+    def test_no_avisa_para_fetkovich(self):
+        assert ipr_validity_warning(self._res(IPRMethod.FETKOVICH), 2000.0) is None
+
+    def test_el_aviso_cuantifica_la_sobreestimacion(self):
+        """El número tiene que salir del cálculo, no de una frase hecha."""
+        res = self._res(IPRMethod.LINEAR)
+        aviso = ipr_validity_warning(res, 500.0)
+        j = res.productivity_index
+        recta = j * (4500.0 - 500.0)
+        vogel = vogel_composite_ipr(4500.0, 2900.0, 500.0, j)
+        assert f"{recta:.0f} STB/d" in aviso
+        assert f"{vogel:.0f} STB/d" in aviso
+        assert recta > vogel, "la recta siempre sobreestima bajo la burbuja"
+
+    def test_sin_presion_de_burbuja_no_hay_nada_que_avisar(self):
+        assert ipr_validity_warning(self._res(IPRMethod.LINEAR, pb=0.0), 100.0) is None
+
+
+class TestFetkovichBeggs:
+    """Fetkovich NO lleva corte por presión de burbuja, y está bien así.
+
+    Beggs (§2, ec. 2-58) muestra que al integrar la ecuación de Darcy sobre las
+    dos regiones de un reservorio subsaturado, «Fetkovich then stated that the
+    composite effect results in an equation of the form q = C(Pr² − Pwf²)^n».
+    O sea: el ajuste de C y n ya absorbe el comportamiento bifásico. Un tramo
+    recto agregado a mano sería un error.
+    """
+
+    def test_ejemplo_2_7a_reproduce_la_curva_del_libro(self):
+        c, n, pr = 0.00079, 0.854, 3600.0
+        esperado = {3000: 340, 2000: 684, 1500: 796, 1000: 875, 500: 922, 0: 937}
+        for pwf, q_libro in esperado.items():
+            assert fetkovich_ipr(pr, float(pwf), c, n) == pytest.approx(
+                q_libro, abs=1.5
+            ), f"Pwf = {pwf} psi"
+
+    def test_ejemplo_2_7a_aof(self):
+        assert fetkovich_ipr(3600.0, 0.0, 0.00079, 0.854) == pytest.approx(937.0, abs=1.0)
+
+    def test_no_depende_de_la_presion_de_burbuja(self):
+        """La misma C y n dan la misma curva sea cual sea Pb."""
+        c, n, pr = 0.00079, 0.854, 3600.0
+        for pb in (0.0, 1000.0, 2000.0, 3600.0):
+            res = Reservoir(
+                static_pressure=pr, bubble_point=pb, ipr_method=IPRMethod.FETKOVICH,
+                reservoir_temp=200.0, drive_mechanism=DriveMechanism.SOLUTION_GAS,
+                productivity_index=0.5, fetkovich_c=c, fetkovich_n=n,
+            )
+            q, _ = generate_ipr_curve(res, n_points=20)
+            assert q[-1] == pytest.approx(fetkovich_ipr(pr, 0.0, c, n), rel=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# La traza de fórmulas del paso IPR
+# ---------------------------------------------------------------------------
+
+class TestTrazaIPR:
+    """La IPR es el primer cálculo del diseño: tiene que verse en pantalla.
+
+    La traza arrancaba en el TDH, así que el paso que fija el punto de partida
+    —la Pwf en las perforaciones— quedaba invisible para el que quiere chequear.
+    """
+
+    def _res(self, metodo, **kw):
+        return Reservoir(
+            static_pressure=4500.0, bubble_point=2900.0, ipr_method=metodo,
+            reservoir_temp=220.0, drive_mechanism=DriveMechanism.SOLUTION_GAS,
+            test_pwf=2200.0, test_rate=1200.0, **kw,
+        )
+
+    def test_vogel_bajo_la_burbuja_emite_los_tres_pasos(self):
+        res = self._res(IPRMethod.VOGEL)
+        pwf = calculate_pwf_for_target_rate(res, 1200.0)
+        claves = [f["key"] for f in ipr_trace(res, 1200.0, pwf)]
+        assert claves == ["ipr_qb", "ipr_pwf", "ipr_drawdown"]
+
+    def test_vogel_sobre_la_burbuja_usa_el_tramo_recto(self):
+        res = self._res(IPRMethod.VOGEL)
+        pwf = calculate_pwf_for_target_rate(res, 400.0)      # queda sobre Pb
+        t = ipr_trace(res, 400.0, pwf)
+        f = next(x for x in t if x["key"] == "ipr_pwf")
+        assert "tramo recto" in f["label"]
+        assert f["expression"] == "q = J · (Pr − Pwf)"
+
+    def test_lineal_muestra_el_despeje_directo(self):
+        res = self._res(IPRMethod.LINEAR)
+        pwf = calculate_pwf_for_target_rate(res, 1200.0)
+        f = next(x for x in ipr_trace(res, 1200.0, pwf) if x["key"] == "ipr_pwf")
+        assert f["expression"] == "Pwf = Pr − q / J"
+
+    def test_fetkovich_aclara_que_no_se_parte_en_la_burbuja(self):
+        res = self._res(IPRMethod.FETKOVICH, fetkovich_n=0.85)
+        pwf = calculate_pwf_for_target_rate(res, 1200.0)
+        f = next(x for x in ipr_trace(res, 1200.0, pwf) if x["key"] == "ipr_pwf")
+        assert "C · (Pr² − Pwf²)^n" in f["expression"]
+        assert "burbuja" in f["note"]
+
+    def test_la_sustitucion_lleva_los_valores_del_pozo(self):
+        """La sustitución se genera de las mismas variables que entran al cálculo."""
+        res = self._res(IPRMethod.VOGEL)
+        pwf = calculate_pwf_for_target_rate(res, 1200.0)
+        f = next(x for x in ipr_trace(res, 1200.0, pwf) if x["key"] == "ipr_qb")
+        assert "4500" in f["substitution"] and "2900" in f["substitution"]
+        assert f["result"] == pytest.approx(res.productivity_index * 1600.0)
+
+    def test_el_drawdown_cierra(self):
+        res = self._res(IPRMethod.VOGEL)
+        pwf = calculate_pwf_for_target_rate(res, 1200.0)
+        f = next(x for x in ipr_trace(res, 1200.0, pwf) if x["key"] == "ipr_drawdown")
+        assert f["result"] == pytest.approx(4500.0 - pwf)
+
+    def test_la_traza_del_diseno_arranca_en_la_ipr(self):
+        """En el TDH, que es de donde la toma el diseño completo."""
+        from bes.core.tdh import calculate_tdh
+        res = self._res(IPRMethod.VOGEL)
+        fluid = Fluid(
+            oil_api=30.0, water_cut=0.4, gor=600.0, gas_sg=0.7, water_sg=1.02,
+            oil_viscosity_dead=5.0, viscosity_temp_ref=100.0,
+            bubble_point_pressure=2900.0, h2s_content=0.0, co2_content=0.0,
+            sand_production=False,
+        )
+        well = WellGeometry(
+            total_depth=12000.0, casing_od=7.0, casing_weight=26.0, casing_id=6.276,
+            tubing_od=2.875, tubing_id=2.441, perforations_top=11000.0,
+            perforations_bottom=11500.0, deviation_max=0.0, wellhead_temp=100.0,
+        )
+        surface = SurfaceConditions(
+            wellhead_pressure_required=300.0, flowline_length=500.0, flowline_id=3.0,
+            flowline_elevation_change=0.0, separator_pressure=100.0,
+            power_supply_voltage=480.0, frequency=60.0,
+        )
+        obj = DesignObjectives(
+            target_flow_rate=1200.0, safety_margin_depth=200.0, allow_gas_venting=True,
+            max_gip=0.10, design_life_years=5.0, use_vsd=False,
+        )
+        info = calculate_tdh(res, fluid, well, surface, obj, 10500.0, 1500.0)
+        claves = [f["key"] for f in info["formulas"]]
+        assert claves[0].startswith("ipr_")
+        assert "ipr_pwf" in claves
+        assert claves.index("ipr_pwf") < claves.index("sg_liquid")

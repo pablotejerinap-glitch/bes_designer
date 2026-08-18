@@ -1,0 +1,79 @@
+{
+  "_source": "Kermit Brown, «The Technology of Artificial Lift Methods», Vol. 2b, Fig. 4L. Digitalización de las láminas que aporta Pablo Tejerina (agosto 2026), leídas punto por punto y verificadas por él contra el impreso. NO son valores de correlación: son lecturas del gráfico.",
+  "_metodo": "Lectura visual de la lámina sobre la grilla de °API cada 5 unidades y las cinco isotermas rotuladas. Los valores intermedios NO se leyeron: se obtienen interpolando (ver _interpolacion).",
+  "_interpolacion": "Bilineal sobre log10(μ). Los ejes de viscosidad de las dos láminas son logarítmicos, así que interpolar el logaritmo es leer la misma recta que se leería con la regla sobre el papel. Los otros ejes van lineales, como están impresos: °API y temperatura en la 4L(2), gas en solución en la 4L(1). La familia de curvas de la 4L(1) se indexa por el logaritmo de la etiqueta, que también es un eje de viscosidad.",
+  "_extrapolacion": "Prohibida. Fuera de la grilla se acota al borde más cercano y se avisa — misma convención que las Tablas 4.520/4.521.",
+
+  "fig_4L_1": {
+    "_label": "Fig. 4L(1) — Viscosity of gas saturated crude oil at reservoir temperature & pressure",
+    "_eje_x": "Gas in solution at reservoir pressure [cu. ft. per bbl]",
+    "_eje_y": "Absolute viscosity of gas saturated (bubble point) crude oil [cp], escala logarítmica",
+    "_curvas": "Cada curva está rotulada con la viscosidad del crudo SIN gas a temperatura de reservorio [cp]. Por eso el valor de cada curva en rs = 0 es su propia etiqueta: sin gas disuelto, el crudo saturado es el crudo muerto.",
+    "_ancla": "Crudo muerto de 150 cp con 50 scf/bbl = 68 cp, el paso 3 del ejercicio de cátedra. La tabla interpolada entre las curvas de 100 y 300 da 67.9 cp.",
+    "_terminacion": "Cada curva termina donde termina en la lámina: las pesadas se cortan temprano (la de 500 cp a ~350 scf/bbl) y sólo las tres livianas llegan a 1400. Por eso cada curva lleva su propia grilla de rs en vez de una común con huecos. Pasado el final se acota y se avisa — no se extrapola.",
+    "_incertidumbre": "El tramo de 0 a 100 scf/bbl es el más empinado de la lámina y es donde la lectura es menos firme: ahí la curva cae a la mitad en 50 scf/bbl. De 400 scf/bbl en adelante las curvas se aplanan y la lectura es más segura. Las tres curvas de abajo (0.7, 1.0 y 1.5 cp) son las únicas trazadas con línea llena en el impreso; el resto es punteado.",
+    "_unidades": {
+      "mu_dead_cp": "centipoise, crudo sin gas a temperatura de reservorio",
+      "rs_scf_bbl": "pies cúbicos estándar por barril",
+      "mu_cp": "centipoise, crudo saturado en el punto de burbuja"
+    },
+    "curvas": [
+      {"mu_dead_cp": 0.7, "rs_scf_bbl": [0, 50, 100, 200, 300, 400, 600, 800, 1000, 1200, 1400], "mu_cp": [0.70, 0.64, 0.60, 0.53, 0.47, 0.43, 0.35, 0.29, 0.24, 0.19, 0.14]},
+      {"mu_dead_cp": 1.0, "rs_scf_bbl": [0, 50, 100, 200, 300, 400, 600, 800, 1000, 1200, 1400], "mu_cp": [1.00, 0.89, 0.82, 0.71, 0.62, 0.56, 0.45, 0.37, 0.30, 0.24, 0.18]},
+      {"mu_dead_cp": 1.5, "rs_scf_bbl": [0, 50, 100, 200, 300, 400, 600, 800, 1000, 1200, 1400], "mu_cp": [1.50, 1.30, 1.17, 0.98, 0.85, 0.75, 0.59, 0.47, 0.38, 0.30, 0.24]},
+      {"mu_dead_cp": 2.0, "rs_scf_bbl": [0, 50, 100, 200, 300, 400, 600, 800, 1000, 1200, 1300], "mu_cp": [2.00, 1.70, 1.50, 1.24, 1.06, 0.92, 0.71, 0.56, 0.45, 0.36, 0.33]},
+      {"mu_dead_cp": 3.0, "rs_scf_bbl": [0, 50, 100, 200, 300, 400, 600, 800, 1000, 1200, 1250], "mu_cp": [3.00, 2.45, 2.12, 1.70, 1.42, 1.22, 0.92, 0.72, 0.57, 0.45, 0.43]},
+      {"mu_dead_cp": 4.0, "rs_scf_bbl": [0, 50, 100, 200, 300, 400, 600, 800, 1000, 1200], "mu_cp": [4.00, 3.20, 2.72, 2.15, 1.77, 1.50, 1.12, 0.86, 0.68, 0.53]},
+      {"mu_dead_cp": 5.0, "rs_scf_bbl": [0, 50, 100, 200, 300, 400, 600, 800, 1000, 1100], "mu_cp": [5.00, 3.90, 3.28, 2.55, 2.08, 1.75, 1.29, 0.98, 0.77, 0.69]},
+      {"mu_dead_cp": 7.0, "rs_scf_bbl": [0, 50, 100, 200, 300, 400, 600, 800, 1000, 1050], "mu_cp": [7.00, 5.25, 4.35, 3.30, 2.65, 2.20, 1.58, 1.18, 0.91, 0.86]},
+      {"mu_dead_cp": 10.0, "rs_scf_bbl": [0, 50, 100, 200, 300, 400, 600, 800, 1000], "mu_cp": [10.0, 7.20, 5.85, 4.30, 3.40, 2.80, 1.96, 1.44, 1.10]},
+      {"mu_dead_cp": 15.0, "rs_scf_bbl": [0, 50, 100, 200, 300, 400, 600, 800, 900], "mu_cp": [15.0, 10.4, 8.20, 5.85, 4.55, 3.68, 2.52, 1.83, 1.62]},
+      {"mu_dead_cp": 20.0, "rs_scf_bbl": [0, 50, 100, 200, 300, 400, 600, 800, 850], "mu_cp": [20.0, 13.4, 10.3, 7.20, 5.50, 4.40, 2.96, 2.13, 1.98]},
+      {"mu_dead_cp": 30.0, "rs_scf_bbl": [0, 50, 100, 200, 300, 400, 600, 800], "mu_cp": [30.0, 19.2, 14.3, 9.70, 7.25, 5.72, 3.75, 2.62]},
+      {"mu_dead_cp": 40.0, "rs_scf_bbl": [0, 50, 100, 200, 300, 400, 600, 750], "mu_cp": [40.0, 24.8, 18.1, 12.0, 8.85, 6.90, 4.45, 3.35]},
+      {"mu_dead_cp": 50.0, "rs_scf_bbl": [0, 50, 100, 200, 300, 400, 600, 700], "mu_cp": [50.0, 30.0, 21.6, 14.1, 10.3, 7.95, 5.05, 4.15]},
+      {"mu_dead_cp": 100.0, "rs_scf_bbl": [0, 50, 100, 200, 300, 400, 600], "mu_cp": [100.0, 48.5, 36.5, 23.0, 16.3, 12.3, 7.50]},
+      {"mu_dead_cp": 300.0, "rs_scf_bbl": [0, 50, 100, 200, 300, 400, 450], "mu_cp": [300.0, 121.0, 87.0, 51.0, 34.5, 25.5, 22.5]},
+      {"mu_dead_cp": 500.0, "rs_scf_bbl": [0, 50, 100, 200, 300, 350], "mu_cp": [500.0, 185.0, 130.0, 73.0, 48.0, 41.0]}
+    ]
+  },
+
+  "fig_4L_2": {
+    "_label": "Fig. 4L(2) — Viscosity of gas-free crude oil at oil-field temperatures",
+    "_eje_x": "Crude oil gravity, °API a 60 °F",
+    "_eje_y": "Absolute viscosity of gas-free crude oil [cp], escala logarítmica",
+    "_curvas": "Isotermas rotuladas 100, 130, 160, 190 y 220 °F.",
+    "_no_digitalizado": "La curva rotulada «reservoir temperature» de la misma lámina NO se digitalizó: no es una isoterma y su uso no se desprende de la lámina sola.",
+    "_ancla": "16 °API a 130 °F = 150 cp, valor que la cátedra lee de esta misma figura. La tabla interpolada da 151.8 cp en ese punto.",
+    "_contraste": "A 100 °F la figura da ~100 cp para 20 °API y menos de 3 cp para 40 °API, que es lo que ya estaba anotado en docs/CRUDOS_VISCOSOS.md.",
+    "_incertidumbre": "Entre 10 y 15 °API las curvas son casi verticales y están apretadas: ahí la lectura es la menos firme de la tabla. De 40 °API para arriba los valores son chicos y las isotermas se separan poco. En todo caso, de 28 °API para arriba el crudo es liviano y no se corrige nada (VISCOUS_CRUDE_API_THRESHOLD), así que la mitad derecha de la tabla casi no interviene en un diseño.",
+    "_unidades": {
+      "api": "°API a 60 °F",
+      "temp_f": "°F",
+      "mu_cp": "centipoise"
+    },
+    "api": [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60],
+    "isotermas": [
+      {
+        "temp_f": 100,
+        "mu_cp": [3000, 420, 100, 41, 17, 6.8, 2.8, 1.8, 1.2, 0.85, 0.62]
+      },
+      {
+        "temp_f": 130,
+        "mu_cp": [1800, 190, 62, 27, 12, 5.2, 2.4, 1.5, 1.05, 0.78, 0.58]
+      },
+      {
+        "temp_f": 160,
+        "mu_cp": [950, 130, 44, 20, 9.0, 4.2, 2.1, 1.35, 0.95, 0.72, 0.55]
+      },
+      {
+        "temp_f": 190,
+        "mu_cp": [550, 95, 33, 15, 7.0, 3.4, 1.8, 1.15, 0.83, 0.63, 0.48]
+      },
+      {
+        "temp_f": 220,
+        "mu_cp": [350, 70, 25, 12, 5.6, 2.8, 1.5, 1.0, 0.73, 0.56, 0.43]
+      }
+    ]
+  }
+}

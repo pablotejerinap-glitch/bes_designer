@@ -3,10 +3,16 @@
 // la base es relativa. Se puede sobreescribir con VITE_API_BASE en producción.
 
 import type {
+  AffinityResponse,
   CatalogSummary,
   DesignRequest,
   DesignResponse,
-  ExampleWell,
+  GasCompleteDesignRequest,
+  GasCompleteDesignResponse,
+  GasIncrementRequest,
+  GasIncrementResponse,
+  IPRFromTestResponse,
+  IPRMethod,
   NodalRequest,
   NodalResponse,
   PlotlyFigure,
@@ -32,8 +38,9 @@ export class ApiError extends Error {
 const FIELD_LABELS: Record<string, string> = {
   // Reservorio
   static_pressure: "Presión estática", bubble_point: "Presión de burbuja",
+  test_pwf: "Pwf del ensayo", test_rate: "Caudal del ensayo",
   productivity_index: "Índice de productividad", reservoir_temp: "Temperatura de reservorio",
-  datum_depth: "Profundidad de referencia", ipr_method: "Método IPR",
+  ipr_method: "Método IPR",
   drive_mechanism: "Mecanismo de empuje", fetkovich_c: "Coeficiente C de Fetkovich",
   fetkovich_n: "Exponente n de Fetkovich",
   // Fluido
@@ -46,15 +53,15 @@ const FIELD_LABELS: Record<string, string> = {
   casing_id: "ID casing", tubing_od: "OD tubing", tubing_id: "ID tubing",
   perforations_top: "Tope perforaciones", perforations_bottom: "Base perforaciones",
   deviation_max: "Desviación máxima", wellhead_temp: "Temp. boca de pozo",
-  bottom_hole_temp: "Temp. de fondo",
   // Superficie
-  wellhead_pressure_required: "Presión requerida en cabeza", flowline_length: "Longitud flowline",
+  wellhead_pressure_required: "Presión en cabeza (Pth)", flowline_length: "Longitud flowline",
   flowline_id: "ID flowline", flowline_elevation_change: "Cambio de elevación",
   separator_pressure: "Presión separador", power_supply_voltage: "Voltaje de superficie",
   frequency: "Frecuencia de red",
   // Objetivos
   target_flow_rate: "Caudal objetivo", safety_margin_depth: "Margen de profundidad",
   max_gip: "Máx. gas en bomba", design_life_years: "Vida de diseño",
+  design_frequency_hz: "Frecuencia de diseño (VSD)",
   allow_gas_venting: "Permite venteo de gas", use_vsd: "Usar variador (VSD)",
 };
 
@@ -156,20 +163,71 @@ export const api = {
   catalogs: () => request<CatalogSummary>("/api/catalogs"),
   // Tablas dimensionales Tenaris (API 5CT): OD + peso -> ID y drift.
   tubulars: () => request<TubularCatalog>("/api/catalogs/tubulars"),
-  examples: () => request<ExampleWell[]>("/api/examples"),
   design: (req: DesignRequest) => request<DesignResponse>("/api/design", req),
   nodal: (req: NodalRequest) => request<NodalResponse>("/api/nodal", req),
-  pumpCurve: (p: { pump_model: string; operating_flow: number; stages: number }) =>
-    request<{ figure: PlotlyFigure }>(
-      `/api/plots/pump-curve?${new URLSearchParams({
-        pump_model: p.pump_model,
-        operating_flow: String(p.operating_flow),
-        stages: String(p.stages),
-      })}`
-    ),
+  pumpCurve: (p: {
+    pump_model: string;
+    operating_flow: number;
+    stages: number;
+    /** Frecuencia de operación [Hz]: reescala la curva de catálogo. */
+    frequency?: number;
+  }) => {
+    const q = new URLSearchParams({
+      pump_model: p.pump_model,
+      operating_flow: String(p.operating_flow),
+      stages: String(p.stages),
+    });
+    if (p.frequency) q.set("frequency", String(p.frequency));
+    return request<{ figure: PlotlyFigure }>(`/api/plots/pump-curve?${q}`);
+  },
   // Curva IPR sin diseño previo: sólo necesita el reservorio.
   iprCurve: (reservoir: ReservoirInput) =>
     request<{ figure: PlotlyFigure }>("/api/plots/ipr-curve", reservoir),
+  // Índice de productividad derivado del ensayo. El despeje vive en el
+  // backend (bes.core.ipr); acá sólo se muestra el resultado.
+  iprFromTest: (req: {
+    static_pressure: number;
+    test_pwf: number;
+    test_rate: number;
+    ipr_method: IPRMethod;
+    // Vogel la necesita: separa el tramo recto de la IPR (arriba de Pb) del
+    // curvo (abajo). Sin ella se degrada a Vogel puro y sobreestima J.
+    bubble_point: number;
+    fetkovich_n?: number | null;
+  }) => request<IPRFromTestResponse>("/api/ipr/from-test", req),
+  // Leyes de afinidad: la misma bomba a distintas frecuencias.
+  affinity: (p: {
+    pump_model: string;
+    frequencies: string;
+    diameter_ratio?: number;
+    sg_ratio?: number;
+    target_flow?: number;
+  }) => {
+    const q = new URLSearchParams({
+      pump_model: p.pump_model,
+      frequencies: p.frequencies,
+      diameter_ratio: String(p.diameter_ratio ?? 1),
+      sg_ratio: String(p.sg_ratio ?? 1),
+    });
+    if (p.target_flow) q.set("target_flow", String(p.target_flow));
+    return request<AffinityResponse>(`/api/affinity?${q}`);
+  },
+  affinityFigure: (p: {
+    pump_model: string;
+    frequencies: string;
+    diameter_ratio?: number;
+    sg_ratio?: number;
+    target_flow?: number;
+  }) => {
+    const q = new URLSearchParams({
+      pump_model: p.pump_model,
+      frequencies: p.frequencies,
+      diameter_ratio: String(p.diameter_ratio ?? 1),
+      sg_ratio: String(p.sg_ratio ?? 1),
+    });
+    if (p.target_flow) q.set("target_flow", String(p.target_flow));
+    return request<{ figure: PlotlyFigure }>(`/api/affinity/figure?${q}`);
+  },
   // Curva de catálogo cruda de una bomba (biblioteca ESP).
   pumpCatalogCurve: (pump_model: string) =>
     request<{ figure: PlotlyFigure }>(
@@ -177,6 +235,14 @@ export const api = {
     ),
   sensitivity: (req: SensitivityRequest) =>
     request<SensitivityResponse>("/api/sensitivity", req),
+  // Método de incrementos de presión para pozos con gas (Brown §4.53103):
+  // resuelve la bomba tramo por tramo desde la admisión hasta la descarga.
+  gasIncrementDesign: (req: GasIncrementRequest) =>
+    request<GasIncrementResponse>("/api/gas/increment-design", req),
+  // Diseño COMPLETO por incrementos: termina en aparejo (bomba, motor, sello,
+  // cable, transformador), no sólo en etapas y potencia.
+  gasCompleteDesign: (req: GasCompleteDesignRequest) =>
+    request<GasCompleteDesignResponse>("/api/gas/design", req),
   report: (fmt: "pdf" | "xlsx", req: DesignRequest & { rank?: number }) =>
     requestBlob(`/api/reports/${fmt}`, req),
 };

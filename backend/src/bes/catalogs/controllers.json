@@ -1,15 +1,36 @@
 {
- "_source": "Controladores de superficie ESP (tableros fijos y variadores de frecuencia/VSD). Modelos representativos de las lineas comerciales de Schlumberger Reda (MSB switchboard, SpeedStar VSD), Baker Hughes Centrilift (SWB, GCS Electrospeed) y ChampionX (UniSwitch, Electrospeed). Los ratings (max_voltage [V], max_amps [A], max_kva [kVA]) son valores representativos por escalon; confirmar con la hoja de datos del fabricante por modelo.",
- "controllers": [
-  {"manufacturer": "Reda",       "model": "MSB-1000",             "type": "switchboard", "max_voltage": 1000, "max_amps": 100, "max_kva": 130,  "_source": "representativo linea Reda Motor Switchboard"},
-  {"manufacturer": "Reda",       "model": "MSB-1500",             "type": "switchboard", "max_voltage": 1500, "max_amps": 150, "max_kva": 260,  "_source": "representativo linea Reda Motor Switchboard"},
-  {"manufacturer": "Centrilift", "model": "SWB-2400",             "type": "switchboard", "max_voltage": 2400, "max_amps": 150, "max_kva": 460,  "_source": "representativo linea Centrilift switchboard"},
-  {"manufacturer": "ChampionX",  "model": "UniSwitch-2400",       "type": "switchboard", "max_voltage": 2400, "max_amps": 200, "max_kva": 800,  "_source": "representativo linea ChampionX switchboard"},
-  {"manufacturer": "Reda",       "model": "SpeedStar-1500",       "type": "vsd",         "max_voltage": 1500, "max_amps": 150, "max_kva": 260,  "_source": "representativo linea Reda SpeedStar VSD"},
-  {"manufacturer": "Centrilift", "model": "GCS-Electrospeed-460", "type": "vsd",         "max_voltage": 2400, "max_amps": 150, "max_kva": 460,  "_source": "representativo linea Centrilift GCS Electrospeed"},
-  {"manufacturer": "Reda",       "model": "SpeedStar-2400",       "type": "vsd",         "max_voltage": 2400, "max_amps": 200, "max_kva": 800,  "_source": "representativo linea Reda SpeedStar VSD"},
-  {"manufacturer": "ChampionX",  "model": "Electrospeed-3-800",   "type": "vsd",         "max_voltage": 2400, "max_amps": 200, "max_kva": 800,  "_source": "representativo linea ChampionX Electrospeed 3"},
-  {"manufacturer": "ChampionX",  "model": "Electrospeed-3-1300",  "type": "vsd",         "max_voltage": 4160, "max_amps": 250, "max_kva": 1300, "_source": "representativo linea ChampionX Electrospeed 3"},
-  {"manufacturer": "Reda",       "model": "SpeedStar-4000",       "type": "vsd",         "max_voltage": 4160, "max_amps": 250, "max_kva": 1300, "_source": "representativo linea Reda SpeedStar VSD"}
- ]
+  "_source": "Controladores de superficie ESP (tableros fijos y variadores de frecuencia/VSD). Modelos representativos de las lineas comerciales de Schlumberger Reda (MSB switchboard, SpeedStar VSD), Baker Hughes Centrilift (SWB, GCS Electrospeed) y ChampionX (UniSwitch, Electrospeed). Los ratings (max_voltage [V], max_amps [A], max_kva [kVA]) son valores representativos por escalon; confirmar con la hoja de datos del fabricante por modelo.",
+  "controllers": [
+    {
+      "manufacturer": "Wood Group ESP",
+      "model": "SWITCHBOARD BASIC 1500-3600 VOLT",
+      "type": "switchboard",
+      "min_voltage": 1500.0,
+      "max_voltage": 3600.0,
+      "max_amps": 450.0,
+      "max_kva": 2805.9,
+      "part_number": "145269",
+      "_source": "Swbd-Mtr Cntrl.pdf, sección SWITCHBOARDS. Tensión y part number impresos; el amperaje es el mayor fusible que el catálogo ofrece para esa clase de tensión. max_kva NO está impreso: se calcula con kVA = raiz(3)*V*A/1000, que es la definición."
+    },
+    {
+      "manufacturer": "Wood Group ESP",
+      "model": "SWITCHBOARD BASIC 3600-5000 VOLT",
+      "type": "switchboard",
+      "min_voltage": 3600.0,
+      "max_voltage": 5000.0,
+      "max_amps": 450.0,
+      "max_kva": 3897.1,
+      "part_number": "143069",
+      "_source": "Swbd-Mtr Cntrl.pdf, sección SWITCHBOARDS. Tensión y part number impresos; el amperaje es el mayor fusible que el catálogo ofrece para esa clase de tensión. max_kva NO está impreso: se calcula con kVA = raiz(3)*V*A/1000, que es la definición."
+    }
+  ],
+  "_purge": "PURGA 2026-08-05: se eliminaron los 10 tableros. Todos tenían nombre de modelo inventado ('representativo línea Reda SpeedStar', etc.). El catálogo quedó VACÍO a propósito: la app reporta que no hay controlador en vez de recomendar uno que no existe. Poblar desde Swbd-Mtr Cntrl.pdf (Wood Group) o SummitESP_Variable_Speed_Drives.pdf.",
+  "_woodgroup_2001": {
+    "fuente": "TESIS/CATALOGOS/WoodGroup/Swbd-Mtr Cntrl.pdf (Wood Group ESP, marzo 2001)",
+    "agregados": 2,
+    "descartados": [
+      "SWITCHBOARD STANDARD 600 VOLT"
+    ],
+    "nota": "El tablero de 600 V no publica tabla de fusibles, asi que queda sin amperaje y fuera de la seleccion automatica."
+  }
 }

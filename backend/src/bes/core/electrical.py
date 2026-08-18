@@ -124,6 +124,7 @@ def select_cable(
     casing_id: float,
     motor_od: float,
     catalog_manager: "CatalogManager",
+    motor_voltage: float = 0.0,
 ) -> dict:
     """Select the most economical ESP power cable.
 
@@ -155,9 +156,16 @@ def select_cable(
     cable_length = pump_depth + 100.0
     annular_clearance = (casing_id - motor_od) / 2.0
 
+    # A diferencia del motor y del protector, acá un dato ausente SÍ descalifica:
+    # sin ampacidad ni temperatura no hay forma de saber si el cable aguanta, y
+    # elegirlo sería afirmar algo que el catálogo no dice. Los cables de Wood
+    # Group entran al catálogo como referencia (calibre, dimensiones, peso) pero
+    # no participan de la selección hasta conseguir esos dos números.
     candidates = [
         c for c in catalog_manager._cables
-        if c["max_amps"] >= required_ampacity
+        if c.get("max_amps") is not None
+        and c.get("max_temp_f") is not None
+        and c["max_amps"] >= required_ampacity
         and c["max_temp_f"] >= min_temp_rating
         and _CABLE_FLAT_THICKNESS_IN.get(c["size"], 0.50) <= annular_clearance
     ]
@@ -171,9 +179,38 @@ def select_cable(
     cu = [c for c in candidates if c["conductor"] == "CU"]
     pool = cu if cu else candidates
 
-    # Smallest conductor (minimum max_amps that still meets derating) = most economical
+    # Del más chico al más grande: el más chico es el más barato, pero también
+    # el que más cae. Se recorre en ese orden y se toma el PRIMERO que además
+    # pasa las verificaciones eléctricas — el más económico de los que sirven,
+    # no el más económico a secas.
     pool.sort(key=lambda c: c["max_amps"])
-    best = pool[0]
+
+    best = None
+    best_check: dict = {}
+    fallback = None
+    fallback_check: dict = {}
+    for cand in pool:
+        v = _vdrop_per_amp_from_cable(cand, bottom_temp)
+        check = (
+            check_cable_electrical(motor_voltage, motor_amps, v, cable_length)
+            if motor_voltage > 0 else {"ok": True}
+        )
+        if fallback is None:
+            fallback, fallback_check = cand, check
+        if check["ok"]:
+            best, best_check = cand, check
+            break
+
+    if best is None:
+        # Ningún calibre del catálogo satisface el arranque o la banda de
+        # 30 V/1000 ft. Se devuelve el mayor disponible con la advertencia:
+        # descartar el diseño acá escondería que el problema es el catálogo, y
+        # el remedio real suele ser un motor de mayor tensión (menos corriente).
+        best = pool[-1]
+        best_check = check_cable_electrical(
+            motor_voltage, motor_amps,
+            _vdrop_per_amp_from_cable(best, bottom_temp), cable_length,
+        ) if motor_voltage > 0 else fallback_check
 
     vdrop_per_amp = _vdrop_per_amp_from_cable(best, bottom_temp)
 
@@ -185,6 +222,7 @@ def select_cable(
         "length_ft": cable_length,
         "voltage_drop_per_1000ft": vdrop_per_amp * motor_amps,
         "max_amps": best["max_amps"],
+        "electrical_check": best_check,
     }
 
 
@@ -212,6 +250,159 @@ def voltage_drop(
     conductor = "AL" if "AL" in cable_type.upper() else "CU"
     vdrop_per_amp = _interp_vdrop_per_amp(conductor, cable_size, temp_f)
     return vdrop_per_amp * amps * length_ft / 1000.0
+
+
+# ---------------------------------------------------------------------------
+# Verificación eléctrica del cable (Brown §4.5325; apunte de cátedra Unidad N°9)
+#
+# Los catálogos publican la caída de tensión como V por amper por 1000 ft, que
+# es la caída **de línea** — ya lleva el √3 del sistema trifásico. De ahí sale
+# la resistencia por fase, que es lo que piden las dos fórmulas de abajo.
+# ---------------------------------------------------------------------------
+
+# Corriente de arranque directo de un motor de inducción ESP, en veces la
+# nominal. El rango de la bibliografía es 4-6×; se usa el extremo inferior
+# porque es el que fija la fórmula del apunte.
+_STARTUP_CURRENT_MULTIPLIER = 4.0
+
+# Mínimo de tensión de placa que debe llegar a bornes durante el arranque.
+_MIN_STARTUP_VOLTAGE_RATIO = 0.5
+
+# Reglas prácticas de diseño del calibre.
+_MAX_VDROP_PER_1000FT = 30.0   # banda sombreada de la carta de caída de tensión
+_MAX_VDROP_FRACTION = 0.05     # 5 % de la tensión de placa del motor
+
+
+def cable_resistance_ohms(
+    vdrop_per_amp_per_1000ft: float, length_ft: float
+) -> float:
+    """Resistencia por fase del tramo de cable [Ω].
+
+    El dato de catálogo es la caída **de línea** por amper y por 1000 ft, o sea
+    ``√3 · R_fase`` por cada 1000 ft. Se despeja la resistencia por fase, que es
+    la que entra en la pérdida Joule trifásica.
+
+    Args:
+        vdrop_per_amp_per_1000ft: Caída de línea [V/(A·1000 ft)] a la
+            temperatura de operación.
+        length_ft: Longitud del tramo [ft].
+
+    Returns:
+        Resistencia por fase [Ω]. Cero si algún argumento no es positivo.
+    """
+    if vdrop_per_amp_per_1000ft <= 0 or length_ft <= 0:
+        return 0.0
+    return vdrop_per_amp_per_1000ft / math.sqrt(3.0) * length_ft / 1000.0
+
+
+def cable_power_loss_kw(amps: float, resistance_ohms: float) -> float:
+    """Potencia disipada en el cable por efecto Joule [kW].
+
+    ``ΔP_c = 3·I²·R_T / 1000`` — los tres conductores, con la resistencia por
+    fase a la temperatura del pozo. Es el término operativo (OPEX) del criterio
+    económico de Brown: el calibre óptimo minimiza la suma de la amortización
+    del cable y esta energía disipada.
+
+    Args:
+        amps: Corriente de operación del motor [A].
+        resistance_ohms: Resistencia por fase del tramo [Ω].
+
+    Returns:
+        Pérdida trifásica [kW].
+    """
+    if amps <= 0 or resistance_ohms <= 0:
+        return 0.0
+    return 3.0 * amps ** 2 * resistance_ohms / 1000.0
+
+
+def startup_voltage_ratio(
+    motor_voltage: float,
+    voltage_drop_v: float,
+    start_multiplier: float = _STARTUP_CURRENT_MULTIPLIER,
+) -> float:
+    """Fracción de la tensión de placa que llega a bornes en el arranque [0–1].
+
+    Un motor de inducción arranca demandando 4 a 6 veces su corriente nominal,
+    y esa corriente cae sobre el mismo cable. La verificación es:
+
+        ``U_start / U_np = (U_np − 4·I·R_T) / U_np``
+
+    Como la caída a corriente nominal ya es ``I·R_T`` en términos de línea, el
+    cálculo se apoya en ella y no vuelve a decomponer la resistencia — así el
+    chequeo de arranque y la caída de tensión del diseño no pueden divergir.
+
+    Si la relación cae por debajo de 0.5 el motor **no arranca**: no es una
+    advertencia de eficiencia, es una falla de puesta en marcha.
+
+    Args:
+        motor_voltage: Tensión de placa del motor [V].
+        voltage_drop_v: Caída de tensión en el cable a corriente nominal [V].
+        start_multiplier: Corriente de arranque en veces la nominal.
+
+    Returns:
+        ``U_start/U_np``. Puede ser negativa si el cable es muy chico, lo que
+        indica que la tensión de bornes colapsa por completo.
+
+    Raises:
+        ValueError: Si ``motor_voltage`` no es positiva.
+    """
+    if motor_voltage <= 0:
+        raise ValueError(f"motor_voltage must be > 0, got {motor_voltage}")
+    return (motor_voltage - start_multiplier * voltage_drop_v) / motor_voltage
+
+
+def check_cable_electrical(
+    motor_voltage: float,
+    motor_amps: float,
+    vdrop_per_amp_per_1000ft: float,
+    length_ft: float,
+) -> dict:
+    """Las tres verificaciones eléctricas del cable, sobre un candidato.
+
+    Devuelve el detalle completo en vez de un booleano porque los tres
+    criterios no tienen el mismo peso:
+
+    - **Arranque** (``U_start/U_np > 0.5``) es físico: si no llega tensión el
+      motor no parte. Restricción dura.
+    - **30 V/1000 ft** es la banda de las cartas de diseño del fabricante.
+      Restricción dura.
+    - **5 % de la tensión de placa** es una regla práctica de eficiencia. Se
+      **reporta** pero no descarta: con pozos profundos y motores de tensión
+      moderada suele ser inalcanzable con los calibres del catálogo, y
+      descartar por ella dejaría el diseño sin solución.
+
+    Args:
+        motor_voltage: Tensión de placa [V].
+        motor_amps: Corriente nominal [A].
+        vdrop_per_amp_per_1000ft: Caída de línea del cable a la temperatura
+            del pozo [V/(A·1000 ft)].
+        length_ft: Longitud del cable [ft].
+
+    Returns:
+        dict con ``voltage_drop_v``, ``voltage_drop_per_1000ft``,
+        ``voltage_drop_fraction``, ``resistance_ohms``, ``power_loss_kw``,
+        ``startup_ratio``, ``startup_ok``, ``drop_per_1000ft_ok``,
+        ``drop_fraction_ok`` y ``ok`` (= las dos duras).
+    """
+    drop = vdrop_per_amp_per_1000ft * motor_amps * length_ft / 1000.0
+    per_1000 = drop / length_ft * 1000.0 if length_ft > 0 else 0.0
+    resistance = cable_resistance_ohms(vdrop_per_amp_per_1000ft, length_ft)
+    ratio = startup_voltage_ratio(motor_voltage, drop)
+    startup_ok = ratio > _MIN_STARTUP_VOLTAGE_RATIO
+    per_1000_ok = per_1000 <= _MAX_VDROP_PER_1000FT
+    fraction = drop / motor_voltage if motor_voltage > 0 else 0.0
+    return {
+        "voltage_drop_v": drop,
+        "voltage_drop_per_1000ft": per_1000,
+        "voltage_drop_fraction": fraction,
+        "resistance_ohms": resistance,
+        "power_loss_kw": cable_power_loss_kw(motor_amps, resistance),
+        "startup_ratio": ratio,
+        "startup_ok": startup_ok,
+        "drop_per_1000ft_ok": per_1000_ok,
+        "drop_fraction_ok": fraction <= _MAX_VDROP_FRACTION,
+        "ok": startup_ok and per_1000_ok,
+    }
 
 
 def calculate_surface_voltage(
@@ -295,11 +486,15 @@ def select_motor(
     bottom_temp: float,
     depth_ft: float,
     casing_id: float | None = None,
+    manufacturer: str | None = None,
 ) -> dict:
     """Select the best ESP motor for the given power and well conditions.
 
     Selection rules (Brown Vol. 2b, Section 4.5325):
 
+    - Fabricante: cuando se indica *manufacturer*, el motor debe ser de ese
+      proveedor. Es la regla de aparejo único — bomba, motor y sello del mismo
+      fabricante (ver ``.claude/rules/domain.md``).
     - HP rating ≥ hp_required × 1.10  (10 % nameplate margin)
     - Motor OD ≤ pump_od × 1.20  (fits same casing as the pump)
     - Cable clearance: motor OD + 2 × thinnest flat cable ≤ casing_id,
@@ -326,8 +521,13 @@ def select_motor(
     Raises:
         ValueError: If no qualifying motor exists.
     """
-    hp_min = hp_required * 1.10
-    max_od = pump_od * 1.20
+    # El margen del 10 % se redondea a 6 decimales antes de comparar. Sin eso,
+    # 50.0 × 1.10 da 55.000000000000006 en punto flotante y un motor de placa
+    # 55 hp —que es EXACTAMENTE el margen pedido— queda descartado por un error
+    # de redondeo. El margen es una regla de ingeniería, no una desigualdad
+    # estricta: un motor que da justo el 10 % cumple.
+    hp_min = round(hp_required * 1.10, 6)
+    max_od = round(pump_od * 1.20, 6)
     min_temp = bottom_temp + 25.0
     min_cable_thk = min(_CABLE_FLAT_THICKNESS_IN.values())
 
@@ -340,9 +540,10 @@ def select_motor(
 
     candidates = [
         m for m in catalog_manager._motors
-        if m["hp_rating"] >= hp_min
+        if (manufacturer is None or (m.get("manufacturer") or "") == manufacturer)
+        and m["hp_rating"] >= hp_min
         and m["od_inches"] <= max_od
-        and m["max_temp_f"] >= min_temp
+        and motor_temperature_ok(m, min_temp)
         and (
             casing_id is None
             or m["od_inches"] + 2.0 * min_cable_thk <= casing_id
@@ -350,14 +551,68 @@ def select_motor(
     ]
 
     if not candidates:
+        de_quien = f" de {manufacturer}" if manufacturer else ""
         raise ValueError(
-            f"No motor found for {hp_required} hp, pump_od={pump_od} in, "
+            f"No motor found{de_quien} for {hp_required} hp, pump_od={pump_od} in, "
             f"bottom_temp={bottom_temp} °F"
         )
+
+    # Un motor cuya corriente ningún cable del catálogo puede llevar no es un
+    # motor seleccionable: el remedio de campo es subir la tensión de placa,
+    # que baja la corriente para la misma potencia. Se aplica como preferencia
+    # y no como filtro duro para que, si no queda ninguno, sea `select_cable`
+    # quien informe el motivo exacto.
+    feasible = [
+        m for m in candidates
+        if m["amperage"] * _CABLE_DERATING
+        <= max_cable_ampacity(catalog_manager, bottom_temp, casing_id, m["od_inches"])
+    ]
+    candidates = feasible or candidates
 
     min_hp = min(m["hp_rating"] for m in candidates)
     candidates = [m for m in candidates if m["hp_rating"] == min_hp]
     return min(candidates, key=lambda m: abs(m["voltage"] - target_v))
+
+
+def max_cable_ampacity(
+    catalog_manager: "CatalogManager",
+    bottom_temp: float,
+    casing_id: float | None,
+    motor_od: float,
+) -> float:
+    """Corriente máxima que algún cable del catálogo puede llevar a este motor.
+
+    Aplica los mismos filtros que :func:`select_cable` —temperatura y espesor
+    contra el claro anular—, así que responde exactamente la pregunta que
+    importa: *¿existe cable para este motor?*
+    """
+    min_temp_rating = bottom_temp + 25.0
+    clearance = (casing_id - motor_od) / 2.0 if casing_id is not None else float("inf")
+    usable = [
+        c["max_amps"] for c in catalog_manager._cables
+        if c.get("max_amps") is not None
+        and c.get("max_temp_f") is not None
+        and c["max_temp_f"] >= min_temp_rating
+        and _CABLE_FLAT_THICKNESS_IN.get(c["size"], 0.50) <= clearance
+    ]
+    return max(usable) if usable else 0.0
+
+
+def motor_temperature_ok(motor: dict, min_temp_f: float) -> bool:
+    """¿El motor soporta *min_temp_f*? Un dato ausente NO descalifica.
+
+    No todos los catálogos publican la temperatura máxima de bobinado por
+    modelo: el de REDA (Schlumberger, 2005), por ejemplo, la menciona solo en
+    prosa. Descartar esos motores dejaría fuera un catálogo entero por un dato
+    que el fabricante no imprime; darlos por buenos en silencio sería peor.
+
+    El criterio es el mismo que ya usa la ficha mecánica de serie: **dato
+    ausente = verificación no realizada**, el motor sigue en carrera y el
+    diseño se entrega con la advertencia que emite
+    :func:`electrical_design_complete`.
+    """
+    rating = motor.get("max_temp_f")
+    return True if rating is None else rating >= min_temp_f
 
 
 def estimate_axial_thrust(tdh_ft: float, sg_fluid: float, pump_series: str) -> float:
@@ -424,13 +679,20 @@ def electrical_design_complete(
     pump_series: str | None = None,
     flow_bpd: float = 0.0,
     use_vsd: bool = False,
+    manufacturer: str | None = None,
+    bottom_temp_f: float | None = None,
 ) -> dict:
     """Complete electrical design: motor → seal → cable → voltage drop → transformer.
+
+    Regla de aparejo único: si se pasa *manufacturer* (el fabricante de la
+    bomba), el motor y el sello se buscan solo entre los de ese proveedor. Si no
+    hay, el diseño falla en vez de armar un aparejo mixto. El cable y los
+    accesorios quedan exentos: son intercambiables entre marcas.
 
     Args:
         motor_hp: Total pump shaft power required [hp].
         pump_od: Pump outer diameter [in].
-        well: Well geometry (casing ID, total depth, bottom-hole temperature).
+        well: Well geometry (casing ID, total depth).
         fluid: Fluid object (reserved for future material-selection logic).
         catalog_manager: Loaded equipment catalog.
         pump_depth: Pump setting depth [ft MD] — governs cable length and
@@ -441,6 +703,9 @@ def electrical_design_complete(
         sg_fluid: Produced-fluid specific gravity (for the thrust estimate).
         pump_series: Pump series, used both for the thrust shaft diameter and
             (with the motor series) to find a compatible protector.
+        bottom_temp_f: Temperatura de fondo [°F] — ``reservoir.reservoir_temp``.
+            Es la que fija el derating del motor y del cable. Omitirla usa el
+            piso conservador de 250 °F, que es el peor caso de los catálogos.
 
     Returns:
         dict with keys ``motor``, ``seal`` (may be ``None``), ``cable``,
@@ -449,7 +714,9 @@ def electrical_design_complete(
     """
     if pump_depth is None:
         pump_depth = well.total_depth * 0.80
-    bottom_temp = well.bottom_hole_temp
+    # Sin temperatura de fondo se toma el peor caso, no una cómoda: subestimarla
+    # elegiría un motor que en el pozo real no aguanta.
+    bottom_temp = 250.0 if bottom_temp_f is None else bottom_temp_f
 
     motor = select_motor(
         hp_required=motor_hp,
@@ -458,6 +725,7 @@ def electrical_design_complete(
         bottom_temp=bottom_temp,
         depth_ft=pump_depth,
         casing_id=well.casing_id,
+        manufacturer=manufacturer,
     )
 
     # --- Protector / seal (non-fatal: a missing match warns, does not abort) ---
@@ -476,10 +744,12 @@ def electrical_design_complete(
             temp_f=bottom_temp,
             thrust_lbs=thrust_lbs,
             prefer_type=prefer_type,
+            manufacturer=manufacturer,
         )
     except ValueError:
+        de_quien = f" de {manufacturer}" if manufacturer else ""
         seal_warning = (
-            f"Sin protector compatible en catálogo para motor serie "
+            f"Sin protector{de_quien} compatible en catálogo para motor serie "
             f"{motor['series']} ({bottom_temp:.0f} °F, {thrust_lbs:.0f} lbs de empuje)."
         )
 
@@ -490,9 +760,32 @@ def electrical_design_complete(
         casing_id=well.casing_id,
         motor_od=motor["od_inches"],
         catalog_manager=catalog_manager,
+        motor_voltage=motor["voltage"],
     )
 
     cable_drop = cable["voltage_drop_per_1000ft"] * cable["length_ft"] / 1000.0
+    # Avisos eléctricos del cable, en el mismo estilo que el resto del módulo.
+    cable_check = cable.get("electrical_check") or {}
+    cable_warnings: list[str] = []
+    if cable_check and not cable_check.get("startup_ok", True):
+        cable_warnings.append(
+            f"Arranque comprometido: al arrancar llega el "
+            f"{cable_check['startup_ratio'] * 100:.0f} % de la tensión de placa "
+            f"(mínimo 50 %). El {cable['cable_size']} es el mayor calibre del "
+            f"catálogo que entra en el anular; el remedio habitual es un motor "
+            f"de mayor tensión, que baja la corriente."
+        )
+    if cable_check and not cable_check.get("drop_per_1000ft_ok", True):
+        cable_warnings.append(
+            f"Caída de tensión {cable_check['voltage_drop_per_1000ft']:.1f} "
+            f"V/1000 ft: supera los 30 V/1000 ft de la carta de diseño."
+        )
+    if cable_check and not cable_check.get("drop_fraction_ok", True):
+        cable_warnings.append(
+            f"Caída de tensión {cable_check['voltage_drop_fraction'] * 100:.1f} % "
+            f"de la tensión de placa (regla práctica: 5 %). Se disipan "
+            f"{cable_check['power_loss_kw']:.1f} kW en el cable."
+        )
 
     surface_v = calculate_surface_voltage(motor["voltage"], cable_drop)
     kva = calculate_kva(surface_v, motor["amperage"])
@@ -531,8 +824,20 @@ def electrical_design_complete(
             cooling_ok = False
             cooling_warning = "No se pudo evaluar el enfriamiento (motor no entra en el casing)."
 
+    # Verificación térmica del motor: si el catálogo no publica el dato, se
+    # informa como no realizada en vez de darla por aprobada.
+    motor_warning: str | None = None
+    if motor.get("max_temp_f") is None:
+        motor_warning = (
+            f"Temperatura máxima de bobinado no publicada para el motor "
+            f"{motor.get('model', '')} ({motor.get('manufacturer', '')}). "
+            f"Verificación térmica NO realizada: confirmar con el fabricante "
+            f"que soporta {bottom_temp + 25.0:.0f} °F."
+        )
+
     return {
         "motor": motor,
+        "motor_warning": motor_warning,
         "seal": seal,
         "cable": cable,
         "cable_voltage_drop_v": cable_drop,
@@ -546,4 +851,6 @@ def electrical_design_complete(
         "cooling_warning": cooling_warning,
         "controller": controller,
         "controller_warning": controller_warning,
+        "cable_check": cable_check,
+        "cable_warnings": cable_warnings,
     }

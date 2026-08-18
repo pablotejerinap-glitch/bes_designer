@@ -1,9 +1,65 @@
 """
-Inflow Performance Relationship (IPR) calculations.
+IPR — Curva de comportamiento de afluencia del reservorio.
 
-Implements linear, Vogel, Standing combined, and Fetkovich IPR methods
-following Kermit Brown, "The Technology of Artificial Lift Methods",
-Vol. 2b, Section 4.522 and Figure 4.55.
+La IPR (Inflow Performance Relationship) relaciona el caudal que aporta el
+reservorio con la presión de fondo fluyente. Es el punto de partida del diseño:
+fija la Pwf en las perforaciones para el caudal objetivo.
+
+El simulador implementa **tres métodos**, y solo tres:
+
+    1. Lineal (Darcy)      q = J · (Pr − Pwf)
+    2. Vogel GENERALIZADO  recta arriba de la burbuja, Vogel abajo
+    3. Fetkovich (1973)    q = C · (Pr² − Pwf²)^n
+
+La presión de burbuja parte la IPR en dos
+-----------------------------------------
+**Arriba de Pb la IPR es una RECTA.** Con la presión de fondo por encima de la
+de burbuja el flujo dentro del reservorio es monofásico y vale Darcy; recién
+cuando Pwf baja de Pb se libera gas, cae la permeabilidad relativa al petróleo
+y la curva se dobla. Vogel publicó su correlación para reservorios **saturados**
+y sólo se aplica a ese tramo::
+
+    Pwf >= Pb :  q = J · (Pr − Pwf)
+    Pwf <  Pb :  q = J·(Pr − Pb) + (J·Pb/1.8)·[1 − 0.2·(Pwf/Pb) − 0.8·(Pwf/Pb)²]
+
+Los dos tramos empalman con la misma pendiente, así que la curva es continua y
+sin quiebre. Con el reservorio saturado (Pb >= Pr) la fórmula se reduce sola a
+Vogel puro. Ver :func:`vogel_composite_ipr`.
+
+Fetkovich **no** lleva este corte: su ajuste de C y n ya absorbe el
+comportamiento bifásico (Beggs ec. 2-58). El lineal tampoco, porque es la recta
+por definición — pero :func:`ipr_validity_warning` avisa cuando se lo usa
+debajo de la burbuja.
+
+Contenido
+---------
+1. Los tres métodos IPR
+2. Ajuste de los parámetros a partir de un ensayo de producción
+3. Pwf necesaria para un caudal objetivo (inversión de la IPR)
+4. Generación de la curva completa para graficar
+5. Auxiliares internos
+
+Nomenclatura
+------------
+    Pr      Presión estática (media) del reservorio        [psia]
+    Pwf     Presión de fondo fluyente                       [psia]
+    Pb      Presión de burbuja                              [psia]
+    q       Caudal bruto de líquido en superficie           [STB/d]
+    J       Índice de productividad (PI)                    [STB/d/psi]
+    q_max   Caudal máximo de Vogel, a Pwf = 0               [STB/d]
+    AOF     Absolute Open Flow: caudal a Pwf = 0            [STB/d]
+    C, n    Coeficiente y exponente de Fetkovich
+
+Referencias
+-----------
+Brown, K.E. "The Technology of Artificial Lift Methods", Vol. 2b, §4.522
+    y Figura 4.55.
+Vogel, J.V. (1968). "Inflow Performance Relationships for Solution-Gas Drive
+    Wells". Journal of Petroleum Technology.
+Beggs, H.D. "Production Optimization Using Nodal Analysis", §2 — el Vogel
+    generalizado para reservorios subsaturados (ecs. 2-38 y 2-53) y los
+    ejemplos 2-2, 2-5B y 2-7A, que son la regresión de este módulo.
+Fetkovich, M.J. (1973). "The Isochronal Testing of Oil Wells". SPE 4529.
 """
 
 from __future__ import annotations
@@ -14,53 +70,57 @@ from scipy.optimize import brentq
 from bes.core.models import IPRMethod, Reservoir
 
 
-# ---------------------------------------------------------------------------
-# Fundamental IPR functions
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# 1. LOS TRES MÉTODOS IPR
+# ===========================================================================
 
 def linear_ipr(pr: float, pwf: float, pi: float) -> float:
-    """Calculate flow rate using a constant productivity index (linear IPR).
+    """Método LINEAL (Darcy) — índice de productividad constante.
 
-    Valid for single-phase (undersaturated) flow, i.e. Pwf >= Pb.
-    Formula: q = PI * (Pr - Pwf)
+        q = J · (Pr − Pwf)
+
+    Válido para flujo monofásico, es decir con el reservorio sobre la presión
+    de burbuja (Pwf >= Pb). En ese caso el caudal crece en línea recta con la
+    caída de presión: la pendiente es el índice de productividad J.
 
     Args:
-        pr: Average reservoir pressure [psia].
-        pwf: Flowing bottomhole pressure [psia]. Must satisfy 0 <= pwf <= pr.
-        pi: Productivity index [STB/d/psi]. Must be > 0.
+        pr: Presión estática del reservorio, Pr [psia].
+        pwf: Presión de fondo fluyente, Pwf [psia]. Debe cumplir 0 <= Pwf <= Pr.
+        pi: Índice de productividad, J [STB/d/psi]. Debe ser > 0.
 
     Returns:
-        Liquid flow rate [STB/d].
+        Caudal de líquido, q [STB/d].
 
     Raises:
-        ValueError: If pi <= 0 or pwf > pr.
+        ValueError: Si pi <= 0 o pwf > pr.
     """
     if pi <= 0:
         raise ValueError(f"pi must be > 0, got {pi}")
     if pwf > pr:
         raise ValueError(f"pwf ({pwf}) cannot exceed pr ({pr})")
+
     return pi * (pr - pwf)
 
 
 def vogel_ipr(pr: float, pwf: float, qmax: float) -> float:
-    """Calculate flow rate using Vogel's IPR for solution-gas drive reservoirs.
+    """Método de VOGEL (1968) — reservorios con empuje por gas en solución.
 
-    Applicable when Pwf < Pb (two-phase flow inside the reservoir).
-    Formula: q/qmax = 1 - 0.2*(Pwf/Pr) - 0.8*(Pwf/Pr)^2
+        q / q_max = 1 − 0.2·(Pwf/Pr) − 0.8·(Pwf/Pr)²
 
-    Reference: Vogel, J.V., "Inflow Performance Relationships for Solution-Gas
-    Drive Wells", JPT (1968).
+    Válido cuando la presión de fondo cae por debajo de la de burbuja
+    (Pwf < Pb): al liberarse gas dentro del reservorio, el flujo pasa a ser
+    bifásico y la IPR deja de ser una recta para curvarse hacia abajo.
 
     Args:
-        pr: Average (or bubble-point) reservoir pressure used as reference [psia].
-        pwf: Flowing bottomhole pressure [psia]. Must satisfy 0 <= pwf <= pr.
-        qmax: Absolute open flow (AOF) potential at Pwf = 0 [STB/d]. Must be > 0.
+        pr: Presión de referencia, Pr [psia] (la estática, o la de burbuja).
+        pwf: Presión de fondo fluyente, Pwf [psia]. Debe cumplir 0 <= Pwf <= Pr.
+        qmax: Caudal máximo a Pwf = 0, q_max [STB/d]. Debe ser > 0.
 
     Returns:
-        Liquid flow rate [STB/d].
+        Caudal de líquido, q [STB/d].
 
     Raises:
-        ValueError: If qmax <= 0 or pwf > pr.
+        ValueError: Si qmax <= 0 o pwf > pr.
     """
     if qmax <= 0:
         raise ValueError(f"qmax must be > 0, got {qmax}")
@@ -68,109 +128,97 @@ def vogel_ipr(pr: float, pwf: float, qmax: float) -> float:
         raise ValueError(f"pwf ({pwf}) cannot exceed pr ({pr})")
     if pr == 0:
         return 0.0
-    ratio = pwf / pr
-    return qmax * (1.0 - 0.2 * ratio - 0.8 * ratio ** 2)
+
+    x = pwf / pr
+    return qmax * (1.0 - 0.2 * x - 0.8 * x ** 2)
 
 
-def vogel_qmax_from_test(pr: float, pwf_test: float, q_test: float) -> float:
-    """Back-calculate Vogel AOF (qmax) from a single well test point.
+def effective_bubble_point(pr: float, pb: float) -> float:
+    """Presión de burbuja acotada a la estática [psia].
 
-    Inverts the Vogel equation to obtain qmax given one measured (Pwf, q) pair:
-        qmax = q_test / [1 - 0.2*(Pwf_test/Pr) - 0.8*(Pwf_test/Pr)^2]
-
-    Args:
-        pr: Average reservoir pressure [psia].
-        pwf_test: Measured flowing bottomhole pressure during the test [psia].
-            Must satisfy 0 <= pwf_test < pr.
-        q_test: Measured flow rate during the test [STB/d]. Must be > 0.
-
-    Returns:
-        Estimated AOF (qmax at Pwf = 0) [STB/d].
-
-    Raises:
-        ValueError: If q_test <= 0, pwf_test >= pr, or the Vogel denominator
-            is non-positive (invalid test point).
+    Si Pb >= Pr el reservorio está **saturado**: hay gas libre desde el vamos y
+    no existe tramo monofásico. Acotando Pb a Pr, la ecuación compuesta se
+    reduce sola a Vogel puro, sin necesitar un caso aparte.
     """
-    if q_test <= 0:
-        raise ValueError(f"q_test must be > 0, got {q_test}")
-    if pwf_test >= pr:
-        raise ValueError(
-            f"pwf_test ({pwf_test}) must be < pr ({pr}) to have meaningful drawdown"
-        )
-    if pr <= 0:
-        raise ValueError(f"pr must be > 0, got {pr}")
-    ratio = pwf_test / pr
-    denominator = 1.0 - 0.2 * ratio - 0.8 * ratio ** 2
-    if denominator <= 0:
-        raise ValueError(
-            f"Vogel denominator is non-positive ({denominator:.6f}) for "
-            f"pwf_test/pr = {ratio:.4f}. Test point is outside the valid range."
-        )
-    return q_test / denominator
+    return min(pb, pr) if pb > 0 else pr
 
 
-def combined_ipr(pr: float, pb: float, pwf: float, pi: float) -> float:
-    """Calculate flow rate using Standing's combined (composite) IPR.
+def vogel_composite_ipr(pr: float, pb: float, pwf: float, pi: float) -> float:
+    """VOGEL GENERALIZADO — recta arriba de la burbuja, Vogel abajo.
 
-    Stitches linear IPR above bubble-point and Vogel IPR below, with
-    C0 continuity enforced at Pwf = Pb:
+    Es el método que corresponde a un reservorio **subsaturado** (Pr > Pb), que
+    es el caso normal. Mientras la presión de fondo se mantiene por encima de la
+    de burbuja el flujo es monofásico y la IPR es una **recta**; recién cuando
+    Pwf baja de Pb se libera gas, el flujo se hace bifásico y la curva se dobla::
 
-    - Pwf >= Pb:  q = PI * (Pr - Pwf)
-    - Pwf < Pb:   q = q_b + (PI * Pb / 1.8) * [1 - 0.2*(Pwf/Pb) - 0.8*(Pwf/Pb)^2]
-                  where q_b = PI * (Pr - Pb)
+        Pwf >= Pb :  q = J · (Pr − Pwf)                        ← recta
+        Pwf <  Pb :  q = q_b + (J·Pb/1.8)·[1 − 0.2·(Pwf/Pb) − 0.8·(Pwf/Pb)²]
 
-    Reference: Standing, M.B., "Inflow Performance Relationships for Damaged
-    Wells Producing Under Solution-Gas Drive", JPT (1970).
+    con ``q_b = J · (Pr − Pb)``, el caudal justo al llegar a la burbuja.
+
+    Los dos tramos **empalman con la misma pendiente** en Pwf = Pb, así que la
+    curva no tiene quiebre: la derivada de Vogel en su origen vale J.
+
+    Con un reservorio **saturado** (Pb >= Pr) la fórmula se reduce sola a Vogel
+    puro: ``q_b = 0`` y queda ``q = (J·Pr/1.8)·[1 − 0.2x − 0.8x²]``, o sea
+    :func:`vogel_ipr` con ``q_max = J·Pr/1.8``. No hace falta un caso aparte.
 
     Args:
-        pr: Average reservoir pressure [psia].
-        pb: Bubble-point pressure [psia]. Must satisfy 0 <= pb <= pr.
-        pwf: Flowing bottomhole pressure [psia]. Must satisfy 0 <= pwf <= pr.
-        pi: Productivity index [STB/d/psi]. Must be > 0.
+        pr: Presión estática del reservorio, Pr [psia].
+        pb: Presión de burbuja, Pb [psia].
+        pwf: Presión de fondo fluyente, Pwf [psia]. Debe cumplir 0 <= Pwf <= Pr.
+        pi: Índice de productividad, J [STB/d/psi], la pendiente del tramo
+            recto. Debe ser > 0.
 
     Returns:
-        Liquid flow rate [STB/d].
+        Caudal de líquido, q [STB/d].
 
     Raises:
-        ValueError: If pi <= 0, pwf > pr, or pb > pr.
+        ValueError: Si pi <= 0 o pwf > pr.
+
+    Referencia:
+        Beggs, *Production Optimization Using Nodal Analysis*, §2, ecs. 2-38 y
+        2-53 («Undersaturated Reservoirs»). Brown Vol. 2b §4.522.
     """
     if pi <= 0:
         raise ValueError(f"pi must be > 0, got {pi}")
     if pwf > pr:
         raise ValueError(f"pwf ({pwf}) cannot exceed pr ({pr})")
-    if pb > pr:
-        raise ValueError(f"pb ({pb}) cannot exceed pr ({pr})")
 
-    if pwf >= pb:
+    pb_ef = effective_bubble_point(pr, pb)
+
+    if pwf >= pb_ef:
         return pi * (pr - pwf)
 
-    q_b = pi * (pr - pb)
-    if pb == 0:
-        return q_b
-    ratio = pwf / pb
-    vogel_below_pb = (pi * pb / 1.8) * (1.0 - 0.2 * ratio - 0.8 * ratio ** 2)
-    return q_b + vogel_below_pb
+    q_b = pi * (pr - pb_ef)
+    x = pwf / pb_ef
+    return q_b + (pi * pb_ef / 1.8) * (1.0 - 0.2 * x - 0.8 * x ** 2)
 
 
 def fetkovich_ipr(pr: float, pwf: float, c: float, n: float) -> float:
-    """Calculate flow rate using Fetkovich's empirical backpressure IPR.
+    """Método de FETKOVICH (1973) — ecuación empírica de contrapresión.
 
-    Empirical equation that generalizes the backpressure test correlation,
-    valid for two-phase flow.
-    Formula: q = C * (Pr² - Pwf²)^n
+        q = C · (Pr² − Pwf²)^n
+
+    Generaliza la ecuación de contrapresión de los pozos de gas al caso del
+    petróleo. Los dos parámetros salen de un ensayo isocronal multi-caudal:
+
+        n = 1.0   flujo laminar (Darcy)
+        n = 0.5   flujo totalmente turbulento
+
+    En la práctica n cae entre 0.5 y 1.0.
 
     Args:
-        pr: Average reservoir pressure [psia].
-        pwf: Flowing bottomhole pressure [psia]. Must satisfy 0 <= pwf <= pr.
-        c: Fetkovich deliverability coefficient [STB/d/psia^(2n)]. Must be > 0.
-        n: Fetkovich flow exponent [-]. Must be > 0. Typically 0.5 <= n <= 1.0;
-            n = 1 → Darcy (laminar) flow; n → 0.5 → fully turbulent flow.
+        pr: Presión estática del reservorio, Pr [psia].
+        pwf: Presión de fondo fluyente, Pwf [psia]. Debe cumplir 0 <= Pwf <= Pr.
+        c: Coeficiente de entregabilidad, C [STB/d/psia^(2n)]. Debe ser > 0.
+        n: Exponente de flujo, n [-]. Debe ser > 0; típicamente 0.5 <= n <= 1.0.
 
     Returns:
-        Liquid flow rate [STB/d].
+        Caudal de líquido, q [STB/d].
 
     Raises:
-        ValueError: If c <= 0, n <= 0, or pwf > pr.
+        ValueError: Si c <= 0, n <= 0 o pwf > pr.
     """
     if c <= 0:
         raise ValueError(f"c must be > 0, got {c}")
@@ -178,112 +226,348 @@ def fetkovich_ipr(pr: float, pwf: float, c: float, n: float) -> float:
         raise ValueError(f"n must be > 0, got {n}")
     if pwf > pr:
         raise ValueError(f"pwf ({pwf}) cannot exceed pr ({pr})")
+
     return c * (pr ** 2 - pwf ** 2) ** n
 
 
+# ===========================================================================
+# 2. AJUSTE DE LOS PARÁMETROS A PARTIR DE UN ENSAYO DE PRODUCCIÓN
+# ===========================================================================
+#
+# Ni J, ni q_max, ni C se miden en el pozo: se deducen. Lo que se mide es un
+# punto de ensayo estabilizado (Pwf_ensayo, q_ensayo) y la presión estática.
+# Las funciones de esta sección invierten cada método para que la curva pase
+# exactamente por ese punto medido.
 # ---------------------------------------------------------------------------
-# Future IPR (reservoir pressure decline)
-# ---------------------------------------------------------------------------
 
-def fetkovich_future_c(c_present: float, pr_present: float, pr_future: float) -> float:
-    """Fetkovich deliverability coefficient at a future reservoir pressure.
+def vogel_qmax_from_test(pr: float, pwf_test: float, q_test: float) -> float:
+    """Despeja el q_max de Vogel a partir de un punto de ensayo.
 
-    Fetkovich's future-IPR method (Beggs, "Production Optimization Using
-    Nodal Analysis", Ch. 2, Eq. 2-74): C declines linearly with average
-    reservoir pressure while the exponent n stays constant:
+    Se invierte la ecuación de Vogel:
 
-        C_F = C_P · (P̄RF / P̄RP)
-        q_F = C_F · (P̄RF² − Pwf²)^n
-
-    UNIT CONVENTION: the pressure ratio uses ABSOLUTE pressures [psia]
-    (Beggs Example 2-11, footnote — unlike Vogel's equations, which the
-    book states in gauge pressures). This engine works in psia throughout,
-    so callers pass psia directly.
-
-    Algebraic consequence (Beggs Eq. 2-77, useful as a consistency check,
-    not a separate method):  qmax_F = qmax_P · (P̄RF/P̄RP)^(2n+1).
+        q_max = q_ensayo / [ 1 − 0.2·(Pwf_ensayo/Pr) − 0.8·(Pwf_ensayo/Pr)² ]
 
     Args:
-        c_present: Current coefficient C_P [STB/d/psia^(2n)]. Must be > 0.
-        pr_present: Current average reservoir pressure P̄RP [psia]. Must be > 0.
-        pr_future: Future average reservoir pressure P̄RF [psia]. Must be > 0.
+        pr: Presión estática del reservorio, Pr [psia]. Debe ser > 0.
+        pwf_test: Pwf medida durante el ensayo [psia]. Debe cumplir 0 <= Pwf < Pr.
+        q_test: Caudal medido durante el ensayo [STB/d]. Debe ser > 0.
 
     Returns:
-        Future coefficient C_F [STB/d/psia^(2n)].
+        Caudal máximo de Vogel, q_max a Pwf = 0 [STB/d].
 
     Raises:
-        ValueError: If any argument is <= 0.
+        ValueError: Si el punto de ensayo no es físicamente válido.
     """
-    if c_present <= 0:
-        raise ValueError(f"c_present must be > 0, got {c_present}")
-    if pr_present <= 0:
-        raise ValueError(f"pr_present must be > 0, got {pr_present}")
-    if pr_future <= 0:
-        raise ValueError(f"pr_future must be > 0, got {pr_future}")
-    return c_present * (pr_future / pr_present)
+    if q_test <= 0:
+        raise ValueError(f"q_test must be > 0, got {q_test}")
+    if pr <= 0:
+        raise ValueError(f"pr must be > 0, got {pr}")
+    if pwf_test >= pr:
+        raise ValueError(
+            f"pwf_test ({pwf_test}) must be < pr ({pr}) to have meaningful drawdown"
+        )
+
+    x = pwf_test / pr
+    denominador = 1.0 - 0.2 * x - 0.8 * x ** 2
+    if denominador <= 0:
+        raise ValueError(
+            f"Vogel denominator is non-positive ({denominador:.6f}) for "
+            f"pwf_test/pr = {x:.4f}. Test point is outside the valid range."
+        )
+
+    return q_test / denominador
 
 
-def vogel_future_qmax(qmax_present: float, pr_present: float, pr_future: float) -> float:
-    """Vogel AOF at a future reservoir pressure (cubic decline law).
+def vogel_j_from_test(
+    pr: float, pb: float, pwf_test: float, q_test: float
+) -> float:
+    """Despeja el índice de productividad J del Vogel generalizado.
 
-    Combining Vogel and Fetkovich (Beggs, Ch. 2, Eq. 2-78): for a Vogel IPR
-    the maximum rate declines with the cube of the pressure ratio:
+    Hay **dos casos**, según dónde haya caído la Pwf del ensayo (Beggs §2):
 
-        qmax_F = qmax_P · (P̄RF / P̄RP)³
+    *Caso 1 — el ensayo está sobre la burbuja* (Pwf_ensayo >= Pb). El punto cae
+    en el tramo recto, así que J sale directo::
 
-    UNIT CONVENTION: the ratio uses ABSOLUTE pressures [psia] (Beggs
-    Example 2-11 footnote), even though Vogel's rate equation itself is
-    stated in gauge pressures in the book.
+        J = q_ensayo / (Pr − Pwf_ensayo)
 
-    NOTE: this is a standalone helper anchored to Beggs Example 2-11.
-    The nodal-analysis Pr-decline slider does NOT use it for Vogel — the
-    existing (Brown-validated) path keeps PI constant, which implies a
-    linear qmax decline. See REPORTE_FETKOVICH.md for the discrepancy.
+    *Caso 2 — el ensayo está bajo la burbuja* (Pwf_ensayo < Pb). El punto cae en
+    el tramo curvo, y hay que invertir la ecuación compuesta::
+
+        J = q_ensayo / { (Pr − Pb) + (Pb/1.8)·[1 − 0.2·(Pwf/Pb) − 0.8·(Pwf/Pb)²] }
+
+    Es el paso que la app se salteaba: tomaba el q_max de Vogel puro desde Pr,
+    lo que sobreestima J en ~25 % en un pozo subsaturado típico.
 
     Args:
-        qmax_present: Current AOF qmax_P [STB/d]. Must be > 0.
-        pr_present: Current average reservoir pressure P̄RP [psia]. Must be > 0.
-        pr_future: Future average reservoir pressure P̄RF [psia]. Must be > 0.
+        pr: Presión estática, Pr [psia]. Debe ser > 0.
+        pb: Presión de burbuja, Pb [psia].
+        pwf_test: Pwf medida en el ensayo [psia]. 0 <= Pwf < Pr.
+        q_test: Caudal medido en el ensayo [STB/d]. Debe ser > 0.
 
     Returns:
-        Future AOF qmax_F [STB/d].
+        Índice de productividad J [STB/d/psi].
 
     Raises:
-        ValueError: If any argument is <= 0.
+        ValueError: Si el punto de ensayo no es físicamente válido.
+
+    Referencia:
+        Beggs, *Production Optimization*, §2, Ejemplo 2-5B (Caso 2) y
+        procedimiento «Case 1 Procedure».
     """
-    if qmax_present <= 0:
-        raise ValueError(f"qmax_present must be > 0, got {qmax_present}")
-    if pr_present <= 0:
-        raise ValueError(f"pr_present must be > 0, got {pr_present}")
-    if pr_future <= 0:
-        raise ValueError(f"pr_future must be > 0, got {pr_future}")
-    return qmax_present * (pr_future / pr_present) ** 3
+    if q_test <= 0:
+        raise ValueError(f"q_test must be > 0, got {q_test}")
+    if pr <= 0:
+        raise ValueError(f"pr must be > 0, got {pr}")
+    if pwf_test >= pr:
+        raise ValueError(
+            f"pwf_test ({pwf_test}) must be < pr ({pr}) to have meaningful drawdown"
+        )
+
+    pb_ef = effective_bubble_point(pr, pb)
+
+    if pwf_test >= pb_ef:
+        # Caso 1: el ensayo cae en el tramo recto.
+        return q_test / (pr - pwf_test)
+
+    # Caso 2: el ensayo cae en el tramo de Vogel.
+    x = pwf_test / pb_ef
+    corchete = 1.0 - 0.2 * x - 0.8 * x ** 2
+    denominador = (pr - pb_ef) + (pb_ef / 1.8) * corchete
+    if denominador <= 0:
+        raise ValueError(
+            f"El denominador del Vogel compuesto es no positivo "
+            f"({denominador:.6f}): el punto de ensayo está fuera de rango."
+        )
+    return q_test / denominador
 
 
-# ---------------------------------------------------------------------------
-# Fetkovich parameter resolution
-# ---------------------------------------------------------------------------
+def vogel_aof(pr: float, pb: float, pi: float) -> float:
+    """AOF del Vogel generalizado: el caudal a Pwf = 0 [STB/d].
 
-def _resolve_fetkovich_params(
-    reservoir: Reservoir,
-    fetkovich_c: float | None,
-    fetkovich_n: float | None,
-) -> tuple[float | None, float]:
-    """Resolve Fetkovich C and n: explicit args win, else Reservoir fields.
+        AOF = J·(Pr − Pb) + J·Pb/1.8
 
-    Returns ``(c, n)`` where ``c`` may still be None (the caller raises with
-    a method-specific message) and ``n`` defaults to 1.0 when unspecified.
-    ``getattr`` guards against Reservoir instances created before the fields
-    existed (e.g. unpickled sessions).
+    El primer término es lo que aporta el tramo recto hasta la burbuja; el
+    segundo, lo que agrega el tramo de Vogel de Pb hasta cero.
     """
-    c = fetkovich_c if fetkovich_c is not None else getattr(reservoir, "fetkovich_c", None)
-    n = fetkovich_n if fetkovich_n is not None else getattr(reservoir, "fetkovich_n", None)
-    return c, (n if n is not None else 1.0)
+    pb_ef = effective_bubble_point(pr, pb)
+    return pi * (pr - pb_ef) + pi * pb_ef / 1.8
 
 
-# ---------------------------------------------------------------------------
-# Inverse solver: Pwf for a target rate
-# ---------------------------------------------------------------------------
+def productivity_index_from_test(
+    pr: float,
+    pwf_test: float,
+    q_test: float,
+    method: IPRMethod,
+    fetkovich_n: float | None = None,
+    bubble_point: float | None = None,
+) -> dict:
+    """Deduce los parámetros de entregabilidad del pozo desde un ensayo.
+
+    Un ensayo estabilizado da un punto (Pwf_ensayo, q_ensayo). Con ese punto y
+    la presión estática se ajusta el método IPR elegido:
+
+    LINEAL
+        J = q_ensayo / (Pr − Pwf_ensayo)          la recta por el punto medido
+        AOF = J · Pr
+
+    VOGEL
+        q_max se despeja con vogel_qmax_from_test().
+        Se reporta además el J equivalente de la tangente:  J = 1.8 · q_max / Pr
+        (es la misma relación que usa el resto del módulo al revés,
+        q_max = J · Pr / 1.8, así que la curva pasa por el punto de ensayo).
+        AOF = q_max
+
+    FETKOVICH
+        Un solo punto no alcanza para ajustar C y n a la vez: son dos incógnitas
+        y una sola ecuación. Por eso n viene del ensayo isocronal (o se asume
+        1.0 = laminar) y solo se despeja C:
+
+            C = q_ensayo / (Pr² − Pwf_ensayo²)^n
+
+        El J que se devuelve es la secante en el punto de ensayo, meramente
+        informativo: la IPR de Fetkovich la manejan C y n.
+
+    Args:
+        pr: Presión estática del reservorio, Pr [psia]. Debe ser > 0.
+        pwf_test: Pwf estabilizada medida en el ensayo [psia]. 0 <= Pwf < Pr.
+        q_test: Caudal bruto estabilizado medido en el ensayo [STB/d]. > 0.
+        method: Método IPR a ajustar.
+        fetkovich_n: Exponente n de Fetkovich. Solo lo usa FETKOVICH; si se
+            omite se toma 1.0 (laminar).
+        bubble_point: Presión de burbuja, Pb [psia]. **La usa VOGEL** para
+            separar el tramo recto del curvo. Si se omite se toma Pb = Pr, o
+            sea reservorio saturado y Vogel puro — que es lo que hacía el
+            módulo antes, y sobreestima J en un reservorio subsaturado.
+
+    Returns:
+        dict con:
+          - ``productivity_index``  J [STB/d/psi] coherente con el método
+          - ``drawdown_psi``        Pr − Pwf_ensayo [psi]
+          - ``aof``                 caudal a Pwf = 0 según el ajuste [STB/d]
+          - ``qmax_vogel``          q_max de Vogel; None salvo VOGEL
+          - ``fetkovich_c`` / ``fetkovich_n``   None salvo FETKOVICH
+
+    Raises:
+        ValueError: Si el punto de ensayo no es válido o el método no existe.
+    """
+    if pr <= 0:
+        raise ValueError(f"pr must be > 0, got {pr}")
+    if q_test <= 0:
+        raise ValueError(f"q_test must be > 0, got {q_test}")
+    if pwf_test < 0:
+        raise ValueError(f"pwf_test must be >= 0, got {pwf_test}")
+    if pwf_test >= pr:
+        raise ValueError(
+            f"pwf_test ({pwf_test}) must be < pr ({pr}): a test with no "
+            f"draw-down carries no deliverability information"
+        )
+
+    from bes.core.formulas import FormulaTrace
+    trace = FormulaTrace()
+
+    drawdown = pr - pwf_test
+    trace.add(
+        "drawdown", "Caída de presión del ensayo (draw-down)",
+        "Δp = Pr − Pwf",
+        {"Pr": pr, "Pwf": pwf_test}, drawdown, "psi", "Brown Vol. 2b §4.522",
+    )
+    resultado: dict = {
+        "drawdown_psi": drawdown,
+        "qmax_vogel": None,
+        "fetkovich_c": None,
+        "fetkovich_n": None,
+    }
+
+    if method is IPRMethod.LINEAR:
+        pi = q_test / drawdown
+        trace.add(
+            "pi", "Índice de productividad (recta de Darcy)",
+            "J = q_ensayo / (Pr − Pwf)",
+            {"q_ensayo": q_test, "Pr": pr, "Pwf": pwf_test}, pi, "STB/d/psi",
+            "Brown Vol. 2b §4.522",
+            note="Válido con el reservorio sobre la presión de burbuja: el "
+                 "caudal crece en línea recta con la caída de presión.",
+        )
+        trace.add(
+            "aof", "AOF — caudal a Pwf = 0",
+            "AOF = J · Pr", {"J": pi, "Pr": pr}, pi * pr, "STB/d",
+            "Brown Vol. 2b §4.522",
+        )
+        resultado["productivity_index"] = pi
+        resultado["aof"] = pi * pr
+        resultado["formulas"] = trace.as_list()
+        return resultado
+
+    if method is IPRMethod.VOGEL:
+        pb_ef = effective_bubble_point(pr, bubble_point or pr)
+        saturado = pb_ef >= pr
+        bajo_burbuja = pwf_test < pb_ef
+
+        pi = vogel_j_from_test(pr, pb_ef, pwf_test, q_test)
+
+        if saturado:
+            trace.add(
+                "pi", "Índice de productividad (Vogel, reservorio saturado)",
+                "J = 1.8 · q_max / Pr",
+                {"q_max": q_test / (1 - 0.2 * (pwf_test / pr)
+                                    - 0.8 * (pwf_test / pr) ** 2), "Pr": pr},
+                pi, "STB/d/psi", "Vogel, JPT (1968); Brown Vol. 2b §4.522",
+                note=(
+                    f"Pb ({bubble_point:.0f} psi) >= Pr ({pr:.0f} psi): el "
+                    f"reservorio ya está saturado, así que no hay tramo recto "
+                    f"y vale Vogel puro en todo el rango."
+                    if bubble_point is not None else
+                    f"Sin presión de burbuja se asume Pb = Pr ({pr:.0f} psi), "
+                    f"o sea reservorio saturado y Vogel puro. Pasar la Pb real "
+                    f"habilita el tramo recto del Vogel generalizado."
+                ),
+            )
+        elif bajo_burbuja:
+            x = pwf_test / pb_ef
+            trace.add(
+                "pi", "Índice de productividad (Vogel generalizado, ensayo bajo Pb)",
+                "J = q_ensayo / { (Pr − Pb) + (Pb/1.8)·[1 − 0.2·(Pwf/Pb) − 0.8·(Pwf/Pb)²] }",
+                {"q_ensayo": q_test, "Pr": pr, "Pb": pb_ef, "Pwf": pwf_test},
+                pi, "STB/d/psi",
+                "Beggs, *Production Optimization*, §2, Ej. 2-5B",
+                note=f"El ensayo se hizo a {pwf_test:.0f} psi, por DEBAJO de la "
+                     f"burbuja ({pb_ef:.0f} psi), así que cae en el tramo curvo. "
+                     f"Pwf/Pb = {x:.4f} y el corchete vale "
+                     f"{1 - 0.2*x - 0.8*x**2:.4f}. Despejar J con Vogel puro "
+                     f"desde Pr —ignorando la burbuja— lo sobreestima.",
+            )
+        else:
+            trace.add(
+                "pi", "Índice de productividad (Vogel generalizado, ensayo sobre Pb)",
+                "J = q_ensayo / (Pr − Pwf)",
+                {"q_ensayo": q_test, "Pr": pr, "Pwf": pwf_test}, pi, "STB/d/psi",
+                "Beggs, *Production Optimization*, §2, «Case 1 Procedure»",
+                note=f"El ensayo se hizo a {pwf_test:.0f} psi, por ENCIMA de la "
+                     f"burbuja ({pb_ef:.0f} psi): cae en el tramo recto, así que "
+                     f"J sale directo de la pendiente.",
+            )
+
+        q_b = pi * (pr - pb_ef)
+        if not saturado:
+            trace.add(
+                "qb", "Caudal al llegar a la presión de burbuja",
+                "q_b = J · (Pr − Pb)",
+                {"J": pi, "Pr": pr, "Pb": pb_ef}, q_b, "STB/d",
+                "Beggs, *Production Optimization*, §2",
+                note="Hasta acá la IPR es una RECTA: el flujo en el reservorio "
+                     "es monofásico. De acá para abajo se libera gas y la curva "
+                     "se dobla. Los dos tramos empalman con la misma pendiente.",
+            )
+
+        aof = vogel_aof(pr, pb_ef, pi)
+        trace.add(
+            "aof", "AOF — caudal a Pwf = 0",
+            "AOF = J·(Pr − Pb) + J·Pb/1.8",
+            {"J": pi, "Pr": pr, "Pb": pb_ef}, aof, "STB/d",
+            "Beggs, *Production Optimization*, §2",
+            note="El primer término es lo que aporta el tramo recto; el segundo, "
+                 "lo que agrega el tramo de Vogel de Pb hasta cero.",
+        )
+
+        resultado["productivity_index"] = pi
+        resultado["qmax_vogel"] = aof
+        resultado["aof"] = aof
+        resultado["formulas"] = trace.as_list()
+        return resultado
+
+    if method is IPRMethod.FETKOVICH:
+        n = 1.0 if fetkovich_n is None else fetkovich_n
+        if n <= 0:
+            raise ValueError(f"fetkovich_n must be > 0, got {n}")
+        c = q_test / (pr ** 2 - pwf_test ** 2) ** n
+        trace.add(
+            "fetkovich_c", "Coeficiente de entregabilidad de Fetkovich",
+            "C = q_ensayo / (Pr² − Pwf²)^n",
+            {"q_ensayo": q_test, "Pr": pr, "Pwf": pwf_test, "n": n},
+            c, "STB/d/psia^(2n)", "Fetkovich, SPE 4529 (1973)",
+            note="Un solo punto de ensayo no alcanza para ajustar C y n a la "
+                 "vez: n viene del ensayo isocronal (o se asume 1.0 = laminar) "
+                 "y sólo se despeja C.",
+        )
+        aof = fetkovich_ipr(pr, 0.0, c, n)
+        trace.add(
+            "aof", "AOF — caudal a Pwf = 0",
+            "AOF = C · (Pr²)^n", {"C": c, "Pr": pr, "n": n}, aof, "STB/d",
+            "Fetkovich, SPE 4529 (1973)",
+        )
+        resultado["productivity_index"] = q_test / drawdown   # secante, informativo
+        resultado["fetkovich_c"] = c
+        resultado["fetkovich_n"] = n
+        resultado["aof"] = aof
+        resultado["formulas"] = trace.as_list()
+        return resultado
+
+    raise ValueError(f"Unsupported IPR method: {method}")
+
+
+# ===========================================================================
+# 3. Pwf NECESARIA PARA UN CAUDAL OBJETIVO
+# ===========================================================================
 
 def calculate_pwf_for_target_rate(
     reservoir: Reservoir,
@@ -291,39 +575,41 @@ def calculate_pwf_for_target_rate(
     fetkovich_c: float | None = None,
     fetkovich_n: float | None = None,
 ) -> float:
-    """Find the flowing bottomhole pressure (Pwf) required to achieve a target rate.
+    """Presión de fondo fluyente que hace falta para producir un caudal dado.
 
-    Inverts the IPR equation that corresponds to reservoir.ipr_method.
-    The linear IPR has a closed-form inverse; all other methods use
-    scipy.optimize.brentq with a bracket of [0, Pr].
+    Es la IPR usada al revés: en lugar de "dada la Pwf, ¿cuánto aporta?", se
+    pregunta "para este caudal, ¿a qué Pwf hay que bajar?".
+
+    LINEAL      tiene despeje directo:   Pwf = Pr − q / J
+    VOGEL       y FETKOVICH no se despejan a mano, así que se resuelve
+                numéricamente buscando la raíz de  q(Pwf) − q_objetivo = 0
+                entre Pwf = 0 y Pwf = Pr (método de Brent).
 
     Args:
-        reservoir: Reservoir object providing Pr, Pb, PI, and ipr_method.
-        target_rate: Desired gross liquid flow rate [STB/d]. Must be > 0.
-        fetkovich_c: Fetkovich coefficient C [STB/d/psia^(2n)]. Falls back to
-            ``reservoir.fetkovich_c`` when omitted; required (one way or the
-            other) when reservoir.ipr_method is FETKOVICH.
-        fetkovich_n: Fetkovich exponent n [-]. Falls back to
-            ``reservoir.fetkovich_n``, then to 1.0.
+        reservoir: Reservorio (Pr, Pb, J, método IPR).
+        target_rate: Caudal bruto objetivo, q [STB/d]. Debe ser > 0.
+        fetkovich_c: Coeficiente C. Si se omite se toma de ``reservoir``.
+        fetkovich_n: Exponente n. Si se omite se toma de ``reservoir``, y si
+            tampoco está, 1.0.
 
     Returns:
-        Required flowing bottomhole pressure Pwf [psia].
+        Presión de fondo fluyente requerida, Pwf [psia].
 
     Raises:
-        ValueError: If target_rate > AOF (rate is not achievable), target_rate
-            <= 0, or fetkovich_c is missing for the FETKOVICH method.
+        ValueError: Si el caudal pedido supera el AOF del reservorio, si es
+            <= 0, o si falta el coeficiente C con el método FETKOVICH.
     """
     if target_rate <= 0:
         raise ValueError(f"target_rate must be > 0, got {target_rate}")
 
     pr = reservoir.static_pressure
-    pb = reservoir.bubble_point
     pi = reservoir.productivity_index
     method = reservoir.ipr_method
     fetkovich_c, fetkovich_n = _resolve_fetkovich_params(
         reservoir, fetkovich_c, fetkovich_n
     )
 
+    # El reservorio no puede dar más que su AOF (caudal a Pwf = 0).
     aof = _compute_aof(reservoir, fetkovich_c, fetkovich_n)
     if target_rate > aof:
         raise ValueError(
@@ -332,40 +618,34 @@ def calculate_pwf_for_target_rate(
         )
 
     if method is IPRMethod.LINEAR:
+        # Despeje directo de  q = J · (Pr − Pwf)
         return pr - target_rate / pi
 
     if method is IPRMethod.VOGEL:
-        qmax = pi * pr / 1.8
-        def _res(pwf: float) -> float:
-            return vogel_ipr(pr, pwf, qmax) - target_rate
-        return brentq(_res, 0.0, pr, xtol=0.01)
+        pb = reservoir.bubble_point
 
-    if method is IPRMethod.COMBINED:
-        q_b = pi * (pr - pb)
-        if target_rate <= q_b:
-            # Rate can be achieved above bubble point — linear region
-            return pr - target_rate / pi
-        # Need to draw Pwf below Pb — use Vogel portion
-        def _res(pwf: float) -> float:
-            return combined_ipr(pr, pb, pwf, pi) - target_rate
-        # Bracket: [0, Pb) — the entire sub-bubble-point range
-        return brentq(_res, 0.0, pb * (1.0 - 1e-9), xtol=0.01)
+        def sobrante(pwf: float) -> float:
+            return vogel_composite_ipr(pr, pb, pwf, pi) - target_rate
+
+        return brentq(sobrante, 0.0, pr, xtol=0.01)
 
     if method is IPRMethod.FETKOVICH:
         if fetkovich_c is None:
             raise ValueError(
                 "fetkovich_c must be provided when ipr_method is FETKOVICH"
             )
-        def _res(pwf: float) -> float:
+
+        def sobrante(pwf: float) -> float:
             return fetkovich_ipr(pr, pwf, fetkovich_c, fetkovich_n) - target_rate
-        return brentq(_res, 0.0, pr * (1.0 - 1e-9), xtol=0.01)
+
+        return brentq(sobrante, 0.0, pr * (1.0 - 1e-9), xtol=0.01)
 
     raise ValueError(f"Unsupported IPR method: {method}")
 
 
-# ---------------------------------------------------------------------------
-# Curve generation
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# 4. CURVA IPR COMPLETA (para graficar)
+# ===========================================================================
 
 def generate_ipr_curve(
     reservoir: Reservoir,
@@ -373,34 +653,29 @@ def generate_ipr_curve(
     fetkovich_c: float | None = None,
     fetkovich_n: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Generate a complete IPR curve suitable for plotting.
+    """Evalúa la IPR desde Pwf = Pr hasta Pwf = 0 y devuelve la curva.
 
-    Evaluates the IPR from Pwf = Pr (zero draw-down, q = 0) to Pwf = 0
-    (maximum draw-down, q = AOF), returning arrays ordered so that
-    Pwf is monotonically decreasing and q is monotonically non-decreasing.
+    Se recorren *n_points* valores de Pwf repartidos entre los dos extremos:
+
+        Pwf = Pr  →  sin caída de presión, el pozo no aporta:  q = 0
+        Pwf = 0   →  caída máxima, el pozo da su AOF
 
     Args:
-        reservoir: Reservoir parameters (Pr, Pb, PI, ipr_method).
-        n_points: Number of evaluation points. Defaults to 50.
-        fetkovich_c: Fetkovich coefficient [STB/d/psia^(2n)]. Falls back to
-            ``reservoir.fetkovich_c``; required (one way or the other) when
-            ipr_method is FETKOVICH.
-        fetkovich_n: Fetkovich exponent [-]. Falls back to
-            ``reservoir.fetkovich_n``, then to 1.0.
+        reservoir: Reservorio (Pr, Pb, J, método IPR).
+        n_points: Cantidad de puntos de la curva. Por defecto 50.
+        fetkovich_c: Coeficiente C. Si se omite se toma de ``reservoir``.
+        fetkovich_n: Exponente n. Si se omite se toma de ``reservoir``, y si
+            tampoco está, 1.0.
 
     Returns:
-        Tuple ``(q_array, pwf_array)`` where
-
-        - ``q_array``   – flow rates [STB/d], shape ``(n_points,)``,
-          monotonically non-decreasing (0 → AOF).
-        - ``pwf_array`` – corresponding flowing BHP [psia], shape ``(n_points,)``,
-          monotonically non-increasing (Pr → 0).
+        Tupla ``(q_array, pwf_array)``, ambos de largo *n_points*:
+          - ``q_array``   caudales [STB/d], creciendo de 0 al AOF
+          - ``pwf_array`` presiones de fondo [psia], bajando de Pr a 0
 
     Raises:
-        ValueError: If fetkovich_c is missing for FETKOVICH method.
+        ValueError: Si falta el coeficiente C con el método FETKOVICH.
     """
     pr = reservoir.static_pressure
-    pb = reservoir.bubble_point
     pi = reservoir.productivity_index
     method = reservoir.ipr_method
     fetkovich_c, fetkovich_n = _resolve_fetkovich_params(
@@ -413,11 +688,10 @@ def generate_ipr_curve(
         q_array = np.array([linear_ipr(pr, pwf, pi) for pwf in pwf_array])
 
     elif method is IPRMethod.VOGEL:
-        qmax = pi * pr / 1.8
-        q_array = np.array([vogel_ipr(pr, pwf, qmax) for pwf in pwf_array])
-
-    elif method is IPRMethod.COMBINED:
-        q_array = np.array([combined_ipr(pr, pb, pwf, pi) for pwf in pwf_array])
+        pb = reservoir.bubble_point
+        q_array = np.array(
+            [vogel_composite_ipr(pr, pb, pwf, pi) for pwf in pwf_array]
+        )
 
     elif method is IPRMethod.FETKOVICH:
         if fetkovich_c is None:
@@ -434,31 +708,193 @@ def generate_ipr_curve(
     return q_array, pwf_array
 
 
-# ---------------------------------------------------------------------------
-# Internal helper
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# 5. AUXILIARES INTERNOS
+# ===========================================================================
+
+def ipr_trace(reservoir: Reservoir, target_rate: float, pwf: float) -> list[dict]:
+    """Traza de fórmulas del paso IPR, para mostrar en pantalla.
+
+    Es el **primer** cálculo de todo el diseño: de acá sale la Pwf en las
+    perforaciones, y de ella el PIP, el TDH y todo lo demás. Antes la traza
+    arrancaba recién en el TDH, así que el paso que fija el punto de partida
+    quedaba invisible.
+
+    Devuelve dos entradas: la ecuación IPR del método elegido —escrita con los
+    valores del pozo— y el draw-down que resulta.
+
+    Args:
+        reservoir: Reservorio (Pr, Pb, J, método IPR).
+        target_rate: Caudal objetivo, q [STB/d].
+        pwf: Pwf ya resuelta para ese caudal [psia].
+
+    Returns:
+        Lista de dicts de :class:`bes.core.formulas.Formula`.
+    """
+    from bes.core.formulas import FormulaTrace
+
+    trace = FormulaTrace()
+    pr = reservoir.static_pressure
+    pi = reservoir.productivity_index
+    metodo = reservoir.ipr_method
+    pb_ef = effective_bubble_point(pr, reservoir.bubble_point)
+
+    if metodo is IPRMethod.LINEAR:
+        trace.add(
+            "ipr_pwf", "Pwf en las perforaciones (IPR lineal)",
+            "Pwf = Pr − q / J",
+            {"Pr": pr, "q": target_rate, "J": pi}, pwf, "psia",
+            "Darcy; Brown Vol. 2b §4.522",
+            note="La recta de Darcy tiene despeje directo. Vale con el flujo "
+                 "monofásico, o sea con Pwf por encima de la presión de burbuja.",
+        )
+
+    elif metodo is IPRMethod.VOGEL:
+        if pwf >= pb_ef:
+            trace.add(
+                "ipr_pwf", "Pwf en las perforaciones (Vogel, tramo recto)",
+                "q = J · (Pr − Pwf)",
+                {"q": target_rate, "J": pi, "Pr": pr}, pwf, "psia",
+                "Beggs, *Production Optimization*, §2",
+                note=f"La Pwf de diseño ({pwf:.0f} psi) queda POR ENCIMA de la "
+                     f"presión de burbuja ({pb_ef:.0f} psi): el flujo en el "
+                     f"reservorio todavía es monofásico y la IPR es una recta.",
+            )
+        else:
+            q_b = pi * (pr - pb_ef)
+            x = pwf / pb_ef
+            trace.add(
+                "ipr_qb", "Caudal al llegar a la presión de burbuja",
+                "q_b = J · (Pr − Pb)",
+                {"J": pi, "Pr": pr, "Pb": pb_ef}, q_b, "STB/d",
+                "Beggs, *Production Optimization*, §2",
+                note="Hasta este caudal la IPR es una RECTA. De acá para abajo "
+                     "se libera gas en el reservorio y la curva se dobla; los "
+                     "dos tramos empalman con la misma pendiente.",
+            )
+            trace.add(
+                "ipr_pwf", "Pwf en las perforaciones (Vogel, tramo bifásico)",
+                "q = q_b + (J·Pb/1.8) · [1 − 0.2·(Pwf/Pb) − 0.8·(Pwf/Pb)²]",
+                {"q": target_rate, "q_b": q_b, "J": pi, "Pb": pb_ef},
+                pwf, "psia", "Vogel, JPT (1968); Beggs §2, ec. 2-53",
+                note=f"La Pwf de diseño ({pwf:.0f} psi) cae POR DEBAJO de la "
+                     f"burbuja ({pb_ef:.0f} psi), así que el punto está en el "
+                     f"tramo curvo: Pwf/Pb = {x:.4f} y el corchete vale "
+                     f"{1 - 0.2*x - 0.8*x**2:.4f}. No se despeja a mano — se "
+                     f"resuelve numéricamente por el método de Brent.",
+            )
+
+    elif metodo is IPRMethod.FETKOVICH:
+        c = reservoir.fetkovich_c
+        n = reservoir.fetkovich_n or 1.0
+        trace.add(
+            "ipr_pwf", "Pwf en las perforaciones (Fetkovich)",
+            "q = C · (Pr² − Pwf²)^n",
+            {"q": target_rate, "C": c, "Pr": pr, "n": n}, pwf, "psia",
+            "Fetkovich, SPE 4529 (1973); Beggs §2, ec. 2-54",
+            note="Fetkovich NO se parte en la presión de burbuja: el ajuste de "
+                 "C y n ya absorbe el comportamiento bifásico del reservorio "
+                 "subsaturado (Beggs ec. 2-58). Se resuelve por Brent.",
+        )
+
+    trace.add(
+        "ipr_drawdown", "Caída de presión sobre el reservorio (draw-down)",
+        "Δp = Pr − Pwf",
+        {"Pr": pr, "Pwf": pwf}, pr - pwf, "psi", "Brown Vol. 2b §4.522",
+        note="Es lo que hay que quitarle al reservorio para que entregue el "
+             "caudal objetivo. De la Pwf sale el PIP, y de ahí todo el TDH.",
+    )
+    return trace.as_list()
+
+
+def ipr_validity_warning(reservoir: Reservoir, pwf: float) -> str | None:
+    """Avisa cuando el método IPR elegido se está usando fuera de su rango.
+
+    El único caso que hoy amerita aviso es el **método lineal por debajo de la
+    presión de burbuja**. La recta de Darcy supone flujo monofásico; en cuanto
+    Pwf baja de Pb se libera gas en el reservorio, cae la permeabilidad
+    relativa al petróleo y la IPR real se dobla hacia abajo. Seguir sobre la
+    recta **sobreestima el aporte del pozo**, y el error crece con la caída de
+    presión: Beggs reporta 70-80 % a Pwf baja.
+
+    No se corrige sola: el usuario eligió «Lineal», que por definición es la
+    recta. Lo que corresponde es decírselo, para que evalúe pasar a Vogel.
+
+    Args:
+        reservoir: Reservorio (Pr, Pb, método IPR).
+        pwf: Presión de fondo fluyente del punto de diseño [psia].
+
+    Returns:
+        El texto del aviso, o ``None`` si el método se está usando dentro de su
+        rango de validez.
+
+    Referencia:
+        Beggs, *Production Optimization Using Nodal Analysis*, §2, ec. 2-34.
+    """
+    if reservoir.ipr_method is not IPRMethod.LINEAR:
+        return None
+    pb = reservoir.bubble_point
+    if pb <= 0 or pwf >= pb:
+        return None
+
+    pr = reservoir.static_pressure
+    pi = reservoir.productivity_index
+    q_recta = pi * (pr - pwf)
+    q_vogel = vogel_composite_ipr(pr, pb, pwf, pi)
+    exceso = (q_recta / q_vogel - 1.0) * 100.0 if q_vogel > 0 else 0.0
+
+    return (
+        f"Método IPR lineal con la Pwf de diseño ({pwf:.0f} psi) por debajo de "
+        f"la presión de burbuja ({pb:.0f} psi): ahí el flujo en el reservorio "
+        f"ya es bifásico y la recta de Darcy deja de valer. Con el mismo J, el "
+        f"Vogel generalizado daría {q_vogel:.0f} STB/d contra los "
+        f"{q_recta:.0f} STB/d de la recta — la recta sobreestima un "
+        f"{exceso:.0f} %. Evaluar cambiar el método a Vogel."
+    )
+
 
 def _compute_aof(
     reservoir: Reservoir,
     fetkovich_c: float | None,
     fetkovich_n: float,
 ) -> float:
-    """Return the Absolute Open Flow potential (q at Pwf = 0) [STB/d]."""
+    """AOF (Absolute Open Flow): el caudal que daría el pozo con Pwf = 0 [STB/d].
+
+    Es el techo físico del reservorio y sirve de tope al caudal de diseño.
+
+        LINEAL      AOF = J · Pr
+        VOGEL       AOF = J·(Pr − Pb) + J·Pb/1.8   (Vogel generalizado)
+                    Con el reservorio saturado (Pb >= Pr) se reduce a J·Pr/1.8.
+        FETKOVICH   AOF = C · (Pr²)^n
+    """
     pr = reservoir.static_pressure
-    pb = reservoir.bubble_point
     pi = reservoir.productivity_index
     method = reservoir.ipr_method
 
     if method is IPRMethod.LINEAR:
         return pi * pr
     if method is IPRMethod.VOGEL:
-        # Derived from Vogel: at the tangent point near Pr, PI = 1.8 * qmax / Pr
-        return pi * pr / 1.8
-    if method is IPRMethod.COMBINED:
-        # Linear contribution above Pb + Vogel maximum below Pb
-        return pi * (pr - pb) + pi * pb / 1.8
+        return vogel_aof(pr, reservoir.bubble_point, pi)
     if method is IPRMethod.FETKOVICH:
         if fetkovich_c is None:
             raise ValueError("fetkovich_c required for FETKOVICH method")
         return fetkovich_ipr(pr, 0.0, fetkovich_c, fetkovich_n)
+
     raise ValueError(f"Unsupported IPR method: {method}")
+
+
+def _resolve_fetkovich_params(
+    reservoir: Reservoir,
+    fetkovich_c: float | None,
+    fetkovich_n: float | None,
+) -> tuple[float | None, float]:
+    """Decide qué C y n usar: mandan los argumentos explícitos, si no el Reservoir.
+
+    ``c`` puede quedar en None — quien llama levanta el error con su propio
+    mensaje. ``n`` cae en 1.0 (laminar) si no se especificó en ningún lado.
+    El ``getattr`` protege contra objetos Reservoir creados antes de que estos
+    campos existieran (por ejemplo, sesiones guardadas).
+    """
+    c = fetkovich_c if fetkovich_c is not None else getattr(reservoir, "fetkovich_c", None)
+    n = fetkovich_n if fetkovich_n is not None else getattr(reservoir, "fetkovich_n", None)
+    return c, (n if n is not None else 1.0)

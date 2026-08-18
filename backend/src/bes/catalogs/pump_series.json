@@ -1,0 +1,28 @@
+{
+  "_comment": "Datos mecánicos por SERIE de bomba: eje, límites de potencia, presión de carcasa y capacidad de los cojinetes. Son propiedades del hardware de la serie, no del modelo hidráulico, por eso viven acá y no en pumps.json. Una serie sin entrada en este archivo queda SIN VERIFICAR (la app lo reporta como tal; nunca la da por aprobada). NO agregar series con valores estimados: cada entrada debe salir de una hoja de engineering data del fabricante.",
+  "series": [
+    {
+      "series": "400",
+      "manufacturer": "Wood Group",
+      "housing_diameter_in": 4.000,
+      "min_casing_size_in": 5.500,
+      "rotational_direction": "CCW",
+      "shaft_diameter_in": 0.6875,
+      "shaft_area_in2": 0.37124,
+      "reference_frequency_hz": 50.0,
+      "shaft_hp_limit_std": 104.0,
+      "shaft_hp_limit_high_strength": 167.0,
+      "housing_pressure_limit_std_psi": 5000.0,
+      "housing_pressure_limit_high_psi": 6000.0,
+      "max_staging_shaft_std": 474,
+      "max_staging_shaft_high_strength": 758,
+      "max_staging_housing_std": 568,
+      "max_staging_housing_high_strength": 681,
+      "max_staging_bearing_std": 303,
+      "max_staging_bearing_std_bht_max_f": 230.0,
+      "max_staging_bearing_high_load": 1529,
+      "max_staging_bearing_high_load_bht_max_f": 250.0,
+      "_source": "Wood Group ESP, hoja 'ENGINEERING DATA TD1750 50Hz'. Valores transcritos sin conversión de criterio: 101.6 mm = 4.000 in, 139.7 mm = 5.500 in, 17.463 mm = 0.6875 in (11/16\"), 239.51 mm² = 0.37124 in² (= π/4·0.6875², consistente con el diámetro). Los límites de HP del eje son a 50 Hz, según el encabezado de la hoja. Los topes de etapas por cojinete son para bombas FLOATER. Nota al pie del fabricante: 'Maximum staging may be limited by housing pressure limit, shaft capacity or thrust loading'."
+    }
+  ]
+}

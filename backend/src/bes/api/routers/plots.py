@@ -40,6 +40,11 @@ def get_pump_curve(
     pump_model: str = Query(..., description="Modelo de bomba del catálogo"),
     operating_flow: float = Query(..., gt=0, description="Caudal de operación [STB/d]"),
     stages: int = Query(..., gt=0, description="Etapas instaladas"),
+    frequency: float | None = Query(
+        None, gt=0,
+        description="Frecuencia de operación [Hz]. Reescala la curva de catálogo "
+                    "con las leyes de afinidad. Omitir = curva tal como se publicó.",
+    ),
     catalog=Depends(get_catalog),
 ) -> FigureResponse:
     """Curva head/eficiencia/HP de una bomba con el punto de operación marcado.
@@ -50,6 +55,10 @@ def get_pump_curve(
     422 (handler central).
     """
     pump = resolve_pump(catalog, pump_model)
+    if frequency:
+        # El catálogo publica a 60 Hz; a otra frecuencia la curva es otra.
+        from bes.core.affinity import pump_at_frequency
+        pump = pump_at_frequency(pump, frequency)
     fig = plot_pump_curve(pump, operating_flow=operating_flow, stages=stages)
     return FigureResponse(figure=json.loads(fig.to_json()))
 

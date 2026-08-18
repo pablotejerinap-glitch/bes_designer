@@ -1,8 +1,8 @@
 """
-Tests for nodal analysis and the two new multiphase correlations.
+Tests del análisis nodal (correlación de Poettmann & Carpenter).
 
-Tolerances are set at ±20-30 % because the four correlations legitimately
-disagree with each other by that margin on typical field cases.
+Las tolerancias son de ±20-30 % porque la correlación es empírica y su
+dispersión en casos de campo está en ese orden.
 """
 from __future__ import annotations
 
@@ -19,12 +19,8 @@ from bes.core.models import (
     SurfaceConditions,
     WellGeometry,
 )
-from bes.core.multiphase import poettmann_carpenter_gradient, duns_ros_gradient
-from bes.core.nodal_analysis import (
-    compare_methods,
-    find_operating_point,
-    outflow_curve_natural,
-)
+from bes.core.multiphase import poettmann_carpenter_gradient
+from bes.core.nodal_analysis import find_operating_point, outflow_curve_natural
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +53,6 @@ def reservoir():
         ipr_method=IPRMethod.VOGEL,
         reservoir_temp=180.0,
         drive_mechanism=DriveMechanism.SOLUTION_GAS,
-        datum_depth=7000.0,
     )
 
 
@@ -74,7 +69,6 @@ def well():
         perforations_bottom=7000.0,
         deviation_max=0.0,
         wellhead_temp=75.0,
-        bottom_hole_temp=180.0,
     )
 
 
@@ -134,26 +128,11 @@ def test_poettmann_gradient_liquid_only():
     )
 
 
-def test_duns_ros_gradient_liquid_only():
-    """Pure water (GOR=0, WC=1) → gradient ≈ water_sg × 0.433 psi/ft."""
-    water_sg = 1.05
-    grad = duns_ros_gradient(
-        q_liq=300.0, wc=1.0, gor=0.0,
-        gas_sg=0.65, oil_api=30.0, water_sg=water_sg,
-        p=2000.0, t=150.0, pipe_id=2.441, angle=90.0,
-    )
-    expected = water_sg * 0.433
-    assert expected * 0.92 <= grad <= expected * 1.30, (
-        f"D&R gradient {grad:.4f} psi/ft outside expected range "
-        f"[{expected*0.92:.4f}, {expected*1.30:.4f}]"
-    )
-
-
 # ---------------------------------------------------------------------------
 # Parte B — outflow curve shape
 # ---------------------------------------------------------------------------
 
-def test_outflow_curve_j_shape(fluid, well, surface):
+def test_outflow_curve_j_shape(fluid, well, surface, reservoir):
     """Multiphase outflow (TPR) curves are J-shaped, not monotonic.
 
     At low rates the gradient is holdup-dominated (gas slippage) and Pwf
@@ -162,7 +141,7 @@ def test_outflow_curve_j_shape(fluid, well, surface):
     region). Only the stable right branch must be monotonically increasing.
     """
     q_arr, pwf_arr = outflow_curve_natural(
-        fluid, well, surface, method="hagedorn_brown", n_points=20
+        fluid, well, surface, reservoir.reservoir_temp, n_points=20
     )
     i_min = int(np.argmin(pwf_arr))
 
@@ -196,7 +175,6 @@ def test_operating_point_with_pump_higher_q(reservoir, fluid, well, surface, pum
 
     result = find_operating_point(
         reservoir, fluid, well, surface,
-        method="hagedorn_brown",
         pump=pump, stages=stages, pump_depth=pump_depth,
     )
 
@@ -212,20 +190,47 @@ def test_operating_point_with_pump_higher_q(reservoir, fluid, well, surface, pum
     assert result["incremental_rate"] > 0
 
 
-def test_compare_methods_returns_4(reservoir, fluid, well, surface, pump):
-    """compare_methods must return entries for all four correlations."""
-    results = compare_methods(
+def test_no_pump_gives_zero_increment(reservoir, fluid, well, surface):
+    """Sin bomba no hay incremental: no se resta contra un cero ficticio.
+
+    Regresión: antes devolvía −q_natural (el caudal natural en negativo), porque
+    trataba "no hay bomba" como "la bomba produce cero".
+    """
+    result = find_operating_point(reservoir, fluid, well, surface)
+
+    assert result["natural_flow"] is not None
+    assert result["pump_flow"] is None
+    assert result["incremental_rate"] == 0.0, (
+        f"Sin bomba el incremental debe ser 0, no {result['incremental_rate']:.1f}"
+    )
+    assert result["pump_efficiency"] == 0.0
+    assert result["pump_dp_psi"] == 0.0
+
+
+def test_pump_without_operating_point_gives_zero_increment(
+    reservoir, fluid, well, surface, pump
+):
+    """Si se pidió bomba pero no hay cruce, el incremental es 0 y pump_flow None.
+
+    Los dos casos se distinguen mirando ``pump_flow``: acá es None *habiendo*
+    pedido bomba, que es el síntoma de que esa bomba no opera en este pozo.
+    """
+    # Una sola etapa aporta head despreciable: no alcanza a mover el punto.
+    result = find_operating_point(
+        reservoir, fluid, well, surface, pump=pump, stages=1, pump_depth=6000.0,
+    )
+    assert result["incremental_rate"] >= 0.0, (
+        "El incremental nunca debe ser negativo"
+    )
+
+
+def test_method_used_is_poettmann_carpenter(reservoir, fluid, well, surface, pump):
+    """El simulador usa una sola correlación y lo reporta en el resultado."""
+    result = find_operating_point(
         reservoir, fluid, well, surface,
         pump=pump, stages=150, pump_depth=6000.0,
     )
-    for m in ("hagedorn_brown", "beggs_brill", "duns_ros", "poettmann_carpenter"):
-        assert m in results, f"Method '{m}' missing from compare_methods output"
-        res = results[m]
-        assert res["pump_flow"] is not None, (
-            f"Method '{m}' returned no pump operating point"
-        )
-        q_pump = res["pump_flow"]["q"]
-        assert q_pump > 0, f"Method '{m}': q_pump={q_pump:.1f} must be > 0"
-
-    assert "_ipr" in results
-    assert len(results["_ipr"]["q"]) > 0
+    assert result["method_used"] == "poettmann_carpenter"
+    assert result["pump_flow"] is not None
+    assert result["pump_flow"]["q"] > 0
+    assert len(result["q_ipr"]) > 0
