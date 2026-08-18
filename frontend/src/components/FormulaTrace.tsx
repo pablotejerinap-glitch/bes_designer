@@ -47,9 +47,19 @@ export function FormulaTrace({ formulas }: { formulas?: Formula[] }) {
             {f.substitution} = {formatResult(f.result)} {f.units}
           </Code>
 
+          {/*
+            Dos notas distintas y a propósito separadas: `note` es del método y
+            vale siempre —viene del catálogo—; `context` es de ESTE pozo.
+            Mezclarlas haría parecer condición general lo que es circunstancia.
+          */}
           {f.note && (
             <Text size="xs" c="dimmed" mt={6}>
               {f.note}
+            </Text>
+          )}
+          {f.context && (
+            <Text size="xs" c="teal.8" mt={4}>
+              En este caso: {f.context}
             </Text>
           )}
         </Card>

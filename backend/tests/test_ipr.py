@@ -641,26 +641,45 @@ class TestTrazaIPR:
         res = self._res(IPRMethod.VOGEL)
         pwf = calculate_pwf_for_target_rate(res, 1200.0)
         claves = [f["key"] for f in ipr_trace(res, 1200.0, pwf)]
-        assert claves == ["ipr_qb", "ipr_pwf", "ipr_drawdown"]
+        assert claves == ["pwf_qb", "pwf_vogel_bifasico", "diseno_drawdown"]
+
+    def test_el_paso_conceptual_agrupa_las_variantes(self):
+        """Los cuatro caminos a la Pwf comparten `step` y difieren en `key`.
+
+        Es lo que permite listarlos juntos en pantalla —«Pwf en las
+        perforaciones, resuelta de cuatro maneras»— y a la vez saber cuál se
+        ejecutó en este caso.
+        """
+        res = self._res(IPRMethod.VOGEL)
+        pwf = calculate_pwf_for_target_rate(res, 1200.0)
+        f = next(x for x in ipr_trace(res, 1200.0, pwf)
+                 if x["step"] == "pwf_diseno")
+        assert f["key"] == "pwf_vogel_bifasico"
+        assert f["topic"] == "ipr"
 
     def test_vogel_sobre_la_burbuja_usa_el_tramo_recto(self):
         res = self._res(IPRMethod.VOGEL)
         pwf = calculate_pwf_for_target_rate(res, 400.0)      # queda sobre Pb
         t = ipr_trace(res, 400.0, pwf)
-        f = next(x for x in t if x["key"] == "ipr_pwf")
+        f = next(x for x in t if x["step"] == "pwf_diseno")
+        assert f["key"] == "pwf_vogel_recta"
         assert "tramo recto" in f["label"]
         assert f["expression"] == "q = J · (Pr − Pwf)"
 
     def test_lineal_muestra_el_despeje_directo(self):
         res = self._res(IPRMethod.LINEAR)
         pwf = calculate_pwf_for_target_rate(res, 1200.0)
-        f = next(x for x in ipr_trace(res, 1200.0, pwf) if x["key"] == "ipr_pwf")
+        f = next(x for x in ipr_trace(res, 1200.0, pwf)
+                 if x["step"] == "pwf_diseno")
+        assert f["key"] == "pwf_lineal"
         assert f["expression"] == "Pwf = Pr − q / J"
 
     def test_fetkovich_aclara_que_no_se_parte_en_la_burbuja(self):
         res = self._res(IPRMethod.FETKOVICH, fetkovich_n=0.85)
         pwf = calculate_pwf_for_target_rate(res, 1200.0)
-        f = next(x for x in ipr_trace(res, 1200.0, pwf) if x["key"] == "ipr_pwf")
+        f = next(x for x in ipr_trace(res, 1200.0, pwf)
+                 if x["step"] == "pwf_diseno")
+        assert f["key"] == "pwf_fetkovich"
         assert "C · (Pr² − Pwf²)^n" in f["expression"]
         assert "burbuja" in f["note"]
 
@@ -668,14 +687,15 @@ class TestTrazaIPR:
         """La sustitución se genera de las mismas variables que entran al cálculo."""
         res = self._res(IPRMethod.VOGEL)
         pwf = calculate_pwf_for_target_rate(res, 1200.0)
-        f = next(x for x in ipr_trace(res, 1200.0, pwf) if x["key"] == "ipr_qb")
+        f = next(x for x in ipr_trace(res, 1200.0, pwf) if x["key"] == "pwf_qb")
         assert "4500" in f["substitution"] and "2900" in f["substitution"]
         assert f["result"] == pytest.approx(res.productivity_index * 1600.0)
 
     def test_el_drawdown_cierra(self):
         res = self._res(IPRMethod.VOGEL)
         pwf = calculate_pwf_for_target_rate(res, 1200.0)
-        f = next(x for x in ipr_trace(res, 1200.0, pwf) if x["key"] == "ipr_drawdown")
+        f = next(x for x in ipr_trace(res, 1200.0, pwf)
+                 if x["key"] == "diseno_drawdown")
         assert f["result"] == pytest.approx(4500.0 - pwf)
 
     def test_la_traza_del_diseno_arranca_en_la_ipr(self):
@@ -703,7 +723,8 @@ class TestTrazaIPR:
             max_gip=0.10, design_life_years=5.0, use_vsd=False,
         )
         info = calculate_tdh(res, fluid, well, surface, obj, 10500.0, 1500.0)
-        claves = [f["key"] for f in info["formulas"]]
-        assert claves[0].startswith("ipr_")
-        assert "ipr_pwf" in claves
-        assert claves.index("ipr_pwf") < claves.index("sg_liquid")
+        pasos = [f["step"] for f in info["formulas"]]
+        temas = [f["topic"] for f in info["formulas"]]
+        assert temas[0] == "ipr"
+        assert "pwf_diseno" in pasos
+        assert pasos.index("pwf_diseno") < pasos.index("sg_liquido")

@@ -1,12 +1,15 @@
-"""
-Recommendation engine — top-level API for BES/ESP equipment selection.
+"""Motor de recomendación — la API de más alto nivel del paquete.
 
-Produces ESP design packages (pump + motor + cable + transformer) ordered
-by strict engineering criteria (BEP distance → efficiency → required
-power; see recommender/ranking.py), each annotated with its raw criteria
-values and a natural-language rationale built exclusively from calculated
-data. There is no scoring, no weighting, and no provider preference: the
-manufacturer is reported as information only.
+Arma paquetes de diseño BES completos (bomba + motor + cable + transformador)
+y los ordena por criterios estrictos de ingeniería: distancia al BEP →
+rendimiento → potencia requerida (ver ``recommender/ranking.py``).
+
+Cada recomendación viaja con sus **valores crudos** de los criterios y con una
+justificación en castellano armada **exclusivamente a partir de los datos
+calculados** — nada de texto enlatado.
+
+**No hay puntajes, ni pesos, ni preferencia de proveedor**: el fabricante se
+informa como dato, no como criterio de selección.
 """
 from __future__ import annotations
 
@@ -154,50 +157,52 @@ def generate_recommendations(
     catalog: "CatalogManager",
     n: int = 3,
 ) -> dict:
-    """Generate the top N complete ESP design recommendations.
+    """Genera las N mejores recomendaciones de diseño BES completas.
 
-    Alternatives are ordered by strict engineering criteria, in priority
-    order: (1) distance from the operating rate to the pump's BEP,
-    (2) hydraulic efficiency at the operating point, (3) lower required
-    shaft power. No weighted scores and no provider preference are applied;
-    the manufacturer is informational.
+    Las alternativas se ordenan por criterios estrictos de ingeniería, en este
+    orden de prioridad: (1) distancia del caudal de operación al BEP de la
+    bomba, (2) rendimiento hidráulico en el punto de operación, (3) menor
+    potencia al eje requerida. Sin puntajes ponderados ni preferencia de
+    proveedor; el fabricante es informativo.
 
     Args:
-        reservoir: Reservoir properties.
-        fluid: Fluid PVT and composition.
-        well: Well geometry (casing, tubing, depths, temperatures).
-        surface: Surface conditions (WHP, flowline, voltage, frequency).
-        objectives: Production targets and design constraints.
-        catalog: Loaded equipment catalog (pumps, motors, cables, seals).
-        n: Number of recommendations to return (default 3).
+        reservoir: Propiedades del reservorio.
+        fluid: PVT y composición del fluido.
+        well: Geometría del pozo (casing, tubing, profundidades, temperaturas).
+        surface: Condiciones de superficie (presión de boca, línea, tensión,
+            frecuencia).
+        objectives: Objetivos de producción y restricciones de diseño.
+        catalog: Catálogo de equipos cargado (bombas, motores, cables, sellos).
+        n: Cuántas recomendaciones devolver (por defecto 3).
 
     Returns:
-        dict with keys:
+        dict con estas claves:
 
         ``recommendations``
-            List of dicts, one per recommendation, each containing:
+            Lista de dicts, uno por recomendación, cada uno con:
 
-            - ``rank``      : 1-based position (1 = best by the criteria).
-            - ``criteria``  : Raw engineering values used for the ordering
+            - ``rank``      : posición desde 1 (1 = la mejor según los
+              criterios).
+            - ``criteria``  : los valores crudos usados para ordenar
               (bep_flow_bpd, bep_distance_frac, flow_vs_bep_pct, efficiency,
               total_pump_hp, classification).
-            - ``design``    : :class:`~core.models.DesignResult` object.
-            - ``rationale`` : Natural-language explanation built from the
-              calculated values [str].
-            - ``warnings``  : Design flags inherited from hydraulic design.
+            - ``design``    : el objeto :class:`~core.models.DesignResult`.
+            - ``rationale`` : justificación en castellano, armada a partir de
+              los valores calculados.
+            - ``warnings``  : advertencias heredadas del diseño hidráulico.
 
         ``design_basis``
-            Summary of the input conditions used for selection.
+            Resumen de las condiciones de entrada usadas para seleccionar.
 
         ``ordering_criteria``
-            Ordered list of the criteria applied (documentation of the
-            method, not tunable weights).
+            Lista ordenada de los criterios aplicados. Es documentación del
+            método, **no** pesos ajustables.
 
         ``n_candidates_evaluated``
-            Number of complete designs assembled and ordered.
+            Cuántos diseños completos se armaron y ordenaron.
 
     Raises:
-        ValueError: If no qualifying designs can be built.
+        ValueError: Si no se puede armar ningún diseño que califique.
     """
     designs = select_top_n_pumps(
         reservoir=reservoir,
@@ -290,26 +295,28 @@ def generate_recommendation_for_pump(
     catalog: "CatalogManager",
     pump_model: str,
 ) -> dict:
-    """Generate the complete ESP design package for one user-chosen pump.
+    """Arma el paquete de diseño completo para UNA bomba elegida por el usuario.
 
-    This bypasses the recommendation engine's ranking entirely — it is a
-    manual override of the algorithm's choice, not a ranked alternative.
-    The returned dict has the same shape as ``generate_recommendations``'s
-    return value (a single-item ``recommendations`` list, rank 1), so the
-    API and frontend can render it through the same response/UI path.
+    Saltea por completo el ordenamiento del motor de recomendación: esto es un
+    override manual de la elección del algoritmo, no una alternativa rankeada.
+
+    El dict que devuelve tiene la **misma forma** que el de
+    :func:`generate_recommendations` (una lista ``recommendations`` de un solo
+    elemento, rank 1), así que la API y el frontend lo pueden renderizar por el
+    mismo camino sin código nuevo.
 
     Args:
-        reservoir: Reservoir properties.
-        fluid: Fluid PVT and composition.
-        well: Well geometry.
-        surface: Surface conditions and power supply.
-        objectives: Production targets.
-        catalog: Loaded equipment catalog.
-        pump_model: Catalog model name of the user-chosen pump.
+        reservoir: Propiedades del reservorio.
+        fluid: PVT y composición del fluido.
+        well: Geometría del pozo.
+        surface: Condiciones de superficie y alimentación eléctrica.
+        objectives: Objetivos de producción.
+        catalog: Catálogo de equipos cargado.
+        pump_model: Nombre del modelo de catálogo que eligió el usuario.
 
     Raises:
-        ValueError: If the pump is unknown, doesn't fit the well casing, or
-            the design cannot be completed at the target conditions.
+        ValueError: Si la bomba no existe, no entra en el casing del pozo, o el
+            diseño no se puede completar en las condiciones pedidas.
     """
     dr = select_pump_by_model(
         reservoir=reservoir,

@@ -1,10 +1,16 @@
-"""Mappers between API Pydantic schemas and domain dataclasses.
+"""Traductores entre los esquemas Pydantic de la API y las dataclasses del dominio.
 
-Request:  schema -> dataclass  (with explicit string -> enum lookup).
-Response: DesignResult -> DesignResultSchema  (trivial; no enums in DesignResult).
+::
 
-Keeping the domain dataclasses untouched (and their ``__post_init__`` validation)
-is the whole point — see ``.claude/rules/api-contract.md``.
+    Pedido:    esquema -> dataclass   (con lookup explícito string -> enum)
+    Respuesta: DesignResult -> DesignResultSchema
+
+**El objetivo es no tocar las dataclasses del dominio** ni su validación en
+``__post_init__``. Convertirlas a Pydantic rompería los tests que esperan
+``ValueError`` con mensajes específicos, y el ``warnings.warn`` «suave» de
+``Reservoir``.
+
+Ver ``.claude/rules/api-contract.md``.
 """
 from __future__ import annotations
 

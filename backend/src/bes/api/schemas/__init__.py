@@ -1,7 +1,10 @@
-"""Pydantic request/response schemas for the API.
+"""Esquemas Pydantic de pedido y respuesta de la API.
 
-Separate from the domain dataclasses (`core/models.py`) on purpose — see
-`.claude/rules/api-contract.md`. Enums are exposed as lowercase strings.
+Están **separados a propósito** de las dataclasses del dominio
+(``core/models.py``) — ver ``.claude/rules/api-contract.md``.
+
+Los enums se exponen como cadenas en minúscula (``"vogel"``, ``"linear"``),
+nunca como los enteros de ``auto()``.
 """
 from bes.api.schemas.inputs import (
     DesignRequest,

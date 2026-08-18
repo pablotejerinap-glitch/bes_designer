@@ -159,6 +159,16 @@ def poettmann_carpenter_components(
         "mixture_velocity": vm,
         "liquid_holdup_noslip": lambda_l,
         "friction_factor": f_pc,
+        # Intermedios: los consume poettmann_carpenter_trace() para poder
+        # mostrar la cadena completa sin recalcularla —recalcular sería abrir
+        # la puerta a que la traza y la cuenta se separen—.
+        "area_ft2": area,
+        "pipe_id_ft": d_ft,
+        "liquid_density": rho_l,
+        "gas_density": rho_g,
+        "v_superficial_liquid": vsl,
+        "v_superficial_gas": vsg,
+        "angle_deg": angle,
     }
 
 
@@ -450,3 +460,120 @@ def _make_fluid(
         co2_content=0.0,
         sand_production=False,
     )
+
+
+# --------------------------------------------------------------------------
+# Traza de fórmulas
+# --------------------------------------------------------------------------
+
+def poettmann_carpenter_trace(
+    q_liq: float,
+    wc: float,
+    gor: float,
+    oil_api: float,
+    gas_sg: float,
+    water_sg: float,
+    pipe_id: float,
+    p: float,
+    t: float,
+    angle: float = 90.0,
+) -> list[dict]:
+    """La cadena completa de Poettmann & Carpenter en un punto, paso por paso.
+
+    Sigue el patrón de :func:`bes.core.ipr.ipr_trace`: función aparte, para no
+    ensuciar la firma de las funciones puras que usa todo el motor. **No
+    recalcula nada**: llama a :func:`poettmann_carpenter_components` y lee sus
+    intermedios, de modo que la traza no puede separarse de la cuenta.
+
+    Args:
+        q_liq: Caudal bruto de líquido en superficie [STB/d].
+        wc: Corte de agua [0-1].
+        gor: GOR total de producción [scf/STB].
+        oil_api: Gravedad del petróleo [°API].
+        gas_sg: Gravedad específica del gas [-].
+        water_sg: Gravedad específica del agua [-].
+        pipe_id: Diámetro interno de la cañería [in].
+        p: Presión del punto [psia].
+        t: Temperatura del punto [°F].
+        angle: Ángulo respecto de la horizontal [°]. 90 = vertical.
+
+    Returns:
+        Lista de dicts de :class:`bes.core.formulas.Formula`, en el orden en que
+        se ejecutan.
+    """
+    from bes.core.formulas import FormulaTrace
+
+    c = poettmann_carpenter_components(
+        q_liq=q_liq, wc=wc, gor=gor, oil_api=oil_api, gas_sg=gas_sg,
+        water_sg=water_sg, pipe_id=pipe_id, p=p, t=t, angle=angle,
+    )
+    props = fluid_properties_at_conditions(
+        _make_fluid(oil_api, wc, gor, gas_sg, water_sg, p), p, t
+    )
+
+    q_oil_sc = q_liq * (1.0 - wc)
+    q_liq_res = q_oil_sc * props["bo"] + q_liq * wc * props["bw"]
+    q_gas_res = q_oil_sc * max(gor - props["rs"], 0.0) * props["bg"]
+
+    trace = FormulaTrace()
+    trace.add("pc_area", {"d": pipe_id}, c["area_ft2"])
+    trace.add(
+        "pc_q_liquido_fondo",
+        {"q_o": q_oil_sc, "Bo": props["bo"], "q_w": q_liq * wc,
+         "Bw": props["bw"]},
+        q_liq_res,
+    )
+    trace.add(
+        "pc_q_gas_fondo",
+        {"q_o": q_oil_sc, "GOR": gor, "Rs": props["rs"], "Bg": props["bg"]},
+        q_gas_res,
+        context=(
+            f"A {p:,.0f} psia el gas en solución ({props['rs']:.0f} scf/STB) ya "
+            f"cubre todo el GOR: no queda gas libre."
+            if gor <= props["rs"] else
+            f"A {p:,.0f} psia hay {gor - props['rs']:.0f} scf/STB de gas libre."
+        ),
+    )
+    trace.add(
+        "pc_velocidad_superficial",
+        {"q_fondo": q_liq_res, "A": c["area_ft2"]},
+        c["v_superficial_liquid"],
+        label="Velocidad superficial del líquido",
+    )
+    trace.add(
+        "pc_velocidad_superficial",
+        {"q_fondo": q_gas_res, "A": c["area_ft2"]},
+        c["v_superficial_gas"],
+        label="Velocidad superficial del gas",
+    )
+    trace.add(
+        "pc_holdup_sin_deslizamiento",
+        {"v_sl": c["v_superficial_liquid"], "v_m": c["mixture_velocity"]},
+        c["liquid_holdup_noslip"],
+    )
+    trace.add(
+        "pc_densidad_mezcla",
+        {"ρ_l": c["liquid_density"], "λ_l": c["liquid_holdup_noslip"],
+         "ρ_g": c["gas_density"]},
+        c["mixture_density"],
+    )
+    acotado = c["friction_factor"] in (0.005, 0.065)
+    trace.add(
+        "pc_factor_friccion",
+        {"ρ_m": c["mixture_density"], "v_m": c["mixture_velocity"],
+         "d": c["pipe_id_ft"]},
+        c["friction_factor"],
+        context=("El valor quedó acotado al extremo del rango de la carta."
+                 if acotado else ""),
+    )
+    trace.add(
+        "pc_gradiente_gravedad",
+        {"ρ_m": c["mixture_density"], "θ": angle}, c["gravity"],
+    )
+    trace.add(
+        "pc_gradiente_friccion",
+        {"f": c["friction_factor"], "ρ_m": c["mixture_density"],
+         "v_m": c["mixture_velocity"], "g_c": _GC, "d": c["pipe_id_ft"]},
+        c["friction"],
+    )
+    return trace.as_list()

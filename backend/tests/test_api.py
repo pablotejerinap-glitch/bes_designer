@@ -659,3 +659,68 @@ def test_gas_ladder_figure_viaja_en_las_dos_respuestas(client: TestClient) -> No
         assert fig.get("data"), "falta la figura de la escalera"
         # El eje X va oculto y con rango fijo: la figura son anotaciones.
         assert fig["layout"]["xaxis"]["visible"] is False
+
+
+class TestCatalogoDeFormulas:
+    """GET /api/formulas — las fórmulas del motor, sin correr un diseño.
+
+    Es lo que permite revisarlas con un profesional: la traza de una corrida
+    sólo muestra la rama que ese pozo ejecutó.
+    """
+
+    def test_lista_todas_las_formulas_sin_correr_nada(self, client):
+        r = client.get("/api/formulas")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["total"] > 0
+        assert sum(len(t["formulas"]) for t in body["topics"]) == body["total"]
+
+    def test_trae_las_variantes_que_un_caso_concreto_no_ejecutaria(self, client):
+        """Las cuatro maneras de llegar a la Pwf conviven en el catálogo."""
+        body = client.get("/api/formulas").json()
+        ipr = next(t for t in body["topics"] if t["key"] == "ipr")
+        pwf = {f["key"] for f in ipr["formulas"] if f["step"] == "pwf_diseno"}
+        assert pwf == {
+            "pwf_lineal", "pwf_vogel_recta", "pwf_vogel_bifasico", "pwf_fetkovich",
+        }
+
+    def test_cada_formula_viaja_con_su_glosario_y_su_cita(self, client):
+        body = client.get("/api/formulas").json()
+        for tema in body["topics"]:
+            for f in tema["formulas"]:
+                assert f["symbols"], f["key"]
+                assert f["reference"], f["key"]
+                assert f["units"], f["key"]
+                assert f["module"].startswith("bes."), f["key"]
+
+    def test_publica_la_cobertura_y_hoy_esta_completa(self, client):
+        """El campo existe para mostrar lo que falta; hoy no falta nada."""
+        body = client.get("/api/formulas").json()
+        assert body["pending_topics"] == []
+        for tema in body["topics"]:
+            assert tema["instrumented"] is True
+            assert tema["formulas"], f"{tema['key']} dice estar instrumentado"
+
+    def test_estan_los_diez_temas_del_motor(self, client):
+        body = client.get("/api/formulas").json()
+        assert {t["key"] for t in body["topics"]} == {
+            "ipr", "tdh", "diseno", "viscosidad", "gas",
+            "pvt", "multifasico", "afinidad", "electrico", "mecanica",
+        }
+
+    def test_la_traza_de_un_diseno_usa_las_claves_del_catalogo(self, client):
+        """Las dos vistas hablan el mismo idioma: se pueden cruzar."""
+        declaradas = {
+            f["key"]
+            for t in client.get("/api/formulas").json()["topics"]
+            for f in t["formulas"]
+        }
+        resp = client.post("/api/design", json=_payload())
+        assert resp.status_code == 200
+        corridas = {
+            f["key"]
+            for rec in resp.json()["recommendations"]
+            for f in rec["design"]["formulas"]
+        }
+        assert corridas, "el diseño no emitió ninguna fórmula"
+        assert corridas <= declaradas, sorted(corridas - declaradas)

@@ -227,8 +227,16 @@ export interface HousingDetail {
  * muestra es necesariamente lo que se ejecutó: no puede desincronizarse.
  */
 export interface Formula {
-  /** Identificador estable del paso ("tdh", "stages", "pi"…). */
+  /** Clave única en el catálogo ("tdh", "pwf_vogel_bifasico"…). */
   key: string;
+  /**
+   * Paso conceptual. Varias fórmulas lo comparten cuando son el mismo cálculo
+   * por métodos distintos (la Pwf sale por Darcy, Vogel o Fetkovich); en una
+   * corrida se ejecuta exactamente una.
+   */
+  step: string;
+  /** Tema del catálogo: "ipr", "tdh", "diseno", "viscosidad", "gas"… */
+  topic: string;
   /** Qué se calcula, en castellano. */
   label: string;
   /** La fórmula en símbolos, como está en el libro. */
@@ -237,12 +245,53 @@ export interface Formula {
   substitution: string;
   /** Los valores que entraron, por símbolo. */
   inputs: Record<string, number>;
+  /** Qué significa cada símbolo, con su unidad. */
+  symbols: Record<string, string>;
   result: number;
   units: string;
   /** Cita bibliográfica. */
   reference: string;
-  /** Condición de validez o supuesto, si corresponde. */
+  /** Condición de validez que vale siempre. Viene del catálogo. */
   note: string;
+  /** Por qué esta variante y con qué datos, en este caso concreto. */
+  context: string;
+}
+
+/**
+ * Una fórmula tal como está DECLARADA en el catálogo del motor.
+ *
+ * No trae números: es la declaración. Los números llegan por `Formula`, que
+ * sale de esta misma fuente cuando se corre un diseño.
+ */
+export interface FormulaSpec {
+  key: string;
+  topic: string;
+  step: string;
+  label: string;
+  expression: string;
+  units: string;
+  symbols: Record<string, string>;
+  reference: string;
+  note: string;
+  /** Dónde se ejecuta, para quien sí quiera leer el código. */
+  module: string;
+}
+
+/** Un capítulo del motor, con sus fórmulas. */
+export interface FormulaTopic {
+  key: string;
+  label: string;
+  /** Qué resuelve, en una línea. */
+  blurb: string;
+  /** false mientras el tema no emita traza. Se publica igual, no se esconde. */
+  instrumented: boolean;
+  formulas: FormulaSpec[];
+}
+
+export interface FormulaCatalog {
+  topics: FormulaTopic[];
+  total: number;
+  pending_topics: string[];
 }
 
 export interface DesignResult {

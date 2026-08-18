@@ -1,7 +1,65 @@
-"""
-Electrical system design for BES/ESP installations.
-Based on: Kermit Brown, "The Technology of Artificial Lift Methods", Vol. 2b,
-Sections 4.5325 and 4.5326.
+"""Diseño eléctrico del aparejo BES: motor, sello, cable y transformador.
+
+La bomba necesita que le lleven energía eléctrica desde la superficie hasta
+2000 o 3000 metros de profundidad, y eso trae dos problemas que este módulo
+resuelve.
+
+El primero es que **el cable pierde tensión en el camino**. Si el motor pide
+1000 V en el fondo, arriba hay que entregar más, porque una parte se cae a lo
+largo del cable. Cuanto más largo el cable y más corriente pasa, más se pierde.
+
+El segundo es que **abajo hay muy poco lugar**. El motor tiene que entrar en el
+casing, y además el cable tiene que pasar por el costado del motor. Un motor que
+entra justo puede dejar sin espacio al cable.
+
+La cadena de cálculo
+--------------------
+Va en este orden, y cada paso depende del anterior::
+
+    potencia al eje  ->  MOTOR      (hp, tensión, corriente, diámetro)
+                     ->  SELLO      (protege el motor del fluido)
+                     ->  CABLE      (calibre que aguante la corriente y entre)
+                     ->  CAIDA DE TENSION en el cable
+                     ->  TENSION EN SUPERFICIE = la del motor + la caída
+                     ->  TRANSFORMADOR (kVA para esa tensión y corriente)
+
+Reglas que atan la selección
+----------------------------
+**No se mezclan fabricantes.** Bomba, motor y sello salen del mismo proveedor
+(ver ``.claude/rules/domain.md``). El cable y los accesorios quedan exentos:
+son intercambiables entre marcas. Si el proveedor de la bomba no tiene motor
+que sirva, la bomba se descarta — nunca se arma un aparejo mixto en silencio.
+
+**Márgenes que se aplican siempre:**
+
+    - Motor: potencia de placa >= 1.10 × la potencia pedida (10 % de margen)
+    - Cable: ampacidad >= 1.25 × la corriente del motor (derating NEC)
+    - Temperatura: el equipo tiene que aguantar la de fondo + 25 °F
+
+Límite del catálogo actual
+--------------------------
+El cable de mayor ampacidad publica 100 A. Con el derating de 1.25, la corriente
+de motor máxima diseñable es **80 A**; por encima, :func:`select_cable` falla
+con un mensaje explícito.
+
+Nomenclatura
+------------
+    V           Tensión                                       [V]
+    I           Corriente                                     [A]
+    kVA         Potencia aparente                             [kVA]
+    ampacidad   Corriente máxima que aguanta un cable         [A]
+    OD          Outer Diameter: diámetro exterior             [in]
+    ID          Inner Diameter: diámetro interior             [in]
+    AWG         Calibre de conductor (a menor número, más grueso)
+    CU / AL     Cobre / aluminio
+    NEC         National Electrical Code
+    derating    Reducción de la capacidad nominal por seguridad
+
+Referencia
+----------
+Brown, K.E. "The Technology of Artificial Lift Methods", Vol. 2b, §4.5325 y
+    §4.5326.
+Takács, G. "Electrical Submersible Pumps Manual" — empuje axial sobre el sello.
 """
 from __future__ import annotations
 
@@ -68,10 +126,11 @@ _CABLE_DERATING = 1.25
 # ---------------------------------------------------------------------------
 
 def _interp_vdrop_per_amp(conductor: str, size: str, temp_f: float) -> float:
-    """V per amp per 1 000 ft, linearly interpolated at *temp_f*.
+    """Volts por amper cada 1000 ft, interpolados a la temperatura pedida.
 
-    Legacy fallback table (only #1–#6). Prefer ``_vdrop_per_amp_from_cable``,
-    which reads each cable's own voltage-drop data from the catalog.
+    Tabla de respaldo antigua, que sólo cubre los calibres #1 a #6. Se prefiere
+    :func:`_vdrop_per_amp_from_cable`, que lee la tabla propia de cada cable del
+    catálogo.
     """
     key = (conductor.upper(), size)
     if key not in _VDROP_PER_AMP_PER_1000FT:
@@ -90,12 +149,13 @@ def _interp_vdrop_per_amp(conductor: str, size: str, temp_f: float) -> float:
 
 
 def _vdrop_per_amp_from_cable(cable: dict, temp_f: float) -> float:
-    """V per amp per 1 000 ft for a catalog cable, interpolated at *temp_f*.
+    """Volts por amper cada 1000 ft de un cable del catálogo, a esa temperatura.
 
-    Reads the cable's own ``voltage_drop_v_per_amp_per_1000ft`` table (keyed by
-    temperature) so any conductor size in the catalog is supported — including
-    sizes absent from the legacy hardcoded table (e.g. 1/0). Falls back to the
-    legacy table only when the cable entry carries no voltage-drop data.
+    Lee la tabla ``voltage_drop_v_per_amp_per_1000ft`` que trae el propio cable
+    (indexada por temperatura), así que sirve para cualquier calibre del
+    catálogo — incluidos los que no están en la tabla vieja hardcodeada, como el
+    1/0. Sólo cae a la tabla vieja cuando la ficha del cable no publica datos de
+    caída de tensión.
     """
     vd_map = cable.get("voltage_drop_v_per_amp_per_1000ft")
     if not vd_map:
@@ -126,30 +186,36 @@ def select_cable(
     catalog_manager: "CatalogManager",
     motor_voltage: float = 0.0,
 ) -> dict:
-    """Select the most economical ESP power cable.
+    """Elige el cable de potencia más económico que cumpla todo.
 
-    Selection criteria (Brown Vol. 2b, Sections 4.5325–4.5326):
+    Los criterios se aplican en este orden (Brown Vol. 2b, §4.5325–4.5326):
 
-    1. Ampacity  : ``max_amps`` ≥ ``motor_amps`` × 1.25  (NEC continuous-load derating)
-    2. Temperature: ``max_temp_f`` ≥ ``bottom_temp`` + 25 °F
-    3. Physical fit: flat-cable thickness ≤ one-side annular clearance (casing − motor)
-    4. Conductor preference: copper (CU) before aluminium (AL)
-    5. Economy: smallest conductor (lowest max_amps) that satisfies 1–4
+        1. **Ampacidad**: ``max_amps`` >= ``motor_amps`` × 1.25. El 1.25 es el
+           derating del NEC por carga continua — un cable no se hace trabajar
+           al 100 % de su capacidad todo el día.
+        2. **Temperatura**: ``max_temp_f`` >= temperatura de fondo + 25 °F.
+        3. **Que entre físicamente**: el espesor del cable plano tiene que
+           caber en la luz del anular de un lado (casing − motor).
+        4. **Conductor**: se prefiere cobre (CU) antes que aluminio (AL).
+        5. **Economía**: entre los que cumplen 1 a 4, el conductor más
+           chico — o sea el de menor ampacidad, que es el más barato.
 
     Args:
-        motor_amps: Rated motor current [A].
-        pump_depth: Pump setting depth [ft]. Cable length = pump_depth + 100 ft.
-        bottom_temp: Bottom-hole temperature at pump depth [°F].
-        casing_id: Casing inner diameter [in].
-        motor_od: Motor outer diameter [in].
-        catalog_manager: Loaded equipment catalog.
+        motor_amps: Corriente nominal del motor [A].
+        pump_depth: Profundidad de asentamiento de la bomba [ft]. La longitud
+            de cable es ``pump_depth + 100 ft``.
+        bottom_temp: Temperatura de fondo a la profundidad de la bomba [°F].
+        casing_id: Diámetro interior del casing [in].
+        motor_od: Diámetro exterior del motor [in].
+        catalog_manager: Catálogo de equipos cargado.
 
     Returns:
-        dict with ``cable_size``, ``cable_type``, ``conductor``, ``manufacturer``,
-        ``length_ft``, ``voltage_drop_per_1000ft``, ``max_amps``.
+        dict con ``cable_size``, ``cable_type``, ``conductor``,
+        ``manufacturer``, ``length_ft``, ``voltage_drop_per_1000ft`` y
+        ``max_amps``.
 
     Raises:
-        ValueError: If no qualifying cable exists in the catalog.
+        ValueError: Si no hay en el catálogo ningún cable que cumpla.
     """
     required_ampacity = motor_amps * _CABLE_DERATING
     min_temp_rating = bottom_temp + 25.0
@@ -233,19 +299,22 @@ def voltage_drop(
     temp_f: float,
     length_ft: float,
 ) -> float:
-    """Total cable voltage drop for a one-way run.
+    """Caída de tensión total en el cable, en un solo sentido.
+
+    Es lo que se «pierde» en el camino de la superficie al motor. La tensión que
+    hay que entregar arriba es la que pide el motor MÁS esta caída.
 
     Args:
-        cable_size: AWG conductor size string (e.g. ``"#4"``).
-        cable_type: Conductor material or insulation type.  If ``"AL"`` appears
-            in the string (case-insensitive), aluminium is assumed; otherwise
-            copper (CU) is used.
-        amps: Operating current [A].
-        temp_f: Operating temperature [°F].
-        length_ft: Cable run length [ft].
+        cable_size: Calibre AWG del conductor, como texto (por ej. ``"#4"``).
+        cable_type: Material del conductor o tipo de aislación. Si aparece
+            ``"AL"`` en el texto (sin importar mayúsculas) se supone aluminio;
+            si no, cobre.
+        amps: Corriente de operación [A].
+        temp_f: Temperatura de operación [°F].
+        length_ft: Largo del tendido de cable [ft].
 
     Returns:
-        Total one-way voltage drop [V].
+        Caída de tensión total, en un sentido [V].
     """
     conductor = "AL" if "AL" in cable_type.upper() else "CU"
     vdrop_per_amp = _interp_vdrop_per_amp(conductor, cable_size, temp_f)
@@ -426,35 +495,41 @@ def calculate_surface_voltage(
 
 
 def calculate_kva(surface_voltage: float, motor_amps: float) -> float:
-    """Apparent power required from the surface transformer [kVA].
+    """Potencia aparente que tiene que entregar el transformador de superficie.
 
-    kVA = Vs × I × √3 / 1 000  (three-phase convention)
+        kVA = Vs · I · √3 / 1000
+
+    El √3 es la convención de sistema trifásico.
 
     Args:
-        surface_voltage: Required surface voltage [V].
-        motor_amps: Motor operating current [A].
+        surface_voltage: Tensión necesaria en superficie [V].
+        motor_amps: Corriente de operación del motor [A].
 
     Returns:
-        Apparent power [kVA].
+        Potencia aparente [kVA].
     """
     return surface_voltage * motor_amps * math.sqrt(3) / 1000.0
 
 
 def select_transformer(kva_required: float, n_phases: int = 3) -> dict:
-    """Select the smallest standard transformer meeting the kVA demand.
+    """Elige el transformador estándar más chico que cubra la demanda de kVA.
 
-    Standard 3-phase ratings [kVA]: 25, 37.5, 50, 75, 100, 150, 200, 300.
-    For three single-phase units (n_phases=1), per-unit rating = kva_required / 3.
+    Los transformadores no se fabrican en cualquier tamaño: vienen en una serie
+    de valores estándar. Trifásicos [kVA]: 25, 37.5, 50, 75, 100, 150, 200, 300.
+
+    Si en vez de una unidad trifásica se usan tres monofásicas
+    (``n_phases=1``), cada una tiene que cubrir un tercio de la demanda.
 
     Args:
-        kva_required: Total apparent power demand [kVA].
-        n_phases: 3 for a single 3-phase unit; 1 for three single-phase units.
+        kva_required: Demanda total de potencia aparente [kVA].
+        n_phases: 3 para una unidad trifásica; 1 para tres monofásicas.
 
     Returns:
-        dict with ``n_phases``, ``kva_per_unit``, ``n_units``, ``total_kva``.
+        dict con ``n_phases``, ``kva_per_unit``, ``n_units`` y ``total_kva``.
 
     Raises:
-        ValueError: If demand exceeds the maximum catalog rating (300 kVA/unit).
+        ValueError: Si la demanda supera el máximo del catálogo
+            (300 kVA por unidad).
     """
     if n_phases == 3:
         per_unit_demand = kva_required
@@ -488,38 +563,45 @@ def select_motor(
     casing_id: float | None = None,
     manufacturer: str | None = None,
 ) -> dict:
-    """Select the best ESP motor for the given power and well conditions.
+    """Elige el mejor motor para la potencia pedida y las condiciones del pozo.
 
-    Selection rules (Brown Vol. 2b, Section 4.5325):
+    Las reglas, en orden (Brown Vol. 2b, §4.5325):
 
-    - Fabricante: cuando se indica *manufacturer*, el motor debe ser de ese
-      proveedor. Es la regla de aparejo único — bomba, motor y sello del mismo
-      fabricante (ver ``.claude/rules/domain.md``).
-    - HP rating ≥ hp_required × 1.10  (10 % nameplate margin)
-    - Motor OD ≤ pump_od × 1.20  (fits same casing as the pump)
-    - Cable clearance: motor OD + 2 × thinnest flat cable ≤ casing_id,
-      so that at least one catalog cable can physically run past the motor
-      (only checked when *casing_id* is given).
-    - Temperature: ``max_temp_f`` ≥ bottom_temp + 25 °F
-    - Target voltage (HP-based):
-        ≤ 70 HP → ~800 V  |  71–200 HP → ~1 200 V  |  > 200 HP → ~2 000 V
-    - Among qualified: smallest HP rating, then closest voltage to target.
+        - **Fabricante**: si se indica ``manufacturer``, el motor tiene que ser
+          de ese proveedor. Es la regla de aparejo único — bomba, motor y sello
+          del mismo fabricante (ver ``.claude/rules/domain.md``).
+        - **Potencia**: placa >= ``hp_required`` × 1.10 (10 % de margen).
+        - **Diámetro**: OD del motor <= OD de la bomba × 1.20, para que entre en
+          el mismo casing que la bomba.
+        - **Luz para el cable**: OD del motor + 2 × el cable plano más fino
+          <= ID del casing, para que al menos un cable del catálogo pueda pasar
+          por al lado del motor. Sólo se verifica si se pasa ``casing_id``.
+        - **Temperatura**: ``max_temp_f`` >= temperatura de fondo + 25 °F.
+        - **Tensión objetivo**, según la potencia::
+
+              <= 70 HP     ->  ~800 V
+              71 a 200 HP  ->  ~1200 V
+              > 200 HP     ->  ~2000 V
+
+        - Entre los que califican: el de menor potencia de placa, y a igualdad,
+          el de tensión más cercana a la objetivo.
 
     Args:
-        hp_required: Required shaft power [hp].
-        catalog_manager: Loaded equipment catalog.
-        pump_od: Pump outer diameter [in] (constrains motor OD).
-        bottom_temp: Bottom-hole temperature [°F].
-        depth_ft: Pump setting depth [ft] (informational).
-        casing_id: Casing inner diameter [in]. Enables the cable-clearance
-            check; without it a large-OD motor may pass selection and then
-            leave no annular room for any cable.
+        hp_required: Potencia al eje necesaria [hp].
+        catalog_manager: Catálogo de equipos cargado.
+        pump_od: Diámetro exterior de la bomba [in], que limita el del motor.
+        bottom_temp: Temperatura de fondo [°F].
+        depth_ft: Profundidad de asentamiento [ft], sólo informativa.
+        casing_id: Diámetro interior del casing [in]. Habilita la verificación
+            de luz para el cable; sin ella, un motor de diámetro grande puede
+            pasar la selección y después no dejar lugar para ningún cable.
 
     Returns:
-        Motor catalog dict (hp_rating, voltage, amperage, od_inches, …).
+        dict del motor del catálogo (hp_rating, voltage, amperage,
+        od_inches, …).
 
     Raises:
-        ValueError: If no qualifying motor exists.
+        ValueError: Si no hay ningún motor que califique.
     """
     # El margen del 10 % se redondea a 6 decimales antes de comparar. Sin eso,
     # 50.0 × 1.10 da 55.000000000000006 en punto flotante y un motor de placa
@@ -616,22 +698,25 @@ def motor_temperature_ok(motor: dict, min_temp_f: float) -> bool:
 
 
 def estimate_axial_thrust(tdh_ft: float, sg_fluid: float, pump_series: str) -> float:
-    """Estimate the axial (downthrust) load the protector must carry [lbs].
+    """Estima la carga axial (empuje hacia abajo) que tiene que aguantar el sello.
 
-    Approximates the hydraulic downthrust as the pump differential pressure
-    acting on the shaft cross-section, with a design margin (Takacs, *ESP
-    Manual*):
+    El empuje hidráulico se aproxima como el diferencial de presión de la bomba
+    actuando sobre la sección del eje, con un margen de diseño::
 
-        ΔP_pump [psi] = TDH × 0.433 × SG
-        F_axial [lbs] = ΔP_pump × (π/4 · d_shaft²) × margin
+        ΔP_bomba [psi] = TDH · 0.433 · SG
+        F_axial [lbs]  = ΔP_bomba · (π/4 · d_eje²) · margen
 
     Args:
-        tdh_ft: Total dynamic head developed by the pump [ft].
-        sg_fluid: Produced-fluid specific gravity.
-        pump_series: Pump series (selects a representative shaft diameter).
+        tdh_ft: Altura dinámica total que desarrolla la bomba [ft].
+        sg_fluid: Gravedad específica del fluido producido.
+        pump_series: Serie de la bomba, que fija un diámetro de eje
+            representativo.
 
     Returns:
-        Estimated axial thrust load [lbs].
+        Carga axial estimada [lbs].
+
+    Referencia:
+        Takács, "Electrical Submersible Pumps Manual".
     """
     import math
     d_shaft = _SHAFT_DIAMETER_IN.get(str(pump_series), _DEFAULT_SHAFT_DIAMETER_IN)
@@ -682,35 +767,41 @@ def electrical_design_complete(
     manufacturer: str | None = None,
     bottom_temp_f: float | None = None,
 ) -> dict:
-    """Complete electrical design: motor → seal → cable → voltage drop → transformer.
+    """Diseño eléctrico completo: motor → sello → cable → caída → transformador.
 
-    Regla de aparejo único: si se pasa *manufacturer* (el fabricante de la
-    bomba), el motor y el sello se buscan solo entre los de ese proveedor. Si no
+    Es el punto de entrada del módulo. Encadena todos los pasos en orden y
+    devuelve el aparejo eléctrico entero.
+
+    **Regla de aparejo único**: si se pasa ``manufacturer`` (el fabricante de la
+    bomba), el motor y el sello se buscan sólo entre los de ese proveedor. Si no
     hay, el diseño falla en vez de armar un aparejo mixto. El cable y los
     accesorios quedan exentos: son intercambiables entre marcas.
 
     Args:
-        motor_hp: Total pump shaft power required [hp].
-        pump_od: Pump outer diameter [in].
-        well: Well geometry (casing ID, total depth).
-        fluid: Fluid object (reserved for future material-selection logic).
-        catalog_manager: Loaded equipment catalog.
-        pump_depth: Pump setting depth [ft MD] — governs cable length and
-            voltage drop. Falls back to 80 % of total depth when omitted.
-        tdh_ft: Total dynamic head [ft], used to estimate axial thrust for the
-            protector. When omitted, the seal is selected on series and
-            temperature only (no thrust check).
-        sg_fluid: Produced-fluid specific gravity (for the thrust estimate).
-        pump_series: Pump series, used both for the thrust shaft diameter and
-            (with the motor series) to find a compatible protector.
+        motor_hp: Potencia total al eje de la bomba [hp].
+        pump_od: Diámetro exterior de la bomba [in].
+        well: Geometría del pozo (ID de casing, profundidad total).
+        fluid: Fluido producido (reservado para elegir materiales a futuro).
+        catalog_manager: Catálogo de equipos cargado.
+        pump_depth: Profundidad de asentamiento [ft MD] — es la que fija el
+            largo del cable y por lo tanto la caída de tensión. Si se omite,
+            se usa el 80 % de la profundidad total.
+        tdh_ft: Altura dinámica total [ft], para estimar el empuje axial sobre
+            el sello. Si se omite, el sello se elige sólo por serie y
+            temperatura, sin verificación de empuje.
+        sg_fluid: Gravedad específica del fluido producido, para el empuje.
+        pump_series: Serie de la bomba, que se usa tanto para el diámetro de
+            eje del empuje como (junto con la serie del motor) para encontrar
+            un sello compatible.
         bottom_temp_f: Temperatura de fondo [°F] — ``reservoir.reservoir_temp``.
             Es la que fija el derating del motor y del cable. Omitirla usa el
             piso conservador de 250 °F, que es el peor caso de los catálogos.
 
     Returns:
-        dict with keys ``motor``, ``seal`` (may be ``None``), ``cable``,
+        dict con ``motor``, ``seal`` (puede ser ``None``), ``cable``,
         ``cable_voltage_drop_v``, ``surface_voltage_v``, ``kva_required``,
-        ``transformer``, ``axial_thrust_lbs``, ``seal_warning`` (may be ``None``).
+        ``transformer``, ``axial_thrust_lbs`` y ``seal_warning`` (puede ser
+        ``None``).
     """
     if pump_depth is None:
         pump_depth = well.total_depth * 0.80
@@ -854,3 +945,119 @@ def electrical_design_complete(
         "cable_check": cable_check,
         "cable_warnings": cable_warnings,
     }
+
+
+# --------------------------------------------------------------------------
+# Traza de fórmulas
+# --------------------------------------------------------------------------
+
+def electrical_trace(
+    motor_voltage: float,
+    motor_amps: float,
+    cable_length_ft: float,
+    cable_size: str,
+    cable_type: str,
+    temp_f: float,
+    transformer_loss_pct: float = 2.5,
+    tdh_ft: float = 0.0,
+    sg_fluid: float = 1.0,
+    pump_series: str = "",
+    flow_bpd: float = 0.0,
+    casing_id_in: float = 0.0,
+    motor_od_in: float = 0.0,
+) -> list[dict]:
+    """La cadena eléctrica con sus números: cable, arranque, trafo y protector.
+
+    Función aparte, como :func:`bes.core.ipr.ipr_trace`, para no tocar las
+    firmas de las funciones puras. Llama a las mismas que usa el diseño.
+
+    Args:
+        motor_voltage: Tensión nominal del motor [V].
+        motor_amps: Corriente a plena carga [A].
+        cable_length_ft: Longitud de cable [ft].
+        cable_size: Calibre AWG del conductor (p. ej. ``"#4"``).
+        cable_type: Material o tipo de aislación del conductor.
+        temp_f: Temperatura de operación del cable [°F].
+        transformer_loss_pct: Pérdida del transformador [%].
+        tdh_ft: Altura dinámica total [ft]. 0 omite el empuje axial.
+        sg_fluid: Gravedad específica del fluido [-].
+        pump_series: Serie de la bomba, para el diámetro de eje.
+        flow_bpd: Caudal producido [b/d]. 0 omite la refrigeración.
+        casing_id_in: Diámetro interno del casing [in].
+        motor_od_in: Diámetro externo del motor [in].
+
+    Returns:
+        Lista de dicts de :class:`bes.core.formulas.Formula`.
+    """
+    from bes.core.formulas import FormulaTrace
+
+    trace = FormulaTrace()
+
+    # La caída por amper sale del catálogo interpolada a la temperatura de
+    # operación; es la misma que usa voltage_drop() por dentro.
+    conductor = "AL" if "AL" in cable_type.upper() else "CU"
+    vdrop_per_amp_per_1000ft = _interp_vdrop_per_amp(conductor, cable_size, temp_f)
+    dv = voltage_drop(cable_size, cable_type, motor_amps, temp_f, cable_length_ft)
+    trace.add(
+        "elec_caida_tension",
+        {"v_caida": vdrop_per_amp_per_1000ft, "I": motor_amps,
+         "L": cable_length_ft},
+        dv,
+        context=f"Son {dv / motor_voltage * 100:.1f} % de la tensión del motor."
+        if motor_voltage > 0 else "",
+    )
+
+    r = cable_resistance_ohms(vdrop_per_amp_per_1000ft, cable_length_ft)
+    trace.add(
+        "elec_resistencia_cable",
+        {"v_caida": vdrop_per_amp_per_1000ft, "L": cable_length_ft}, r,
+    )
+    trace.add(
+        "elec_perdida_cable",
+        {"I": motor_amps, "R": r}, cable_power_loss_kw(motor_amps, r),
+    )
+
+    if motor_voltage > 0:
+        trace.add(
+            "elec_tension_arranque",
+            {"V_motor": motor_voltage, "k": _STARTUP_CURRENT_MULTIPLIER,
+             "ΔV": dv},
+            startup_voltage_ratio(motor_voltage, dv),
+            context="Si baja demasiado el motor no desarrolla par y no "
+                    "arranca, aunque en régimen anduviera.",
+        )
+
+    vs = calculate_surface_voltage(motor_voltage, dv, transformer_loss_pct)
+    trace.add(
+        "elec_tension_superficie",
+        {"V_motor": motor_voltage, "ΔV": dv, "pérdida": transformer_loss_pct},
+        vs,
+    )
+    trace.add(
+        "elec_kva", {"V_s": vs, "I": motor_amps}, calculate_kva(vs, motor_amps),
+    )
+
+    if tdh_ft > 0 and pump_series:
+        d_shaft = _SHAFT_DIAMETER_IN.get(str(pump_series), _DEFAULT_SHAFT_DIAMETER_IN)
+        trace.add(
+            "elec_empuje_axial",
+            {"ΔP": tdh_ft * 0.433 * sg_fluid,
+             "A_eje": math.pi / 4.0 * d_shaft ** 2,
+             "margen": _THRUST_MARGIN},
+            estimate_axial_thrust(tdh_ft, sg_fluid, pump_series),
+        )
+
+    if flow_bpd > 0 and casing_id_in > motor_od_in > 0:
+        area_in2 = math.pi / 4.0 * (casing_id_in ** 2 - motor_od_in ** 2)
+        trace.add(
+            "elec_area_anular",
+            {"ID_casing": casing_id_in, "OD_motor": motor_od_in}, area_in2,
+        )
+        v = fluid_velocity_past_motor(flow_bpd, casing_id_in, motor_od_in)
+        trace.add(
+            "elec_velocidad_motor",
+            {"Q": flow_bpd, "A_anular": area_in2}, v,
+            context=("Por debajo de 1 ft/s: evaluar camisa de enfriamiento."
+                     if v < 1.0 else "Supera el mínimo de 1 ft/s recomendado."),
+        )
+    return trace.as_list()

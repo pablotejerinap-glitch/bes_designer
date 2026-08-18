@@ -7,6 +7,7 @@ import type {
   CatalogSummary,
   DesignRequest,
   DesignResponse,
+  FormulaCatalog,
   GasCompleteDesignRequest,
   GasCompleteDesignResponse,
   GasIncrementRequest,
@@ -160,6 +161,10 @@ async function requestBlob(path: string, body: unknown): Promise<Blob> {
 
 export const api = {
   health: () => request<{ status: string }>("/api/health"),
+  // Todas las fórmulas del motor, sin correr ningún diseño. Incluye las
+  // variantes que un caso concreto no ejecuta (Fetkovich cuando el pozo se
+  // resolvió por Vogel), que es justamente lo que la traza sola no muestra.
+  formulas: () => request<FormulaCatalog>("/api/formulas"),
   catalogs: () => request<CatalogSummary>("/api/catalogs"),
   // Tablas dimensionales Tenaris (API 5CT): OD + peso -> ID y drift.
   tubulars: () => request<TubularCatalog>("/api/catalogs/tubulars"),

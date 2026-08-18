@@ -1,20 +1,49 @@
-"""
-Metric ESP design path — método de cátedra "ESP 01".
+"""Camino métrico de diseño — método de cátedra «ESP 01».
 
-This is a **parallel, explicit** route to the US-oilfield design engine in
-``bes/core/tdh.py`` + ``bes/core/pump_design.py`` + ``bes/core/electrical.py``.  It follows
-the exercise ESP 01 step by step, in metric units (kg/cm², m, °C, m³/d, g/cm³),
-using the exercise's own simplified formulas.  It does **not** reuse — and must
-not disturb — the field TDH formula (Brown §4.5324).
+Es una ruta **paralela y explícita** al motor de diseño en unidades de campo
+(``tdh.py`` + ``pump_design.py`` + ``electrical.py``). Sigue el ejercicio
+ESP 01 paso por paso, en unidades métricas (kg/cm², m, °C, m³/d, g/cm³), con
+las fórmulas simplificadas del propio ejercicio.
 
-The 17 steps are implemented as small pure functions and orchestrated by
-:func:`design_esp_metric`, which returns a :class:`MetricDesignResult` carrying
-every intermediate value the exercise reports (so UI / reports / tests can read
-them).
+**No reutiliza —y no debe perturbar— la fórmula de TDH de campo** (Brown
+§4.5324). Son dos caminos independientes a propósito: uno reproduce el libro,
+el otro reproduce la cátedra.
 
-See ``docs/METHODOLOGY.md`` §7 for the formulas, the sources of the catalog
-numbers, and the resolution of the known ambiguities (§7-A Pwf 30/31, §7-B the
-TDH discrepancy, §7-C the shaft check).
+Los 17 pasos están implementados como funciones puras chiquitas, una por paso,
+y los orquesta :func:`design_esp_metric`, que devuelve un
+:class:`MetricDesignResult` con **todos** los valores intermedios que el
+ejercicio informa — así la pantalla, los reportes y los tests pueden leerlos.
+
+Los 17 pasos
+------------
+    1. Presión admisible referida a la profundidad de referencia
+    2. Caudal máximo del reservorio, desde un punto de ensayo (Vogel)
+    3. Caudal de producción a la Pwf de trabajo
+    4-6. Niveles, sumergencia y altura dinámica
+    7. PIP a la profundidad de succión
+    8-9. Selección de bomba y cantidad de etapas
+    10. Selección de carcasas
+    11. Verificación de presión de carcasa
+    12. Potencia de la bomba y verificación de eje por carcasa
+    13. Selección de motores (uno o dos en tándem)
+    14. Verificación de velocidad del fluido por el anular
+    15. Selección del protector / sello
+    16. Selección de cable y caída de tensión
+    17. Verificaciones finales
+
+Ambigüedades conocidas del enunciado
+------------------------------------
+Están documentadas y resueltas en ``docs/METHODOLOGY.md`` §7:
+
+    §7-A  La lámina titula Pwf = 31 pero calcula con 30. Se puede forzar
+          cualquiera de las dos con ``production_pwf_kgcm2``.
+    §7-B  El TDH se ancla en los ~2301 m aritméticamente correctos; los
+          2347 m de la cátedra se publican aparte como ``tdh_reference_m``.
+    §7-C  La verificación de eje se hace por carcasa, no global.
+
+Referencia
+----------
+``docs/METHODOLOGY.md`` §7 y ``docs/EJEMPLO_ESP01.md``.
 """
 from __future__ import annotations
 
@@ -51,11 +80,11 @@ _SECONDS_PER_DAY = 86_400.0
 
 @dataclass
 class MetricDesignInput:
-    """All ESP-01 well/production/fluid data, in metric units.
+    """Todos los datos del pozo, la producción y el fluido del ESP-01, en métrico.
 
-    Kept separate from the field-unit dataclasses in ``bes/core/models.py`` on
-    purpose — those validate for oilfield ranges (psi, °F) and would force
-    lossy conversions here.
+    Se mantiene **separado a propósito** de las dataclasses en unidades de campo
+    de ``bes/core/models.py``: aquéllas validan rangos de unidades de campo
+    (psi, °F) y forzarían conversiones con pérdida acá.
     """
     # --- Well geometry ---
     casing_od_in: float
@@ -197,30 +226,39 @@ class MetricDesignResult:
 def step1_admissible_pressure(
     pem_gcc: float, ref_depth_m: float, suction_depth_m: float, pip_expected_kgcm2: float
 ) -> tuple[float, float]:
-    """Step 1 — admissible pressure referred to the reference depth.
+    """Paso 1 — presión admisible referida a la profundidad de referencia.
 
-    ΔP_ref     = Pem·(Pref − Ps)/10
-    Padm_a_ref = PIP + ΔP_ref
+        ΔP_ref     = Pem·(Pref − Ps)/10
+        Padm_a_ref = PIP + ΔP_ref
+
+    El /10 es la convención de atmósfera técnica: 1 kgf/cm² ≈ 10 m de columna
+    de agua.
     """
     delta = pem_gcc * (ref_depth_m - suction_depth_m) / 10.0
     return delta, pip_expected_kgcm2 + delta
 
 
 def step2_qmax(pr_kgcm2: float, pwf_test_kgcm2: float, q_test_m3d: float) -> tuple[float, float]:
-    """Step 2 — reservoir maximum rate from a Vogel test point.
+    """Paso 2 — caudal máximo del reservorio, desde un punto de ensayo (Vogel).
 
-    Returns ``(vogel_ratio, qmax)`` where vogel_ratio = q_test/qmax.
-    Reuses :func:`bes.core.ipr.vogel_qmax_from_test` (unit-agnostic).
+    Returns:
+        ``(vogel_ratio, qmax)``, donde ``vogel_ratio = q_ensayo/qmax``.
+
+    Reutiliza :func:`bes.core.ipr.vogel_qmax_from_test`, que es agnóstica de
+    unidades — Vogel trabaja con relaciones adimensionales.
     """
     qmax = vogel_qmax_from_test(pr_kgcm2, pwf_test_kgcm2, q_test_m3d)
     return q_test_m3d / qmax, qmax
 
 
 def step3_production(pr_kgcm2: float, pwf_kgcm2: float, qmax_m3d: float) -> tuple[float, float]:
-    """Step 3 — production rate at *pwf_kgcm2* via Vogel.
+    """Paso 3 — caudal de producción a la Pwf de trabajo, por Vogel.
 
-    Returns ``(vogel_ratio, q_prod)``.  ``pwf_kgcm2`` is Padm_a_ref (§7-A: the
-    exercise titles 31 but computes with 30 — the caller decides which to pass).
+    Returns:
+        ``(vogel_ratio, q_prod)``.
+
+    ``pwf_kgcm2`` es la Padm_a_ref. Ver §7-A: el ejercicio titula 31 pero
+    calcula con 30, así que quien llama decide cuál pasar.
     """
     ratio = pwf_kgcm2 / pr_kgcm2
     vogel = 1.0 - 0.2 * ratio - 0.8 * ratio ** 2
@@ -288,9 +326,9 @@ def step6_tubing_friction(
 def step7_pip_at_suction(
     pwf_ref_kgcm2: float, ref_depth_m: float, suction_depth_m: float, pem_gcc: float
 ) -> float:
-    """Step 7 — PIP at the suction depth (consistency with step 1).
+    """Paso 7 — PIP a la profundidad de succión (coherencia con el paso 1).
 
-    PIP = Pwf_ref − (Pref − Ps)/10 · Pem
+        PIP = Pwf_ref − (Pref − Ps)/10 · Pem
     """
     return pwf_ref_kgcm2 - (ref_depth_m - suction_depth_m) / 10.0 * pem_gcc
 
@@ -326,12 +364,17 @@ def step9_stages(tdh_m: float, head_per_stage_m: float) -> int:
 
 
 def select_housings(target_stages: int, housing_stages: dict) -> tuple[list, int]:
-    """Step 10 — choose housings covering *target_stages*.
+    """Paso 10 — elige las carcasas que cubran la cantidad de etapas necesaria.
 
-    Rule: minimize excess stages (total ≥ target), then minimize the number of
-    housings.  ``housing_stages`` maps housing id → stages/housing.
+    Regla: primero minimizar las etapas de más (el total tiene que ser >= al
+    objetivo), y después minimizar la cantidad de carcasas.
 
-    Returns ``(list_of_(housing_id, count), total_stages)``.
+    Args:
+        housing_stages: Diccionario que mapea id de carcasa -> etapas por
+            carcasa.
+
+    Returns:
+        ``(lista_de_(id_carcasa, cantidad), etapas_totales)``.
     """
     # invert stages -> housing id (prefer smallest id if a stage count repeats)
     size_to_id: dict[int, str] = {}
@@ -390,19 +433,22 @@ def step11_housing_burst(
 def step12_pump_hp_and_shaft(
     hp_per_stage: float, pem_gcc: float, housings: list, housing_stages: dict, shaft_limit_std: float
 ) -> tuple[float, list, int]:
-    """Step 12 (+§7-C) — pump HP and per-housing shaft check.
+    """Paso 12 (+§7-C) — potencia de la bomba y verificación de eje por carcasa.
 
-    Total HP = (HP/etapa)·Etapas·Pem.
+        HP total = (HP/etapa) · Etapas · Pem
 
-    The motor is at the bottom, so the shaft transmits full pump power at the
-    bottom housing and less toward the top.  The shaft section feeding each
-    housing carries the cumulative HP of that housing plus every housing above
-    it.  Sections carrying more than *shaft_limit_std* need a high-resistance
-    shaft.
+    **El motor va abajo**, así que el eje transmite la potencia completa de la
+    bomba en la carcasa inferior y cada vez menos hacia arriba. La sección de
+    eje que alimenta cada carcasa carga la potencia acumulada de esa carcasa
+    más la de todas las que tiene encima.
 
-    Returns ``(total_hp, shaft_sections, n_high_resistance)`` where
-    ``shaft_sections`` is bottom→top, each ``{"housing_id", "housing_hp",
-    "cumulative_shaft_hp", "shaft"}``.
+    Las secciones que transmitan más que ``shaft_limit_std`` necesitan eje de
+    alta resistencia.
+
+    Returns:
+        ``(hp_total, secciones_de_eje, n_alta_resistencia)``, donde
+        ``secciones_de_eje`` va de abajo hacia arriba, cada una con
+        ``{"housing_id", "housing_hp", "cumulative_shaft_hp", "shaft"}``.
     """
     # Expand housings into a bottom→top ordered list of stage counts.
     ordered_stage_counts: list[tuple[str, int]] = []
@@ -438,14 +484,20 @@ def step12_pump_hp_and_shaft(
 def select_motors(
     catalog: MetricCatalog, required_hp: float, max_units: int = 2, amp_tol: float = 3.0
 ) -> dict:
-    """Step 13 — select 1–2 series motors covering *required_hp*.
+    """Paso 13 — elige uno o dos motores de la serie que cubran la potencia.
 
-    Rules: total HP ≥ required (minimize excess), compatible currents
-    (max−min amperage ≤ *amp_tol*, since stacked motors are in series), and —
-    as a tie-break — the highest total voltage.
+    Las reglas:
 
-    Returns dict: ``motors`` (list), ``total_hp``, ``total_voltage``,
-    ``string_amps``.
+        - la potencia total tiene que ser >= la requerida, minimizando el
+          excedente;
+        - las corrientes tienen que ser compatibles (diferencia máxima entre
+          amperajes <= ``amp_tol``), porque los motores apilados van **en
+          serie** y por los dos pasa la misma corriente;
+        - como desempate, la mayor tensión total.
+
+    Returns:
+        dict con ``motors`` (lista), ``total_hp``, ``total_voltage`` y
+        ``string_amps``.
     """
     from itertools import combinations_with_replacement
 
@@ -498,11 +550,11 @@ def fluid_velocity_past_motor(
 
 
 def select_protector(catalog: MetricCatalog, num_stages: int) -> dict:
-    """Step 15 — select the protector/seal for the stage count.
+    """Paso 15 — elige el protector / sello para la cantidad de etapas.
 
-    If the required stages exceed the standard floater bearing capacity, a
-    high-load bearing protector is selected (in tandem, qty 2, matching the
-    exercise); otherwise a single standard protector.
+    Si las etapas necesarias superan la capacidad del cojinete flotante
+    estándar, se elige un protector de cojinete de alta carga (en tándem,
+    cantidad 2, como en el ejercicio); si no, un solo protector estándar.
     """
     seals = catalog.get_all_seals()
     std = next((s for s in seals if s["bearing"] == "floater_std"), None)
@@ -521,15 +573,18 @@ def select_cable(
     ambient_temp_c: float,
     max_drop_v_per_100m: float = 10.0,
 ) -> dict:
-    """Step 16 — select cable and compute total voltage drop.
+    """Paso 16 — elige el cable y calcula la caída de tensión total.
 
-    Picks the smallest (cheapest) conductor whose ampacity ≥ *current_a* and
-    whose temperature-corrected drop ≤ *max_drop_v_per_100m*.  Drop:
+    Toma el conductor más chico (o sea el más barato) cuya ampacidad sea >= a
+    la corriente y cuya caída corregida por temperatura no supere el máximo
+    admitido::
 
-        drop_100m = vdrop_per_amp·I · temp_factor
-        total     = drop_100m · (length_m / 100)
+        caída_100m = vdrop_por_amper · I · factor_temperatura
+        total      = caída_100m · (largo_m / 100)
 
-    Returns dict: ``cable``, ``temp_factor``, ``drop_per_100m``, ``total_drop_v``.
+    Returns:
+        dict con ``cable``, ``temp_factor``, ``drop_per_100m`` y
+        ``total_drop_v``.
     """
     temp_factor = catalog.cable_temp_correction_factor(ambient_temp_c)
     # smallest conductor = largest AWG number = highest vdrop_per_amp; iterate
@@ -565,23 +620,28 @@ def design_esp_metric(
     production_pwf_kgcm2: Optional[float] = None,
     motor_od_in: float = 4.0,
 ) -> MetricDesignResult:
-    """Run the full ESP-01 metric design and return a :class:`MetricDesignResult`.
+    """Corre el diseño métrico ESP-01 completo y devuelve el resultado.
+
+    Es el punto de entrada del módulo: orquesta los 17 pasos en orden.
 
     Args:
-        inp: Metric well/production/fluid inputs.
-        catalog: Metric equipment catalog, injected by the caller. `bes.core`
-            is the bottom layer and never reaches for `bes.catalogs` itself —
-            build it with ``MetricCatalog()``, which locates the bundled JSON.
-        pump_model: Force a specific pump; if ``None`` the pump requiring the
-            fewest stages among casing-fitting candidates is chosen (and the
-            rest are returned as ``alternatives``).
-        production_pwf_kgcm2: §7-A override for the Pwf used in step 3 (defaults
-            to the admissible pressure Padm_a_ref, i.e. 31 for ESP 01; pass 30
-            to match the arithmetic on the lámina).
-        motor_od_in: Motor OD [in] for the annular fluid-velocity check.
+        inp: Datos del pozo, producción y fluido, en unidades métricas.
+        catalog: Catálogo de equipos métrico, **inyectado por quien llama**.
+            ``bes.core`` es la capa de más abajo y nunca importa
+            ``bes.catalogs`` por su cuenta; se construye con
+            ``MetricCatalog()``, que ubica el JSON que viaja con el paquete.
+        pump_model: Fuerza una bomba concreta. Si es ``None``, se elige la que
+            necesita menos etapas entre las que entran en el casing, y el
+            resto se devuelven como ``alternatives``.
+        production_pwf_kgcm2: Override de §7-A para la Pwf del paso 3. Por
+            defecto usa la presión admisible Padm_a_ref (o sea 31 en el
+            ESP 01); pasar 30 reproduce la aritmética de la lámina.
+        motor_od_in: Diámetro exterior del motor [in], para la verificación de
+            velocidad del fluido por el anular.
 
     Returns:
-        MetricDesignResult with every reported intermediate.
+        :class:`MetricDesignResult` con todos los intermedios que informa el
+        ejercicio.
     """
     warnings: list[str] = []
     notes: list[str] = []

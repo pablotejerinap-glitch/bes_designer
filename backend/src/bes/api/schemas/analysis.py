@@ -1,4 +1,4 @@
-"""Schemas for the nodal and sensitivity analysis endpoints."""
+"""Esquemas de los endpoints de análisis: nodal, sensibilidad, gas y fórmulas."""
 from __future__ import annotations
 
 from enum import Enum
@@ -380,3 +380,52 @@ class SensitivityResponse(BaseModel):
 class FigureResponse(BaseModel):
     """Un gráfico solo, sin métricas. El front lo pasa tal cual a <Plot>."""
     figure: dict                       # Plotly figure JSON (data + layout)
+
+
+# --------------------------------------------------------------------------- #
+# Catálogo de fórmulas
+# --------------------------------------------------------------------------- #
+class FormulaSpecSchema(BaseModel):
+    """Una fórmula del motor, tal como está declarada en el catálogo.
+
+    Es la DECLARACIÓN, no una corrida: no trae números. Los números llegan por
+    la traza del diseño (``FormulaSchema``), que sale de esta misma fuente.
+    """
+    key: str = Field(..., description="Clave única en todo el catálogo")
+    topic: str = Field(..., description="Tema al que pertenece")
+    step: str = Field(
+        ..., description="Paso conceptual. Varias fórmulas lo comparten cuando "
+                         "son el mismo cálculo por métodos distintos; en una "
+                         "corrida se ejecuta exactamente una.",
+    )
+    label: str = Field(..., description="Qué se calcula, en castellano")
+    expression: str = Field(..., description="La fórmula en símbolos")
+    units: str = Field(..., description="Unidad del resultado")
+    symbols: dict[str, str] = Field(
+        default_factory=dict,
+        description="Cada símbolo de la expresión con su significado y unidad",
+    )
+    reference: str = Field("", description="Cita bibliográfica")
+    note: str = Field("", description="Condición de validez que vale siempre")
+    module: str = Field("", description="Dónde se ejecuta, para quien lea el código")
+
+
+class FormulaTopicSchema(BaseModel):
+    """Un capítulo del motor, con sus fórmulas."""
+    key: str
+    label: str
+    blurb: str = Field(..., description="Qué resuelve, en una línea")
+    instrumented: bool = Field(
+        ..., description="False mientras el tema no emita traza. Se publica "
+                         "igual para mostrar la cobertura real.",
+    )
+    formulas: list[FormulaSpecSchema] = Field(default_factory=list)
+
+
+class FormulaCatalogResponse(BaseModel):
+    """Todas las fórmulas del motor, sin correr ningún diseño."""
+    topics: list[FormulaTopicSchema]
+    total: int = Field(..., description="Fórmulas instrumentadas hoy")
+    pending_topics: list[str] = Field(
+        default_factory=list, description="Temas que todavía no emiten traza",
+    )

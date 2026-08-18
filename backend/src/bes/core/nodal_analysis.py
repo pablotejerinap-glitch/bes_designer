@@ -40,29 +40,31 @@ def outflow_curve_natural(
     n_points: int = 30,
     q_max: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Compute the natural (no-pump) outflow deliverability curve.
+    """Curva de descarga natural del pozo, o sea SIN bomba.
 
-    For each surface liquid rate *q*, calculates the minimum Pwf required
-    to deliver that rate through the tubing and surface flowline:
+    Responde: para cada caudal, ¿qué presión de fondo hace falta para que el
+    fluido suba solo hasta el separador? ::
 
-        P_wh(q)   = P_sep + ΔP_flowline(q) + ΔP_elevation
-        Pwf_req(q) = pressure_traverse(from wellhead DOWN to perforations,
-                                        starting at P_wh(q))
+        P_wh(q)    = P_sep + ΔP_línea(q) + ΔP_elevación
+        Pwf_req(q) = recorrido de presión desde el cabezal HACIA ABAJO hasta
+                     las punzados, arrancando en P_wh(q)
 
     Args:
-        fluid: Fluid PVT properties.
-        well: Well geometry (tubing ID, depths, temperatures).
-        surface: Surface conditions (separator pressure, flowline geometry).
+        fluid: Propiedades PVT del fluido.
+        well: Geometría del pozo (ID de tubing, profundidades, temperaturas).
+        surface: Condiciones de superficie (presión de separador, geometría de
+            la línea de conducción).
         bottom_temp_f: Temperatura de fondo [°F] — ``reservoir.reservoir_temp``.
-            Es el extremo inferior del perfil geotérmico del traverse.
-        n_points: Number of rate evaluation points (excluding q = 0).
-        q_max: Upper rate limit [STB/d].  Defaults to 5 000 STB/d.
+            Es el extremo inferior del perfil geotérmico del recorrido.
+        n_points: Cantidad de caudales a evaluar (sin contar q = 0).
+        q_max: Caudal máximo a evaluar [STB/d]. Por defecto 5000.
 
     Returns:
-        Tuple ``(q_array, pwf_array)`` of length *n_points* + 1.
-        ``q_array`` is increasing; ``pwf_array`` is J-shaped — decreasing
-        in the holdup-dominated region at low rates, increasing once
-        friction dominates (the left branch is the unstable heading region).
+        Tupla ``(q_array, pwf_array)`` de largo ``n_points + 1``.
+        ``q_array`` es creciente; ``pwf_array`` tiene **forma de J**:
+        primero baja, en la zona de caudales bajos donde manda el holdup, y
+        después sube cuando empieza a mandar la fricción. La rama izquierda es
+        la zona inestable de cabeceo (*heading*).
     """
     q_max = q_max or 5000.0
     sg = _sg_liquid(fluid)
@@ -119,27 +121,29 @@ def outflow_curve_with_pump(
     n_points: int = 30,
     q_max: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Compute the ESP-assisted outflow curve.
+    """Curva de descarga del pozo CON la bomba instalada.
 
-    Subtracts the pump ΔP from the natural outflow curve at each rate::
+    Le resta a la curva natural el diferencial de presión que aporta la
+    bomba, caudal por caudal::
 
-        ΔP_pump(q) = head_per_stage(q) × stages × SG / 2.31   [psi]
-        Pwf_pump(q) = Pwf_natural(q) − ΔP_pump(q)
+        ΔP_bomba(q) = altura_por_etapa(q) · #etapas · SG / 2.31   [psi]
+        Pwf_bomba(q) = Pwf_natural(q) − ΔP_bomba(q)
 
     Args:
-        fluid: Fluid PVT properties.
-        well: Well geometry.
-        surface: Surface conditions.
-        pump: PumpCurve catalog entry for the selected pump.
-        stages: Number of installed pump stages.
-        pump_depth: Pump setting depth [ft TVD] (informational, not used
-            in current head model but reserved for future depth corrections).
-        n_points: Number of rate evaluation points.
-        q_max: Upper rate limit [STB/d].  Defaults to 5 000 STB/d.
+        fluid: Propiedades PVT del fluido.
+        well: Geometría del pozo.
+        surface: Condiciones de superficie.
+        pump: Ficha de catálogo de la bomba elegida.
+        stages: Cantidad de etapas instaladas.
+        pump_depth: Profundidad de asentamiento [ft TVD]. Informativa: hoy no
+            entra en el modelo de altura, queda reservada para correcciones
+            por profundidad a futuro.
+        n_points: Cantidad de caudales a evaluar.
+        q_max: Caudal máximo a evaluar [STB/d]. Por defecto 5000.
 
     Returns:
-        Tuple ``(q_array, pwf_array)`` same shape as
-        ``outflow_curve_natural``.
+        Tupla ``(q_array, pwf_array)``, con la misma forma que
+        :func:`outflow_curve_natural`.
     """
     q_full, pwf_nat = outflow_curve_natural(
         fluid, well, surface, bottom_temp_f, n_points, q_max
@@ -167,35 +171,40 @@ def find_operating_point(
     stages: int | None = None,
     pump_depth: float | None = None,
 ) -> dict:
-    """Find the natural and pump-assisted operating points (nodal analysis).
+    """Encuentra el punto de operación, con y sin bomba (análisis nodal).
 
-    Intersects the IPR with the outflow curve(s) using
-    ``scipy.optimize.brentq``.
+    **Es el corazón del análisis nodal.** El reservorio puede entregar cierto
+    caudal a cierta presión (curva IPR), y el pozo necesita cierta presión para
+    levantar cierto caudal (curva de descarga). El pozo va a producir justo
+    donde las dos curvas se cruzan: es el único punto que satisface a las dos.
+
+    El cruce se busca numéricamente con ``scipy.optimize.brentq``.
 
     Args:
-        reservoir: Reservoir IPR parameters.
-        fluid: Fluid PVT properties.
-        well: Well geometry.
-        surface: Surface conditions.
-        pump: PumpCurve catalog entry (optional).
-        stages: Number of pump stages (required when *pump* is given).
-        pump_depth: Pump setting depth [ft TVD] (required when *pump* given).
+        reservoir: Parámetros IPR del reservorio.
+        fluid: Propiedades PVT del fluido.
+        well: Geometría del pozo.
+        surface: Condiciones de superficie.
+        pump: Ficha de catálogo de la bomba (opcional).
+        stages: Cantidad de etapas (obligatorio si se pasa ``pump``).
+        pump_depth: Profundidad de asentamiento [ft TVD] (obligatoria si se
+            pasa ``pump``).
 
     Returns:
-        Dictionary with keys:
+        dict con estas claves:
 
         =====================  ====================================================
-        natural_flow           ``{'q': float, 'pwf': float}`` or ``None`` if dead
-        pump_flow              ``{'q': float, 'pwf': float}`` or ``None``
-        pump_dp_psi            Pump differential pressure [psi]
-        pump_efficiency        Pump hydraulic efficiency at operating point [0-1]
-        incremental_rate       q_pump − q_natural [STB/d]
-        method_used            Correlation name used
-        q_ipr                  IPR q array [STB/d]
-        pwf_ipr                IPR Pwf array [psia]
-        q_outflow              Outflow curve q array [STB/d]
-        pwf_outflow_natural    Natural outflow Pwf array [psia]
-        pwf_outflow_pump       Pump outflow Pwf array [psia] or ``None``
+        natural_flow           ``{'q':…, 'pwf':…}`` o ``None`` si el pozo no fluye
+        pump_flow              ``{'q':…, 'pwf':…}`` o ``None``
+        pump_dp_psi            Diferencial de presión de la bomba [psi]
+        pump_efficiency        Rendimiento en el punto de operación [0-1]
+        incremental_rate       q_con_bomba − q_natural [STB/d]
+        method_used            Nombre de la correlación usada
+        q_ipr                  Caudales de la curva IPR [STB/d]
+        pwf_ipr                Pwf de la curva IPR [psia]
+        q_outflow              Caudales de la curva de descarga [STB/d]
+        pwf_outflow_natural    Pwf de descarga sin bomba [psia]
+        pwf_outflow_pump       Pwf de descarga con bomba [psia] o ``None``
         =====================  ====================================================
     """
     # 1. IPR curve (q monotone ↑, pwf monotone ↓)
@@ -275,9 +284,10 @@ def _intersect(
     q_out: np.ndarray,
     pwf_out: np.ndarray,
 ) -> dict | None:
-    """Find the (q, Pwf) intersection of IPR and outflow using brentq.
+    """Busca el cruce (q, Pwf) entre la IPR y la curva de descarga, con brentq.
 
-    Returns ``None`` when no intersection exists (dead well).
+    Devuelve ``None`` cuando no hay cruce, o sea cuando el pozo está muerto: el
+    reservorio no tiene fuerza para levantar el fluido a ningún caudal.
     """
     f_ipr = interp1d(q_ipr, pwf_ipr, kind="linear", fill_value="extrapolate")
     f_out = interp1d(q_out, pwf_out, kind="linear", fill_value="extrapolate")

@@ -28,6 +28,7 @@ import { WellForm } from "./components/WellForm";
 import { ResultsView } from "./components/ResultsView";
 import { SensitivityView } from "./components/SensitivityView";
 import { IprPanel } from "./components/IprPanel";
+import { FormulaCatalogView } from "./components/FormulaCatalogView";
 import { PumpLibrary } from "./components/PumpLibrary";
 import { AffinityPanel } from "./components/AffinityPanel";
 import { GasIncrementView } from "./components/GasIncrementView";
@@ -441,6 +442,7 @@ export function App() {
               <Tabs.Tab value="gas">Pozo con gas</Tabs.Tab>
               <Tabs.Tab value="affinity">Leyes de afinidad</Tabs.Tab>
               <Tabs.Tab value="library">Biblioteca ESP</Tabs.Tab>
+              <Tabs.Tab value="formulas">Fórmulas</Tabs.Tab>
             </Tabs.List>
 
             <Tabs.Panel value="design">
@@ -488,6 +490,18 @@ export function App() {
 
             <Tabs.Panel value="library">
               <PumpLibrary pumps={catalogPumps} casingId={inputs?.well.casing_id ?? null} />
+            </Tabs.Panel>
+
+            {/*
+              Las fórmulas del motor, para revisarlas con un profesional. No
+              depende de que haya un diseño calculado: el catálogo se lista
+              solo. Si lo hay, se le pasa la traza para marcar cuáles corrieron.
+            */}
+            <Tabs.Panel value="formulas">
+              <FormulaCatalogView
+                active={tab === "formulas"}
+                formulas={result?.response.recommendations?.[0]?.design?.formulas}
+              />
             </Tabs.Panel>
           </Tabs>
         </section>

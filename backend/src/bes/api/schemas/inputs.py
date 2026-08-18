@@ -1,10 +1,13 @@
-"""Request schemas — mirror the five input dataclasses in ``core/models.py``.
+"""Esquemas de pedido — espejan las cinco dataclasses de entrada del dominio.
 
-Field names match the dataclasses 1:1 so mapping is trivial. Enums are exposed
-as lowercase strings (never the ``auto()`` integers). Validation of physical
-ranges is left to the domain ``__post_init__`` (surfaced as HTTP 422); here we
-only enforce types and JSON shape, plus a few obviously-cheap bounds that give
-nicer OpenAPI docs.
+Los nombres de campo coinciden 1:1 con las dataclasses de ``core/models.py``,
+así el mapeo es trivial. Los enums se exponen como cadenas en minúscula,
+nunca como los enteros de ``auto()``.
+
+**La validación de rangos físicos queda en el ``__post_init__`` del
+dominio** (y sale como HTTP 422). Acá sólo se exigen los tipos y la forma del
+JSON, más unos pocos límites obvios y baratos que hacen más legible la
+documentación OpenAPI.
 """
 from __future__ import annotations
 

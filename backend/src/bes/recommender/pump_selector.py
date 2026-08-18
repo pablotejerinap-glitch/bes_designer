@@ -1,11 +1,16 @@
-"""
-Top-N pump selector for BES/ESP recommendation engine.
+"""Selector de las N mejores bombas para el motor de recomendación.
 
-Calls the existing hydraulic (pump_design) and electrical design modules,
-orders every qualifying candidate by strict engineering criteria
-(BEP distance → efficiency → required power; see recommender/ranking.py),
-and returns the best N results as DesignResult objects. The manufacturer
-plays no role in the ordering.
+Llama a los módulos de diseño que ya existen —el hidráulico
+(``core/pump_design.py``) y el eléctrico (``core/electrical.py``)—, ordena
+todas las candidatas que califican por criterios estrictos de ingeniería
+(distancia al BEP → rendimiento → potencia requerida, ver
+``recommender/ranking.py``) y devuelve las mejores N como objetos
+``DesignResult``.
+
+**El fabricante no juega ningún papel en el orden.** Sí juega en el armado:
+bomba, motor y sello salen del mismo proveedor (ver
+``.claude/rules/domain.md``), y si ese proveedor no tiene con qué, la bomba
+se descarta y se prueba la siguiente.
 """
 from __future__ import annotations
 
@@ -186,31 +191,34 @@ def select_top_n_pumps(
     catalog: "CatalogManager",
     n: int = 3,
 ) -> list[DesignResult]:
-    """Select the top N ESP pump designs ordered by engineering criteria.
+    """Elige los N mejores diseños BES, ordenados por criterios de ingeniería.
 
-    Steps:
-    1. Run full hydraulic design for all catalog pumps that fit the well.
-    2. Order candidates by the strict engineering key (BEP distance →
-       efficiency → required power; recommender/ranking.py). No weights,
-       no provider dimension — the manufacturer is informational only.
-    3. Run electrical design (motor + cable + transformer) for the top N.
-    4. Return the results as DesignResult dataclass instances.
+    Los pasos:
+
+        1. Correr el diseño hidráulico completo para todas las bombas del
+           catálogo que entren en el pozo.
+        2. Ordenar las candidatas por la clave estricta de ingeniería
+           (distancia al BEP → rendimiento → potencia requerida). Sin pesos y
+           sin dimensión de proveedor: el fabricante es sólo informativo.
+        3. Correr el diseño eléctrico (motor + cable + transformador) para las
+           N primeras.
+        4. Devolver los resultados como instancias de ``DesignResult``.
 
     Args:
-        reservoir: Reservoir properties.
-        fluid: Fluid PVT and composition.
-        well: Well geometry.
-        surface: Surface conditions and power supply.
-        objectives: Production targets.
-        catalog: Loaded equipment catalog.
-        n: Maximum number of designs to return.
+        reservoir: Propiedades del reservorio.
+        fluid: PVT y composición del fluido.
+        well: Geometría del pozo.
+        surface: Condiciones de superficie y alimentación eléctrica.
+        objectives: Objetivos de producción.
+        catalog: Catálogo de equipos cargado.
+        n: Cantidad máxima de diseños a devolver.
 
     Returns:
-        List of DesignResult objects in engineering-criteria order
-        (closest to BEP first).
+        Lista de ``DesignResult`` en orden de criterios de ingeniería, con la
+        más cercana al BEP primero.
 
     Raises:
-        ValueError: If no qualifying pumps are found in the catalog.
+        ValueError: Si no se encuentra ninguna bomba que califique.
     """
     pump_setting_depth = _resolve_pump_depth(well, objectives)
 
@@ -307,15 +315,20 @@ def _assemble_design(
     pump_setting_depth: float,
     bottom_temp: float,
 ) -> DesignResult:
-    """Electrical design + gas handler + sensor + ``DesignResult`` assembly
-    for one already hydraulically-designed candidate.
+    """Arma el aparejo completo de una candidata ya diseñada hidráulicamente.
 
-    El aparejo se arma con un solo fabricante (ver ``_aparejo_manufacturer``).
+    Hace el diseño eléctrico, elige el manejador de gas y el sensor, y ensambla
+    el ``DesignResult``.
 
-    Shared by :func:`select_top_n_pumps` (which catches failures per
-    candidate and skips to the next-best alternative) and
-    :func:`select_pump_by_model` (which lets failures raise — a manually
-    chosen pump has no fallback candidate to try instead).
+    **El aparejo se arma con un solo fabricante** (ver
+    ``_aparejo_manufacturer``): bomba, motor y sello del mismo proveedor. El
+    cable y los accesorios quedan exentos.
+
+    La comparten :func:`select_top_n_pumps` —que atrapa las fallas por candidata
+    y salta a la siguiente mejor alternativa— y :func:`select_pump_by_model`,
+    que **deja que la falla se propague**: una bomba elegida a mano no tiene
+    candidata de reemplazo que probar, así que corresponde avisar el motivo en
+    vez de seguir en silencio.
     """
     elec = electrical_design_complete(
         # El motor se dimensiona sobre el HP MÁXIMO (fluido más pesado, Brown
@@ -388,28 +401,28 @@ def select_pump_by_model(
     catalog: "CatalogManager",
     pump_model: str,
 ) -> DesignResult:
-    """Assemble the complete ESP design for one user-chosen catalog pump.
+    """Arma el diseño BES completo para UNA bomba elegida por el usuario.
 
-    Mirrors ``select_top_n_pumps``'s per-candidate assembly (electrical
-    design, gas handler, sensor selection) but for exactly the requested
-    pump, bypassing the ranking entirely — this is a manual override of the
-    recommendation engine's choice, not a ranked alternative.
+    Hace lo mismo que el armado por candidata de :func:`select_top_n_pumps`
+    (diseño eléctrico, manejador de gas, sensor) pero exactamente para la bomba
+    pedida, salteando el ordenamiento por completo — es un override manual de la
+    elección del motor de recomendación, no una alternativa rankeada.
 
     Args:
-        reservoir: Reservoir properties.
-        fluid: Fluid PVT and composition.
-        well: Well geometry.
-        surface: Surface conditions and power supply.
-        objectives: Production targets.
-        catalog: Loaded equipment catalog.
-        pump_model: Catalog model name of the user-chosen pump.
+        reservoir: Propiedades del reservorio.
+        fluid: PVT y composición del fluido.
+        well: Geometría del pozo.
+        surface: Condiciones de superficie y alimentación eléctrica.
+        objectives: Objetivos de producción.
+        catalog: Catálogo de equipos cargado.
+        pump_model: Nombre del modelo de catálogo que eligió el usuario.
 
     Returns:
-        A single ``DesignResult`` for the requested pump.
+        Un solo ``DesignResult`` para la bomba pedida.
 
     Raises:
-        ValueError: If the pump doesn't exist, doesn't fit the casing, or
-            the design cannot be completed at the target conditions.
+        ValueError: Si la bomba no existe, no entra en el casing, o el diseño
+            no se puede completar en las condiciones pedidas.
     """
     pump_setting_depth = _resolve_pump_depth(well, objectives)
 

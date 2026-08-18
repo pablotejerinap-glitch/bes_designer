@@ -1,11 +1,12 @@
-"""
-Loader for the metric ("ESP 01" método de cátedra) equipment catalog.
+"""Cargador del catálogo de equipos métrico (método de cátedra «ESP 01»).
 
-Kept separate from :class:`bes.catalogs.loader.CatalogManager` on purpose: the
-metric catalog stores pump curves per operating *frequency* in métric units
-(m³/d, m/etapa) and carries housing/shaft/bearing engineering limits that the
-field catalog schema does not model.  Loading it apart keeps the field design
-path and its catalogs completely untouched.
+Se mantiene **separado a propósito** de :class:`bes.catalogs.loader.CatalogManager`:
+el catálogo métrico guarda las curvas de bomba por **frecuencia** de operación
+y en unidades métricas (m³/d, m/etapa), y además trae los límites de ingeniería
+de carcasa, eje y cojinete que el esquema del catálogo de campo no modela.
+
+Cargarlo aparte deja el camino de diseño de campo y sus catálogos
+completamente intactos.
 """
 from __future__ import annotations
 

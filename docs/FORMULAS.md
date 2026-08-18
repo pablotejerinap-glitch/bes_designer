@@ -5,6 +5,17 @@ y línea donde viven y a la fuente bibliográfica. Notación: las unidades van e
 corchetes. Referencia base: Kermit Brown, *The Technology of Artificial Lift
 Methods*, Vol. 2b, Cap. 4.5.
 
+> **Para revisar el motor, la fuente es la pestaña «Fórmulas» de la app**
+> (`GET /api/formulas`), no este archivo. Ahí las fórmulas se listan **desde el
+> propio código** —`bes/core/formula_catalog.py`, la única declaración de cada
+> una— así que no pueden decir una cosa y el programa hacer otra. Este documento
+> se escribe a mano y por lo tanto puede quedar atrasado; sirve como texto
+> corrido para leer, no como referencia autoritativa.
+>
+> Estado: **las 82 fórmulas del motor están en el catálogo**, en los diez temas
+> —IPR, PVT, multifásico, TDH, diseño, viscosidad, gas, afinidad, eléctrico y
+> mecánica—. No queda nada sin instrumentar.
+
 ---
 
 ## 1. IPR — Inflow Performance Relationship
@@ -135,30 +146,30 @@ la diferencia contra el Vogel generalizado con el mismo $J$.
 ---
 
 ## 2. PVT — Propiedades de los fluidos
-Archivo: [core/pvt.py](../core/pvt.py)
+Archivo: [core/pvt.py](../backend/src/bes/core/pvt.py)
 
-### 2.1 Gravedad específica del petróleo — [pvt.py:37](../core/pvt.py#L37)
+### 2.1 Gravedad específica del petróleo — [pvt.py:37](../backend/src/bes/core/pvt.py#L37)
 
 $$\gamma_o = \frac{141.5}{131.5 + API}$$
 
-### 2.2 GOR en solución (Standing) — [pvt.py:62](../core/pvt.py#L62)
+### 2.2 GOR en solución (Standing) — [pvt.py:62](../backend/src/bes/core/pvt.py#L62)
 Con P_eff = min(P, P_b). *Standing (1947).*
 
 $$R_s = \gamma_g\left[\left(\frac{P_{eff}}{18.2} + 1.4\right)\,10^{\,0.0125\,API - 0.00091\,T}\right]^{1.2048}$$
 
 (El exponente 1.2048 = 1/0.83.)
 
-### 2.3 Presión de burbuja (inversa de Standing) — [pvt.py:103](../core/pvt.py#L103)
+### 2.3 Presión de burbuja (inversa de Standing) — [pvt.py:103](../backend/src/bes/core/pvt.py#L103)
 
 $$P_b = 18.2\left[\left(\frac{R_s}{\gamma_g}\right)^{0.83} 10^{\,0.00091\,T - 0.0125\,API} - 1.4\right]$$
 
-### 2.4 Factor volumétrico del petróleo B_o (Standing) — [pvt.py:146](../core/pvt.py#L146)
+### 2.4 Factor volumétrico del petróleo B_o (Standing) — [pvt.py:146](../backend/src/bes/core/pvt.py#L146)
 
 $$F = R_s\left(\frac{\gamma_g}{\gamma_o}\right)^{0.5} + 1.25\,T$$
 $$B_o = 0.9759 + 0.00012\,F^{1.2}$$
 
-### 2.5 Factor z del gas (Dranchuk–Abou-Kassem) — [pvt.py:185](../core/pvt.py#L185)
-Pseudo-críticas de Standing — [pvt.py:42](../core/pvt.py#L42):
+### 2.5 Factor z del gas (Dranchuk–Abou-Kassem) — [pvt.py:185](../backend/src/bes/core/pvt.py#L185)
+Pseudo-críticas de Standing — [pvt.py:42](../backend/src/bes/core/pvt.py#L42):
 
 $$P_{pc} = 677 + 15\,\gamma_g - 37.5\,\gamma_g^2,\qquad T_{pc} = 168 + 325\,\gamma_g - 12.5\,\gamma_g^2$$
 
@@ -174,30 +185,30 @@ $$C_4 = A_{10}\,(1 + A_{11}\rho_r^2)\,\frac{\rho_r^2}{T_{pr}^3}\,e^{-A_{11}\rho_
 
 Semilla inicial por Papay. *Dranchuk & Abou-Kassem, JCPT (1975).*
 
-### 2.6 Factor volumétrico del gas B_g — [pvt.py:234](../core/pvt.py#L234)
+### 2.6 Factor volumétrico del gas B_g — [pvt.py:234](../backend/src/bes/core/pvt.py#L234)
 
 $$B_g = 0.00504\,\frac{z\,(T+460)}{P}\quad [\text{bbl/scf}]$$
 
-### 2.7 Factor volumétrico del agua B_w (McCain) — [pvt.py:265](../core/pvt.py#L265)
+### 2.7 Factor volumétrico del agua B_w (McCain) — [pvt.py:265](../backend/src/bes/core/pvt.py#L265)
 
 $$B_w = 1 + 1.21\times10^{-4}\,\Delta T + 1.0\times10^{-6}\,\Delta T^2 - 3.33\times10^{-6}\,P,\quad \Delta T = T - 60$$
 
-### 2.8 Viscosidad del petróleo (Beggs–Robinson) — [pvt.py:298](../core/pvt.py#L298)
+### 2.8 Viscosidad del petróleo (Beggs–Robinson) — [pvt.py:298](../backend/src/bes/core/pvt.py#L298)
 Muerta:
 
 $$X = T^{-1.163}\,e^{\,6.9824 - 0.04658\,API},\qquad \mu_{od} = 10^X - 1\ [\text{cp}]$$
 
-Viva (saturada) — [pvt.py:327](../core/pvt.py#L327):
+Viva (saturada) — [pvt.py:327](../backend/src/bes/core/pvt.py#L327):
 
 $$a = 10.715\,(R_s + 100)^{-0.515},\quad b = 5.44\,(R_s + 150)^{-0.338}$$
 $$\mu_{ob} = a\,\mu_{od}^{\,b}$$
 
-### 2.9 Densidades in-situ — [pvt.py:420](../core/pvt.py#L420)
+### 2.9 Densidades in-situ — [pvt.py:420](../backend/src/bes/core/pvt.py#L420)
 
 $$\rho_o = \frac{62.4\,\gamma_o + 0.0136\,R_s\,\gamma_g}{B_o},\qquad \rho_w = \frac{62.4\,\gamma_w}{B_w}$$
 $$\rho_g = 2.70\,\frac{\gamma_g\,P}{z\,(T+460)}$$
 
-### 2.10 Densidad de mezcla — [pvt.py:436](../core/pvt.py#L436)
+### 2.10 Densidad de mezcla — [pvt.py:436](../backend/src/bes/core/pvt.py#L436)
 Balance de masa sobre 1 STB de líquido total de superficie; SG de mezcla = ρ_mix / 62.4.
 
 ---
@@ -253,9 +264,9 @@ Vol. 2b, §4.532.
 ---
 
 ## 4. TDH — Total Dynamic Head
-Archivo: [core/tdh.py](../core/tdh.py) — Brown §4.5324
+Archivo: [core/tdh.py](../backend/src/bes/core/tdh.py) — Brown §4.5324
 
-### 4.1 SG del líquido en superficie — [tdh.py:37](../core/tdh.py#L37)
+### 4.1 SG del líquido en superficie — [tdh.py:37](../backend/src/bes/core/tdh.py#L37)
 
 $$SG_l = \gamma_o\,(1 - f_w) + \gamma_w\,f_w$$
 
@@ -281,7 +292,7 @@ separador. Es configurable por caso: los ejemplos impresos de Brown lo fijan en
 > que el término de elevación calculado acá es **conservador**: sobreestima la
 > altura que la bomba debe desarrollar.
 
-### 4.3 Fricción en tubing (Hazen–Williams) — [tdh.py:10](../core/tdh.py#L10)
+### 4.3 Fricción en tubing (Hazen–Williams) — [tdh.py:10](../backend/src/bes/core/tdh.py#L10)
 Con $q_{gpm} = q_{bpd}\cdot 42/1440$ y C = 120 (acero de diseño):
 
 $$h_f = 0.2083\left(\frac{100}{C}\right)^{1.852}\frac{q_{gpm}^{1.852}}{d^{4.8655}}\cdot\frac{L}{100}\ [\text{ft}]$$
@@ -306,20 +317,20 @@ gobiernan ambos términos) pero acumulando solo el de fricción. Partir del
 cabezal elimina además la circularidad: no hace falta estimar el TDH para
 calcular la fricción.
 
-### 4.5 TDH — [tdh.py:43](../core/tdh.py#L43)
+### 4.5 TDH — [tdh.py:43](../backend/src/bes/core/tdh.py#L43)
 
 $$\text{TDH} = \underbrace{\left(D_{pump} - \frac{PIP\cdot2.31}{SG_l}\right)}_{\text{elevación vertical}} + \underbrace{h_f}_{\text{fricción}} + \underbrace{\frac{P_{wh}\cdot2.31}{SG_l}}_{\text{cabezal}}\ [\text{ft}]$$
 
 ---
 
 ## 5. Diseño de la bomba
-Archivo: [core/pump_design.py](../core/pump_design.py)
+Archivo: [core/pump_design.py](../backend/src/bes/core/pump_design.py)
 
-### 5.1 Número de etapas — [pump_design.py:45](../core/pump_design.py#L45)
+### 5.1 Número de etapas — [pump_design.py:45](../backend/src/bes/core/pump_design.py#L45)
 
 $$N_{stages} = \left\lceil \frac{\text{TDH}}{h_{stage}(q)} \right\rceil$$
 
-### 5.2 Potencia al eje — [pump_design.py:62](../core/pump_design.py#L62)
+### 5.2 Potencia al eje — [pump_design.py:62](../backend/src/bes/core/pump_design.py#L62)
 hp/etapa del catálogo está referido al agua (SG = 1); se corrige por SG del fluido:
 
 $$HP = N_{stages}\cdot hp_{stage}(q)\cdot SG_{fluido}$$
@@ -419,7 +430,7 @@ cojinetes son hardware de la serie, no del modelo hidráulico). Hoy solo la
 de Wood Group. Una serie sin ficha deja las verificaciones **sin realizar** —
 reportadas como tales, nunca como aprobadas.
 
-### 5.6 Proximidad al BEP — [pump_design.py:86](../core/pump_design.py#L86)
+### 5.6 Proximidad al BEP — [pump_design.py:86](../backend/src/bes/core/pump_design.py#L86)
 Cerca del BEP si $|q - q_{BEP}|/q_{BEP} \le 0.15$.
 
 ### 5.7 Leyes de afinidad — `core/affinity.py`
@@ -504,7 +515,7 @@ se rechaza.
 > curva ese caudal queda en otra posición relativa. Ambas cosas son la misma
 > ley bien aplicada.
 
-### 5.8 Corrección por viscosidad (Hydraulic Institute) — [pump_design.py:118](../core/pump_design.py#L118)
+### 5.8 Corrección por viscosidad (Hydraulic Institute) — [pump_design.py:118](../backend/src/bes/core/pump_design.py#L118)
 Conversión SSU → cSt (ASTM D2161):
 
 $$\text{SSU} < 100:\ cSt = 0.226\,\text{SSU} - 195/\text{SSU}$$
@@ -519,9 +530,9 @@ $$hp_{factor} = \frac{C_Q\,C_H}{C_E}$$
 ---
 
 ## 6. Diseño eléctrico
-Archivo: [core/electrical.py](../core/electrical.py) — Brown §4.5325–4.5326
+Archivo: [core/electrical.py](../backend/src/bes/core/electrical.py) — Brown §4.5325–4.5326
 
-### 6.1 Selección de cable — [electrical.py:112](../core/electrical.py#L112)
+### 6.1 Selección de cable — [electrical.py:112](../backend/src/bes/core/electrical.py#L112)
 - Ampacidad: $\text{max\_amps} \ge I_{motor}\cdot 1.25$ (derateo NEC por carga continua)
 - Temperatura: $\text{max\_temp} \ge T_{fondo} + 25\,°F$
 - Ajuste físico: espesor del cable plano ≤ claro anular $(ID_{casing} - OD_{motor})/2$
@@ -567,25 +578,25 @@ disipados para que la decisión sea del ingeniero.
 > no arrancaban pasaron de **7 a 2**, y esos dos avisan que el remedio es un
 > motor de mayor tensión.
 
-### 6.3 Caída de tensión en el cable — [electrical.py:183](../core/electrical.py#L183)
+### 6.3 Caída de tensión en el cable — [electrical.py:183](../backend/src/bes/core/electrical.py#L183)
 
 $$\Delta V = v_{drop/A/1000ft}(T)\cdot I \cdot \frac{L}{1000}\ [\text{V}]$$
 
-### 6.4 Tensión en superficie — [electrical.py:209](../core/electrical.py#L209)
+### 6.4 Tensión en superficie — [electrical.py:209](../backend/src/bes/core/electrical.py#L209)
 
 $$V_s = (V_{motor} + \Delta V_{cable})\left(1 + \frac{\text{pérdida\_trafo\,\%}}{100}\right),\quad \text{pérdida} = 2.5\,\%$$
 
-### 6.5 Potencia aparente (trafo) — [electrical.py:229](../core/electrical.py#L229)
+### 6.5 Potencia aparente (trafo) — [electrical.py:229](../backend/src/bes/core/electrical.py#L229)
 
 $$kVA = \frac{V_s\,I\,\sqrt{3}}{1000}\quad (\text{trifásico})$$
 
-### 6.6 Selección de motor — [electrical.py:283](../core/electrical.py#L283)
+### 6.6 Selección de motor — [electrical.py:283](../backend/src/bes/core/electrical.py#L283)
 - $HP_{rating} \ge HP_{req}\cdot 1.10$ (10 % de margen de placa)
 - $OD_{motor} \le OD_{pump}\cdot 1.20$
 - Claro de cable: $OD_{motor} + 2\cdot e_{cable,min} \le ID_{casing}$
 - Tensión objetivo: ≤70 HP → 800 V; 71–200 HP → 1200 V; >200 HP → 2000 V
 
-### 6.7 Empuje axial sobre el protector — [electrical.py:355](../core/electrical.py#L355)
+### 6.7 Empuje axial sobre el protector — [electrical.py:355](../backend/src/bes/core/electrical.py#L355)
 *Takács, ESP Manual:*
 
 $$\Delta P_{pump} = \text{TDH}\cdot 0.433\cdot SG,\qquad F_{axial} = \Delta P_{pump}\cdot\frac{\pi}{4}d_{shaft}^2\cdot 1.20\ [\text{lbs}]$$
@@ -595,24 +606,24 @@ $$\Delta P_{pump} = \text{TDH}\cdot 0.433\cdot SG,\qquad F_{axial} = \Delta P_{p
 ---
 
 ## 7. Manejo de gas
-Archivo: [core/gas_handling.py](../core/gas_handling.py) — Brown §4.53102–4.53103
+Archivo: [core/gas_handling.py](../backend/src/bes/core/gas_handling.py) — Brown §4.53102–4.53103
 
-### 7.1 Porcentaje de ingestión de gas (GIP) — [gas_handling.py:37](../core/gas_handling.py#L37)
+### 7.1 Porcentaje de ingestión de gas (GIP) — [gas_handling.py:37](../backend/src/bes/core/gas_handling.py#L37)
 
 $$GIP = \left(1 - \frac{V_{gas,vented}}{V_{gas,intake}}\right)(1 - \eta_{sep})$$
 
-### 7.2 Riesgo de gas lock — [gas_handling.py:73](../core/gas_handling.py#L73)
+### 7.2 Riesgo de gas lock — [gas_handling.py:73](../backend/src/bes/core/gas_handling.py#L73)
 fg < 0.10 → bajo; 0.10–0.30 → medio; > 0.30 → alto.
 
-### 7.3 Factor de deterioro de la bomba — [gas_handling.py:119](../core/gas_handling.py#L119)
+### 7.3 Factor de deterioro de la bomba — [gas_handling.py:119](../backend/src/bes/core/gas_handling.py#L119)
 
 $$f_{det} = \begin{cases} 1.0 & fg < 0.10 \\ 1.0 - \dfrac{fg - 0.10}{0.20}\cdot0.30 & 0.10 \le fg \le 0.30 \\ 0.5 & fg > 0.30 \end{cases}$$
 
-### 7.4 Fracción volumétrica de gas libre en admisión — [gas_handling.py:526](../core/gas_handling.py#L526)
+### 7.4 Fracción volumétrica de gas libre en admisión — [gas_handling.py:526](../backend/src/bes/core/gas_handling.py#L526)
 
 $$f_g = \frac{V_{gas}}{V_{oil} + V_{water} + V_{gas}},\quad V_{gas} = (1 - f_w)\,(GOR - R_s)\,B_g$$
 
-### 7.5 Diseño por incrementos de presión — [gas_handling.py:244](../core/gas_handling.py#L244)
+### 7.5 Diseño por incrementos de presión — [gas_handling.py:244](../backend/src/bes/core/gas_handling.py#L244)
 Se divide [P_intake → P_discharge] en pasos de 200 psi. Por incremento, con la mezcla
 evaluada en el punto medio:
 

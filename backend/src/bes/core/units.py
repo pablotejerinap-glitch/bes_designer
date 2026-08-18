@@ -1,17 +1,31 @@
-"""
-Unit conversions and metric-method helpers for BES/ESP design.
+"""Conversión de unidades y auxiliares del método métrico.
 
-The field design path (``bes/core/tdh.py``, ``bes/core/pump_design.py`` …) works in
-US oilfield units (psia, °F, STB/d, ft, in).  The *metric* design path
-(``bes/core/metric_design.py``, método de cátedra "ESP 01") works in kg/cm², m,
-°C, m³/d and g/cm³.  This module isolates every conversion so both paths can
-coexist without duplicating magic constants.
+En este proyecto conviven **dos sistemas de unidades**, y este módulo es el
+único lugar donde se pasa de uno al otro.
 
-References for the constants:
+El **camino de campo** (``tdh.py``, ``pump_design.py``, …) trabaja en unidades
+de campo norteamericanas: psia, °F, STB/d, ft, in. Es el sistema del libro de
+Brown y de los catálogos de los fabricantes.
+
+El **camino métrico** (``metric_design.py``, método de cátedra "ESP 01")
+trabaja en kg/cm², m, °C, m³/d y g/cm³, que es como está planteado el
+ejercicio de la materia.
+
+Tener las conversiones acá aisladas permite que los dos caminos convivan sin
+duplicar constantes mágicas desparramadas por el código.
+
+Las constantes
+--------------
     1 kgf/cm²  = 14.223343 psi
     1 m        = 3.280839895 ft
     1 m³       = 6.289810 bbl
-    1 kgf/cm²  ≈ 10 m of water column  (technical-atmosphere convention)
+    1 kgf/cm²  ≈ 10 m de columna de agua (convención de atmósfera técnica)
+
+Nota sobre las leyes de afinidad
+--------------------------------
+Los atajos ``affinity_*`` de este módulo son los de velocidad pura que usa el
+camino métrico, y **delegan** en :mod:`bes.core.affinity`. Hay una sola
+implementación de las leyes en todo el proyecto.
 """
 from __future__ import annotations
 
@@ -70,12 +84,12 @@ def ft_to_m(x_ft: float) -> float:
 # ---------------------------------------------------------------------------
 
 def m3d_to_bpd(q_m3d: float) -> float:
-    """Convert volumetric flow rate from m³/d to bbl/d."""
+    """Convierte caudal de m³/d a bbl/d."""
     return q_m3d * M3D_TO_BPD
 
 
 def bpd_to_m3d(q_bpd: float) -> float:
-    """Convert volumetric flow rate from bbl/d to m³/d."""
+    """Convierte caudal de bbl/d a m³/d."""
     return q_bpd * BPD_TO_M3D
 
 
@@ -146,7 +160,11 @@ def head_m_to_psi(h_m: float, sg: float) -> float:
 # ---------------------------------------------------------------------------
 
 def affinity_flow(q: float, n_from: float, n_to: float) -> float:
-    """Scale flow rate by the affinity law: Q2 = Q1·(N2/N1)."""
+    """Ley de afinidad para el caudal: ``Q2 = Q1·(N2/N1)``.
+
+    Atajo de velocidad pura para el camino métrico. Delega en
+    :mod:`bes.core.affinity`, que es la única implementación de las leyes.
+    """
     from bes.core.affinity import scale_flow
     return scale_flow(q, n_from, n_to)
 

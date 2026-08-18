@@ -1,9 +1,14 @@
-"""FastAPI application for BES Designer.
+"""Aplicación FastAPI de BES Designer.
 
-Thin HTTP layer over ``services/`` + ``core/`` + ``recommender/``. The domain
-raises ``ValueError`` for infeasible designs / cross-field validation; the
-central handler below turns those into HTTP 422 with the message. Pydantic
-handles per-field validation (also 422). See ``.claude/rules/api-contract.md``.
+Capa HTTP delgada sobre ``services/`` + ``core/`` + ``recommender/``.
+
+**Cómo se manejan los errores.** El dominio levanta ``ValueError`` cuando un
+diseño es inviable o cuando falla una validación cruzada entre campos; el
+manejador central de este archivo los convierte en **HTTP 422** con el
+mensaje del error. Pydantic se encarga de la validación campo por campo
+(también 422).
+
+Ver ``.claude/rules/api-contract.md``.
 """
 from __future__ import annotations
 
@@ -14,7 +19,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from bes.api.routers import (
-    affinity, catalogs, design, gas, ipr, nodal, plots, reports, sensitivity,
+    affinity, catalogs, design, formulas, gas, ipr, nodal, plots, reports,
+    sensitivity,
 )
 
 app = FastAPI(
@@ -65,3 +71,4 @@ app.include_router(plots.router)
 app.include_router(ipr.router)
 app.include_router(affinity.router)
 app.include_router(gas.router)
+app.include_router(formulas.router)

@@ -1,8 +1,12 @@
-"""GET /api/plots/* — Plotly figure JSON for charts that need no extra compute.
+"""GET /api/plots/* — figuras de Plotly en JSON, para gráficos sin cálculo extra.
 
-Los gráficos que acompañan un cálculo (nodal, sensibilidad) viajan dentro de la
-respuesta de ese endpoint. Este router cubre los que el front pide por separado,
-como la curva de una bomba del catálogo.
+Los gráficos que acompañan un cálculo (nodal, sensibilidad, escalera de gas)
+viajan **dentro** de la respuesta de ese endpoint, porque dependen de él. Este
+router cubre los que el frontend pide por separado, como la curva de una bomba
+del catálogo, que no necesita resolver ningún pozo.
+
+El backend arma la figura completa y el frontend sólo la pasa a ``<Plot>``: la
+lógica de graficado no se reimplementa en JavaScript.
 """
 from __future__ import annotations
 

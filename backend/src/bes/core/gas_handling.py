@@ -1,7 +1,90 @@
-"""
-Gas handling and pump intake analysis for BES/ESP design.
-Based on: Kermit Brown, "The Technology of Artificial Lift Methods",
-Vol. 2b, Sections 4.53102 and 4.53103.
+"""Manejo del gas: qué pasa cuando el pozo trae gas libre y cómo se diseña.
+
+**El gas es el enemigo de una bomba centrífuga.** Una bomba está hecha para
+mover líquido; el gas es compresible, así que en vez de ser impulsado se
+comprime y se expande dentro del impulsor. Con poco gas la bomba entrega menos
+altura de la que dice su curva. Con mucho gas deja de bombear directamente:
+es el **bloqueo por gas** (*gas lock*).
+
+Por eso todo diseño BES tiene que responder tres preguntas antes de seguir:
+
+    1. ¿Cuánto gas libre hay en la admisión de la bomba?
+    2. ¿Hace falta un separador de gas, o alcanza con ventear por el anular?
+    3. Con el gas que igual entra, ¿cuántas etapas hacen falta?
+
+Dos magnitudes que la bibliografía mezcla — NO son lo mismo
+-----------------------------------------------------------
+::
+
+    fracción  f = V_gas / (V_gas + V_líquido)      f = r / (1 + r)
+    relación  r = V_gas / V_líquido                r = f / (1 − f)
+
+Una relación de 1.0 es una fracción de **0.50**, no de 1.0. Confundirlas corre
+los umbrales a la mitad. :func:`free_gas_fraction_at_intake` devuelve
+**fracción**; donde el criterio del libro está en relación, se convierte
+explícitamente con :func:`fraction_to_ratio`.
+
+Los umbrales
+------------
+    Fracción <= 1 %    gas despreciable: vale el diseño monofásico
+    Fracción >  1 %    obligatorio calcular la pérdida de carga multifásica
+    Fracción >  5 %    obligatorio separador o manejador de gas
+    Fracción > 10 % EN LA BOMBA   la BES no converge: evaluar otro método
+    Relación > 0.1     la bomba entrega menos altura que su curva de agua
+    Relación >= 1.0    bloqueo total por gas: deja de bombear líquido
+
+El separador escala la RELACION, no la fracción
+-----------------------------------------------
+Un separador que retira el 75 % del gas libre **no** deja ``f × 0.25``. Saca
+gas y deja el líquido, así que lo proporcional es la relación::
+
+    r = f/(1−f)  ->  r' = r·(1−η)  ->  f' = r'/(1+r')
+
+El error de la cuenta ingenua crece con el gas: con f = 65 % y η = 75 %, lo
+correcto da **31.6 %** y lo ingenuo **16.2 %** — casi el doble, y la diferencia
+entre rechazar un pozo y aceptarlo.
+
+El método de incrementos de presión (§4.53103)
+----------------------------------------------
+Es el corazón del módulo. **Con gas, el caudal volumétrico NO es constante a lo
+largo de la bomba**: a medida que la presión sube, el gas se comprime y parte
+pasa a solución, así que el fluido ocupa cada vez menos. No se puede resolver
+la bomba con un caudal único.
+
+La solución del libro es partir el salto de presión en escalones y resolver
+tramo por tramo. En cada tramo se evalúan las propiedades en **los dos
+extremos** y se promedian — no en el punto medio, porque Bg va con 1/P y el
+promedio de los extremos no es el valor del medio.
+
+Contenido
+---------
+1. Constantes y umbrales de gas
+2. Fracción de gas libre en la admisión, y conversiones fracción <-> relación
+3. Ingestión de gas (GIP) y separadores
+4. Deterioro de la bomba por gas libre
+5. Viabilidad: ¿se puede diseñar este pozo con BES?
+6. Propiedades de la mezcla y selección de bomba
+7. Método de incrementos de presión — el diseño tramo por tramo
+8. Diseño de gas completo, de punta a punta
+
+Nomenclatura
+------------
+    f, f_g    Fracción volumétrica de gas libre              [0–1]
+    r         Relación gas/líquido                           [-]
+    GIP       Gas Ingestion Percentage: gas que entra a la bomba [0–1]
+    PIP       Presión en la admisión de la bomba             [psia]
+    ΔP        Salto de presión que da la bomba               [psi]
+    Bg        Factor de volumen del gas                      [bbl/scf]
+    Rs        Gas en solución                                [scf/STB]
+    GOR       Relación gas-petróleo de producción            [scf/STB]
+    WC        Corte de agua                                  [0–1]
+    gas lock  Bloqueo por gas: la bomba deja de bombear
+
+Referencias
+-----------
+Brown, K.E. "The Technology of Artificial Lift Methods", Vol. 2b, §4.53102
+    (deterioro por gas) y §4.53103 (método de incrementos de presión).
+Takács, G. "Electrical Submersible Pumps Manual".
 """
 from __future__ import annotations
 
@@ -119,33 +202,36 @@ def free_gas_fraction_at_intake(
     pressure: float,
     temp_f: float,
 ) -> float:
-    """Free-gas volume fraction of the produced stream at a given P and T.
+    """Fracción volumétrica de gas libre en la corriente producida, a P y T.
 
-    Volumetric balance over one STB of surface liquid, at in-situ conditions:
+    Es un **balance volumétrico** sobre un STB de líquido de superficie,
+    llevado a condiciones de fondo::
 
-        f_g = V_gas / (V_oil + V_water + V_gas)
+        f_g = V_gas / (V_petróleo + V_agua + V_gas)
 
-    with ``V_gas = (1 − WC)·(GOR − Rs)·Bg``, ``V_oil = (1 − WC)·Bo`` and
-    ``V_water = WC·Bw``. Rs is capped at the total GOR (no more gas can come
-    out of solution than the well produces).
+    con ``V_gas = (1 − WC)·(GOR − Rs)·Bg``, ``V_petróleo = (1 − WC)·Bo`` y
+    ``V_agua = WC·Bw``. El gas libre es la diferencia entre el gas que produce
+    el pozo (GOR) y el que sigue disuelto (Rs). Rs se acota al GOR total: no
+    puede salir de solución más gas del que el pozo produce.
 
-    Evaluated at the pump intake this is the quantity that drives the design
-    decisions downstream: gas-lock risk, separator sizing, and — above
-    ``DesignObjectives.gas_fraction_pc_threshold`` — the switch from the
-    single-phase Hazen-Williams friction to Poettmann-Carpenter in
+    Evaluada **en la admisión de la bomba**, ésta es la magnitud que gobierna
+    todas las decisiones que vienen después: el riesgo de bloqueo por gas, el
+    dimensionamiento del separador y —por encima de
+    ``DesignObjectives.gas_fraction_pc_threshold``— el cambio de la fricción
+    monofásica de Hazen-Williams a Poettmann-Carpenter en
     :func:`bes.core.tdh.calculate_tdh`.
 
     Args:
-        fluid: Fluid PVT and composition.
-        pressure: Pressure at the evaluation point [psia]. Must be > 0.
-        temp_f: Temperature at the evaluation point [°F].
+        fluid: PVT y composición del fluido.
+        pressure: Presión en el punto de evaluación [psia]. Debe ser > 0.
+        temp_f: Temperatura en el punto de evaluación [°F].
 
     Returns:
-        Free-gas volume fraction [0–1]. Zero for a dead oil (GOR = 0), for
-        100 % water cut, or when all the gas is still in solution.
+        Fracción volumétrica de gas libre [0–1]. Cero con crudo muerto
+        (GOR = 0), con 100 % de agua, o cuando todo el gas sigue en solución.
 
     Raises:
-        ValueError: If pressure <= 0.
+        ValueError: Si la presión es <= 0.
     """
     if pressure <= 0:
         raise ValueError(f"pressure must be > 0, got {pressure}")
@@ -178,20 +264,24 @@ def gas_ingestion_percentage(
     gas_vented: float,
     separator_efficiency: float = 0.0,
 ) -> float:
-    """Fraction of free gas at pump intake that actually enters the pump.
+    """Qué parte del gas libre de la admisión entra realmente a la bomba.
 
-    Without separator: GIP = 1 − gas_vented / free_gas_at_intake.
-    With separator: the separator removes an additional fraction
-    (separator_efficiency) of the remaining gas before it reaches the pump.
+    Parte del gas se puede ventear por el anular antes de llegar a la bomba, y
+    un separador de fondo retira otra parte de lo que queda::
+
+        sin separador:  GIP = 1 − gas_venteado / gas_libre_en_admisión
+        con separador:  además se le quita la fracción que retira el separador
 
     Args:
-        free_gas_at_intake: Total free gas volume at pump depth [any unit].
-        gas_vented: Volume of free gas diverted away from pump [same unit].
-        separator_efficiency: Fractional gas removal efficiency of a downhole
-            separator [0–1]. 0 = no separator.
+        free_gas_at_intake: Volumen total de gas libre a la profundidad de la
+            bomba [cualquier unidad].
+        gas_vented: Volumen de gas libre desviado fuera de la bomba [misma
+            unidad].
+        separator_efficiency: Eficiencia de separación del separador de fondo
+            [0–1]. 0 = sin separador.
 
     Returns:
-        Gas ingestion fraction [0–1].
+        Fracción de gas que ingresa a la bomba [0–1].
     """
     if free_gas_at_intake <= 0.0:
         return 0.0
@@ -502,15 +592,17 @@ def _mixture_volumes_and_density(
     gip: float,
     pvt_table=None,
 ) -> dict:
-    """Compute in-pump volumetric fractions and mixture density at P, T.
+    """Fracciones volumétricas y densidad de la mezcla dentro de la bomba, a P y T.
 
-    All volumes are per 1 STB of total surface liquid (oil + water).
+    Todos los volúmenes están referidos a **1 STB de líquido total**
+    (petróleo + agua).
 
-    Brown trabaja por STB de **petróleo** (Vol = Bo + Bw + gas_libre·Bg); acá la
-    base es 1 STB de **líquido total**, así que cada término lleva su fracción
-    ((1−WC) o WC). Las dos bases dan el mismo caudal total al multiplicar por su
-    caudal de superficie — verificado contra el #3A: 4.5034 b/STB oil × 250 =
-    2.2517 b/STB líquido × 500 = 1125.85 b/d.
+    Ojo con la base de cálculo: Brown trabaja por STB de **petróleo**
+    (Vol = Bo + Bw + gas_libre·Bg); acá la base es 1 STB de **líquido total**,
+    así que cada término lleva su fracción ((1−WC) o WC). Las dos bases dan el
+    mismo caudal total al multiplicar por su caudal de superficie — verificado
+    contra el #3A: 4.5034 b/STB petróleo × 250 = 2.2517 b/STB líquido × 500
+    = 1125.85 b/d.
 
     Args:
         p: Presión [psia].
@@ -521,11 +613,10 @@ def _mixture_volumes_and_density(
         pvt_table: :class:`bes.core.pvt.PVTTable` medida. Cuando se pasa, sus
             valores ganan sobre las correlaciones (§5 del procedimiento).
 
-    Returns dict with keys:
-        rs, bo, bg, bw, free_gas_scf,
-        v_oil, v_water, v_gas, v_total,
-        rho_mix [lb/ft³], gradient [psi/ft], sg_mix [-],
-        pvt_sources (origen de cada propiedad), pvt_warnings.
+    Returns:
+        dict con: rs, bo, bg, bw, free_gas_scf, v_oil, v_water, v_gas,
+        v_total, rho_mix [lb/ft³], gradient [psi/ft], sg_mix [-],
+        pvt_sources (origen de cada propiedad) y pvt_warnings.
     """
     from bes.core.pvt import resolve_pvt
 
@@ -585,13 +676,13 @@ def _select_pump_for_flow(
     casing_id: float | None = None,
     transform=None,
 ):
-    """Select the catalog pump whose flow range best covers q_bpd.
+    """Elige del catálogo la bomba cuyo rango de caudal cubra mejor ``q_bpd``.
 
-    Prefers pumps where min_flow ≤ q_bpd ≤ max_flow; if none qualify,
-    picks the pump with the nearest boundary.
+    Prefiere las bombas donde ``min_flow <= q_bpd <= max_flow``; si ninguna
+    califica, toma la de borde más cercano.
 
-    Cuando se pasa ``casing_id`` el catálogo se filtra primero por diámetro
-    (§17 del procedimiento): una bomba que no entra en el casing no es
+    Cuando se pasa ``casing_id``, el catálogo se filtra **primero** por
+    diámetro (§17 del procedimiento): una bomba que no entra en el casing no es
     candidata, por bien que le calce el caudal. Sin ese filtro el método podía
     devolver una bomba imposible de bajar al pozo.
 
@@ -599,9 +690,9 @@ def _select_pump_for_flow(
         q_bpd: Caudal de mezcla en condiciones de bomba [bpd].
         catalog_manager: Catálogo cargado.
         casing_id: Diámetro interno del casing [in]. ``None`` = sin filtro.
-        transform: Función aplicada a cada bomba antes de comparar rangos —
-            se usa para llevar la curva a la frecuencia de operación. Sin ella
-            se compara contra los rangos de catálogo (60 Hz).
+        transform: Función que se aplica a cada bomba antes de comparar
+            rangos — se usa para llevar la curva a la frecuencia de operación.
+            Sin ella se compara contra los rangos de catálogo (60 Hz).
 
     Returns:
         El ``PumpCurve`` elegido, ya transformado si corresponde.
@@ -794,48 +885,58 @@ def pressure_increment_design(
     pvt_table=None,
     frequency: float | None = None,
 ) -> dict:
-    """Pressure-increment pump design for gassy wells (Brown §4.53103).
+    """Diseño de la bomba por incrementos de presión, para pozos con gas (§4.53103).
 
-    Divide el salto de presión de la bomba [p_intake → p_discharge] en
-    incrementos iguales, evalúa las propiedades de la mezcla en **los dos
-    extremos** de cada incremento y las **promedia** (pasos 4 y 5 del libro),
-    y con eso determina las etapas y la potencia de cada tramo.
+    **Es el método central del módulo.** Divide el salto de presión de la bomba
+    [p_intake → p_discharge] en escalones iguales, evalúa las propiedades de la
+    mezcla en **los dos extremos** de cada escalón y las **promedia** (pasos 4 y
+    5 del libro), y con eso determina las etapas y la potencia de cada tramo.
 
-    Por qué los extremos y no el punto medio: Bg va con 1/P, así que promediar
-    f(P₁) con f(P₂) no da f((P₁+P₂)/2). El libro imprime los dos extremos
-    (Vol₅₀₀ = 4.5034, Vol₇₀₀ = 3.6292 → Q̄ = 1017 b/d) y ese es el
-    procedimiento que se reproduce. Además es lo único que permite publicar la
-    tabla por intervalo con caudal de entrada y de salida.
+    Por qué los extremos y no el punto medio
+    ----------------------------------------
+    Bg va con 1/P, así que promediar f(P₁) con f(P₂) **no** da f((P₁+P₂)/2). El
+    libro imprime los dos extremos (Vol₅₀₀ = 4.5034, Vol₇₀₀ = 3.6292 →
+    Q̄ = 1017 b/d) y ése es el procedimiento que se reproduce. Además es lo
+    único que permite publicar la tabla por intervalo con caudal de entrada y
+    de salida.
 
-    La masa se conserva a lo largo de toda la bomba; lo que cambia es el
-    volumen. Verificado contra el #3A: 174 375 lbm/d idéntico a 500 y a
-    700 psi.
+    El invariante de control
+    ------------------------
+    La **masa se conserva** a lo largo de toda la bomba; lo que cambia es el
+    volumen. Verificado contra el #3A: 174 375 lbm/d idéntico a 500 y a 700 psi.
+
+    Una sola bomba para toda la sarta
+    ---------------------------------
+    Se elige sobre el caudal de mezcla representativo (paso 6 del libro). Antes
+    se re-seleccionaba por incremento y salían sartas de 3-4 modelos distintos,
+    que no se pueden construir y encima mezclaban fabricantes.
 
     Args:
-        reservoir: Reservoir object — reservoir_temp used for all PVT.
-        fluid: Fluid PVT properties (GOR, API, gas_sg, water_sg, Pb).
-        p_intake: Pump intake pressure [psia].
-        p_discharge: Pump discharge pressure [psia].
-        target_rate: Target gross liquid surface rate [STB/d].
-        catalog_manager: Loaded equipment catalog.
-        gip: Gas ingestion fraction entering the pump [0–1]. Default 1.0.
-        water_cut: Produced water fraction [0–1]. Default 0 (pure oil).
-        increment_psi: Pressure step size [psi]. Default 200.
-        apply_deterioration: When True, the head developed by each stage is
-            derated by ``pump_deterioration_factor`` evaluated at the local
-            free-gas volume fraction (Brown §4.53102). A degraded head means
-            fewer psi gained per stage, so more stages are required — this
-            reproduces the book's "with pump deterioration" variants of #3B.
-            Default False (no derating).
-        fixed_pump_model: When set, the string uses this exact pump model
-            instead of selecting it from the representative mixture rate.
-            Use it to reproduce the book's single-pump cases (e.g. #3B case 1,
-            all D-40). If the model is not found, falls back to auto-selection.
+        reservoir: Reservorio — su ``reservoir_temp`` se usa para todo el PVT.
+        fluid: Propiedades PVT del fluido (GOR, API, gas_sg, water_sg, Pb).
+        p_intake: Presión en la admisión de la bomba [psia].
+        p_discharge: Presión en la descarga de la bomba [psia].
+        target_rate: Caudal bruto de líquido en superficie [STB/d].
+        catalog_manager: Catálogo de equipos cargado.
+        gip: Fracción de gas que entra a la bomba [0–1]. Por defecto 1.0.
+        water_cut: Corte de agua [0–1]. Por defecto 0 (petróleo puro).
+        increment_psi: Tamaño del escalón de presión [psi]. Por defecto 200.
+        apply_deterioration: Si es True, la altura que desarrolla cada etapa se
+            castiga con ``pump_deterioration_factor`` evaluado en la fracción
+            local de gas libre (Brown §4.53102). Menos altura por etapa
+            significa menos psi ganados por etapa, o sea **más etapas** — así
+            se reproducen las variantes «con deterioro» del #3B. Por defecto
+            False.
+        fixed_pump_model: Si se indica, la sarta usa exactamente ese modelo en
+            vez de elegirlo por el caudal representativo. Sirve para reproducir
+            los casos de una sola bomba del libro (por ej. el #3B caso 1, todo
+            D-40). Si el modelo no existe, cae a la selección automática.
         casing_id: Diámetro interno del casing [in]. Filtra el catálogo antes
             de elegir la bomba (§17): sin esto se puede elegir una bomba que no
             entra en el pozo. ``None`` = sin filtro.
-        apply_viscosity: Aplica la corrección de Riling por intervalo. Con
-            crudo ≥ 28 °API no cambia nada (factores unitarios). Default True.
+        apply_viscosity: Aplica la corrección de Riling **por intervalo**. Con
+            crudo >= 28 °API no cambia nada (factores unitarios). Por defecto
+            True.
         pvt_table: :class:`bes.core.pvt.PVTTable` de laboratorio. Sus valores
             ganan sobre las correlaciones, propiedad por propiedad (§5).
         frequency: Frecuencia de operación [Hz]. La curva se reescala con las
@@ -845,17 +946,16 @@ def pressure_increment_design(
             ``None`` = usar la curva de catálogo tal cual.
 
     Returns:
-        dict with keys:
-            ``total_stages``, ``total_hp``,
-            ``pump_combination`` (list of (model, stages) tuples),
-            ``increment_table`` (list of per-increment dicts),
-            ``pump_model`` / ``pump_manufacturer`` / ``pump_series``,
-            ``q_representative_bpd``, ``q_mix_max_bpd``, ``q_mix_min_bpd``,
-            ``mass_rate_lbm_d``, ``pvt_warnings``, ``viscosity_warnings``.
+        dict con: ``total_stages``, ``total_hp``, ``pump_combination`` (lista
+        de tuplas (modelo, etapas)), ``increment_table`` (lista de dicts, uno
+        por incremento), ``pump_model`` / ``pump_manufacturer`` /
+        ``pump_series``, ``q_representative_bpd``, ``q_mix_max_bpd``,
+        ``q_mix_min_bpd``, ``mass_rate_lbm_d``, ``pvt_warnings`` y
+        ``viscosity_warnings``.
 
     Raises:
-        ValueError: If p_discharge ≤ p_intake, or if no catalog pump fits the
-            casing.
+        ValueError: Si ``p_discharge`` <= ``p_intake``, o si ninguna bomba del
+            catálogo entra en el casing.
     """
     if p_discharge <= p_intake:
         raise ValueError(
@@ -980,36 +1080,24 @@ def pressure_increment_design(
     # -----------------------------------------------------------------------
     trace = FormulaTrace()
     trace.add(
-        "gas_delta_p", "Salto de presión que debe dar la bomba",
-        "ΔP = P_desc − P_adm",
+        "gas_delta_p",
         {"P_desc": p_discharge, "P_adm": p_intake},
-        p_discharge - p_intake, "psi", "Brown Vol. 2b §4.53103",
-        note="Es lo que se divide en escalones. Con gas libre el caudal "
-             "volumétrico NO es constante a lo largo de la bomba —el gas se "
-             "comprime y parte pasa a solución—, así que la bomba se resuelve "
-             "tramo por tramo en vez de con un caudal único.",
+        p_discharge - p_intake,
     )
+    # El techo NO es decorativo: 847/200 da 4.24, y los tramos son 5. El
+    # último se queda con el resto de la división.
     trace.add(
-        # El techo NO es decorativo: 847/200 da 4.24, y los tramos son 5. El
-        # último se queda con el resto de la división.
-        "gas_n_incrementos", "Cantidad de escalones",
-        "n = ⌈ΔP / escalón⌉",
+        "gas_n_incrementos",
         {"ΔP": p_discharge - p_intake, "escalón": increment_psi},
-        len(intervalos), "tramos", "Brown Vol. 2b §4.53103",
-        note="El fluido se evalúa en los DOS extremos de cada escalón y se "
-             "promedia (pasos 4 y 5 del libro: «find average gradient» / «find "
-             "average volume»), no en el punto medio: Bg va con 1/P, así que "
-             "el promedio de los extremos no es el valor del medio.",
+        len(intervalos),
     )
     trace.add(
-        "gas_q_representativo", "Caudal de mezcla representativo",
-        "Q_rep = Σ Q_prom,i / n",
-        {"Σ Q_prom,i": sum(iv["q_avg"] for iv in intervalos), "n": len(intervalos)},
-        q_representativo, "b/d", "Brown Vol. 2b §4.53103 paso 6",
-        note=f"Con este caudal se elige UNA bomba para toda la sarta "
-             f"({pump.manufacturer} {pump.model}). Antes se re-seleccionaba por "
-             f"tramo y salían sartas de 3-4 modelos distintos, que no se pueden "
-             f"construir y además mezclaban fabricantes.",
+        "gas_q_representativo",
+        {"Σ Q_prom,i": sum(iv["q_avg"] for iv in intervalos),
+         "n": len(intervalos)},
+        q_representativo,
+        context=f"Con este caudal se eligió la {pump.manufacturer} "
+                f"{pump.model} para toda la sarta.",
     )
 
     total_stages_exact = 0.0        # suma de fracciones, sin redondear
@@ -1111,73 +1199,50 @@ def pressure_increment_design(
         if idx == 0:
             lo0, hi0 = iv["lo"], iv["hi"]
             trace.add(
-                "gas_q_avg", f"Caudal de mezcla del tramo {p_lo:,.0f}–{p_hi:,.0f} psi",
-                "Q_prom = (Q_ent + Q_sal) / 2",
-                {"Q_ent": iv["q_lo"], "Q_sal": iv["q_hi"]},
-                q_res, "b/d", "Brown Vol. 2b §4.53103 paso 5",
-                note="Se evalúa en los dos extremos y se promedia. El caudal cae "
-                     "al subir la presión porque el gas se comprime y parte pasa "
-                     "a solución: por eso no vale un caudal único para toda la bomba.",
+                "gas_q_avg",
+                {"Q_ent": iv["q_lo"], "Q_sal": iv["q_hi"]}, q_res,
+                label=f"Caudal de mezcla del tramo {p_lo:,.0f}–{p_hi:,.0f} psi",
+                context="El caudal cae al subir la presión porque el gas se "
+                        "comprime y parte pasa a solución.",
             )
             trace.add(
-                "gas_gradient", "Gradiente promedio del tramo",
-                "grad = (grad_ent + grad_sal) / 2",
+                "gas_gradient",
                 {"grad_ent": lo0["gradient"], "grad_sal": hi0["gradient"]},
-                gradient, "psi/ft", "Brown Vol. 2b §4.53103 paso 4",
-                note="Gradiente de la mezcla (petróleo + agua + gas libre) a la "
-                     "presión y temperatura del tramo.",
+                gradient,
             )
             if visc["is_viscous"]:
                 trace.add(
-                    "gas_visc", "Corrección por viscosidad del tramo",
-                    "H_etapa = H_agua(Q_prom / C_Q) · C_H",
-                    {"Q_prom": q_res, "C_Q": cq, "C_H": ch},
-                    head_per_stage, "ft/etapa",
-                    "Brown Vol. 2b §4.53112 (Riling)",
-                    note=f"El crudo es de {fluid.oil_api:.1f} °API. Se evalúa POR "
-                         f"TRAMO: el gas en solución cambia con la presión y la "
-                         f"viscosidad del crudo vivo con él, así que cada tramo ve "
-                         f"un fluido distinto. Se divide para entrar a la curva de "
-                         f"agua y se multiplica para salir.",
+                    "gas_visc",
+                    {"Q_prom": q_res, "C_Q": cq, "C_H": ch}, head_per_stage,
+                    context=f"El crudo es de {fluid.oil_api:.1f} °API, así que "
+                            f"corresponde corregir. Se divide para entrar a la "
+                            f"curva de agua y se multiplica para salir.",
                 )
             if apply_deterioration:
                 trace.add(
-                    "gas_deterioro", "Altura degradada por gas libre",
-                    "H_efec = H_etapa · f_det",
+                    "gas_deterioro",
                     {"H_etapa": head_per_stage, "f_det": det_factor},
-                    head_effective, "ft/etapa", "Brown Vol. 2b §4.53102",
-                    note=f"Con {fg_ratio * 100:.1f} % de gas libre en el tramo la "
-                         f"bomba entrega menos altura que su curva de agua.",
+                    head_effective,
+                    context=f"El tramo tiene {fg_ratio * 100:.1f} % de gas libre.",
                 )
             trace.add(
-                "gas_psi_etapa", "Presión que aporta cada etapa",
-                "Δp_etapa = H_efec · grad",
-                {"H_efec": head_effective, "grad": gradient},
-                psi_per_stage, "psi/etapa", "Brown Vol. 2b §4.53103 paso 7",
-                note="Una etapa da una ALTURA fija en pies; cuántos psi son esos "
-                     "pies depende de la densidad de la mezcla, que cambia tramo "
-                     "a tramo. Ésta es la bisagra de todo el método.",
+                "gas_psi_etapa",
+                {"H_efec": head_effective, "grad": gradient}, psi_per_stage,
+                context="Ésta es la bisagra de todo el método.",
             )
             trace.add(
-                "gas_etapas_tramo", "Etapas que necesita el tramo",
-                "N_tramo = ΔP_tramo / Δp_etapa",
-                {"ΔP_tramo": delta_p, "Δp_etapa": psi_per_stage},
-                stages_exact, "etapas", "Brown Vol. 2b §4.53103 paso 8",
-                note="NO se redondea acá. Redondear cada tramo cuesta hasta media "
-                     "etapa cada vez y el error se acumula con la cantidad de "
-                     "tramos: al afinar el paso el conteo se infla en vez de "
-                     "converger. Se acumula la fracción y se redondea una sola vez "
-                     "al final. La suma de los redondeos por tramo se publica "
-                     "aparte, porque es la convención del cálculo a mano.",
+                "gas_etapas_tramo",
+                {"ΔP_tramo": delta_p, "Δp_etapa": psi_per_stage}, stages_exact,
+                context="Al afinar el paso, redondear por tramo infla el conteo "
+                        "en vez de converger. La suma de los redondeos por tramo "
+                        "se publica aparte, que es la convención del cálculo a "
+                        "mano.",
             )
             trace.add(
-                "gas_hp_tramo", "Potencia que consume el tramo",
-                "HP_tramo = N_tramo · HP_etapa · SG_mezcla · C_HP",
+                "gas_hp_tramo",
                 {"N_tramo": stages_exact, "HP_etapa": hp_per_stage_w,
                  "SG_mezcla": sg_mix, "C_HP": chp},
-                hp_incr, "hp", "Brown Vol. 2b §4.5325",
-                note="HP_etapa del catálogo está calibrada para agua (SG = 1); "
-                     "se multiplica por el SG de la mezcla del tramo.",
+                hp_incr,
             )
 
         total_stages_exact += stages_exact
@@ -1259,38 +1324,22 @@ def pressure_increment_design(
 
     # --- Traza de los totales ------------------------------------------------
     trace.add(
-        "gas_etapas_total", "Etapas totales de la sarta",
-        "N = ⌈Σ N_tramo⌉",
-        {"Σ N_tramo": total_stages_exact},
-        total_stages, "etapas", "Brown Vol. 2b §4.53103",
-        note=f"Se suman las fracciones de los {len(increment_table)} tramos y se "
-             f"redondea UNA sola vez. Redondeando cada tramo por separado —la "
-             f"convención del cálculo a mano— darían {total_stages_longhand} "
-             f"etapas.",
+        "gas_etapas_total",
+        {"Σ N_tramo": total_stages_exact}, total_stages,
+        context=f"Se suman las fracciones de los {len(increment_table)} tramos. "
+                f"Redondeando cada tramo por separado —la convención del cálculo "
+                f"a mano— darían {total_stages_longhand} etapas.",
     )
     # Los dos totales van SIN sustitución: reemplazar el sumatorio por su propio
     # valor daría «51.8 = 51.8», que no informa nada. La expresión queda en
     # símbolos y el resultado lo agrega la vista.
     trace.add(
-        "gas_hp_total", "Potencia total al eje",
-        "HP = Σ HP_tramo",
-        {},
-        total_hp, "hp", "Brown Vol. 2b §4.5325",
-        note=f"Suma de los {len(increment_table)} tramos. Cada uno aporta según "
-             f"sus propias etapas y el SG de su mezcla, que no son iguales entre "
-             f"tramos.",
+        "gas_hp_total", {}, total_hp, substitute=False,
+        context=f"Suma de los {len(increment_table)} tramos.",
     )
     trace.add(
-        "gas_tdh_equivalente", "Altura equivalente del método",
-        "TDH_eq = Σ (ΔP_tramo / grad_tramo)",
-        {},
-        tdh_equivalent_ft, "ft", "Identidad del conteo de etapas",
-        note="No es una correlación nueva: es la misma identidad del conteo de "
-             "etapas (N = ΔP / (H_etapa · grad)) despejada al revés, así que es "
-             "coherente con él. Con este valor se dimensiona el aparejo. El TDH "
-             "convencional de tres términos se calcula aparte y se publica "
-             "también: son dos rutas independientes a la misma magnitud y "
-             "discrepan, así que no se elige una en silencio.",
+        "gas_tdh_equivalente", {}, tdh_equivalent_ft, substitute=False,
+        context="Con este valor se dimensiona el aparejo.",
     )
 
     # Reparto por modelo: se redondea cada uno y se ajusta el mayor para que la
@@ -1320,14 +1369,12 @@ def pressure_increment_design(
         props_at[0]["rho_mix"] * props_at[0]["v_total"] * _BBL_TO_FT3 * target_rate
     )
     trace.add(
-        "gas_masa", "Caudal másico (verificación)",
-        "ṁ = ρ_adm · V_adm · 5.615 · q_STB",
+        "gas_masa",
         {"ρ_adm": props_at[0]["rho_mix"], "V_adm": props_at[0]["v_total"],
          "q_STB": target_rate},
-        mass_rate, "lbm/d", "Conservación de masa",
-        note="Es el invariante de control del método: la masa NO cambia a lo "
-             "largo de la bomba aunque el volumen sí. Evaluada en cualquier "
-             "frontera tiene que dar lo mismo — ése es justamente el punto.",
+        mass_rate,
+        context="Evaluada acá en la admisión, pero da lo mismo en cualquier "
+                "frontera: ése es justamente el punto.",
     )
 
     return {
@@ -1587,15 +1634,16 @@ def recommend_gas_separator(
     free_gas_at_intake: float,
     pump_series: str,
 ) -> dict:
-    """Recommend a downhole gas separator for the given pump series.
+    """Recomienda un separador de gas de fondo para la serie de bomba dada.
 
     Args:
-        free_gas_at_intake: Free gas volume fraction at pump intake [0–1].
-        pump_series: Pump series string (e.g. ``"400"``, ``"513"``).
+        free_gas_at_intake: Fracción volumétrica de gas libre en la
+            admisión [0–1].
+        pump_series: Serie de la bomba (por ej. ``"400"``, ``"513"``).
 
     Returns:
-        dict with ``separator`` (equipment info dict),
-        ``free_gas_ratio``, and ``notes``.
+        dict con ``separator`` (datos del equipo), ``free_gas_ratio`` y
+        ``notes``.
     """
     sep = _SEPARATOR_MODELS.get(pump_series, _SEPARATOR_GENERIC)
 
@@ -1631,32 +1679,35 @@ def complete_gas_design(
     apply_deterioration: bool = False,
     fixed_pump_model: str | None = None,
 ) -> dict:
-    """Full gas-handling design workflow (Brown §4.53103, Example 3).
+    """Diseño de gas completo, de punta a punta (Brown §4.53103, Ejemplo 3).
 
-    Steps:
-    1. Compute pump intake pressure (PIP) via multiphase traverse.
-    2. Compute pump discharge pressure via tubing traverse.
-    3. Evaluate free gas at intake and gas ingestion fraction (GIP).
-    4. Run pressure-increment design.
-    5. Assess gas lock risk and recommend separator if needed.
+    Los pasos, en orden:
+
+        1. Calcular la presión de admisión (PIP) con el recorrido multifásico.
+        2. Calcular la presión de descarga con el recorrido por el tubing.
+        3. Evaluar el gas libre en la admisión y la fracción que entra (GIP).
+        4. Correr el diseño por incrementos de presión.
+        5. Evaluar el riesgo de bloqueo por gas y recomendar separador si hace
+           falta.
 
     Args:
-        reservoir: Reservoir properties.
-        fluid: Fluid PVT and composition.
-        well: Well geometry.
-        pump_depth: Pump setting depth [ft TVD].
-        target_rate: Target gross liquid rate [STB/d].
-        catalog_manager: Loaded equipment catalog.
-        vent_gas_pct: Fraction of free gas vented at surface [0–1].
-            0 = 100 % GIP, 1 = all gas vented (no gas enters pump).
-        wellhead_pressure: Flowing tubing-head pressure [psia] for the
-            discharge traverse — pass
-            ``SurfaceConditions.wellhead_pressure_required`` when available.
+        reservoir: Propiedades del reservorio.
+        fluid: PVT y composición del fluido.
+        well: Geometría del pozo.
+        pump_depth: Profundidad de asentamiento de la bomba [ft TVD].
+        target_rate: Caudal bruto de líquido buscado [STB/d].
+        catalog_manager: Catálogo de equipos cargado.
+        vent_gas_pct: Fracción de gas libre venteada por el anular [0–1].
+            0 = entra todo el gas (GIP 100 %), 1 = se ventea todo.
+        wellhead_pressure: Presión fluyente en boca de pozo [psia] para el
+            recorrido de descarga — pasar
+            ``SurfaceConditions.wellhead_pressure_required`` si está
+            disponible.
 
     Returns:
-        dict with keys: ``pip``, ``p_discharge``, ``gip``,
+        dict con: ``pip``, ``p_discharge``, ``gip``,
         ``free_gas_ratio_at_intake``, ``gas_lock_risk``,
-        ``deterioration_factor``, ``separator_recommendation``,
+        ``deterioration_factor``, ``separator_recommendation`` e
         ``increment_design``.
     """
     from bes.core.multiphase import calculate_pip, calculate_discharge_pressure

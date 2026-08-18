@@ -1,6 +1,53 @@
-"""
-Pump selection and staging calculations for BES/ESP design.
-Based on: Kermit Brown, "The Technology of Artificial Lift Methods", Vol. 2b, Ch. 4.5.
+"""Diseño de la bomba: cuántas etapas hacen falta y cuánta potencia consumen.
+
+Éste es el módulo donde se junta todo. Recibe el pozo y devuelve, para cada
+bomba del catálogo que sirva, cuántas etapas necesita y qué potencia pide.
+
+La cuenta central es de una simpleza engañosa::
+
+    Etapas = TDH / altura_por_etapa
+
+Una etapa de bomba entrega una altura fija en pies, que sale de la curva de
+catálogo. Si el pozo pide 5830 ft de TDH y cada etapa da 23 ft, hacen falta
+254 etapas. Lo difícil no es dividir: es que todos los números que entran a
+esa división estén bien.
+
+Lo que hay que resolver antes de poder dividir
+----------------------------------------------
+    1. **PIP** — la presión en la admisión, que sale del recorrido de presión
+       desde las punzados (``multiphase.calculate_pip``).
+    2. **Fracción de gas libre** en la admisión, que decide qué correlación
+       de fricción se usa. Se evalúa **una sola vez** acá, antes del TDH.
+    3. **TDH** — la altura total (``tdh.calculate_tdh``).
+    4. **Curva a la frecuencia real** — si el pozo va a 50 Hz, la curva de
+       60 Hz no sirve. Se reescala ANTES de filtrar por rango de caudal.
+    5. **Corrección por viscosidad** si el crudo es pesado (< 28 °API): el
+       caudal y la altura se convierten a sus equivalentes en agua, porque
+       la curva de catálogo está levantada con agua.
+    6. **Verificaciones mecánicas** — carcasas, eje y cojinete, que ponen un
+       tope a la cantidad de etapas.
+
+Contenido
+---------
+1. Contexto de viscosidad del pozo (pasos 2 a 5 de Riling)
+2. Cuentas básicas: etapas, potencia, rango de operación, frecuencia
+3. Verificaciones de carcasa y mecánicas, compartidas por los dos caminos
+4. Diseño de una bomba candidata
+5. Diseño completo: recorre el catálogo entero
+6. Diseño de una bomba elegida a mano
+
+Nomenclatura
+------------
+    TDH       Altura dinámica total que pide el pozo         [ft]
+    PIP       Presión en la admisión de la bomba             [psia]
+    SG        Gravedad específica del líquido producido      [-]
+    BEP       Best Efficiency Point: caudal de mejor rendimiento
+    C_Q, C_H  Factores de corrección por viscosidad (caudal y altura)
+    C_HP      Factor de corrección de potencia por viscosidad
+
+Referencia
+----------
+Brown, K.E. "The Technology of Artificial Lift Methods", Vol. 2b, Cap. 4.5.
 """
 from __future__ import annotations
 
@@ -116,17 +163,21 @@ def _interp_curve(pump: PumpCurve, flow_bpd: float, attr: str) -> float:
 
 
 def calculate_stages(tdh_ft: float, pump: PumpCurve, flow_bpd: float) -> int:
-    """Number of pump stages required to develop *tdh_ft* at *flow_bpd*.
+    """Cantidad de etapas necesarias para dar el TDH pedido a ese caudal.
 
-    Uses ceiling so the pump always meets or exceeds the required TDH.
+        Etapas = TDH / altura_por_etapa
+
+    Se redondea **hacia arriba**, así la bomba siempre alcanza o supera el TDH
+    requerido: no se instalan fracciones de etapa, y quedarse corto significa
+    que el pozo no produce lo que se pidió.
 
     Args:
-        tdh_ft: Required total dynamic head [ft].
-        pump: PumpCurve instance from the catalog.
-        flow_bpd: Operating flow rate [STB/d].
+        tdh_ft: Altura dinámica total requerida [ft].
+        pump: Bomba del catálogo.
+        flow_bpd: Caudal de operación [STB/d].
 
     Returns:
-        Stage count (integer ≥ 1).
+        Cantidad de etapas (entero >= 1).
     """
     head_per_stage = _interp_curve(pump, flow_bpd, "head_per_stage")
     return math.ceil(tdh_ft / head_per_stage)
@@ -138,30 +189,37 @@ def calculate_motor_hp(
     flow_bpd: float,
     sg_fluid: float,
 ) -> float:
-    """Total shaft power required from the ESP motor [hp].
+    """Potencia total al eje que tiene que entregar el motor [hp].
 
-    Catalog hp/stage values are rated for water (SG = 1.0). Multiplying by
-    *sg_fluid* converts to the actual produced-fluid power requirement.
+        HP = etapas · hp_por_etapa · SG
+
+    El ``hp/etapa`` del catálogo está calibrado para **agua** (SG = 1.0).
+    Multiplicar por ``sg_fluid`` lo lleva a la potencia real que pide el fluido
+    producido: un fluido más pesado cuesta más de bombear.
 
     Args:
-        pump: PumpCurve instance.
-        stages: Number of installed stages.
-        flow_bpd: Operating flow rate [STB/d].
-        sg_fluid: Produced liquid specific gravity.
+        pump: Bomba del catálogo.
+        stages: Cantidad de etapas instaladas.
+        flow_bpd: Caudal de operación [STB/d].
+        sg_fluid: Gravedad específica del líquido producido.
 
     Returns:
-        Required shaft power [hp].
+        Potencia al eje necesaria [hp].
     """
     hp_per_stage = _interp_curve(pump, flow_bpd, "hp_per_stage")
     return stages * hp_per_stage * sg_fluid
 
 
 def check_pump_operating_range(pump: PumpCurve, flow_bpd: float) -> dict:
-    """Evaluate whether *flow_bpd* is within the pump's recommended range.
+    """Verifica si el caudal cae dentro del rango recomendado de la bomba.
+
+    Toda bomba tiene un rango donde conviene hacerla trabajar. Por debajo del
+    mínimo entra en *downthrust* y por encima del máximo en *upthrust*: en los
+    dos casos se desgasta antes. Lo ideal es operar cerca del BEP.
 
     Returns:
-        dict with bool flags ``in_range``, ``near_min``, ``near_max``,
-        ``near_bep`` (within ±15 % of BEP), and a string ``recommendation``.
+        dict con las banderas ``in_range``, ``near_min``, ``near_max``,
+        ``near_bep`` (dentro de ±15 % del BEP) y un texto ``recommendation``.
     """
     in_range = pump.min_flow <= flow_bpd <= pump.max_flow
     near_min = flow_bpd < pump.min_flow * 1.10
@@ -191,19 +249,22 @@ def check_pump_operating_range(pump: PumpCurve, flow_bpd: float) -> dict:
 def operating_frequency(
     surface: SurfaceConditions, objectives: DesignObjectives
 ) -> float:
-    """Frequency the pump will actually run at [Hz].
+    """Frecuencia a la que va a girar realmente la bomba [Hz].
 
-    A fixed switchboard runs the pump at line frequency; a variable-speed drive
-    does not, so ``DesignObjectives.design_frequency_hz`` overrides it when a
-    VSD is part of the design. Everything hydraulic — the flow range, the head
-    per stage, the power per stage — is evaluated at this frequency.
+    Un tablero fijo hace girar la bomba a la frecuencia de la red. Un variador
+    (VSD) no, así que ``DesignObjectives.design_frequency_hz`` la sobrescribe
+    cuando el diseño lleva variador.
+
+    **Todo lo hidráulico se evalúa a esta frecuencia**: el rango de caudal, la
+    altura por etapa y la potencia por etapa.
 
     Args:
-        surface: Surface conditions, providing the grid frequency.
-        objectives: Design objectives, providing the optional VSD frequency.
+        surface: Condiciones de superficie, que aportan la frecuencia de red.
+        objectives: Objetivos de diseño, que aportan la frecuencia opcional
+            del variador.
 
     Returns:
-        Operating frequency [Hz].
+        Frecuencia de operación [Hz].
     """
     return objectives.design_frequency_hz or surface.frequency
 
@@ -478,44 +539,14 @@ def _design_candidate(
     viscosity: dict | None = None,
     extra_warnings: list[str] | None = None,
 ) -> dict | None:
-    """Hydraulic design for one catalog pump at the objectives' target flow.
+    """Diseño hidráulico de UNA bomba del catálogo, al caudal objetivo.
 
-    Shared by :func:`design_pump_complete` (looped over every casing/flow
-    candidate) and :func:`design_pump_by_model` (a single named pump).
-    Returns ``None`` when the pump cannot be designed for this well, which
-    happens for two reasons:
+    La comparten :func:`design_pump_complete` (que la llama en bucle sobre
+    todas las candidatas que pasan el filtro de casing y caudal) y
+    :func:`design_pump_by_model` (una sola bomba elegida a mano).
 
-    - the target flow falls outside the pump's own curve data (a hard bound —
-      interpolation cannot extrapolate);
-    - no arrangement of the pump's housings keeps every housing within its
-      burst-pressure rating (:func:`bes.core.housing.optimize_housings`).
-
-    ``strict=True`` raises a descriptive ``ValueError`` instead of returning
-    ``None``. The auto-recommendation path wants a silent skip — an unsuitable
-    pump is simply not offered — whereas a user who named a pump deserves to
-    be told *why* it does not work.
-
-    ``sg`` es el SG de la mezcla → **HP operativo**. ``sg_max`` es el SG del
-    fluido más pesado → **HP máximo** (sobre el que se dimensiona el motor);
-    si se omite, se toma igual a ``sg``.
-
-    Corrección por viscosidad
-    -------------------------
-    ``viscosity`` es lo que devuelve :func:`_viscosity_context`. Con crudo
-    liviano no cambia nada. Con crudo pesado (< 28 °API) **toda la bomba se
-    diseña contra su curva de agua en el punto equivalente**::
-
-        Q_agua = Q_pedido / C_Q        H_agua = TDH_pedido / C_H
-
-    Es decir: para entregar lo que el pozo pide moviendo el crudo, la bomba
-    tiene que dar *más* con agua. Se divide, no se multiplica — multiplicar es
-    el error clásico y subdimensiona el equipo.
-
-    Los factores dependen del **rendimiento máximo de catálogo de esta bomba**,
-    que es lo que las Tablas 4.520 / 4.521 usan para elegir entre la de 60 % y
-    la de 70 %. Ese rendimiento es un dato de la bomba, no del punto de
-    operación, así que se conoce de entrada: la corrección **no necesita
-    iterarse**, cierra en una pasada. Ver ``docs/CRUDOS_VISCOSOS.md`` §12.
+    Devuelve ``None`` cuando la bomba no se puede diseñar para este pozo, que
+    es como el bucle la descarta y sigue con la siguiente.
     """
     q_design = objectives.target_flow_rate
     h_design = tdh_ft
@@ -583,51 +614,44 @@ def _design_candidate(
     # --- Corrección por viscosidad: la traza, antes de usar los valores -----
     if visc_detail is not None:
         trace.add(
-            "visc_q_water", "Caudal equivalente en agua",
-            "Q_agua = Q_pedido / C_Q",
+            "visc_q_water",
             {"Q_pedido": visc_detail["q_required"],
              "C_Q": visc_detail["capacity_factor"] / 100.0},
-            visc_detail["q_water"], "STB/d", "Brown Vol. 2b §4.53112 (Riling), Tabla 4.52x",
-            note=f"El crudo es de {viscosity['oil_api']:.1f} °API y en la admisión "
-                 f"({visc_detail['intake_temp_f']:.0f} °F) da "
-                 f"{visc_detail['design_ssu']:.0f} SSU. La bomba entrega sólo el "
-                 f"{visc_detail['capacity_factor']:.1f} % de su caudal de agua, así "
-                 f"que hay que buscarla contra un caudal MAYOR. Se divide, no se "
-                 f"multiplica. El factor sale de la tabla de {visc_detail['pump_max_efficiency_pct']:.0f} % "
-                 f"de rendimiento máximo, que es el de esta bomba.",
+            visc_detail["q_water"],
+            context=f"El crudo es de {viscosity['oil_api']:.1f} °API y en la "
+                    f"admisión ({visc_detail['intake_temp_f']:.0f} °F) da "
+                    f"{visc_detail['design_ssu']:.0f} SSU: la bomba entrega "
+                    f"sólo el {visc_detail['capacity_factor']:.1f} % de su "
+                    f"caudal de agua. El factor sale de la tabla de "
+                    f"{visc_detail['pump_max_efficiency_pct']:.0f} % de "
+                    f"rendimiento máximo, que es el de esta bomba.",
         )
         trace.add(
-            "visc_h_water", "Altura equivalente en agua",
-            "H_agua = TDH_pedido / C_H",
+            "visc_h_water",
             {"TDH_pedido": visc_detail["h_required"],
              "C_H": visc_detail["head_factor"] / 100.0},
-            visc_detail["h_water"], "ft", "Brown Vol. 2b §4.53112 (Riling), Tabla 4.52x",
-            note="Mismo criterio que el caudal: la bomba desarrolla menos altura con "
-                 "el crudo que con agua, así que se la busca contra una altura mayor.",
+            visc_detail["h_water"],
         )
 
     stages = calculate_stages(h_design, pump, q_design)
     trace.add(
-        "stages", "Cantidad de etapas",
-        "N = TDH / H_etapa",
+        "stages",
         {"TDH": h_design, "H_etapa": curve["head_per_stage"]},
-        stages, "etapas", "Brown Vol. 2b §4.5325",
-        note=f"H_etapa se interpola de la curva de catálogo de la {pump.model} "
-             f"al caudal de diseño ({q_design:,.0f} STB/d). "
-             f"El resultado se redondea hacia arriba: no se instalan fracciones."
-             + ("" if visc_detail is None else
-                " Con crudo viscoso el TDH y el caudal que entran acá son los "
-                "EQUIVALENTES EN AGUA, porque la curva de catálogo es de agua."),
+        stages,
+        context=f"H_etapa se interpola de la curva de catálogo de la "
+                f"{pump.model} al caudal de diseño ({q_design:,.0f} STB/d). "
+                f"El resultado se redondea hacia arriba: no se instalan "
+                f"fracciones de etapa."
+                + ("" if visc_detail is None else
+                   " Con crudo viscoso el TDH y el caudal que entran acá son "
+                   "los EQUIVALENTES EN AGUA, porque la curva es de agua."),
     )
 
     total_hp = calculate_motor_hp(pump, stages, q_design, sg)
     trace.add(
-        "shaft_hp", "Potencia al eje de la bomba",
-        "HP = N · HP_etapa · SG",
+        "shaft_hp",
         {"N": stages, "HP_etapa": curve["hp_per_stage"], "SG": sg},
-        total_hp, "hp", "Brown Vol. 2b §4.5325",
-        note="HP_etapa del catálogo está calibrada para agua (SG = 1); "
-             "multiplicar por el SG del fluido da la potencia real.",
+        total_hp,
     )
     sg_max = sg if sg_max is None else sg_max
     motor_hp_max = calculate_motor_hp(pump, stages, q_design, sg_max)
@@ -642,15 +666,14 @@ def _design_candidate(
         total_hp *= chp
         motor_hp_max *= chp
         trace.add(
-            "visc_hp", "Potencia corregida por viscosidad",
-            "HP_crudo = HP_agua · C_HP",
+            "visc_hp",
             {"HP_agua": hp_agua, "C_HP": chp},
-            total_hp, "hp", "Brown Vol. 2b §4.53112 (Riling), Tabla 4.52x",
-            note=f"El rendimiento de la bomba cae de "
-                 f"{visc_detail['pump_max_efficiency_pct']:.1f} % a "
-                 f"{visc_detail['degraded_efficiency'] * 100:.1f} % con este crudo, "
-                 f"y la potencia sube en consecuencia. El γ_o de la columna del "
-                 f"libro ya está incluido en HP_agua vía el SG.",
+            total_hp,
+            context=f"El rendimiento de la bomba cae de "
+                    f"{visc_detail['pump_max_efficiency_pct']:.1f} % a "
+                    f"{visc_detail['degraded_efficiency'] * 100:.1f} % con este "
+                    f"crudo. El γ_o de la columna del libro ya está incluido "
+                    f"en HP_agua vía el SG, así que no se multiplica de nuevo.",
         )
 
     op_check = check_pump_operating_range(pump, q_design)
@@ -728,37 +751,40 @@ def design_pump_complete(
     pump_setting_depth: float,
     catalog_manager: "CatalogManager",
 ) -> list[dict]:
-    """Full ESP pump design workflow: TDH → stage count → HP for every compatible pump.
+    """Diseño completo: recorre el catálogo y arma una candidata por cada bomba.
 
-    Steps:
-    1. Calculate PIP via multiphase pressure traverse (Hagedorn-Brown).
-    2. Evaluate the free-gas fraction at the intake — it decides whether the
-       tubing friction uses Hazen-Williams or Poettmann-Carpenter.
-    3. Calculate TDH from PIP, well geometry, and surface conditions.
-    4. Filter catalog pumps by casing clearance and flow range.
-    5. For each candidate: interpolate curve, compute stages + HP, check range.
-    6. Return candidates sorted by efficiency (descending).
+    Es el punto de entrada del módulo. Los pasos, en orden:
 
-    The gas fraction is evaluated **once here**, before the TDH, and travels
-    down with every candidate: it is a property of the well and the fluid, not
-    of the pump being tried, so recomputing it per candidate would be both
-    wasteful and a chance for the candidates to disagree.
+        1. Calcular el **PIP** con el recorrido de presión multifásico.
+        2. Evaluar la **fracción de gas libre** en la admisión — es la que
+           decide si la fricción del tubing va por Hazen-Williams o por
+           Poettmann-Carpenter.
+        3. Calcular el **TDH** a partir del PIP, la geometría y la superficie.
+        4. **Filtrar** el catálogo por luz de casing y rango de caudal.
+        5. Por cada candidata: interpolar la curva, calcular etapas y potencia,
+           y verificar el rango de operación.
+        6. Devolver las candidatas ordenadas por rendimiento, de mayor a menor.
+
+    La fracción de gas se evalúa **una sola vez acá**, antes del TDH, y viaja
+    con todas las candidatas: es una propiedad del pozo y del fluido, no de la
+    bomba que se está probando. Recalcularla por candidata sería trabajo de más
+    y una oportunidad para que las candidatas no coincidan entre sí.
 
     Args:
-        reservoir: Reservoir properties.
-        fluid: Fluid PVT and composition.
-        well: Well geometry.
-        surface: Surface infrastructure and power supply.
-        objectives: Production targets and design constraints.
-        pump_setting_depth: Pump intake depth [ft TVD].
-        catalog_manager: Loaded equipment catalog.
+        reservoir: Propiedades del reservorio.
+        fluid: PVT y composición del fluido.
+        well: Geometría del pozo.
+        surface: Instalación de superficie y alimentación eléctrica.
+        objectives: Objetivos de producción y restricciones de diseño.
+        pump_setting_depth: Profundidad de la admisión [ft TVD].
+        catalog_manager: Catálogo de equipos cargado.
 
     Returns:
-        List of design-candidate dicts, best efficiency first. Each dict
-        contains: ``pump_model``, ``pump_manufacturer``, ``pump_od``,
-        ``stages``, ``tdh_ft``, ``head_per_stage``, ``hp_per_stage``,
-        ``efficiency``, ``total_pump_hp``, ``pip_psi``, ``sg_liquid``,
-        ``operating_check``, ``tdh_breakdown``, ``warnings``.
+        Lista de dicts, una por candidata, con la de mejor rendimiento
+        primero. Cada dict trae: ``pump_model``, ``pump_manufacturer``,
+        ``pump_od``, ``stages``, ``tdh_ft``, ``head_per_stage``,
+        ``hp_per_stage``, ``efficiency``, ``total_pump_hp``, ``pip_psi``,
+        ``sg_liquid``, ``operating_check``, ``tdh_breakdown`` y ``warnings``.
     """
     from bes.core.affinity import pump_at_frequency
     from bes.core.gas_handling import free_gas_fraction_at_intake
@@ -844,32 +870,35 @@ def design_pump_by_model(
     catalog_manager: "CatalogManager",
     pump_model: str,
 ) -> dict:
-    """Hydraulic design for exactly one user-chosen catalog pump.
+    """Diseño hidráulico de exactamente una bomba elegida por el usuario.
 
-    Unlike :func:`design_pump_complete`, this bypasses the casing/flow-range
-    prefilter used for auto-recommendation — the user is deliberately
-    overriding the algorithm's choice, so a pump outside the usual
-    "recommended range" heuristic is still allowed. The pump's own curve
-    data remains a hard bound (raises if the target flow falls outside it),
-    and OD-vs-casing clearance is still enforced as a physical constraint.
+    A diferencia de :func:`design_pump_complete`, ésta **saltea el prefiltro**
+    de casing y rango de caudal que usa la recomendación automática: el usuario
+    está pisando a propósito la elección del algoritmo, así que se permite una
+    bomba fuera del rango «recomendado».
+
+    Lo que **no** se saltea: los datos de la curva siguen siendo un límite duro
+    (si el caudal objetivo cae fuera, levanta error), y la luz entre el
+    diámetro de la bomba y el casing se sigue exigiendo, porque es una
+    restricción física — si no entra, no entra.
 
     Args:
-        reservoir: Reservoir properties.
-        fluid: Fluid PVT and composition.
-        well: Well geometry.
-        surface: Surface infrastructure and power supply.
-        objectives: Production targets and design constraints.
-        pump_setting_depth: Pump intake depth [ft TVD].
-        catalog_manager: Loaded equipment catalog.
-        pump_model: Catalog model name of the user-chosen pump.
+        reservoir: Propiedades del reservorio.
+        fluid: PVT y composición del fluido.
+        well: Geometría del pozo.
+        surface: Instalación de superficie y alimentación eléctrica.
+        objectives: Objetivos de producción y restricciones de diseño.
+        pump_setting_depth: Profundidad de la admisión [ft TVD].
+        catalog_manager: Catálogo de equipos cargado.
+        pump_model: Nombre del modelo de catálogo que eligió el usuario.
 
     Returns:
-        A single design-candidate dict, same shape as one element of
-        :func:`design_pump_complete`'s return list.
+        Un solo dict de candidata, con la misma forma que un elemento de la
+        lista que devuelve :func:`design_pump_complete`.
 
     Raises:
-        ValueError: If ``pump_model`` is unknown, the pump's OD doesn't fit
-            the casing, or the target flow falls outside the pump's curve.
+        ValueError: Si el modelo no existe, si el diámetro de la bomba no entra
+            en el casing, o si el caudal objetivo cae fuera de su curva.
     """
     from bes.core.affinity import pump_at_frequency
     from bes.core.gas_handling import free_gas_fraction_at_intake

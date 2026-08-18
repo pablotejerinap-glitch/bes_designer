@@ -1,35 +1,51 @@
-"""
-Pump-housing (carcasa) selection and optimisation for BES/ESP design.
-Based on: Kermit Brown, "The Technology of Artificial Lift Methods",
-Vol. 2b, Section 4.5451 (housing burst pressure).
+"""Carcasas de la bomba — selección y optimización.
 
-Once the pump is chosen and the stage count is known, the stages have to be
-housed. Manufacturers publish housings as a discrete set of lengths, each
-holding a fixed number of stages, and a design that needs more stages than the
-largest housing holds is assembled as a **tandem** of several housings in
-series. Choosing the combination is a small combinatorial problem, and it is
-solved here by search rather than by a fixed rule, so that any catalog — the
-ones loaded today and any added later — is handled without touching code.
+Una vez elegida la bomba y sabida la cantidad de etapas, esas etapas hay que
+**meterlas adentro de algo**. Los fabricantes venden carcasas en un conjunto
+discreto de longitudes, cada una con capacidad para una cantidad fija de
+etapas. Si el diseño pide más etapas de las que entran en la carcasa más
+grande, se arma un **tándem**: varias carcasas en serie, una arriba de la otra.
 
-Objective, applied as a strict lexicographic order (no weights, no scores —
-the same discipline as ``bes.recommender.ranking``):
+Elegir la combinación es un problema combinatorio chico, y acá se resuelve
+**buscando** en vez de con una regla fija, para que cualquier catálogo —los que
+están cargados hoy y los que se agreguen mañana— funcione sin tocar código.
 
-1. exact match on the required stages;
-2. otherwise, minimum surplus capacity;
-3. minimum number of housings;
-4. minimum unused (dummy) stages;
-5. simplest, most standard arrangement — fewest distinct housing lengths, and
-   larger housings preferred among equals.
+El criterio de elección, en orden estricto
+------------------------------------------
+Sin pesos y sin puntajes, la misma disciplina que ``bes.recommender.ranking``:
 
-Criteria 2 and 4 are the same quantity in this model: every stage of installed
-capacity that is not an active stage is a dummy stage, so surplus == dummy.
-Criterion 4 is therefore satisfied by construction rather than by a separate
-tie-break.
+    1. que dé EXACTO con las etapas necesarias;
+    2. si no, el mínimo excedente de capacidad;
+    3. la menor cantidad de carcasas;
+    4. la menor cantidad de etapas ciegas (dummy);
+    5. el arreglo más simple y estándar: menos longitudes distintas, y entre
+       iguales, las carcasas grandes primero.
 
-The burst-pressure check is a **hard constraint inside the search**, not a
-check applied afterwards: a combination that puts any housing over its rating
-is discarded and the search continues, so an over-pressured arrangement can
-never be returned.
+Los criterios 2 y 4 son la misma magnitud en este modelo: toda etapa de
+capacidad instalada que no sea una etapa activa es una etapa ciega, así que
+excedente == ciegas. El criterio 4 queda satisfecho por construcción y no hace
+falta un desempate aparte.
+
+La presión es una restricción DURA
+----------------------------------
+La verificación de presión de reventamiento se aplica **dentro** de la
+búsqueda, no después: una combinación que ponga cualquier carcasa por encima de
+su calificación se descarta y la búsqueda sigue. Así es imposible que se
+devuelva un arreglo sobrepresionado. Antes esto era sólo una advertencia — **no
+volver a eso**.
+
+Nomenclatura
+------------
+    MaxP        Presión máxima que ve la carcasa           [psi]
+    P(Q=0)      Altura por etapa a caudal cero (shut-in)   [ft/etapa]
+    Pem         Gravedad específica de la mezcla bombeada  [-]
+    etapa ciega Etapa instalada que no genera altura (dummy)
+    tándem      Varias carcasas en serie
+
+Referencia
+----------
+Brown, K.E. "The Technology of Artificial Lift Methods", Vol. 2b, §4.5451
+    (presión de reventamiento de carcasa).
 """
 from __future__ import annotations
 
@@ -50,27 +66,31 @@ _EXTRA_HOUSING_SLACK = 2
 def housing_pressure_psi(
     shutin_head_per_stage: float, stages: int, sg_fluid: float
 ) -> float:
-    """Pressure a stack of *stages* develops at shut-in [psi].
+    """Presión que desarrolla una pila de etapas a caudal cero [psi].
 
-    ``MaxP = P(Q=0) · nº etapas · Pem`` — the worst case for the housing is
-    zero flow, where the head per stage is maximum and the whole differential
-    presses on the vessel. Expressed in field units the shut-in head per stage
-    is in ft, so the conversion to psi carries the produced-fluid gravity:
+        MaxP = P(Q=0) · #Etapas · Pem
 
-        MaxP [psi] = head_shut-in [ft/stage] · stages · SG / 2.31
+    El **peor caso para la carcasa es el caudal cero** (shut-in, válvula
+    cerrada): ahí la altura por etapa es máxima y todo el diferencial empuja
+    contra el recipiente.
 
-    This is the same relation the metric (cátedra) engine applies in
-    :func:`bes.core.metric_design.step11_housing_burst`, expressed in field
-    units.
+    En unidades de campo la altura de shut-in por etapa viene en pies, así que
+    la conversión a psi arrastra la gravedad del fluido producido::
+
+        MaxP [psi] = altura_shut-in [ft/etapa] · #Etapas · SG / 2.31
+
+    Es la misma relación que aplica el motor métrico de cátedra en
+    :func:`bes.core.metric_design.step11_housing_burst`, escrita en unidades de
+    campo.
 
     Args:
-        shutin_head_per_stage: Head per stage at zero flow [ft/stage].
-        stages: Number of *active* stages generating head. Dummy stages
-            develop no head and must not be counted here.
-        sg_fluid: Specific gravity of the pumped mixture (Pem).
+        shutin_head_per_stage: Altura por etapa a caudal cero [ft/etapa].
+        stages: Cantidad de etapas **activas**, las que generan altura. Las
+            etapas ciegas no desarrollan altura y NO se cuentan acá.
+        sg_fluid: Gravedad específica de la mezcla bombeada (Pem).
 
     Returns:
-        Pressure developed at the top of that stack [psi]. Never negative.
+        Presión desarrollada en el tope de esa pila [psi]. Nunca negativa.
     """
     if stages <= 0 or shutin_head_per_stage <= 0 or sg_fluid <= 0:
         return 0.0
@@ -78,10 +98,11 @@ def housing_pressure_psi(
 
 
 def _limit_of(housing: PumpHousing, pump_limit_psi: float) -> float:
-    """Rating that governs *housing*: its own when published, else the pump's.
+    """Presión que califica a esta carcasa: la propia si la publica, si no la de
+    la bomba.
 
-    Returns 0.0 when neither is known, which the caller reads as "no data" and
-    treats as unverifiable rather than as a failed check.
+    Devuelve 0.0 cuando no se conoce ninguna de las dos, y quien llama lo lee
+    como «sin datos» — o sea, no verificable, que NO es lo mismo que aprobado.
     """
     return housing.pressure_limit_psi or pump_limit_psi or 0.0
 
@@ -89,12 +110,13 @@ def _limit_of(housing: PumpHousing, pump_limit_psi: float) -> float:
 def _multisets(
     sizes_desc: Sequence[int], target: int, slots: int
 ) -> Iterator[tuple[int, ...]]:
-    """Yield count-vectors over *sizes_desc* using exactly *slots* housings
-    whose stage capacities sum to exactly *target*.
+    """Genera las combinaciones de carcasas que suman exactamente las etapas
+    pedidas usando exactamente ``slots`` carcasas.
 
-    ``sizes_desc`` must be sorted descending. The recursion prunes on the
-    largest and smallest sums still reachable with the slots left, which keeps
-    the enumeration tractable even for catalogs with many short housings.
+    ``sizes_desc`` tiene que venir ordenado de mayor a menor. La recursión poda
+    usando la suma máxima y la mínima todavía alcanzables con los lugares que
+    quedan, lo que mantiene la enumeración manejable aun con catálogos que
+    tienen muchas carcasas cortas.
     """
     n = len(sizes_desc)
     if n == 0:
@@ -142,22 +164,24 @@ def _evaluate(
     sg_fluid: float,
     pump_limit_psi: float,
 ) -> dict | None:
-    """Build the per-housing pressure report for one candidate arrangement.
+    """Arma el informe de presión carcasa por carcasa para un arreglo candidato.
 
-    The housings are ordered bottom (intake) to top (discharge) by ascending
-    rating, so the best-rated vessel sits where the pressure is highest — the
-    arrangement an engineer would assemble, and the one that makes a mixed
-    standard / high-pressure tandem feasible.
+    Las carcasas se ordenan de abajo (admisión) hacia arriba (descarga) por
+    calificación creciente, así la mejor calificada queda donde la presión es
+    más alta. Es el arreglo que armaría un ingeniero, y es lo que hace viable
+    un tándem mixto de carcasas estándar y de alta presión.
 
-    Active stages fill the stack from the intake upward and the dummy stages
-    complete the **topmost** housing, which is how a short fill is made up in
-    practice. Pressure accumulates with the active stages below and including
-    each housing, so the top housing sees the full shut-in differential.
+    Las etapas activas llenan la pila desde la admisión hacia arriba y las
+    etapas ciegas completan la carcasa **de más arriba**, que es como se
+    completa un llenado corto en la práctica. La presión se acumula con las
+    etapas activas que quedan por debajo de cada carcasa (incluida ella), así
+    que la carcasa superior es la que ve el diferencial completo: **es la
+    crítica**.
 
-    Returns ``None`` if any housing exceeds its rating; the caller then keeps
-    searching. When no rating is known the housing is reported as unverified
-    (``ok`` stays True and ``limit_psi`` is 0.0) rather than silently passing a
-    check that was never made.
+    Devuelve ``None`` si alguna carcasa se pasa de su calificación, y entonces
+    quien llama sigue buscando. Cuando no se conoce ninguna calificación, la
+    carcasa se reporta como no verificada (``ok`` queda en True y ``limit_psi``
+    en 0.0) en vez de aprobar en silencio una verificación que nunca se hizo.
     """
     ordered = sorted(
         stack,
@@ -222,44 +246,46 @@ def optimize_housings(
     pump_pressure_limit_psi: float = 0.0,
     extra_housing_slack: int = _EXTRA_HOUSING_SLACK,
 ) -> dict | None:
-    """Best housing arrangement for *required_stages*, or None if none fits.
+    """El mejor arreglo de carcasas para las etapas pedidas, o None si no entra.
 
-    Searches the arrangements the catalog actually allows — every combination
-    of the pump's own housing lengths — and returns the optimum under the
-    lexicographic objective documented at the top of this module, subject to
-    the burst-pressure constraint on every housing of the stack.
+    Busca entre los arreglos que el catálogo **realmente permite** —todas las
+    combinaciones de las longitudes de carcasa de esa bomba— y devuelve el
+    óptimo según el orden lexicográfico documentado arriba, sujeto a la
+    restricción de presión en cada carcasa de la pila.
 
-    Housings belong to a pump model: a Reda D-40 stack is built from D-40
-    housings. The search is therefore over the lengths of the selected pump,
-    which is the physically meaningful "all combinations in the catalog" and
-    the reason no manufacturer or series is hard-coded anywhere.
+    Las carcasas son **específicas del modelo**: una sarta de Reda D-40 se arma
+    con carcasas D-40, no se mezclan fabricantes. Por eso la búsqueda es sobre
+    las longitudes de la bomba seleccionada.
 
-    The sweep goes by increasing installed capacity and, within it, by
-    increasing housing count, and stops at the first capacity that yields a
-    feasible arrangement. Because surplus outranks housing count in the
-    objective, that first hit is the optimum — no need to enumerate the rest.
+    Como el excedente pesa más que la cantidad de carcasas en el orden de
+    criterios, el primer arreglo viable que aparece **ya es el óptimo**: no hace
+    falta enumerar el resto.
 
     Args:
-        required_stages: Active stages the pump must carry. Must be > 0.
-        housings: Housing catalog of the selected pump. Must not be empty.
-        shutin_head_per_stage: Head per stage at zero flow [ft/stage], the
-            worst case for the vessel.
-        sg_fluid: Specific gravity of the pumped mixture (Pem).
-        pump_pressure_limit_psi: Pump-level rating [psi], used for any housing
-            that does not publish its own. 0 = unknown.
-        extra_housing_slack: How many housings above the minimum count the
-            search may add to satisfy a pressure constraint.
+        required_stages: Etapas activas que tiene que llevar la bomba.
+            Debe ser > 0.
+        housings: Catálogo de carcasas de la bomba elegida. No puede estar
+            vacío.
+        shutin_head_per_stage: Altura por etapa a caudal cero [ft/etapa], el
+            peor caso para el recipiente.
+        sg_fluid: Gravedad específica de la mezcla bombeada (Pem).
+        pump_pressure_limit_psi: Calificación a nivel bomba [psi], que se usa
+            para las carcasas que no publican la propia. 0 = se desconoce.
+        extra_housing_slack: Cuántas carcasas por encima del mínimo puede
+            agregar la búsqueda con tal de cumplir la restricción de presión.
 
     Returns:
-        dict with ``detail`` (per-housing report, intake → discharge),
+        dict con ``detail`` (informe por carcasa, de admisión a descarga),
         ``housing_size_stages``, ``dummy_stages``, ``n_housings``,
-        ``housings`` (``[(stages, count)]``, largest first),
+        ``housings`` (``[(etapas, cantidad)]``, las grandes primero),
         ``max_housing_pressure_psi``, ``housing_pressure_limit_psi``,
-        ``pressure_ok`` and ``pressure_verified``.
-        ``None`` when no arrangement keeps every housing within its rating.
+        ``pressure_ok`` y ``pressure_verified``.
+        ``None`` cuando ningún arreglo mantiene todas las carcasas dentro de su
+        calificación.
 
     Raises:
-        ValueError: If ``required_stages`` <= 0 or the housing list is empty.
+        ValueError: Si ``required_stages`` <= 0 o la lista de carcasas está
+            vacía.
     """
     if required_stages <= 0:
         raise ValueError(f"required_stages must be > 0, got {required_stages}")
@@ -307,7 +333,7 @@ def optimize_housings(
 def _finalize(
     best: dict, required_stages: int, pump_pressure_limit_psi: float
 ) -> dict:
-    """Complete the winning arrangement with its summary and rationale."""
+    """Completa el arreglo ganador con su resumen y su justificación."""
     detail = best["detail"]
     sizes = [d["stages"] for d in detail]
     counts: dict[int, int] = {}
@@ -330,17 +356,18 @@ def _finalize(
 
 
 def build_rationale(selection: dict) -> str:
-    """One-sentence justification of the arrangement, in the app's language.
+    """Justificación del arreglo en una frase, en el idioma de la app.
 
-    Built strictly from the computed values — no canned text and no claim the
-    numbers do not support. In particular it says the pressure check *could not
-    be made* when the catalog publishes no rating, instead of reporting a pass.
+    Se arma **estrictamente a partir de los valores calculados**: nada de texto
+    enlatado ni de afirmaciones que los números no respalden. En particular,
+    dice que la verificación de presión *no se pudo hacer* cuando el catálogo no
+    publica calificación, en vez de informar que pasó.
 
     Args:
-        selection: A finalised arrangement from :func:`optimize_housings`.
+        selection: Un arreglo ya finalizado por :func:`optimize_housings`.
 
     Returns:
-        Spanish sentence for the UI, the PDF and the Excel report.
+        Frase en castellano para la pantalla, el PDF y el Excel.
     """
     counts = selection["housings"]
     parts = [

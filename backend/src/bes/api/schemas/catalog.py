@@ -1,6 +1,8 @@
-"""Catalog summary schema for ``GET /api/catalogs`` — light overview for the
-frontend (pump list, manufacturers for the preferred-manufacturer dropdown,
-and item counts). Full performance curves are not exposed here.
+"""Esquema del resumen de catálogo para ``GET /api/catalogs``.
+
+Es un panorama liviano para el frontend: lista de bombas, fabricantes y
+cantidades por tipo de equipo. **Las curvas de comportamiento completas no
+se exponen acá** — se piden por separado cuando hacen falta.
 """
 from __future__ import annotations
 

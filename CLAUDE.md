@@ -352,6 +352,89 @@ fricción hacia el tope; una evaluación en un punto medio la subestima.
 
 `DesignResult.friction_method` reporta cuál se usó.
 
+### Catálogo de fórmulas (`bes/core/formula_catalog.py`)
+
+**La única declaración de cada fórmula del motor.** El código que calcula no
+vuelve a escribir la expresión: la referencia por su clave y aporta sólo los
+números. Existe para que un ingeniero de petróleo pueda auditar el motor sin
+abrir un `.py`.
+
+```
+formula_catalog.py   declara: expresión, símbolos con unidad, cita, validez
+      ↓  trace.add("tdh", {...}, resultado)
+core/*.py            ejecuta y aporta los números
+      ↓
+GET /api/formulas    el catálogo entero, SIN correr un diseño
+DesignResult.formulas la traza de una corrida, con los números
+      ↓
+pestaña «Fórmulas»   las dos vistas cruzadas por clave
+```
+
+- **Se enumera sin correr nada**, que es el punto: la traza de una corrida sólo
+  muestra la rama que ese pozo ejecutó. En el catálogo conviven las **cuatro**
+  maneras de llegar a la Pwf y las **dos** correlaciones de fricción.
+- **Clave única por variante** (`pwf_vogel_bifasico`), más `step` para agrupar
+  las variantes del mismo paso conceptual (`pwf_diseno`). Antes cuatro fórmulas
+  distintas compartían la clave `ipr_pwf` y no se podían enumerar.
+- **Dos notas separadas a propósito**: `note` viene del catálogo y vale siempre;
+  `context` lo pasa el sitio de la cuenta y es de ese pozo. Mezclarlas haría
+  parecer condición general lo que es circunstancia.
+- `substitute=False` deja la expresión en símbolos: en los totales, reemplazar
+  un sumatorio por su propio valor imprimía «51.8 = 51.8».
+
+`tests/test_formula_catalog.py` ata las dos mitades **en los dos sentidos**:
+toda clave que el motor ejecuta está declarada, y toda fórmula declarada la
+ejecuta alguien. Se verifica por AST sobre `core/*.py`, no con grep. Además
+exige glosario, cita, unidades y módulo en cada entrada.
+
+**Cobertura: 82 fórmulas en 10 temas, sin pendientes** — IPR 16, gas 14, PVT 11,
+multifásico 9, eléctrico 9, TDH 7, afinidad 6, mecánica 5, viscosidad 3,
+diseño 2. Si se agrega un tema nuevo sin instrumentar, se declara con
+`instrumented=False` y la pantalla lo muestra como pendiente en vez de
+esconderlo; un test avisa. **No esconder lo que falta** — un catálogo que
+aparenta completitud es peor que uno que declara su cobertura.
+
+Los módulos que no armaban traza se instrumentaron con una **función `*_trace()`
+aparte** (`multiphase.poettmann_carpenter_trace`, `affinity.affinity_trace`,
+`mechanical.mechanical_trace`, `electrical.electrical_trace`, `pvt.pvt_trace`),
+que es el patrón que ya usaba `ipr.ipr_trace`: no se le toca la firma a las
+funciones puras que usa todo el motor, y la traza llama a **esas mismas
+funciones**, así que no puede separarse de la cuenta. `poettmann_carpenter_components()`
+devuelve además sus intermedios para que la traza no tenga que recalcular nada.
+
+**La sustitución respeta fronteras de palabra** (`formulas._sustituir`). Un
+`str.replace` pelado convertía `(dP/dz)_fric = f · ρ_m · v_m² / (2 · g_c · d · 144)`
+en `(0.2034P/0.2034z)_0.0157ric`: los símbolos de una letra —que en ingeniería
+son la mayoría— se comían la prosa de la fórmula. Los superíndices **no** cuentan
+como frontera, para que `v_m` se reemplace también dentro de `v_m²`. Los dos
+casos están fijados en `tests/test_formula_catalog.py`.
+
+`docs/FORMULAS.md` se escribe a mano y por lo tanto puede atrasarse; la fuente
+autoritativa es el catálogo. Para los temas sin instrumentar sigue siendo lo
+único que hay.
+
+### Documentación en castellano — es requisito, no preferencia
+
+**Los 395 docstrings del paquete `bes` están en castellano.** No es una cuestión
+de gusto: el código lo tiene que poder auditar el tutor de la tesis, que es
+ingeniero de petróleo y no programa. Un docstring en inglés lo deja afuera.
+
+La convención, tomada de `ipr.py`, que es el modelo:
+
+1. **Encabezado de módulo** con: qué resuelve en prosa llana, las fórmulas
+   principales como están en el libro, **Contenido** (el mapa numerado del
+   archivo), **Nomenclatura** (cada símbolo con su unidad) y **Referencias**.
+2. **Cada función** explica qué calcula, la fórmula, y `Args` / `Returns` /
+   `Raises`. Los nombres de esas tres secciones quedan en inglés porque son
+   convención de Google-style; el texto va en castellano.
+3. **Se explica el porqué, no sólo el qué.** «Se divide, no se multiplica: la
+   curva del catálogo está levantada con agua» vale más que repetir la fórmula.
+4. **Las erratas resueltas se documentan donde están**, con el número que
+   justifica la decisión, para que nadie las «arregle» de vuelta.
+
+Un docstring nuevo en inglés es una regresión. `docs/GUIA_DEL_CODIGO.md` explica
+la convención desde el lado del lector que no programa.
+
 ### Fig. 4L digitalizada (`catalogs/viscosity_charts.json`)
 
 Las láminas del Apéndice 4L de Brown, leídas punto por punto de los originales

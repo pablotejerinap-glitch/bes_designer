@@ -26,36 +26,42 @@ class DriveMechanism(Enum):
 
 @dataclass
 class Reservoir:
-    """Static reservoir properties used for IPR and fluid-behavior calculations.
+    """Propiedades del reservorio: de dónde viene el fluido y con cuánta fuerza.
 
-    The well's deliverability is normally entered as a **production test**
-    (``test_pwf`` + ``test_rate``), which is what is actually measured in the
-    field; ``productivity_index`` is then derived from it with the IPR model
-    selected in ``ipr_method``. Passing ``productivity_index`` directly is
-    still supported for cases where only the processed PI is published (the
-    Brown book examples, operator reports).
+    La capacidad de aporte del pozo se carga normalmente como un **ensayo de
+    producción** (``test_pwf`` + ``test_rate``), que es lo que realmente se mide
+    a campo: se cierra el pozo, se lo deja estabilizar y se anota qué caudal da
+    a qué presión de fondo. De ahí se deriva el índice de productividad con el
+    método IPR elegido en ``ipr_method``.
+
+    También se puede pasar ``productivity_index`` directo, para los casos en que
+    sólo se publica el PI ya procesado — los ejemplos del libro de Brown, los
+    informes de operadora.
 
     Attributes:
-        static_pressure: Current average reservoir pressure [psi].
-        bubble_point: Bubble-point pressure of the reservoir fluid [psi].
-        ipr_method: IPR correlation to apply.
-        reservoir_temp: Bottom-hole static temperature [°F].
-        drive_mechanism: Primary energy mechanism of the reservoir.
-        test_pwf: Stabilized flowing bottomhole pressure measured during the
-            production test [psi]. Must satisfy 0 <= test_pwf < static_pressure.
-        test_rate: Stabilized gross liquid rate measured during the same test
-            [STB/d]. Must be > 0.
-        productivity_index: Well PI at test conditions [STB/d/psi]. Derived
-            from the test when omitted; see :func:`bes.core.ipr.
-            productivity_index_from_test`.
-        fetkovich_c: Fetkovich deliverability coefficient C
-            [STB/d/psia^(2n)]. Derived from the test when omitted and
-            ``fetkovich_n`` is known; otherwise it comes from a multi-rate
-            (flow-after-flow or isochronal) test.
-        fetkovich_n: Fetkovich flow exponent n [-]. Physical range [0.5, 1.0]:
-            1.0 = laminar (no turbulence), 0.5 = fully turbulent. Required
-            when ipr_method is FETKOVICH — a single test point cannot fit both
-            C and n.
+        static_pressure: Presión media actual del reservorio, Pr [psi]. Es la
+            que hay con el pozo cerrado, sin producir.
+        bubble_point: Presión de burbuja del fluido, Pb [psi]. Por debajo de
+            ella el gas empieza a liberarse y la IPR se dobla.
+        ipr_method: Qué correlación IPR aplicar (Lineal, Vogel o Fetkovich).
+        reservoir_temp: Temperatura estática de fondo [°F].
+        drive_mechanism: Mecanismo de empuje principal del reservorio.
+        test_pwf: Presión de fondo fluyente estabilizada medida en el ensayo
+            [psi]. Tiene que cumplir 0 <= test_pwf < static_pressure: un ensayo
+            sin caída de presión no informa nada sobre la capacidad del pozo.
+        test_rate: Caudal bruto de líquido estabilizado medido en ese mismo
+            ensayo [STB/d]. Debe ser > 0.
+        productivity_index: Índice de productividad J en las condiciones del
+            ensayo [STB/d/psi]. Si se omite se deriva del ensayo; ver
+            :func:`bes.core.ipr.productivity_index_from_test`.
+        fetkovich_c: Coeficiente de entregabilidad C de Fetkovich
+            [STB/d/psia^(2n)]. Si se omite y se conoce ``fetkovich_n``, se
+            deriva del ensayo; si no, sale de un ensayo multi-caudal
+            (flow-after-flow o isocronal).
+        fetkovich_n: Exponente n de Fetkovich [-]. Rango físico [0.5, 1.0]:
+            1.0 = laminar (sin turbulencia), 0.5 = totalmente turbulento.
+            **Obligatorio** cuando ``ipr_method`` es FETKOVICH, porque un solo
+            punto de ensayo no alcanza para ajustar C y n a la vez.
     """
     static_pressure: float
     bubble_point: float
@@ -111,16 +117,16 @@ class Reservoir:
             raise ValueError(f"reservoir_temp must be > 0 °F, got {self.reservoir_temp}")
 
     def _derive_deliverability_from_test(self) -> None:
-        """Fill in PI (and Fetkovich C) from the production test when needed.
+        """Completa el índice de productividad (y la C de Fetkovich) desde el ensayo.
 
-        Does nothing when no test was supplied, or when the values it would
-        derive were already given explicitly — an explicit value always wins,
-        so a case that carries both a published PI and a test point keeps the
-        published PI.
+        No hace nada cuando no se cargó ningún ensayo, ni cuando los valores que
+        derivaría ya venían dados explícitamente: **el valor explícito siempre
+        gana**, así que un caso que traiga a la vez un PI publicado y un punto de
+        ensayo conserva el PI publicado.
 
         Raises:
-            ValueError: If only one of ``test_pwf`` / ``test_rate`` is given,
-                or if the test point is physically invalid.
+            ValueError: Si se cargó sólo uno de ``test_pwf`` / ``test_rate``, o si
+                el punto de ensayo es físicamente inválido.
         """
         has_pwf = self.test_pwf is not None
         has_rate = self.test_rate is not None
@@ -163,20 +169,31 @@ class Reservoir:
 
 @dataclass
 class Fluid:
-    """Fluid PVT and composition properties.
+    """El fluido que produce el pozo: qué es y cómo se comporta.
 
     Attributes:
-        oil_api: Stock-tank oil gravity [°API]. Valid range: 5–70.
-        water_cut: Produced water fraction at surface conditions [0–1].
-        gor: Producing gas-oil ratio at surface [scf/STB].
-        gas_sg: Gas specific gravity (air = 1.0).
-        water_sg: Brine specific gravity (pure water = 1.0).
-        oil_viscosity_dead: Dead-oil viscosity at viscosity_temp_ref [cp].
-        viscosity_temp_ref: Temperature at which dead-oil viscosity was measured [°F].
-        bubble_point_pressure: Fluid bubble-point pressure for PVT calculations [psi].
-        h2s_content: Hydrogen sulfide concentration [ppm]. Affects material selection.
-        co2_content: Carbon dioxide concentration [ppm]. Affects corrosion design.
-        sand_production: True if well produces sand (affects pump selection).
+        oil_api: Gravedad del petróleo en el tanque [°API]. Rango válido 5–70.
+            Cuanto más alto, más liviano. Por debajo de 28 °API el crudo es
+            pesado y hay que corregir la curva de la bomba por viscosidad.
+        water_cut: Fracción de agua producida, en superficie [0–1]. 0.4 = 40 %
+            de agua.
+        gor: Relación gas-petróleo de producción, en superficie [scf/STB].
+            Cuántos pies cúbicos de gas salen por cada barril de petróleo.
+        gas_sg: Gravedad específica del gas (aire = 1.0).
+        water_sg: Gravedad específica del agua de formación (agua pura = 1.0).
+            Mayor a 1 porque trae sales disueltas.
+        oil_viscosity_dead: Viscosidad del crudo sin gas, medida a
+            ``viscosity_temp_ref`` [cp].
+        viscosity_temp_ref: Temperatura a la que se midió esa viscosidad [°F].
+            Importa mucho: la viscosidad varía exponencialmente con la
+            temperatura, así que un dato medido a otra temperatura no sirve.
+        bubble_point_pressure: Presión de burbuja del fluido, para el PVT [psi].
+        h2s_content: Concentración de sulfuro de hidrógeno [ppm]. Afecta la
+            elección de materiales — es corrosivo y tóxico.
+        co2_content: Concentración de dióxido de carbono [ppm]. Afecta el
+            diseño anticorrosivo.
+        sand_production: True si el pozo produce arena, que desgasta la bomba y
+            condiciona qué modelo se puede usar.
     """
     oil_api: float
     water_cut: float
@@ -215,20 +232,33 @@ class Fluid:
 
 @dataclass
 class WellGeometry:
-    """Wellbore geometry and completion dimensions.
+    """La geometría del pozo: el «tubo» por donde sube el fluido.
+
+    Un pozo tiene dos cañerías concéntricas. El **casing** es la exterior, la que
+    sostiene las paredes del pozo. El **tubing** es la interior, por donde sube la
+    producción. El espacio entre las dos es el **anular**.
+
+    La bomba se baja por adentro del casing, así que el ID del casing es la
+    restricción física más dura de todo el diseño: si la bomba no entra, no entra.
 
     Attributes:
-        total_depth: Measured depth to the bottom of the well [ft MD].
-        casing_od: Casing outer diameter [in].
-        casing_weight: Casing nominal weight [lb/ft] — determines wall thickness.
-        casing_id: Casing inner diameter (drift) [in]. Constrains pump OD.
-        tubing_od: Production tubing outer diameter [in].
-        tubing_id: Production tubing inner diameter [in]. Governs friction losses.
-        perforations_top: Measured depth to top of perforated interval [ft MD].
-        perforations_bottom: Measured depth to bottom of perforated interval [ft MD].
-        deviation_max: Maximum wellbore inclination along the production string [°].
-            Values > 30° may require bent-housing or flex-shaft pump considerations.
-        wellhead_temp: Ambient temperature at surface / wellhead [°F].
+        total_depth: Profundidad medida hasta el fondo del pozo [ft MD].
+        casing_od: Diámetro exterior del casing [in].
+        casing_weight: Peso nominal del casing [lb/ft], que determina el espesor
+            de pared.
+        casing_id: Diámetro interior del casing (drift) [in]. **Limita el
+            diámetro de la bomba.**
+        tubing_od: Diámetro exterior del tubing de producción [in].
+        tubing_id: Diámetro interior del tubing [in]. Gobierna las pérdidas por
+            fricción: más angosto, más fricción.
+        perforations_top: Profundidad medida al tope del intervalo
+            punzado [ft MD].
+        perforations_bottom: Profundidad medida a la base del intervalo
+            punzado [ft MD].
+        deviation_max: Inclinación máxima del pozo a lo largo de la sarta de
+            producción [°]. Por encima de 30° puede hacer falta carcasa curva o
+            eje flexible.
+        wellhead_temp: Temperatura ambiente en superficie / boca de pozo [°F].
             Es el extremo superior del perfil geotérmico lineal; el inferior es
             ``Reservoir.reservoir_temp``. De ese perfil sale la temperatura a
             cualquier profundidad (``bes.core.tdh.temp_at_depth``), que alimenta
@@ -316,16 +346,23 @@ class WellGeometry:
 
 @dataclass
 class SurfaceConditions:
-    """Surface infrastructure and power-supply parameters.
+    """Lo que hay en la superficie: la instalación y la energía disponible.
 
     Attributes:
-        wellhead_pressure_required: Minimum required tubing-head pressure [psi].
-        flowline_length: Total flowline length from wellhead to separator [ft].
-        flowline_id: Flowline inner diameter [in].
-        flowline_elevation_change: Net elevation change along flowline (+ = uphill) [ft].
-        separator_pressure: Operating pressure of the production separator [psi].
-        power_supply_voltage: Available surface supply voltage [V].
-        frequency: Power grid frequency [Hz]. Typically 60 (Americas) or 50 (rest).
+        wellhead_pressure_required: Presión mínima necesaria en boca de
+            pozo [psi]. La bomba tiene que entregar el fluido con esta presión
+            para que llegue al separador.
+        flowline_length: Largo de la línea de conducción, de la boca de pozo al
+            separador [ft].
+        flowline_id: Diámetro interior de la línea de conducción [in].
+        flowline_elevation_change: Desnivel neto a lo largo de la línea
+            (+ = cuesta arriba) [ft].
+        separator_pressure: Presión de operación del separador de
+            producción [psi].
+        power_supply_voltage: Tensión disponible en superficie [V].
+        frequency: Frecuencia de la red eléctrica [Hz]. Típicamente 60 (América)
+            o 50 (resto del mundo). **Importa mucho**: la curva de la bomba se
+            reescala a esta frecuencia antes de elegir nada.
     """
     wellhead_pressure_required: float
     flowline_length: float
@@ -354,13 +391,16 @@ class SurfaceConditions:
 
 @dataclass
 class DesignObjectives:
-    """User-specified production targets and design constraints.
+    """Lo que el usuario pide y las restricciones que impone al diseño.
 
     Attributes:
-        target_flow_rate: Desired gross liquid production rate [STB/d].
-        safety_margin_depth: Additional depth added below pump-setting for
-            operational contingency (e.g., fluid level drop) [ft].
-        allow_gas_venting: If True, a vent/gas-separator is assumed available.
+        target_flow_rate: Caudal bruto de líquido que se quiere producir
+            [STB/d]. Es el dato que dispara todo el cálculo.
+        safety_margin_depth: Profundidad extra por encima de las punzados donde
+            se asienta la bomba, como margen operativo [ft]. Se deja para que la
+            bomba no quede tapada si baja el nivel de fluido.
+        allow_gas_venting: Si es True, se supone que hay venteo por el anular o
+            separador de gas disponible.
         max_gip: **Fracción** máxima de gas libre admisible a la entrada de la
             bomba, ya descontados el venteo por el anular y el separador [0–1].
             Por encima de este valor el diseño BES no converge y corresponde
@@ -378,8 +418,9 @@ class DesignObjectives:
             de esa época traen valores como 0.7, que nunca significaron nada y
             ahora sí: con 0.7 cargado, un pozo con 70 % de gas en la bomba
             pasaría la verificación. Revisar los casos viejos.
-        design_life_years: Expected run-life for equipment sizing and MTBF targets [years].
-        use_vsd: If True, design includes a Variable Speed Drive (VSD/VFD).
+        design_life_years: Vida útil esperada del equipo, para dimensionar y
+            fijar objetivos de MTBF [años].
+        use_vsd: Si es True, el diseño incluye variador de frecuencia (VSD/VFD).
         gas_fraction_pc_threshold: Fracción volumétrica de gas libre en la
             admisión por encima de la cual la pérdida de carga en el tubing se
             calcula con Poettmann-Carpenter en vez de Hazen-Williams [0–1].
@@ -398,12 +439,13 @@ class DesignObjectives:
             ``bes.core.gas_handling.GAS_FRACTION_NEGLIGIBLE``; no se importa de
             ahí porque ``gas_handling`` importa este módulo y sería circular.
             ``tests/test_gas_handling.py`` verifica que no se desincronicen.
-        design_frequency_hz: Frequency the pump will actually run at [Hz].
-            ``None`` = the grid frequency in ``SurfaceConditions.frequency``.
-            Only meaningful with ``use_vsd``: a fixed switchboard runs the pump
-            at line frequency, a variable-speed drive does not. The pump curve
-            is rescaled to this frequency with the affinity laws before any
-            selection is made — see :func:`bes.core.affinity.pump_at_frequency`.
+        design_frequency_hz: Frecuencia a la que va a girar realmente la bomba
+            [Hz]. ``None`` = la frecuencia de red de
+            ``SurfaceConditions.frequency``. Sólo tiene sentido con ``use_vsd``:
+            un tablero fijo hace girar la bomba a la frecuencia de línea, un
+            variador no. La curva de la bomba se reescala a esta frecuencia con
+            las leyes de afinidad **antes** de elegir nada — ver
+            :func:`bes.core.affinity.pump_at_frequency`.
     """
     target_flow_rate: float
     safety_margin_depth: float
@@ -446,13 +488,17 @@ class DesignObjectives:
 
 @dataclass
 class PumpPerformancePoint:
-    """Single operating point on a pump performance curve.
+    """Un punto de la curva de comportamiento de una bomba.
+
+    La curva de catálogo es una lista de estos puntos: para cada caudal, qué
+    altura entrega una etapa, cuánta potencia consume y con qué rendimiento.
 
     Attributes:
-        flow_rate: Liquid throughput at this point [b/d].
-        head_per_stage: Hydraulic head developed per stage at this flow [ft/stage].
-        hp_per_stage: Shaft power required per stage [hp/stage].
-        efficiency: Pump hydraulic efficiency at this point [0–1].
+        flow_rate: Caudal en este punto [b/d].
+        head_per_stage: Altura hidráulica que desarrolla una etapa a ese
+            caudal [ft/etapa].
+        hp_per_stage: Potencia al eje que consume una etapa [hp/etapa].
+        efficiency: Rendimiento hidráulico de la bomba en este punto [0–1].
     """
     flow_rate: float
     head_per_stage: float
@@ -472,33 +518,33 @@ class PumpPerformancePoint:
 
 @dataclass
 class PumpHousing:
-    """One housing (carcasa) length offered by the manufacturer for a pump.
+    """Una carcasa: el recipiente donde se alojan las etapas de la bomba.
 
-    A housing is the pressure vessel the stages are stacked into. Catalogs
-    publish it as a discrete set of lengths, each holding a fixed number of
-    stages; a design that needs more stages than the largest housing holds is
-    assembled as a tandem of several housings in series.
+    Los fabricantes venden carcasas en un conjunto discreto de longitudes, cada
+    una con capacidad para una cantidad fija de etapas. Un diseño que necesita
+    más etapas de las que entran en la carcasa más grande se arma como un
+    **tándem**: varias carcasas en serie.
 
-    Only ``stages`` is required — it is the one attribute every catalog in the
-    project publishes today. The rest are **optional metadata** that stay empty
-    until the corresponding manufacturer data is loaded; nothing in the
-    selection algorithm requires them, so a catalog can be enriched later
-    without touching code.
+    Sólo ``stages`` es obligatorio — es el único atributo que publican hoy todos
+    los catálogos del proyecto. El resto son **metadatos opcionales** que quedan
+    vacíos hasta que se cargue el dato del fabricante. El algoritmo de selección
+    no necesita ninguno, así que un catálogo se puede enriquecer más adelante sin
+    tocar código.
 
     Attributes:
-        stages: Stage capacity of this housing [stages]. Must be > 0.
-        code: Manufacturer housing code / part number. Empty when unknown.
-        material: Housing material (e.g. "Carbon steel", "Ni-Resist").
-            Empty when the catalog does not publish it.
-        od_in: Housing outer diameter [in]. 0 = unknown (fall back to the
-            pump OD).
-        pressure_limit_psi: Working pressure rating of *this* housing [psi].
-            0 = unknown, in which case the pump-level limit applies. A
-            non-zero value lets a tandem mix standard and high-pressure
-            housings, with the higher-rated one placed where the pressure is
-            greatest.
-        length_ft: Housing length [ft]. 0 = unknown.
-        weight_lbs: Housing weight [lbs]. 0 = unknown.
+        stages: Capacidad de esta carcasa [etapas]. Debe ser > 0.
+        code: Código o número de parte del fabricante. Vacío si no se conoce.
+        material: Material de la carcasa (por ej. "Carbon steel", "Ni-Resist").
+            Vacío cuando el catálogo no lo publica.
+        od_in: Diámetro exterior de la carcasa [in]. 0 = se desconoce, y se usa
+            el de la bomba.
+        pressure_limit_psi: Presión de trabajo que aguanta **esta** carcasa
+            [psi]. 0 = se desconoce, y entonces rige el límite a nivel bomba.
+            Un valor distinto de cero permite armar un tándem que mezcle
+            carcasas estándar y de alta presión, poniendo la mejor calificada
+            donde la presión es mayor.
+        length_ft: Largo de la carcasa [ft]. 0 = se desconoce.
+        weight_lbs: Peso de la carcasa [lbs]. 0 = se desconoce.
     """
     stages: int
     code: str = ""
@@ -521,22 +567,31 @@ class PumpHousing:
 
 @dataclass
 class PumpCurve:
-    """Manufacturer pump catalog entry with full performance curve.
+    """Una bomba del catálogo, con su curva de comportamiento completa.
+
+    La **curva** es lo que publica el fabricante: para cada caudal, cuánta altura
+    entrega una etapa, cuánta potencia consume y con qué rendimiento. Está
+    levantada con agua limpia y para **una sola etapa**; el diseño la escala a la
+    frecuencia real y la multiplica por la cantidad de etapas.
 
     Attributes:
-        manufacturer: Equipment manufacturer name (e.g., "Reda", "Centrilift").
-        series: Pump series / product line (e.g., "DN1750", "GC6100").
-        model: Specific model designation.
-        od: Pump outer diameter [in]. Must fit inside casing_id.
-        min_flow: Minimum recommended operating flow rate [b/d].
-        max_flow: Maximum recommended operating flow rate [b/d].
-        bep_flow: Best efficiency point flow rate [b/d].
-        points: List of performance points spanning the operating range.
-        max_stages: Maximum number of stages available in this housing.
-        housing_options: Available housing sizes (number of stages) from catalog.
-        housings: Full housing catalog for this pump. Synthesised from
-            ``housing_options`` when the catalog carries only the stage counts,
-            so callers can always work with :class:`PumpHousing` objects.
+        manufacturer: Fabricante del equipo (por ej. "REDA", "Centrilift").
+        series: Serie o línea de producto (por ej. "DN1750", "GC6100").
+        model: Designación del modelo.
+        od: Diámetro exterior de la bomba [in]. Tiene que entrar en el casing.
+        min_flow: Caudal mínimo recomendado de operación [b/d]. Por debajo, la
+            bomba trabaja en downthrust y se desgasta.
+        max_flow: Caudal máximo recomendado de operación [b/d]. Por encima,
+            trabaja en upthrust.
+        bep_flow: Caudal del punto de máximo rendimiento (BEP) [b/d]. Es donde
+            conviene hacerla trabajar.
+        points: Puntos de la curva que cubren el rango de operación.
+        max_stages: Máxima cantidad de etapas disponible en esta carcasa.
+        housing_options: Tamaños de carcasa disponibles, en cantidad de etapas.
+        housings: Catálogo completo de carcasas de esta bomba. Se sintetiza
+            desde ``housing_options`` cuando el catálogo trae sólo las
+            cantidades de etapas, así quien llama siempre puede trabajar con
+            objetos :class:`PumpHousing`.
     """
     manufacturer: str
     series: str
@@ -595,39 +650,50 @@ class PumpCurve:
 
 @dataclass
 class DesignResult:
-    """Complete output of a BES/ESP design calculation.
+    """El resultado completo de un diseño BES: todo el aparejo, de punta a punta.
+
+    Es el objeto que viaja a la pantalla, al PDF y al Excel. Reúne lo hidráulico
+    (bomba, etapas, altura) con lo eléctrico (motor, cable, transformador) y con
+    las advertencias que el ingeniero tiene que revisar.
 
     Attributes:
-        pump_manufacturer: Selected pump manufacturer.
-        pump_series: Selected pump series.
-        pump_model: Selected pump model designation.
-        pump_od: Pump outer diameter [in].
-        num_stages: Number of pump stages required.
-        pump_setting_depth: Recommended pump intake depth [ft MD].
-        intake_pressure: Pressure at pump intake [psi].
-        total_head_required: Total dynamic head the pump must develop [ft].
-        head_per_stage: Head per stage at operating point [ft/stage].
-        hp_per_stage: Power per stage at operating point [hp/stage].
-        pump_efficiency: Pump hydraulic efficiency at operating point [0–1].
-        total_pump_hp: Total pump shaft power requirement [hp].
-        motor_manufacturer: Selected motor manufacturer.
-        motor_model: Motor model designation.
-        motor_hp: Motor nameplate power rating [hp].
-        motor_voltage: Motor nameplate voltage [V].
-        motor_amperage: Motor nameplate current at rated load [A].
-        motor_od: Motor outer diameter [in].
-        motor_length: Motor length (one or stacked) [ft].
-        cable_type: Cable jacket type / insulation class (e.g., "EPDM", "Polypro").
-        cable_awg: Cable conductor size [AWG].
-        cable_voltage_drop: Estimated voltage drop along cable [V].
-        surface_voltage_required: Required surface voltage to deliver motor voltage [V].
-        transformer_kva: Recommended transformer rating [kVA].
-        system_efficiency: Overall system efficiency (pump × motor × cable) [0–1].
-        flow_rate_achieved: Calculated gross liquid rate at operating point [STB/d].
-        operating_frequency: Pump operating frequency (relevant for VSD designs) [Hz].
-        gip_fraction: Estimated free-gas fraction at pump intake [0–1].
-        warnings: List of design warnings or flags for engineer review.
-        alternatives: List of alternative equipment combinations considered.
+        pump_manufacturer: Fabricante de la bomba elegida.
+        pump_series: Serie de la bomba elegida.
+        pump_model: Modelo de la bomba elegida.
+        pump_od: Diámetro exterior de la bomba [in].
+        num_stages: Cantidad de etapas necesarias.
+        pump_setting_depth: Profundidad de asentamiento recomendada [ft MD].
+        intake_pressure: Presión en la admisión de la bomba, PIP [psi].
+        total_head_required: Altura dinámica total que debe desarrollar la
+            bomba, TDH [ft].
+        head_per_stage: Altura por etapa en el punto de operación [ft/etapa].
+        hp_per_stage: Potencia por etapa en el punto de operación [hp/etapa].
+        pump_efficiency: Rendimiento hidráulico de la bomba en el punto de
+            operación [0–1].
+        total_pump_hp: Potencia total al eje de la bomba [hp].
+        motor_manufacturer: Fabricante del motor elegido.
+        motor_model: Modelo del motor.
+        motor_hp: Potencia de placa del motor [hp].
+        motor_voltage: Tensión de placa del motor [V].
+        motor_amperage: Corriente de placa a carga nominal [A].
+        motor_od: Diámetro exterior del motor [in].
+        motor_length: Largo del motor, simple o apilado [ft].
+        cable_type: Tipo de cubierta o clase de aislación del cable (por ej.
+            "EPDM", "Polypro").
+        cable_awg: Calibre del conductor [AWG].
+        cable_voltage_drop: Caída de tensión estimada a lo largo del cable [V].
+        surface_voltage_required: Tensión necesaria en superficie para que al
+            motor le llegue la suya [V].
+        transformer_kva: Potencia recomendada del transformador [kVA].
+        system_efficiency: Rendimiento global del sistema
+            (bomba × motor × cable) [0–1].
+        flow_rate_achieved: Caudal bruto de líquido calculado en el punto de
+            operación [STB/d].
+        operating_frequency: Frecuencia de operación de la bomba [Hz],
+            relevante en diseños con variador.
+        gip_fraction: Fracción de gas libre estimada en la admisión [0–1].
+        warnings: Advertencias del diseño que el ingeniero tiene que revisar.
+        alternatives: Combinaciones alternativas de equipo que se consideraron.
     """
     pump_manufacturer: str
     pump_series: str

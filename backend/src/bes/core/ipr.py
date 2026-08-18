@@ -426,11 +426,7 @@ def productivity_index_from_test(
     trace = FormulaTrace()
 
     drawdown = pr - pwf_test
-    trace.add(
-        "drawdown", "Caída de presión del ensayo (draw-down)",
-        "Δp = Pr − Pwf",
-        {"Pr": pr, "Pwf": pwf_test}, drawdown, "psi", "Brown Vol. 2b §4.522",
-    )
+    trace.add("ajuste_drawdown", {"Pr": pr, "Pwf": pwf_test}, drawdown)
     resultado: dict = {
         "drawdown_psi": drawdown,
         "qmax_vogel": None,
@@ -441,18 +437,10 @@ def productivity_index_from_test(
     if method is IPRMethod.LINEAR:
         pi = q_test / drawdown
         trace.add(
-            "pi", "Índice de productividad (recta de Darcy)",
-            "J = q_ensayo / (Pr − Pwf)",
-            {"q_ensayo": q_test, "Pr": pr, "Pwf": pwf_test}, pi, "STB/d/psi",
-            "Brown Vol. 2b §4.522",
-            note="Válido con el reservorio sobre la presión de burbuja: el "
-                 "caudal crece en línea recta con la caída de presión.",
+            "ajuste_j_lineal",
+            {"q_ensayo": q_test, "Pr": pr, "Pwf": pwf_test}, pi,
         )
-        trace.add(
-            "aof", "AOF — caudal a Pwf = 0",
-            "AOF = J · Pr", {"J": pi, "Pr": pr}, pi * pr, "STB/d",
-            "Brown Vol. 2b §4.522",
-        )
+        trace.add("ajuste_aof_lineal", {"J": pi, "Pr": pr}, pi * pr)
         resultado["productivity_index"] = pi
         resultado["aof"] = pi * pr
         resultado["formulas"] = trace.as_list()
@@ -467,12 +455,11 @@ def productivity_index_from_test(
 
         if saturado:
             trace.add(
-                "pi", "Índice de productividad (Vogel, reservorio saturado)",
-                "J = 1.8 · q_max / Pr",
+                "ajuste_j_vogel_saturado",
                 {"q_max": q_test / (1 - 0.2 * (pwf_test / pr)
                                     - 0.8 * (pwf_test / pr) ** 2), "Pr": pr},
-                pi, "STB/d/psi", "Vogel, JPT (1968); Brown Vol. 2b §4.522",
-                note=(
+                pi,
+                context=(
                     f"Pb ({bubble_point:.0f} psi) >= Pr ({pr:.0f} psi): el "
                     f"reservorio ya está saturado, así que no hay tramo recto "
                     f"y vale Vogel puro en todo el rango."
@@ -485,49 +472,30 @@ def productivity_index_from_test(
         elif bajo_burbuja:
             x = pwf_test / pb_ef
             trace.add(
-                "pi", "Índice de productividad (Vogel generalizado, ensayo bajo Pb)",
-                "J = q_ensayo / { (Pr − Pb) + (Pb/1.8)·[1 − 0.2·(Pwf/Pb) − 0.8·(Pwf/Pb)²] }",
+                "ajuste_j_vogel_bajo_pb",
                 {"q_ensayo": q_test, "Pr": pr, "Pb": pb_ef, "Pwf": pwf_test},
-                pi, "STB/d/psi",
-                "Beggs, *Production Optimization*, §2, Ej. 2-5B",
-                note=f"El ensayo se hizo a {pwf_test:.0f} psi, por DEBAJO de la "
-                     f"burbuja ({pb_ef:.0f} psi), así que cae en el tramo curvo. "
-                     f"Pwf/Pb = {x:.4f} y el corchete vale "
-                     f"{1 - 0.2*x - 0.8*x**2:.4f}. Despejar J con Vogel puro "
-                     f"desde Pr —ignorando la burbuja— lo sobreestima.",
+                pi,
+                context=f"El ensayo se hizo a {pwf_test:.0f} psi, por DEBAJO de "
+                        f"la burbuja ({pb_ef:.0f} psi), así que cae en el tramo "
+                        f"curvo. Pwf/Pb = {x:.4f} y el corchete vale "
+                        f"{1 - 0.2*x - 0.8*x**2:.4f}. Despejar J con Vogel puro "
+                        f"desde Pr —ignorando la burbuja— lo sobreestima.",
             )
         else:
             trace.add(
-                "pi", "Índice de productividad (Vogel generalizado, ensayo sobre Pb)",
-                "J = q_ensayo / (Pr − Pwf)",
-                {"q_ensayo": q_test, "Pr": pr, "Pwf": pwf_test}, pi, "STB/d/psi",
-                "Beggs, *Production Optimization*, §2, «Case 1 Procedure»",
-                note=f"El ensayo se hizo a {pwf_test:.0f} psi, por ENCIMA de la "
-                     f"burbuja ({pb_ef:.0f} psi): cae en el tramo recto, así que "
-                     f"J sale directo de la pendiente.",
+                "ajuste_j_vogel_sobre_pb",
+                {"q_ensayo": q_test, "Pr": pr, "Pwf": pwf_test}, pi,
+                context=f"El ensayo se hizo a {pwf_test:.0f} psi, por ENCIMA de "
+                        f"la burbuja ({pb_ef:.0f} psi): cae en el tramo recto, "
+                        f"así que J sale directo de la pendiente.",
             )
 
         q_b = pi * (pr - pb_ef)
         if not saturado:
-            trace.add(
-                "qb", "Caudal al llegar a la presión de burbuja",
-                "q_b = J · (Pr − Pb)",
-                {"J": pi, "Pr": pr, "Pb": pb_ef}, q_b, "STB/d",
-                "Beggs, *Production Optimization*, §2",
-                note="Hasta acá la IPR es una RECTA: el flujo en el reservorio "
-                     "es monofásico. De acá para abajo se libera gas y la curva "
-                     "se dobla. Los dos tramos empalman con la misma pendiente.",
-            )
+            trace.add("ajuste_qb", {"J": pi, "Pr": pr, "Pb": pb_ef}, q_b)
 
         aof = vogel_aof(pr, pb_ef, pi)
-        trace.add(
-            "aof", "AOF — caudal a Pwf = 0",
-            "AOF = J·(Pr − Pb) + J·Pb/1.8",
-            {"J": pi, "Pr": pr, "Pb": pb_ef}, aof, "STB/d",
-            "Beggs, *Production Optimization*, §2",
-            note="El primer término es lo que aporta el tramo recto; el segundo, "
-                 "lo que agrega el tramo de Vogel de Pb hasta cero.",
-        )
+        trace.add("ajuste_aof_vogel", {"J": pi, "Pr": pr, "Pb": pb_ef}, aof)
 
         resultado["productivity_index"] = pi
         resultado["qmax_vogel"] = aof
@@ -541,20 +509,11 @@ def productivity_index_from_test(
             raise ValueError(f"fetkovich_n must be > 0, got {n}")
         c = q_test / (pr ** 2 - pwf_test ** 2) ** n
         trace.add(
-            "fetkovich_c", "Coeficiente de entregabilidad de Fetkovich",
-            "C = q_ensayo / (Pr² − Pwf²)^n",
-            {"q_ensayo": q_test, "Pr": pr, "Pwf": pwf_test, "n": n},
-            c, "STB/d/psia^(2n)", "Fetkovich, SPE 4529 (1973)",
-            note="Un solo punto de ensayo no alcanza para ajustar C y n a la "
-                 "vez: n viene del ensayo isocronal (o se asume 1.0 = laminar) "
-                 "y sólo se despeja C.",
+            "ajuste_fetkovich_c",
+            {"q_ensayo": q_test, "Pr": pr, "Pwf": pwf_test, "n": n}, c,
         )
         aof = fetkovich_ipr(pr, 0.0, c, n)
-        trace.add(
-            "aof", "AOF — caudal a Pwf = 0",
-            "AOF = C · (Pr²)^n", {"C": c, "Pr": pr, "n": n}, aof, "STB/d",
-            "Fetkovich, SPE 4529 (1973)",
-        )
+        trace.add("ajuste_aof_fetkovich", {"C": c, "Pr": pr, "n": n}, aof)
         resultado["productivity_index"] = q_test / drawdown   # secante, informativo
         resultado["fetkovich_c"] = c
         resultado["fetkovich_n"] = n
@@ -740,70 +699,42 @@ def ipr_trace(reservoir: Reservoir, target_rate: float, pwf: float) -> list[dict
     pb_ef = effective_bubble_point(pr, reservoir.bubble_point)
 
     if metodo is IPRMethod.LINEAR:
-        trace.add(
-            "ipr_pwf", "Pwf en las perforaciones (IPR lineal)",
-            "Pwf = Pr − q / J",
-            {"Pr": pr, "q": target_rate, "J": pi}, pwf, "psia",
-            "Darcy; Brown Vol. 2b §4.522",
-            note="La recta de Darcy tiene despeje directo. Vale con el flujo "
-                 "monofásico, o sea con Pwf por encima de la presión de burbuja.",
-        )
+        trace.add("pwf_lineal", {"Pr": pr, "q": target_rate, "J": pi}, pwf)
 
     elif metodo is IPRMethod.VOGEL:
         if pwf >= pb_ef:
             trace.add(
-                "ipr_pwf", "Pwf en las perforaciones (Vogel, tramo recto)",
-                "q = J · (Pr − Pwf)",
-                {"q": target_rate, "J": pi, "Pr": pr}, pwf, "psia",
-                "Beggs, *Production Optimization*, §2",
-                note=f"La Pwf de diseño ({pwf:.0f} psi) queda POR ENCIMA de la "
-                     f"presión de burbuja ({pb_ef:.0f} psi): el flujo en el "
-                     f"reservorio todavía es monofásico y la IPR es una recta.",
+                "pwf_vogel_recta",
+                {"q": target_rate, "J": pi, "Pr": pr}, pwf,
+                context=f"La Pwf de diseño ({pwf:.0f} psi) queda POR ENCIMA de "
+                        f"la presión de burbuja ({pb_ef:.0f} psi): el flujo en "
+                        f"el reservorio todavía es monofásico.",
             )
         else:
             q_b = pi * (pr - pb_ef)
             x = pwf / pb_ef
+            trace.add("pwf_qb", {"J": pi, "Pr": pr, "Pb": pb_ef}, q_b)
             trace.add(
-                "ipr_qb", "Caudal al llegar a la presión de burbuja",
-                "q_b = J · (Pr − Pb)",
-                {"J": pi, "Pr": pr, "Pb": pb_ef}, q_b, "STB/d",
-                "Beggs, *Production Optimization*, §2",
-                note="Hasta este caudal la IPR es una RECTA. De acá para abajo "
-                     "se libera gas en el reservorio y la curva se dobla; los "
-                     "dos tramos empalman con la misma pendiente.",
-            )
-            trace.add(
-                "ipr_pwf", "Pwf en las perforaciones (Vogel, tramo bifásico)",
-                "q = q_b + (J·Pb/1.8) · [1 − 0.2·(Pwf/Pb) − 0.8·(Pwf/Pb)²]",
-                {"q": target_rate, "q_b": q_b, "J": pi, "Pb": pb_ef},
-                pwf, "psia", "Vogel, JPT (1968); Beggs §2, ec. 2-53",
-                note=f"La Pwf de diseño ({pwf:.0f} psi) cae POR DEBAJO de la "
-                     f"burbuja ({pb_ef:.0f} psi), así que el punto está en el "
-                     f"tramo curvo: Pwf/Pb = {x:.4f} y el corchete vale "
-                     f"{1 - 0.2*x - 0.8*x**2:.4f}. No se despeja a mano — se "
-                     f"resuelve numéricamente por el método de Brent.",
+                "pwf_vogel_bifasico",
+                {"q": target_rate, "q_b": q_b, "J": pi, "Pb": pb_ef}, pwf,
+                context=f"La Pwf de diseño ({pwf:.0f} psi) cae POR DEBAJO de la "
+                        f"burbuja ({pb_ef:.0f} psi), así que el punto está en el "
+                        f"tramo curvo: Pwf/Pb = {x:.4f} y el corchete vale "
+                        f"{1 - 0.2*x - 0.8*x**2:.4f}. No se despeja a mano: se "
+                        f"resuelve numéricamente por el método de Brent.",
             )
 
     elif metodo is IPRMethod.FETKOVICH:
         c = reservoir.fetkovich_c
         n = reservoir.fetkovich_n or 1.0
         trace.add(
-            "ipr_pwf", "Pwf en las perforaciones (Fetkovich)",
-            "q = C · (Pr² − Pwf²)^n",
-            {"q": target_rate, "C": c, "Pr": pr, "n": n}, pwf, "psia",
-            "Fetkovich, SPE 4529 (1973); Beggs §2, ec. 2-54",
-            note="Fetkovich NO se parte en la presión de burbuja: el ajuste de "
-                 "C y n ya absorbe el comportamiento bifásico del reservorio "
-                 "subsaturado (Beggs ec. 2-58). Se resuelve por Brent.",
+            "pwf_fetkovich",
+            {"q": target_rate, "C": c, "Pr": pr, "n": n}, pwf,
+            context="Se resuelve numéricamente por el método de Brent: la "
+                    "ecuación no tiene despeje directo para Pwf.",
         )
 
-    trace.add(
-        "ipr_drawdown", "Caída de presión sobre el reservorio (draw-down)",
-        "Δp = Pr − Pwf",
-        {"Pr": pr, "Pwf": pwf}, pr - pwf, "psi", "Brown Vol. 2b §4.522",
-        note="Es lo que hay que quitarle al reservorio para que entregue el "
-             "caudal objetivo. De la Pwf sale el PIP, y de ahí todo el TDH.",
-    )
+    trace.add("diseno_drawdown", {"Pr": pr, "Pwf": pwf}, pr - pwf)
     return trace.as_list()
 
 

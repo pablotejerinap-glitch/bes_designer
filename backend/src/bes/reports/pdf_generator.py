@@ -1,12 +1,12 @@
-"""PDF report generator for BES/ESP design results using ReportLab.
+"""Generador del informe PDF del diseño, con ReportLab.
 
-Produces a professional engineering report (v2): cover, executive summary,
-input data, calculation methodology (method + equation + citation + result for
-this well), charts, warnings/recommendations and references. The report is
-designed to stand on its own.
+Produce un informe de ingeniería que **se sostiene solo**: portada, resumen
+ejecutivo, datos de entrada, metodología de cálculo (método + ecuación +
+cita + resultado para este pozo), gráficos, advertencias y referencias.
 
-Charts are rendered from the existing Plotly figures via kaleido; if kaleido is
-not available (or fails), a matplotlib fallback is used.
+Los gráficos se renderizan a partir de las mismas figuras de Plotly que
+muestra la pantalla, usando kaleido; si kaleido no está disponible (o falla)
+se usa matplotlib como respaldo.
 """
 from __future__ import annotations
 
@@ -106,7 +106,7 @@ def _make_table(data, col_widths=None, header=True, extra_styles=None) -> Table:
 # ---------------------------------------------------------------------------
 
 def _ipr_q(reservoir, pwf: float) -> float:
-    """Production rate at a given Pwf for the reservoir's IPR method."""
+    """Caudal de producción a una Pwf dada, según el método IPR del reservorio."""
     pr = reservoir.static_pressure
     pi = reservoir.productivity_index
     pb = reservoir.bubble_point
@@ -404,13 +404,14 @@ def generate_design_report(
     well_data: dict,
     output_path: Optional[str] = None,
 ) -> bytes | str:
-    """Generate a professional PDF design report.
+    """Genera el informe PDF del diseño.
 
     Args:
-        design_result: DesignResult from generate_recommendations().
-        well_data: Dict with keys: reservoir, fluid, well, surface, objectives,
-                   and optionally well_name (str).
-        output_path: Write to this path and return it. If None, return PDF bytes.
+        design_result: ``DesignResult`` de ``generate_recommendations()``.
+        well_data: dict con las claves reservoir, fluid, well, surface,
+            objectives y, opcionalmente, well_name (texto).
+        output_path: Si se indica, escribe ahí y devuelve la ruta. Si es
+            ``None``, devuelve los bytes del PDF.
     """
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(

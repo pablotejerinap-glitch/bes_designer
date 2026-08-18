@@ -182,11 +182,12 @@ class DesignResultSchema(BaseModel):
 
 
 class CriteriaSchema(BaseModel):
-    """Raw engineering criteria behind the ordering — no scores, no weights.
+    """Los valores crudos de ingeniería detrás del orden — sin puntajes ni pesos.
 
-    ``bep_distance_frac`` is criterion 1, ``efficiency`` criterion 2 and
-    ``total_pump_hp`` criterion 3; the rest is context for the UI.
-    ``classification`` labels the BEP distance for display only.
+    ``bep_distance_frac`` es el criterio 1, ``efficiency`` el 2 y
+    ``total_pump_hp`` el 3; el resto es contexto para la pantalla.
+    ``classification`` etiqueta la distancia al BEP **sólo para mostrar** y nunca
+    interviene en el orden.
     """
     bep_flow_bpd: float
     bep_distance_frac: float

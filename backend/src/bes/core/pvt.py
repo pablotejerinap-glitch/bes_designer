@@ -1,17 +1,73 @@
 """
-PVT (Pressure-Volume-Temperature) correlations for crude oil, gas, and brine.
+PVT — Propiedades del petróleo, el gas y el agua según presión y temperatura.
 
-Primary reference:
-  Standing, M.B., "Volumetric and Phase Behavior of Oil Field Hydrocarbon Systems",
-  SPE (1977).
+PVT quiere decir Presión-Volumen-Temperatura. Un fluido de reservorio **no
+ocupa el mismo volumen abajo que en superficie**: a 3000 psi el petróleo lleva
+gas disuelto y está hinchado; al subir a la superficie el gas se libera y el
+petróleo se contrae. Este módulo pone números a ese comportamiento, porque todo
+el resto del diseño necesita saber cuánto volumen real está bombeando la bomba.
 
-Additional references:
-  Dranchuk, P.M. & Abou-Kassem, H., "Calculation of Z Factors for Natural Gases
-    Using Equations of State", J. Can. Pet. Tech. (1975) — gas z-factor.
-  Beggs, H.D. & Robinson, J.R., "Estimating the Viscosity of Crude Oil Systems",
-    JPT (1975) — oil viscosity.
-  McCain, W.D., "The Properties of Petroleum Fluids", 2nd ed., PennWell (1990)
-    — water Bw.
+Las cuatro magnitudes que resuelve
+----------------------------------
+    Rs   Gas disuelto en el petróleo    ¿cuánto gas trae adentro? [scf/STB]
+    Bo   Factor de volumen del petróleo ¿cuánto se hincha?        [bbl/STB]
+    Bg   Factor de volumen del gas      ¿cuánto se comprime?      [bbl/scf]
+    Bw   Factor de volumen del agua     ¿cuánto se hincha?        [bbl/STB]
+
+Más las densidades y las viscosidades que se desprenden de ellas.
+
+La presión de burbuja parte el problema en dos
+----------------------------------------------
+La **presión de burbuja (Pb)** es aquella a la que el gas empieza a salir de la
+solución, igual que al destapar una botella de gaseosa::
+
+    P >= Pb   subsaturado: TODO el gas está disuelto. Rs queda fijo en el GOR
+              de producción y no hay gas libre.
+    P <  Pb   saturado: parte del gas ya se liberó. Rs baja con la presión y
+              aparece gas libre, que es el que complica el bombeo.
+
+Contenido
+---------
+1. Constantes físicas y auxiliares internos
+2. Standing: gas disuelto (Rs), presión de burbuja (Pb) y volumen de aceite (Bo)
+3. Gas: factor de compresibilidad z y volumen (Bg)
+4. Agua: volumen (Bw)
+5. Viscosidades del petróleo (crudo muerto y crudo vivo)
+6. Función compuesta: todas las propiedades de una vez
+7. PVT medido de laboratorio, que gana sobre las correlaciones
+8. Traza de fórmulas para auditar el cálculo
+
+Nomenclatura
+------------
+    P       Presión                                          [psia]
+    T       Temperatura                                      [°F]
+    Pb      Presión de burbuja                               [psia]
+    Rs      Gas en solución (solution GOR)                   [scf/STB]
+    GOR     Relación gas-petróleo de producción              [scf/STB]
+    Bo      Factor de volumen de formación del petróleo      [bbl/STB]
+    Bg      Factor de volumen de formación del gas           [bbl/scf]
+    Bw      Factor de volumen de formación del agua          [bbl/STB]
+    z       Factor de compresibilidad del gas                [-]
+    API     Gravedad del petróleo                            [°API]
+    γo      Gravedad específica del petróleo (agua = 1)      [-]
+    γg      Gravedad específica del gas (aire = 1)           [-]
+    μ       Viscosidad                                       [cp]
+    STB     Stock Tank Barrel: barril medido en superficie
+    scf     Standard Cubic Foot: pie cúbico en condiciones estándar
+
+Referencias
+-----------
+Standing, M.B. (1947). "A Pressure-Volume-Temperature Correlation for Mixtures
+    of California Oils and Gases". API Drilling and Production Practice.
+    — Rs, Pb y Bo.
+Dranchuk, P.M. & Abou-Kassem, H. (1975). "Calculation of Z Factors for Natural
+    Gases Using Equations of State". J. Can. Pet. Tech. — factor z del gas.
+Beggs, H.D. & Robinson, J.R. (1975). "Estimating the Viscosity of Crude Oil
+    Systems". JPT — viscosidades.
+McCain, W.D. (1990). "The Properties of Petroleum Fluids", 2ª ed., PennWell
+    — Bw del agua.
+Ahmed, T. (2010). "Reservoir Engineering Handbook", 4ª ed. — de donde se toman
+    las formas publicadas de las ecuaciones (2-54, 2-76, 2-125).
 """
 
 from __future__ import annotations
@@ -21,70 +77,89 @@ from scipy.optimize import fsolve
 
 from bes.core.models import Fluid
 
-# ---------------------------------------------------------------------------
-# Physical constants
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# 1. CONSTANTES FISICAS Y AUXILIARES INTERNOS
+# ===========================================================================
 
-_BBL_TO_FT3 = 5.615      # ft³/bbl
-_RHO_WATER_SC = 62.4     # lb/ft³ — pure water at standard conditions (SC)
-_RHO_AIR_SC = 0.0764     # lb/scf  — dry air at 14.7 psia, 60 °F
+_BBL_TO_FT3 = 5.615      #: Pies cúbicos que entran en un barril [ft³/bbl]
+_RHO_WATER_SC = 62.4     #: Densidad del agua pura en superficie [lb/ft³]
+_RHO_AIR_SC = 0.0764     #: Densidad del aire seco a 14.7 psia y 60 °F [lb/scf]
 
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
 
 def _oil_sg(api: float) -> float:
-    """Convert API gravity to specific gravity (relative to water)."""
+    """Convierte grados API a gravedad específica (agua = 1).
+
+    Es la definición del grado API, no una correlación::
+
+        γo = 141.5 / (131.5 + API)
+
+    Un crudo de 10 °API pesa igual que el agua (γo = 1.0); cuanto más alto el
+    API, más liviano el petróleo.
+
+    Args:
+        api: Gravedad del petróleo [°API].
+
+    Returns:
+        Gravedad específica del petróleo [-].
+    """
     return 141.5 / (131.5 + api)
 
 
 def _pseudo_critical_standing(gas_sg: float) -> tuple[float, float]:
-    """Standing (1977) pseudo-critical properties for dry natural gas.
+    """Presión y temperatura pseudo-críticas del gas natural seco (Standing).
 
-    Correlations valid for 0.55 <= gas_sg <= 0.75.
+    Un gas natural es una mezcla, así que no tiene un punto crítico propio: se
+    usan valores «pseudo» calculados a partir de su gravedad específica. Hacen
+    falta para entrar al factor de compresibilidad z.
+
+    Válida para 0.55 <= γg <= 0.75.
 
     Args:
-        gas_sg: Gas specific gravity (air = 1.0).
+        gas_sg: Gravedad específica del gas (aire = 1.0).
 
     Returns:
-        Tuple (Ppc [psia], Tpc [°R]).
+        Tupla (Ppc [psia], Tpc [°R]).
     """
     ppc = 677.0 + 15.0 * gas_sg - 37.5 * gas_sg ** 2
     tpc = 168.0 + 325.0 * gas_sg - 12.5 * gas_sg ** 2
     return ppc, tpc
 
 
-# ---------------------------------------------------------------------------
-# Standing Rs, Bo, Pb
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# 2. STANDING — GAS DISUELTO (Rs), PRESION DE BURBUJA (Pb) Y VOLUMEN (Bo)
+# ===========================================================================
 
 def standing_rs(p: float, t: float, api: float, gas_sg: float, pb: float) -> float:
-    """Solution GOR at pressure P using Standing's (1947) correlation.
+    """Gas disuelto en el petróleo a una presión dada — Standing (1947).
 
-    For P >= Pb the oil is undersaturated and Rs is anchored at its bubble-point
-    value (evaluated by the same correlation at P = Pb). For P < Pb:
+    Responde: de todo el gas que produce el pozo, ¿cuánto está **disuelto** en
+    el petróleo a esta presión? El resto es gas libre.
 
-        Rs = γg × [(P/18.2 + 1.4) × 10^(0.0125·API − 0.00091·T)]^1.2048
+    Por encima de la presión de burbuja el petróleo está subsaturado: todo el
+    gas sigue adentro, así que Rs queda anclado en su valor de burbuja. Por
+    debajo, el gas se empieza a liberar::
 
-    The exponent 1.2048 = 1/0.83 preserves consistency with the original
-    Standing bubble-point equation.
+        Rs = γg · [(P/18.2 + 1.4) · 10^(0.0125·API − 0.00091·T)]^1.2048
 
-    Reference: Standing, M.B., "A Pressure-Volume-Temperature Correlation for
-    Mixtures of California Oils and Gases", API Drill. Prod. Prac. (1947).
+    El exponente 1.2048 es 1/0.83, y es lo que mantiene esta ecuación
+    consistente con la de presión de burbuja (:func:`standing_pb`): una es la
+    inversa de la otra.
 
     Args:
-        p: Pressure [psia]. Must be >= 0.
-        t: Temperature [°F]. Must be > 0.
-        api: Oil gravity [°API].
-        gas_sg: Gas specific gravity (air = 1.0). Must be > 0.
-        pb: Bubble-point pressure [psia]. Must be > 0.
+        p: Presión [psia]. Debe ser >= 0.
+        t: Temperatura [°F]. Debe ser > 0.
+        api: Gravedad del petróleo [°API].
+        gas_sg: Gravedad específica del gas (aire = 1.0). Debe ser > 0.
+        pb: Presión de burbuja [psia]. Debe ser > 0.
 
     Returns:
-        Solution gas-oil ratio [scf/STB].
+        Gas en solución [scf/STB].
 
     Raises:
-        ValueError: If any argument is outside its valid range.
+        ValueError: Si algún argumento cae fuera de su rango válido.
+
+    Referencia:
+        Standing (1947), API Drilling and Production Practice.
     """
     if p < 0:
         raise ValueError(f"p must be >= 0, got {p}")
@@ -101,31 +176,32 @@ def standing_rs(p: float, t: float, api: float, gas_sg: float, pb: float) -> flo
 
 
 def standing_pb(rs: float, t: float, api: float, gas_sg: float) -> float:
-    """Bubble-point pressure — Standing's correlation.
+    """Presión de burbuja — correlación de Standing.
 
-    Standing's published bubble-point equation, exactly as given in Ahmed,
-    *Reservoir Engineering Handbook*, 4th ed., Eq. 2-76/2-77:
-        Pb = 18.2 × [(Rs/γg)^0.83 × 10^a − 1.4]
-        a  = 0.00091·(T[°R] − 460) − 0.0125·API = 0.00091·T[°F] − 0.0125·API
+    Es la presión a la que el gas **empieza a salir** de la solución. Sirve para
+    convertir un GOR de producción medido en una presión de burbuja, que es el
+    dato que parte en dos toda la IPR y todo el PVT::
 
-    Use this to convert a measured producing GOR into a bubble-point pressure.
-
-    Reference: Standing, M.B., API Drill. Prod. Prac. (1947); Ahmed (2010),
-    Eq. 2-76.
+        Pb = 18.2 · [(Rs/γg)^0.83 · 10^a − 1.4]
+        a  = 0.00091·T[°F] − 0.0125·API
 
     Args:
-        rs: Solution GOR at bubble point (= total producing GOR) [scf/STB].
-            Must be > 0.
-        t: Reservoir temperature [°F]. Must be > 0.
-        api: Oil gravity [°API].
-        gas_sg: Gas specific gravity (air = 1.0). Must be > 0.
+        rs: Gas en solución en el punto de burbuja, que es igual al GOR total
+            de producción [scf/STB]. Debe ser > 0.
+        t: Temperatura de reservorio [°F]. Debe ser > 0.
+        api: Gravedad del petróleo [°API].
+        gas_sg: Gravedad específica del gas (aire = 1.0). Debe ser > 0.
 
     Returns:
-        Bubble-point pressure [psia].
+        Presión de burbuja [psia].
 
     Raises:
-        ValueError: If rs <= 0, t <= 0, gas_sg <= 0, or the result is non-positive
-            (combination of inputs is physically inconsistent).
+        ValueError: Si rs <= 0, t <= 0, gas_sg <= 0, o si el resultado da
+            negativo — combinación de datos físicamente inconsistente, que pasa
+            con crudos muy pesados o GOR muy bajos.
+
+    Referencia:
+        Standing (1947); forma publicada en Ahmed (2010), ec. 2-76.
     """
     if rs <= 0:
         raise ValueError(f"rs must be > 0, got {rs}")
@@ -146,27 +222,35 @@ def standing_pb(rs: float, t: float, api: float, gas_sg: float) -> float:
 
 
 def standing_bo(rs: float, t: float, api: float, gas_sg: float) -> float:
-    """Oil formation volume factor — Standing's (1947) correlation.
+    """Factor de volumen del petróleo (Bo) — Standing (1947).
 
-    Formula:
-        F   = Rs × (γg/γo)^0.5 + 1.25·T
-        Bo  = 0.9759 + 0.000120 × F^1.2
+    Cuántos barriles ocupa **en el fondo** el petróleo que en superficie mide un
+    barril. Siempre es mayor que 1: abajo el crudo está caliente y con gas
+    disuelto, así que está hinchado::
 
-    where γo = 141.5 / (131.5 + API) is the stock-tank oil specific gravity.
+        F  = Rs · (γg/γo)^0.5 + 1.25·T
+        Bo = 0.9759 + 0.000120 · F^1.2
 
-    Reference: Standing, M.B., API Drill. Prod. Prac. (1947).
+    donde γo = 141.5 / (131.5 + API) es la gravedad específica del petróleo en
+    el tanque.
+
+    Es el factor que convierte el caudal de superficie (STB/d, lo que se vende)
+    en el caudal real que tiene que mover la bomba abajo.
 
     Args:
-        rs: Solution GOR at the condition of interest [scf/STB]. Must be >= 0.
-        t: Temperature [°F]. Must be > 0.
-        api: Oil gravity [°API].
-        gas_sg: Gas specific gravity (air = 1.0). Must be > 0.
+        rs: Gas en solución en la condición de interés [scf/STB]. Debe ser >= 0.
+        t: Temperatura [°F]. Debe ser > 0.
+        api: Gravedad del petróleo [°API].
+        gas_sg: Gravedad específica del gas (aire = 1.0). Debe ser > 0.
 
     Returns:
-        Oil FVF [bbl/STB]. Typically 1.0–2.0 for field crudes.
+        Factor de volumen del petróleo [bbl/STB]. Típicamente 1.0 a 2.0.
 
     Raises:
-        ValueError: If rs < 0, t <= 0, or gas_sg <= 0.
+        ValueError: Si rs < 0, t <= 0 o gas_sg <= 0.
+
+    Referencia:
+        Standing (1947), API Drilling and Production Practice.
     """
     if rs < 0:
         raise ValueError(f"rs must be >= 0, got {rs}")
@@ -180,31 +264,38 @@ def standing_bo(rs: float, t: float, api: float, gas_sg: float) -> float:
     return 0.9759 + 0.00012 * f ** 1.2
 
 
-# ---------------------------------------------------------------------------
-# Gas z-factor and Bg
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# 3. GAS — FACTOR DE COMPRESIBILIDAD (z) Y VOLUMEN (Bg)
+# ===========================================================================
 
 def gas_z_factor(p: float, t: float, gas_sg: float) -> float:
-    """Gas compressibility factor via Dranchuk-Abou-Kassem (DAK, 1975).
+    """Factor de compresibilidad del gas (z) — Dranchuk-Abou-Kassem (1975).
 
-    Pseudo-critical properties are computed from Standing (1977). The DAK
-    equation-of-state is solved iteratively with scipy fsolve, using the
-    Papay explicit correlation as the initial guess.
+    Un gas ideal cumple P·V = n·R·T. Uno real no, y el factor z mide cuánto se
+    aparta: z = 1 sería ideal, y a presiones de reservorio anda entre 0.8 y 1.1.
+    Sin él, el volumen de gas calculado sale mal.
 
-    Valid range: 1.05 ≤ Tpr ≤ 3.0, 0.2 ≤ Ppr ≤ 30.
+    Las propiedades pseudo-críticas salen de Standing
+    (:func:`_pseudo_critical_standing`). La ecuación de estado DAK no se despeja
+    a mano, así que se resuelve numéricamente con ``fsolve``, arrancando desde
+    la correlación explícita de Papay como primera aproximación.
 
-    Reference: Dranchuk, P.M. & Abou-Kassem, H., J. Can. Pet. Tech. (1975).
+    Rango de validez: 1.05 <= Tpr <= 3.0 y 0.2 <= Ppr <= 30, donde Tpr y Ppr son
+    la temperatura y la presión divididas por las pseudo-críticas.
 
     Args:
-        p: Pressure [psia]. Must be > 0.
-        t: Temperature [°F]. Must be > 0.
-        gas_sg: Gas specific gravity (air = 1.0). Must be > 0.
+        p: Presión [psia]. Debe ser > 0.
+        t: Temperatura [°F]. Debe ser > 0.
+        gas_sg: Gravedad específica del gas (aire = 1.0). Debe ser > 0.
 
     Returns:
-        Gas z-factor [-]. Always > 0.
+        Factor de compresibilidad z [-]. Siempre > 0.
 
     Raises:
-        ValueError: If p <= 0 or gas_sg <= 0.
+        ValueError: Si p <= 0 o gas_sg <= 0.
+
+    Referencia:
+        Dranchuk & Abou-Kassem (1975), J. Can. Pet. Tech.
     """
     if p <= 0:
         raise ValueError(f"p must be > 0 for z-factor calculation, got {p}")
@@ -234,25 +325,34 @@ def gas_z_factor(p: float, t: float, gas_sg: float) -> float:
 
 
 def gas_bg(p: float, t: float, z: float) -> float:
-    """Gas formation volume factor.
+    """Factor de volumen del gas (Bg).
 
-    Formula (Ahmed, *Reservoir Engineering Handbook*, 4th ed., Eq. 2-54):
-        Bg = 0.005035 × z × T[°R] / P   [bbl/scf]
+    Cuántos barriles ocupa **en el fondo** un pie cúbico estándar de gas. Como
+    el gas se comprime muchísimo, Bg es un número chiquito y **va con 1/P**::
 
-    Derived from the real-gas law with unit conversion from reservoir cubic feet
-    to stock-tank barrels (1 bbl = 5.615 ft³; constant accounts for SC at
-    14.65 psia / 60 °F, per Ahmed Eq. 2-54).
+        Bg = 0.005035 · z · T[°R] / P   [bbl/scf]
+
+    Sale de la ley de los gases reales con la conversión de unidades incluida
+    (1 bbl = 5.615 ft³; la constante contempla las condiciones estándar de
+    14.65 psia y 60 °F).
+
+    Que Bg vaya con 1/P es la razón por la que el método de incrementos de
+    presión evalúa cada tramo en sus **dos extremos** y promedia: el valor en el
+    punto medio no es el promedio de los extremos.
 
     Args:
-        p: Pressure [psia]. Must be > 0.
-        t: Temperature [°F].
-        z: Gas compressibility factor [-]. Must be > 0.
+        p: Presión [psia]. Debe ser > 0.
+        t: Temperatura [°F].
+        z: Factor de compresibilidad del gas [-]. Debe ser > 0.
 
     Returns:
-        Gas FVF [bbl/scf].
+        Factor de volumen del gas [bbl/scf].
 
     Raises:
-        ValueError: If p <= 0 or z <= 0.
+        ValueError: Si p <= 0 o z <= 0.
+
+    Referencia:
+        Ahmed (2010), "Reservoir Engineering Handbook", 4ª ed., ec. 2-54.
     """
     if p <= 0:
         raise ValueError(f"p must be > 0, got {p}")
@@ -261,31 +361,35 @@ def gas_bg(p: float, t: float, z: float) -> float:
     return 0.005035 * z * (t + 460.0) / p
 
 
-# ---------------------------------------------------------------------------
-# Water Bw
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# 4. AGUA — FACTOR DE VOLUMEN (Bw)
+# ===========================================================================
 
 def water_bw(p: float, t: float) -> float:
-    """Water formation volume factor — McCain correlation (gas-free water).
+    """Factor de volumen del agua (Bw) — McCain, para agua sin gas.
 
-    Full correlation as given in Ahmed, *Reservoir Engineering Handbook*,
-    4th ed., Eq. 2-125:
+    Lo mismo que Bo pero para el agua de formación: cuántos barriles ocupa abajo
+    el agua que en superficie mide uno. Se hincha mucho menos que el petróleo
+    —anda entre 1.00 y 1.07— porque casi no disuelve gas::
+
         Bw = A1 + A2·P + A3·P²
-        Ai = a1 + a2·(T[°R] − 460) + a3·(T[°R] − 460)²   (T−460 = T[°F])
-    with the gas-free-water coefficients tabulated in Ahmed (Eq. 2-125).
+        Ai = a1 + a2·T + a3·T²      (T en °F)
 
-    Reference: McCain, W.D., "The Properties of Petroleum Fluids", 2nd ed.,
-    PennWell (1990); reproduced in Ahmed (2010), Eq. 2-125.
+    con los coeficientes tabulados para agua libre de gas.
 
     Args:
-        p: Pressure [psia]. Must be >= 0.
-        t: Temperature [°F]. Must be > 0.
+        p: Presión [psia]. Debe ser >= 0.
+        t: Temperatura [°F]. Debe ser > 0.
 
     Returns:
-        Water FVF [bbl/STB]. Typically 1.00–1.07.
+        Factor de volumen del agua [bbl/STB]. Típicamente 1.00 a 1.07.
 
     Raises:
-        ValueError: If p < 0 or t <= 0.
+        ValueError: Si p < 0 o t <= 0.
+
+    Referencia:
+        McCain (1990), "The Properties of Petroleum Fluids", 2ª ed.;
+        reproducida en Ahmed (2010), ec. 2-125.
     """
     if p < 0:
         raise ValueError(f"p must be >= 0, got {p}")
@@ -298,32 +402,40 @@ def water_bw(p: float, t: float) -> float:
     return a1 + a2 * p + a3 * p ** 2
 
 
-# ---------------------------------------------------------------------------
-# Viscosity
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# 5. VISCOSIDADES DEL PETROLEO
+# ===========================================================================
+#
+# OJO — estas dos correlaciones son del PVT general. El procedimiento de crudos
+# viscosos de Riling NO las usa: lee las láminas 4L(1) y 4L(2) del libro, que
+# están digitalizadas en `viscosity.py`. Ver .claude/rules/domain.md.
 
 def oil_viscosity_dead(api: float, t: float) -> float:
-    """Dead-oil (gas-free) viscosity — Beggs-Robinson (1975) correlation.
+    """Viscosidad del crudo MUERTO (sin gas) — Beggs-Robinson (1975).
 
-    Formula:
-        X       = T^(−1.163) × exp(6.9824 − 0.04658·API)
-        μ_dead  = 10^X − 1   [cp]
+    «Crudo muerto» quiere decir crudo sin gas disuelto: el que queda en el
+    tanque. Es el más viscoso de los dos, porque el gas disuelto adelgaza el
+    petróleo::
 
-    Correlation range: 16 ≤ API ≤ 58, 70 ≤ T ≤ 295 °F.
-    Outside this range the correlation extrapolates with reduced accuracy.
+        X  = T^(−1.163) · exp(6.9824 − 0.04658·API)
+        μ  = 10^X − 1   [cp]
 
-    Reference: Beggs, H.D. & Robinson, J.R., "Estimating the Viscosity of
-    Crude Oil Systems", JPT (1975).
+    Rango de la correlación: 16 <= API <= 58 y 70 <= T <= 295 °F. Fuera de ahí
+    extrapola y pierde precisión.
 
     Args:
-        api: Oil gravity [°API].
-        t: Temperature [°F]. Must be > 0.
+        api: Gravedad del petróleo [°API].
+        t: Temperatura [°F]. Debe ser > 0.
 
     Returns:
-        Dead-oil viscosity [cp].
+        Viscosidad del crudo sin gas [cp].
 
     Raises:
-        ValueError: If t <= 0.
+        ValueError: Si t <= 0.
+
+    Referencia:
+        Beggs & Robinson (1975), "Estimating the Viscosity of Crude Oil
+        Systems", JPT.
     """
     if t <= 0:
         raise ValueError(f"t must be > 0 °F, got {t}")
@@ -332,24 +444,29 @@ def oil_viscosity_dead(api: float, t: float) -> float:
 
 
 def oil_viscosity_live(mu_dead: float, rs: float) -> float:
-    """Saturated live-oil viscosity — Beggs-Robinson (1975) correlation.
+    """Viscosidad del crudo VIVO (saturado con gas) — Beggs-Robinson (1975).
 
-    Formula:
-        a       = 10.715 × (Rs + 100)^(−0.515)
-        b       = 5.44   × (Rs + 150)^(−0.338)
-        μ_live  = a × μ_dead^b   [cp]
+    «Crudo vivo» es el que está abajo, con gas disuelto adentro. El gas actúa
+    como diluyente, así que el crudo vivo siempre es **menos** viscoso que el
+    muerto::
 
-    Reference: Beggs, H.D. & Robinson, J.R., JPT (1975).
+        a = 10.715 · (Rs + 100)^(−0.515)
+        b = 5.44   · (Rs + 150)^(−0.338)
+        μ_vivo = a · μ_muerto^b   [cp]
 
     Args:
-        mu_dead: Dead-oil viscosity at the same temperature [cp]. Must be > 0.
-        rs: Solution GOR at the condition of interest [scf/STB]. Must be >= 0.
+        mu_dead: Viscosidad del crudo sin gas, a la misma temperatura [cp].
+            Debe ser > 0.
+        rs: Gas en solución en la condición de interés [scf/STB]. Debe ser >= 0.
 
     Returns:
-        Saturated live-oil viscosity [cp].
+        Viscosidad del crudo saturado [cp].
 
     Raises:
-        ValueError: If mu_dead <= 0 or rs < 0.
+        ValueError: Si mu_dead <= 0 o rs < 0.
+
+    Referencia:
+        Beggs & Robinson (1975), JPT.
     """
     if mu_dead <= 0:
         raise ValueError(f"mu_dead must be > 0, got {mu_dead}")
@@ -360,43 +477,48 @@ def oil_viscosity_live(mu_dead: float, rs: float) -> float:
     return a * mu_dead ** b
 
 
-# ---------------------------------------------------------------------------
-# High-level composite function
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# 6. FUNCION COMPUESTA — TODAS LAS PROPIEDADES DE UNA VEZ
+# ===========================================================================
 
 def fluid_properties_at_conditions(fluid: Fluid, p: float, t: float) -> dict:
-    """Evaluate all PVT properties for a Fluid at given pressure and temperature.
+    """Todas las propiedades PVT del fluido a una presión y temperatura dadas.
 
-    Anchors Rs to the measured producing GOR when P >= Pb (undersaturated
-    regime), and uses the Standing correlation below Pb. Densities and the
-    mixture density are computed from a mass-balance over one STB of total
-    liquid at surface conditions.
+    Es la puerta de entrada que usa el resto del motor: se le pasa el fluido y
+    un punto (P, T) del pozo, y devuelve todo lo que hace falta para saber qué
+    está bombeando la bomba en ese punto.
+
+    El gas en solución se resuelve según de qué lado de la burbuja estemos:
+    por encima de Pb se ancla al GOR de producción medido (está todo disuelto),
+    y por debajo se calcula con Standing. Las densidades salen de un **balance
+    de masa sobre un barril de líquido de superficie**, que es lo que garantiza
+    que la masa se conserve al cambiar de presión.
 
     Args:
-        fluid: Fluid object with oil API, GOR, water cut, and fluid gravities.
-        p: Pressure at which to evaluate properties [psia]. Must be > 0.
-        t: Temperature [°F]. Must be > 0.
+        fluid: Fluido, con °API, GOR, corte de agua y gravedades específicas.
+        p: Presión a la que se evalúan las propiedades [psia]. Debe ser > 0.
+        t: Temperatura [°F]. Debe ser > 0.
 
     Returns:
-        Dictionary with the following keys:
+        dict con estas claves:
 
         =====================  =============================================
-        Key                    Description [units]
+        Clave                  Qué es [unidad]
         =====================  =============================================
-        rs                     Solution GOR [scf/STB]
-        bo                     Oil FVF [bbl/STB]
-        bg                     Gas FVF [bbl/scf]
-        bw                     Water FVF [bbl/STB]
-        mu_oil                 Live-oil viscosity [cp]
-        oil_density            In-situ oil + dissolved-gas density [lb/ft³]
-        water_density          In-situ brine density [lb/ft³]
-        gas_density            In-situ free-gas density [lb/ft³]
-        mixture_density        Volume-weighted density of oil+water+gas [lb/ft³]
-        free_gas               Free-gas volume fraction at P,T [-]
+        rs                     Gas en solución [scf/STB]
+        bo                     Factor de volumen del petróleo [bbl/STB]
+        bg                     Factor de volumen del gas [bbl/scf]
+        bw                     Factor de volumen del agua [bbl/STB]
+        mu_oil                 Viscosidad del crudo vivo [cp]
+        oil_density            Densidad del petróleo + gas disuelto [lb/ft³]
+        water_density          Densidad del agua de formación [lb/ft³]
+        gas_density            Densidad del gas libre [lb/ft³]
+        mixture_density        Densidad de la mezcla completa [lb/ft³]
+        free_gas               Fracción volumétrica de gas libre a P,T [-]
         =====================  =============================================
 
     Raises:
-        ValueError: If p <= 0 or t <= 0.
+        ValueError: Si p <= 0 o t <= 0.
     """
     if p <= 0:
         raise ValueError(f"p must be > 0, got {p}")
@@ -407,13 +529,16 @@ def fluid_properties_at_conditions(fluid: Fluid, p: float, t: float) -> dict:
     oil_sg = _oil_sg(fluid.oil_api)
     wc = fluid.water_cut
 
-    # --- Solution GOR ---
+    # --- Gas en solución ---------------------------------------------------
+    # Arriba de la burbuja está TODO disuelto, así que Rs es el GOR medido. Por
+    # debajo se calcula con Standing, acotado al GOR: el reservorio no puede
+    # tener más gas disuelto que el que produce.
     if pb > 0 and p >= pb:
-        rs = fluid.gor           # Undersaturated: all gas dissolved
+        rs = fluid.gor           # Subsaturado: todo el gas está disuelto
     elif pb > 0:
         rs = min(standing_rs(p, t, fluid.oil_api, fluid.gas_sg, pb), fluid.gor)
     else:
-        rs = fluid.gor           # pb=0 → dead or undersaturated oil
+        rs = fluid.gor           # Sin Pb: crudo muerto o subsaturado
 
     bo = standing_bo(rs, t, fluid.oil_api, fluid.gas_sg)
     bw = water_bw(p, t)
@@ -424,24 +549,29 @@ def fluid_properties_at_conditions(fluid: Fluid, p: float, t: float) -> dict:
     mu_dead = oil_viscosity_dead(fluid.oil_api, t)
     mu_live = oil_viscosity_live(mu_dead, rs)
 
-    # --- In-situ densities [lb/ft³] ---
-    # Oil + dissolved gas per reservoir barrel
+    # --- Densidades en el fondo [lb/ft³] ------------------------------------
+    # Petróleo + su gas disuelto, por barril de reservorio. Se divide por Bo
+    # porque el crudo está hinchado: la misma masa ocupa más volumen.
     rho_oil = (_RHO_WATER_SC * oil_sg + 0.0136 * rs * fluid.gas_sg) / bo
-    # Water per reservoir barrel (0.0136 = RHO_AIR_SC / BBL_TO_FT3)
+    # Agua por barril de reservorio (0.0136 = _RHO_AIR_SC / _BBL_TO_FT3)
     rho_water = _RHO_WATER_SC * fluid.water_sg / bw
-    # Free gas at reservoir conditions (real-gas law: 2.70 from unit conversion)
+    # Gas libre en condiciones de fondo, por ley de los gases reales.
+    # El 2.70 sale de la conversión de unidades.
     rho_gas = 2.70 * fluid.gas_sg * p / (z * (t + 460.0))
 
-    # --- Volumes per STB of total surface liquid ---
-    free_gas_scf = max(fluid.gor - rs, 0.0)   # scf free gas per STB of oil
-    v_oil   = (1.0 - wc) * bo                  # bbl/STB total
-    v_water = wc * bw                           # bbl/STB total
-    v_gas   = (1.0 - wc) * free_gas_scf * bg   # bbl/STB total
+    # --- Volúmenes por cada STB de líquido de superficie --------------------
+    # Todo se refiere a UN barril de líquido medido arriba, que es la unidad en
+    # la que se vende y la que el usuario carga como caudal objetivo.
+    free_gas_scf = max(fluid.gor - rs, 0.0)   # gas libre por STB de petróleo
+    v_oil   = (1.0 - wc) * bo                 # bbl de petróleo, en el fondo
+    v_water = wc * bw                         # bbl de agua, en el fondo
+    v_gas   = (1.0 - wc) * free_gas_scf * bg  # bbl de gas libre, en el fondo
     total_v = v_oil + v_water + v_gas
     free_gas_frac = v_gas / total_v if total_v > 0.0 else 0.0
 
-    # --- Mixture density [lb/ft³] --- mass balance over total_v ---
-    # Mass contributions per STB of total surface liquid [lb]
+    # --- Densidad de la mezcla [lb/ft³] — por balance de masa ---------------
+    # Se suma la masa de cada fase y se divide por el volumen total. Hacerlo por
+    # masa (y no promediando densidades) es lo que conserva el invariante.
     mass_oil   = (1.0 - wc) * (
         _RHO_WATER_SC * oil_sg * _BBL_TO_FT3     # stock-tank oil
         + _RHO_AIR_SC * rs * fluid.gas_sg         # dissolved gas
@@ -468,18 +598,19 @@ def fluid_properties_at_conditions(fluid: Fluid, p: float, t: float) -> dict:
 
 
 def mixture_specific_gravity(fluid: Fluid, p: float, t: float) -> float:
-    """Volume-weighted specific gravity of the oil/water/gas mixture at P and T.
+    """Gravedad específica de la mezcla petróleo/agua/gas a P y T.
 
-    Computes the mixture density via ``fluid_properties_at_conditions`` and
-    divides by the density of pure water at standard conditions (62.4 lb/ft³).
+    Calcula la densidad de la mezcla con
+    :func:`fluid_properties_at_conditions` y la divide por la del agua pura en
+    condiciones estándar (62.4 lb/ft³).
 
     Args:
-        fluid: Fluid object.
-        p: Pressure [psia]. Must be > 0.
-        t: Temperature [°F]. Must be > 0.
+        fluid: Fluido producido.
+        p: Presión [psia]. Debe ser > 0.
+        t: Temperatura [°F]. Debe ser > 0.
 
     Returns:
-        Mixture specific gravity [-] relative to fresh water.
+        Gravedad específica de la mezcla [-], respecto del agua dulce.
     """
     props = fluid_properties_at_conditions(fluid, p, t)
     return props["mixture_density"] / _RHO_WATER_SC
@@ -720,3 +851,85 @@ def resolve_pvt(
         "sources": origenes,
         "warnings": avisos,
     }
+
+
+# ---------------------------------------------------------------------------
+# Traza de fórmulas
+# ---------------------------------------------------------------------------
+
+def pvt_trace(fluid: Fluid, p: float, t: float) -> list[dict]:
+    """Las propiedades PVT del fluido en un punto, fórmula por fórmula.
+
+    Función aparte, como :func:`bes.core.ipr.ipr_trace`, para no cambiarle la
+    firma a las correlaciones que usa todo el motor. Llama a esas mismas
+    funciones, así que la traza no puede separarse de la cuenta.
+
+    Args:
+        fluid: Fluido producido.
+        p: Presión del punto [psia].
+        t: Temperatura del punto [°F].
+
+    Returns:
+        Lista de dicts de :class:`bes.core.formulas.Formula`, en el orden en que
+        se encadenan las correlaciones.
+    """
+    from bes.core.formulas import FormulaTrace
+
+    api, gas_sg = fluid.oil_api, fluid.gas_sg
+    sg_o = _oil_sg(api)
+    pb = fluid.bubble_point_pressure or standing_pb(fluid.gor, t, api, gas_sg)
+    rs = standing_rs(p, t, api, gas_sg, pb)
+    bo = standing_bo(rs, t, api, gas_sg)
+    z = gas_z_factor(p, t, gas_sg)
+    bg = gas_bg(p, t, z)
+    bw = water_bw(p, t)
+    mu_od = oil_viscosity_dead(api, t)
+    mu_ob = oil_viscosity_live(mu_od, rs)
+    props = fluid_properties_at_conditions(fluid, p, t)
+
+    trace = FormulaTrace()
+    trace.add("pvt_sg_petroleo", {"API": api}, sg_o)
+    trace.add(
+        "pvt_pb", {"Rs": fluid.gor, "γ_g": gas_sg, "T": t, "API": api}, pb,
+        context=("Presión de burbuja cargada como dato, no correlacionada."
+                 if fluid.bubble_point_pressure else
+                 "Sin dato de laboratorio: se estima con Standing."),
+    )
+    trace.add(
+        "pvt_rs",
+        {"γ_g": gas_sg, "P_ef": min(p, pb), "API": api, "T": t}, rs,
+        context=(f"A {p:,.0f} psia el fluido está por ENCIMA de la burbuja "
+                 f"({pb:,.0f} psia): todo el gas está disuelto y Rs se acota al "
+                 f"GOR total." if p >= pb else
+                 f"A {p:,.0f} psia el fluido está por debajo de la burbuja "
+                 f"({pb:,.0f} psia): hay {fluid.gor - rs:.0f} scf/STB de gas "
+                 f"libre."),
+    )
+    trace.add(
+        "pvt_bo",
+        {"F": rs * (gas_sg / sg_o) ** 0.5 + 1.25 * t}, bo,
+    )
+    trace.add(
+        "pvt_z", {"ρ_r": 0.27 * p / max(z, 1e-9)}, z,
+        substitute=False,
+        context=f"Resuelta por iteración (es implícita en z). Da {z:.4f}, o sea "
+                f"un {abs(1 - z) * 100:.0f} % de apartamiento del gas ideal.",
+    )
+    trace.add("pvt_bg", {"z": z, "T": t, "P": p}, bg)
+    trace.add("pvt_bw", {"ΔT": t - 60.0, "P": p}, bw)
+    trace.add("pvt_mu_muerta", {"T": t, "API": api}, mu_od)
+    trace.add(
+        "pvt_mu_viva", {"μ_od": mu_od, "Rs": rs}, mu_ob,
+        context=f"El gas disuelto baja la viscosidad de {mu_od:.1f} a "
+                f"{mu_ob:.1f} cp.",
+    )
+    trace.add(
+        "pvt_densidad_petroleo",
+        {"γ_o": sg_o, "Rs": rs, "γ_g": gas_sg, "Bo": bo},
+        props["oil_density"],
+    )
+    trace.add(
+        "pvt_densidad_gas", {"γ_g": gas_sg, "P": p, "z": z, "T": t},
+        props["gas_density"],
+    )
+    return trace.as_list()

@@ -1,11 +1,15 @@
-"""Nodal-analysis service.
+"""Servicio de análisis nodal.
 
-Extracted from the inline logic in ``app.py`` (Análisis Nodal section). Produces
-raw numeric metrics and comparison-table data so that any front-end (Streamlit
-today, FastAPI/React tomorrow) only has to format and render.
+El **análisis nodal** cruza dos curvas: lo que el reservorio puede entregar
+(IPR) contra lo que el pozo necesita para levantar ese caudal (curva de
+descarga). Donde se cruzan está el punto de operación real del pozo.
 
-Figure construction stays in ``ui/plots.py`` (framework-agnostic Plotly
-builders); this service covers the *data* side only.
+Este servicio produce las métricas numéricas y los datos de la tabla de
+comparación; el armado de las figuras vive en ``bes.plotting``. Acá sólo se
+resuelve el lado de los **datos**.
+
+Todas las pérdidas de carga se calculan por Poettmann & Carpenter, que es la
+única correlación multifásica del proyecto.
 """
 from __future__ import annotations
 
@@ -20,12 +24,18 @@ NODAL_METHOD_LABEL = METHOD_LABEL
 
 
 def apply_reservoir_decline(reservoir: Reservoir, pr_decline_pct: float) -> Reservoir:
-    """Return a Reservoir with static pressure declined by ``pr_decline_pct`` %.
+    """Devuelve un Reservoir con la presión estática bajada un porcentaje.
 
-    The bubble point is clamped to the new (lower) static pressure. When the
-    decline is zero (or negative) the original reservoir is returned unchanged.
-    This is the single source of truth for the decline simulation used by both
-    the metrics service and the plot builders in the view.
+    Sirve para simular la **depleción**: qué le pasa al pozo cuando el
+    reservorio pierde presión con los años. Es una de las preguntas centrales al
+    dimensionar un equipo que va a estar años instalado.
+
+    La presión de burbuja se acota a la nueva presión estática (más baja): no
+    tiene sentido una burbuja por encima de la presión del reservorio. Si la
+    declinación es cero o negativa, devuelve el reservorio original sin tocar.
+
+    Es la **única fuente de verdad** de la simulación de declinación: la usan
+    tanto el servicio de métricas como los constructores de gráficos.
     """
     if pr_decline_pct <= 0:
         return reservoir
@@ -72,19 +82,19 @@ def run_nodal_analysis(
     stages: int | None = None,
     pump_depth: float | None = None,
 ) -> dict:
-    """Run a nodal analysis and return raw numeric results.
-
-    Las pérdidas de carga se calculan siempre por Poettmann & Carpenter.
+    """Corre el análisis nodal y devuelve los resultados numéricos crudos.
 
     Args:
-        reservoir, fluid, well, surface: Domain inputs.
-        pr_decline_pct: Reservoir-pressure decline to simulate [%].
-        pump, stages, pump_depth: Optional pump context (from the top design).
+        reservoir, fluid, well, surface: Entradas del dominio.
+        pr_decline_pct: Declinación de presión del reservorio a simular [%].
+        pump, stages, pump_depth: Contexto opcional de la bomba, que viene del
+            diseño elegido.
 
     Returns:
-        dict with keys ``reservoir_eff`` (the effective Reservoir after decline),
-        ``pr_decline_pct``, ``has_pump``, ``method`` and ``metrics``.
-        All values are raw numbers — formatting is the front-end's job.
+        dict con ``reservoir_eff`` (el Reservoir efectivo después de la
+        declinación), ``pr_decline_pct``, ``has_pump``, ``method`` y
+        ``metrics``. Todos los valores son números crudos — darles formato es
+        trabajo de la interfaz.
     """
     reservoir_eff = apply_reservoir_decline(reservoir, pr_decline_pct)
 

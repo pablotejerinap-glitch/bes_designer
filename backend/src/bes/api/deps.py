@@ -8,18 +8,22 @@ from bes.catalogs.loader import CatalogManager
 
 @lru_cache(maxsize=1)
 def get_catalog() -> CatalogManager:
-    """Process-wide singleton catalog. ``CatalogManager()`` with no argument
-    resolves the JSON dir from the package location, so it is CWD-independent.
+    """Catálogo único para todo el proceso (singleton).
+
+    ``CatalogManager()`` sin argumentos resuelve la carpeta de los JSON a partir
+    de la ubicación del paquete, así que **no depende del directorio de
+    trabajo**: funciona igual se lo llame desde donde se lo llame.
     """
     return CatalogManager()
 
 
 def resolve_pump(catalog: CatalogManager, model: str | None):
-    """Look up a pump by catalog model name.
+    """Busca una bomba por su nombre de modelo en el catálogo.
 
-    Returns ``None`` for an empty/absent model (callers treat that as "no pump
-    context"). An unknown model raises ``ValueError`` -> HTTP 422 via the
-    central handler in ``api.main``.
+    Devuelve ``None`` si el modelo viene vacío o ausente — quien llama lo
+    interpreta como «sin contexto de bomba». Un modelo desconocido levanta
+    ``ValueError``, que el manejador central de ``api.main`` convierte en un
+    HTTP 422.
     """
     if not model:
         return None

@@ -443,12 +443,14 @@ def generate_design_excel(
     well_data: dict,
     output_path: Optional[str] = None,
 ) -> bytes | str:
-    """Generate an Excel design report.
+    """Genera el informe del diseño en Excel.
 
     Args:
-        design_result: DesignResult from generate_recommendations().
-        well_data: Dict with keys: reservoir, fluid, well, surface, objectives.
-        output_path: Write to this path and return it. If None, return Excel bytes.
+        design_result: ``DesignResult`` de ``generate_recommendations()``.
+        well_data: dict con las claves reservoir, fluid, well, surface y
+            objectives.
+        output_path: Si se indica, escribe ahí y devuelve la ruta. Si es
+            ``None``, devuelve los bytes del Excel.
     """
     wb = Workbook()
 

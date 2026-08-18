@@ -7,6 +7,7 @@
 
 | Documento | Contenido |
 |---|---|
+| [GUIA_DEL_CODIGO.md](GUIA_DEL_CODIGO.md) | **Empezar por acá para revisar las fórmulas.** Escrita para quien sabe de ingeniería de petróleo pero no programa: dónde está cada cálculo, cómo leerlo y qué controles impiden que el código diga una cosa y haga otra. |
 | [METHODOLOGY.md](METHODOLOGY.md) | Metodología de cálculo completa, paso a paso, con la referencia a Brown de cada etapa. Incluye §7, el método métrico de cátedra "ESP 01". |
 | [FORMULAS.md](FORMULAS.md) | Compendio de todas las fórmulas implementadas, con archivo, línea y fuente bibliográfica. |
 | [EJEMPLO_ESP01.md](EJEMPLO_ESP01.md) | Desarrollo del ejercicio de cátedra "ESP 01" en unidades métricas, los 17 pasos. |

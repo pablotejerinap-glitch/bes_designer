@@ -19,17 +19,17 @@ router = APIRouter(prefix="/api", tags=["design"])
 
 @router.post("/design", response_model=DesignResponse)
 def post_design(req: DesignRequest, catalog=Depends(get_catalog)) -> DesignResponse:
-    """Run the recommendation engine and return ranked design packages.
+    """Corre el motor de recomendación y devuelve los diseños ordenados.
 
-    If ``pump_model`` is set, the recommendation engine's ranking is bypassed
-    entirely and the response carries a single design package for that named
-    pump (a manual override of the algorithm's choice, not a ranked
-    alternative) — ``n`` is ignored in that case.
+    Si se manda ``pump_model``, el ordenamiento se saltea por completo y la
+    respuesta trae un solo paquete de diseño para esa bomba (es un override
+    manual de la elección del algoritmo, no una alternativa rankeada). En ese
+    caso ``n`` se ignora.
 
-    A domain ``ValueError`` (no feasible design, unknown/incompatible pump) is
-    turned into HTTP 422 by the central handler in ``api.main``. Domain
-    ``UserWarning``s (e.g. a depleted reservoir) are captured and surfaced in
-    ``warnings``.
+    Un ``ValueError`` del dominio —sin diseño viable, bomba desconocida o
+    incompatible— lo convierte en HTTP 422 el manejador central de ``api.main``.
+    Las ``UserWarning`` del dominio (por ejemplo, un reservorio depletado) se
+    capturan y viajan en ``warnings``.
     """
     reservoir, fluid, well, surface, objectives = to_domain_inputs(req)
 

@@ -1,33 +1,50 @@
-"""
-Engineering-criteria ranking for BES/ESP design alternatives.
+"""Ordenamiento de alternativas por criterios de ingeniería — SIN puntajes.
 
-Replaces the former weighted-score system (efficiency 40 % / flexibility
-30 % / provider 30 %) with a strict, physically-meaningful ordering that
-requires no arbitrary weights:
+Cuando varias bombas del catálogo sirven para el mismo pozo, hay que decidir
+cuál se recomienda primero. Este módulo hace eso, y la manera en que **no** lo
+hace es tan importante como la que sí.
 
-    1. Distance to BEP   — |q_op − q_BEP| / q_BEP  (ascending)
-    2. Pump efficiency   — hydraulic efficiency at the operating point (descending)
-    3. Required power    — total pump shaft HP (ascending)
+**No hay puntajes, ni pesos, ni escalas de 0 a 10, ni preferencia de marca.**
+Antes había un sistema de puntaje ponderado (rendimiento 40 % / flexibilidad
+30 % / proveedor 30 %) que se eliminó: esos pesos eran arbitrarios y no salían
+de ningún lado. El fabricante es información, no criterio.
 
-The ordering is lexicographic: criterion 2 only breaks ties in criterion 1,
-and criterion 3 only breaks ties in the first two. There are no weights,
-no 0–10 scales, and no provider/brand dimension — the manufacturer is
-informational only.
+En su lugar hay un **orden lexicográfico estricto** de tres criterios físicos::
 
-Engineering basis (Brown, Vol. 2b, §4.5325): the pump should be selected so
-the design rate falls as close as possible to its best-efficiency point;
-operating far from BEP increases axial thrust and wear and reduces run life.
-Efficiency at the operating point and required shaft power follow directly
-from the catalog performance curve.
+    1. Distancia al BEP   — |q_op − q_BEP| / q_BEP        (menor es mejor)
+    2. Rendimiento        — de la bomba en el punto de operación (mayor mejor)
+    3. Potencia requerida — hp totales al eje              (menor es mejor)
 
-BEP-distance classification (display only, never used for ordering):
-    <= 10 %  → "optimo"     (very close to BEP)
-    <= 25 %  → "aceptable"  (moderately away from BEP)
-    >  25 %  → "alejado"    (far from BEP; verify with manufacturer)
-These thresholds classify the same physical quantity used by criterion 1;
-they mirror the practice of keeping the operating point well inside the
-manufacturer's recommended range, whose half-width for the catalog pumps
-is of the order of 20–40 % of the BEP flow.
+Lexicográfico quiere decir que el criterio 2 **sólo** desempata al 1, y el 3
+**sólo** desempata a los dos primeros. No se suman ni se promedian.
+
+Por qué la distancia al BEP va primero
+--------------------------------------
+El BEP (*Best Efficiency Point*) es el caudal de máximo rendimiento de la
+bomba. Brown Vol. 2b §4.5325: la bomba se debe elegir de modo que el caudal de
+diseño caiga lo más cerca posible de su BEP. Operar lejos del BEP **aumenta el
+empuje axial y el desgaste, y acorta la vida útil** — que es lo que más cuesta
+en una instalación BES, porque cambiar el equipo implica intervenir el pozo.
+
+Clasificación de la distancia al BEP (SOLO para mostrar)
+--------------------------------------------------------
+::
+
+    <= 10 %  ->  "optimo"      muy cerca del BEP
+    <= 25 %  ->  "aceptable"   moderadamente alejado
+    >  25 %  ->  "alejado"     lejos; verificar con el fabricante
+
+**Nunca interviene en el orden**: es una etiqueta para la pantalla. Los
+umbrales clasifican la misma magnitud física del criterio 1, y reflejan la
+práctica de mantener el punto de operación bien adentro del rango recomendado
+por el fabricante, cuya semi-amplitud en las bombas del catálogo anda entre el
+20 % y el 40 % del caudal de BEP.
+
+Referencia
+----------
+Brown, K.E. "The Technology of Artificial Lift Methods", Vol. 2b, §4.5325.
+Ver también ``REFORMA_COMPARACION_BES.docx``, donde se documenta la
+eliminación del sistema de puntaje ponderado.
 """
 from __future__ import annotations
 
@@ -54,22 +71,24 @@ CLASSIFICATION_INDICATORS: dict[str, str] = {
 
 
 def bep_distance(pump: "PumpCurve", flow: float) -> float:
-    """Relative distance from the operating flow to the pump's BEP flow.
+    """Distancia relativa entre el caudal de operación y el BEP de la bomba.
 
-    distance = |flow − bep_flow| / bep_flow
+        distancia = |caudal − caudal_BEP| / caudal_BEP
 
-    A value of 0.0 means the pump operates exactly at its best-efficiency
-    point; 0.10 means the operating rate deviates 10 % from the BEP rate.
+    Un valor de 0.0 significa que la bomba opera exactamente en su punto de
+    máximo rendimiento; 0.10 significa que el caudal de operación se desvía un
+    10 % del caudal de BEP.
 
     Args:
-        pump: PumpCurve catalog object (provides ``bep_flow``).
-        flow: Operating flow rate [STB/d]. Must be > 0.
+        pump: Bomba del catálogo (aporta ``bep_flow``).
+        flow: Caudal de operación [STB/d]. Debe ser > 0.
 
     Returns:
-        Dimensionless relative distance [>= 0].
+        Distancia relativa adimensional [>= 0].
 
     Raises:
-        ValueError: If flow <= 0 or the pump has no positive BEP flow.
+        ValueError: Si el caudal es <= 0 o la bomba no tiene un caudal de BEP
+            positivo.
     """
     if flow <= 0:
         raise ValueError(f"flow must be > 0, got {flow}")
@@ -83,18 +102,22 @@ def ranking_key(
     efficiency: float,
     total_pump_hp: float,
 ) -> tuple[float, float, float]:
-    """Sort key implementing the strict engineering ordering.
+    """Clave de ordenamiento que implementa el orden estricto de ingeniería.
 
-    Sorting a list of candidates ascending by this key orders them by:
-    (1) closeness to BEP, (2) higher efficiency, (3) lower required power.
+    Ordenar una lista de candidatas de menor a mayor por esta clave las deja
+    ordenadas por: (1) cercanía al BEP, (2) mayor rendimiento, (3) menor
+    potencia requerida.
+
+    El truco es que el rendimiento entra **negado**: como la lista se ordena de
+    menor a mayor, negarlo hace que el mayor rendimiento quede primero.
 
     Args:
-        bep_dist: Relative BEP distance from :func:`bep_distance`.
-        efficiency: Pump hydraulic efficiency at the operating point [0–1].
-        total_pump_hp: Total pump shaft power requirement [hp].
+        bep_dist: Distancia relativa al BEP, de :func:`bep_distance`.
+        efficiency: Rendimiento hidráulico en el punto de operación [0–1].
+        total_pump_hp: Potencia total al eje de la bomba [hp].
 
     Returns:
-        Tuple usable directly as a ``sort`` key (no weights involved).
+        Tupla usable directamente como clave de ``sort``. Sin pesos.
     """
     return (bep_dist, -efficiency, total_pump_hp)
 

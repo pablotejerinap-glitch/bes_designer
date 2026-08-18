@@ -145,11 +145,13 @@ class CatalogManager:
         return list(self._pumps)
 
     def get_pumps_by_casing(self, casing_id_in: float) -> list[PumpCurve]:
-        """Return pumps whose OD fits inside *casing_id_in* (casing inner diameter).
+        """Devuelve las bombas cuyo diámetro entra en el casing.
 
-        The filter requires ``pump.od < casing_id_in`` — the caller should pass
-        the casing drift/inner diameter so that standard API clearances are
-        implicitly respected by the available casing sizes.
+        El filtro exige ``pump.od < casing_id_in``. Quien llama debe pasar el
+        diámetro interior (drift) del casing, así las luces estándar de API quedan
+        respetadas implícitamente por los tamaños de casing disponibles.
+
+        **Es la restricción más dura del diseño**: si la bomba no entra, no entra.
         """
         return [p for p in self._pumps if p.od < casing_id_in]
 
@@ -243,15 +245,14 @@ class CatalogManager:
     # ------------------------------------------------------------------
 
     def get_motor(self, hp: float, voltage: float, series: str) -> dict:
-        """Return the best-matching motor for the given requirements.
+        """Devuelve el motor que mejor calza con los requisitos dados.
 
-        Selects the smallest HP motor that meets or exceeds *hp*, filtering
-        first by *series*; if none found in that series, falls back to all
-        series.  Among qualifying motors, picks the one whose voltage rating
-        is closest to *voltage*.
+        Elige el motor de **menor potencia** que alcance o supere ``hp``, filtrando
+        primero por serie; si no encuentra ninguno en esa serie, prueba con todas.
+        Entre los que califican, toma el de tensión más cercana a la pedida.
 
         Raises:
-            ValueError: If no motor in the catalog meets the HP requirement.
+            ValueError: Si ningún motor del catálogo alcanza la potencia requerida.
         """
         candidates = [
             m for m in self._motors
@@ -274,19 +275,20 @@ class CatalogManager:
     # ------------------------------------------------------------------
 
     def get_cable(self, amps: float, temp_f: float, voltage: float) -> dict:
-        """Return the most suitable cable for the given operating conditions.
+        """Devuelve el cable más adecuado para las condiciones de operación.
 
-        Filters by ``max_amps >= amps`` and ``max_temp_f >= temp_f``, then
-        returns the cable with the lowest voltage drop per 1000 ft at the
-        given *amps* and *temp_f* (i.e., the largest suitable conductor).
+        Filtra por ``max_amps >= amps`` y ``max_temp_f >= temp_f``, y entre los que
+        quedan devuelve el de **menor caída de tensión** cada 1000 ft en esas
+        condiciones — o sea, el conductor más grueso de los que sirven.
 
         Args:
-            amps: Required current rating [A].
-            temp_f: Maximum operating temperature [°F].
-            voltage: System voltage (reserved for future multi-voltage logic).
+            amps: Corriente que tiene que soportar [A].
+            temp_f: Temperatura máxima de operación [°F].
+            voltage: Tensión del sistema (reservado para lógica multi-tensión
+                a futuro).
 
         Raises:
-            ValueError: If no cable in the catalog meets the requirements.
+            ValueError: Si ningún cable del catálogo cumple los requisitos.
         """
         # Un cable sin ampacidad ni temperatura publicadas no es verificable, y
         # elegirlo sería afirmar algo que el catálogo no dice. Quedan cargados
@@ -310,18 +312,23 @@ class CatalogManager:
     # ------------------------------------------------------------------
 
     def interpolate_pump_curve(self, pump: PumpCurve, flow_bpd: float) -> dict:
-        """Interpolate pump performance at *flow_bpd* using linear interpolation.
+        """Interpola el comportamiento de la bomba a un caudal dado.
+
+        La curva de catálogo son puntos sueltos; para un caudal intermedio se
+        interpola linealmente entre los dos puntos que lo rodean.
 
         Args:
-            pump: A :class:`~core.models.PumpCurve` instance from this catalog.
-            flow_bpd: Operating flow rate [bpd].
+            pump: Una bomba :class:`~core.models.PumpCurve` de este catálogo.
+            flow_bpd: Caudal de operación [bpd].
 
         Returns:
-            dict with keys ``head_per_stage`` [ft], ``hp_per_stage`` [hp],
-            and ``efficiency`` [0-1].
+            dict con ``head_per_stage`` [ft], ``hp_per_stage`` [hp] y
+            ``efficiency`` [0-1].
 
         Raises:
-            ValueError: If *flow_bpd* is outside the range of the curve data.
+            ValueError: Si el caudal cae fuera del rango de datos de la curva.
+                **No extrapola**: leer una curva fuera de sus datos publicados es
+                inventar.
         """
         flows = np.array([p.flow_rate for p in pump.points])
         heads = np.array([p.head_per_stage for p in pump.points])
@@ -354,31 +361,38 @@ class CatalogManager:
         prefer_type: str = "labyrinth",
         manufacturer: str | None = None,
     ) -> dict:
-        """Select the most economical protector for the given conditions.
+        """Elige el protector (sello) más económico para las condiciones dadas.
 
-        Selection criteria (Brown §4.5325; ChampionX VIGIL / Reda VSEAL):
+        El sello va entre el motor y la bomba, y cumple dos funciones: impedir que
+        el fluido del pozo entre al motor, y absorber el **empuje axial** que genera
+        la bomba.
 
-        1. Compatibility : ``motor_series`` listed in ``compatible_motor_series``.
-        2. Temperature   : ``max_temp_f`` >= ``temp_f``.
-        3. Thrust        : ``thrust_capacity_lbs`` >= ``thrust_lbs``.
-        4. Type          : prefer *prefer_type*; if none of that type carries the
-           load, fall back to any qualifying type.
-        5. Economy       : smallest qualifying thrust capacity.
+        Los criterios, en orden (Brown §4.5325):
+
+            1. **Compatibilidad**: la ``motor_series`` tiene que estar en
+               ``compatible_motor_series``.
+            2. **Temperatura**: ``max_temp_f`` >= ``temp_f``.
+            3. **Empuje**: ``thrust_capacity_lbs`` >= ``thrust_lbs``.
+            4. **Tipo**: se prefiere ``prefer_type``; si ninguno de ese tipo aguanta
+               la carga, se acepta cualquier tipo que califique.
+            5. **Economía**: la menor capacidad de empuje que alcance.
 
         Args:
-            motor_series: Series string of the selected motor (e.g. ``"456"``).
-            temp_f: Required temperature rating [°F] (use bottomhole temp).
-            thrust_lbs: Estimated axial thrust load [lbs].
-            prefer_type: Preferred seal type (``"labyrinth"``/``"bag"``/``"combined"``).
+            motor_series: Serie del motor elegido (por ej. ``"456"``).
+            temp_f: Temperatura que tiene que soportar [°F] — usar la de fondo.
+            thrust_lbs: Carga axial estimada [lbs].
+            prefer_type: Tipo preferido
+                (``"labyrinth"`` / ``"bag"`` / ``"combined"``).
             manufacturer: Cuando se indica, el protector debe ser de ese
                 fabricante. Es la regla de aparejo único: bomba, motor y sello
                 salen del mismo proveedor (ver ``.claude/rules/domain.md``).
 
         Returns:
-            Seal catalog dict.
+            dict del sello del catálogo.
 
         Raises:
-            ValueError: If no compatible seal carries the load at temperature.
+            ValueError: Si ningún sello compatible aguanta la carga a esa
+                temperatura.
         """
         def _at_least(value, floor: float) -> bool:
             """Un dato ausente no descalifica: la verificación queda sin hacer.
@@ -427,12 +441,15 @@ class CatalogManager:
         casing_id_in: float,
         prefer_type: str = "vortex",
     ) -> Optional[dict]:
-        """Select a gas handler for the flow that fits the casing.
+        """Elige un manejador de gas para el caudal, que entre en el casing.
 
-        Filters by flow range (``min_flow_bpd <= flow <= max_flow_bpd``) and
-        casing fit (``od_inches < casing_id_in``), prefers *prefer_type*
-        (vortex separators are highest efficiency), then picks the highest
-        ``max_efficiency``. Returns ``None`` if nothing qualifies.
+        Filtra por rango de caudal (``min_flow_bpd <= caudal <= max_flow_bpd``) y
+        por que entre en el casing (``od_inches < casing_id_in``), prefiere
+        ``prefer_type`` (los separadores de vórtice son los de mayor eficiencia) y
+        entre los que quedan toma el de mayor ``max_efficiency``.
+
+        Returns:
+            El manejador elegido, o ``None`` si ninguno califica.
         """
         candidates = [
             g for g in self._gas_handlers
@@ -462,20 +479,23 @@ class CatalogManager:
         return list(self._controllers)
 
     def get_pump_series(self, series: str) -> dict | None:
-        """Mechanical data of a pump series; ``None`` when the catalog has none.
+        """Datos mecánicos de una serie de bombas; ``None`` si el catálogo no los tiene.
 
-        Shaft diameter and limits, housing pressure ratings and thrust-bearing
-        staging are properties of the **series** hardware, not of the hydraulic
-        model, so they are keyed by series. Returning ``None`` rather than
-        defaults is deliberate: a caller must be able to tell "not verified"
-        from "verified and passed".
+        El diámetro y los límites del eje, la presión que aguantan las carcasas y el
+        tope de etapas del cojinete son propiedades del **hardware de la serie**, no
+        del modelo hidráulico, así que se indexan por serie.
+
+        Devolver ``None`` en vez de valores por defecto es **deliberado**: quien
+        llama tiene que poder distinguir «no verificado» de «verificado y aprobado».
+        Un valor por defecto haría pasar por aprobada una verificación que nunca se
+        hizo.
 
         Args:
-            series: Series designation as it appears in ``PumpCurve.series``
-                (e.g. ``"400"``).
+            series: Designación de la serie tal como aparece en
+                ``PumpCurve.series`` (por ej. ``"400"``).
 
         Returns:
-            The series record, or ``None`` if the series is not in the catalog.
+            La ficha de la serie, o ``None`` si no está en el catálogo.
         """
         return self._pump_series.get(str(series))
 
@@ -520,12 +540,15 @@ class CatalogManager:
         motor_voltage: float,
         need_discharge_pressure: bool = False,
     ) -> Optional[dict]:
-        """Select the smallest-range sensor that covers the well conditions.
+        """Elige el sensor de fondo de menor rango que cubra las condiciones del pozo.
 
-        Filters by intake-pressure range, intake-temperature range, motor
-        voltage, and (optionally) the presence of a discharge-pressure
-        transducer. Among qualifying models, picks the one with the tightest
-        pressure range (best resolution). Returns ``None`` if none qualify.
+        Filtra por rango de presión de admisión, rango de temperatura de admisión,
+        tensión del motor y —opcionalmente— por que tenga transductor de presión de
+        descarga. Entre los que califican toma el de **rango de presión más
+        ajustado**, porque a menor rango, mejor resolución de la medición.
+
+        Returns:
+            El sensor elegido, o ``None`` si ninguno califica.
         """
         candidates = []
         for s in self._sensors:

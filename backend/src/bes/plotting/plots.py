@@ -23,15 +23,15 @@ def _sg_liquid_simple(oil_api: float, water_cut: float, water_sg: float) -> floa
 
 
 def _ipr_q(reservoir, pwf: float) -> float:
-    """Flow rate at a given Pwf — delegates to the canonical core.ipr models.
+    """Caudal a una Pwf dada — delega en los modelos canónicos de ``core.ipr``.
 
-    Avoids re-implementing the IPR equations here (a previous local copy
-    introduced a discontinuity at Pwf = Pb because it used the total AOF
-    as the Vogel multiplier instead of (PI·Pb/1.8)).
+    Evita reimplementar acá las ecuaciones de IPR. Una copia local anterior
+    introducía una **discontinuidad en Pwf = Pb**, porque usaba el AOF total
+    como multiplicador de Vogel en vez de (J·Pb/1.8).
 
     VOGEL usa el **generalizado** (``vogel_composite_ipr``): recta arriba de la
     presión de burbuja, Vogel abajo. Es la misma función que resuelve la Pwf de
-    diseño, así que el gráfico y el cálculo no pueden divergir. Antes se
+    diseño, así que el gráfico y el cálculo **no pueden divergir**. Antes se
     llamaba a ``vogel_ipr`` con ``qmax = J·Pr/1.8``, o sea Vogel puro desde Pr:
     la curva salía doblada desde el primer punto, sin el tramo recto que exige
     el flujo monofásico por encima de Pb.
@@ -125,15 +125,18 @@ def plot_ipr_curve(reservoir, operating_point: tuple | None = None) -> go.Figure
 # ---------------------------------------------------------------------------
 
 def plot_pump_curve(pump: "PumpCurve", operating_flow: float, stages: int) -> go.Figure:
-    """Plot pump head, efficiency, and HP vs flow for a given stage count.
+    """Grafica altura, rendimiento y potencia de la bomba contra el caudal.
+
+    Es la curva característica de la bomba, ya multiplicada por la cantidad de
+    etapas instaladas.
 
     Args:
-        pump: PumpCurve catalog object.
-        operating_flow: Operating flow rate [STB/d].
-        stages: Number of installed stages.
+        pump: Bomba del catálogo.
+        operating_flow: Caudal de operación [STB/d].
+        stages: Cantidad de etapas instaladas.
 
     Returns:
-        Plotly Figure with dual y-axes.
+        Figura de Plotly con doble eje Y.
     """
     flows = np.array([p.flow_rate for p in pump.points])
     heads = np.array([p.head_per_stage for p in pump.points]) * stages
@@ -320,18 +323,24 @@ def plot_pressure_profile(
     surface,
     fluid=None,
 ) -> go.Figure:
-    """Pressure vs depth profile for the ESP completion.
+    """Perfil de presión contra profundidad de la instalación BES.
 
-    Shows key pressure points: Pwf, PIP, Pdisch, Pwh with connecting lines.
+    Muestra los puntos clave de presión unidos por líneas: Pwf en las
+    perforaciones, PIP en la admisión, presión de descarga y presión de boca de
+    pozo. Es la manera más directa de ver de dónde a dónde tiene que levantar la
+    bomba.
 
     Args:
-        well: WellGeometry object.
-        dr: DesignResult with intake_pressure, total_head_required, pump_setting_depth.
-        surface: SurfaceConditions with wellhead_pressure_required.
-        fluid: Optional Fluid object for SG computation.
+        well: Geometría del pozo.
+        dr: ``DesignResult`` con ``intake_pressure``, ``total_head_required`` y
+            ``pump_setting_depth``.
+        surface: Condiciones de superficie con
+            ``wellhead_pressure_required``.
+        fluid: Fluido, opcional, para calcular el SG.
 
     Returns:
-        Plotly Figure (depth on y-axis, inverted).
+        Figura de Plotly, con la profundidad en el eje Y invertido (para que el
+        fondo del pozo quede abajo, como en la realidad).
     """
     sg = 1.0
     if fluid is not None:
@@ -442,16 +451,16 @@ def plot_sensitivity_analysis(
     metrics_dict: dict[str, list[float]],
     parameter_label: str,
 ) -> go.Figure:
-    """4-panel sensitivity analysis grid.
+    """Grilla de 4 paneles con el análisis de sensibilidad.
 
     Args:
-        param_values: List of parameter values (x-axis for each subplot).
-        metrics_dict: {metric_name: [values]} — expected keys:
-            "HP", "Etapas", "Eficiencia (%)", "TDH (ft)".
-        parameter_label: Display name for the x-axis parameter.
+        param_values: Valores del parámetro barrido (eje X de cada panel).
+        metrics_dict: ``{nombre_métrica: [valores]}`` — se esperan las claves
+            "HP", "Etapas", "Eficiencia (%)" y "TDH (ft)".
+        parameter_label: Nombre del parámetro para mostrar en el eje X.
 
     Returns:
-        Plotly Figure with 2×2 subplot grid.
+        Figura de Plotly con una grilla de 2×2 paneles.
     """
     metrics_order = ["HP", "Etapas", "Eficiencia (%)", "TDH (ft)"]
     colors = ["#1565C0", "#2E7D32", "#E65100", "#6A1B9A"]
@@ -507,21 +516,29 @@ def plot_nodal_analysis(
     stages=None,
     pump_depth=None,
 ) -> go.Figure:
-    """Professional nodal-analysis chart (IPR + outflow curves + operating points).
+    """Gráfico de análisis nodal: curvas IPR y de descarga, con el punto de cruce.
+
+    Es **el gráfico que resume todo el diseño**. La curva IPR baja (a más
+    caudal, menos presión de fondo disponible) y la de descarga sube (a más
+    caudal, más presión hace falta). Donde se cruzan, el pozo produce.
+
+    Con la bomba instalada, la curva de descarga baja —la bomba aporta
+    presión— y el cruce se corre a un caudal mayor. Esa diferencia es el
+    beneficio del equipo.
 
     Args:
-        reservoir: Reservoir dataclass.
-        fluid: Fluid dataclass.
-        well: WellGeometry dataclass.
-        surface: SurfaceConditions dataclass.
-        pump: Optional PumpCurve catalog entry.
-        stages: Number of pump stages (required when *pump* is given).
-        pump_depth: Pump setting depth [ft TVD].
+        reservoir: Reservorio.
+        fluid: Fluido producido.
+        well: Geometría del pozo.
+        surface: Condiciones de superficie.
+        pump: Bomba del catálogo, opcional.
+        stages: Cantidad de etapas (obligatoria si se pasa ``pump``).
+        pump_depth: Profundidad de asentamiento [ft TVD].
 
     Returns:
-        Plotly Figure with IPR, natural and (optionally) pump outflow curves,
-        operating-point markers, a shaded benefit zone, and a summary
-        annotation box.
+        Figura de Plotly con la IPR, la curva de descarga natural y (si
+        corresponde) la que resulta con bomba, los marcadores de los puntos de
+        operación, la zona de beneficio sombreada y un recuadro de resumen.
     """
     from bes.core.nodal_analysis import METHOD_LABEL, find_operating_point
 

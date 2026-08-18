@@ -1,37 +1,64 @@
-"""
-Mechanical verification of the pump string: shaft and thrust bearing.
+"""Verificación mecánica de la bomba: eje y cojinete de empuje.
 
-Companion to :mod:`bes.core.housing`, which covers the third check of the same
-family (housing burst pressure). Together they answer the note manufacturers
-print at the bottom of every engineering-data sheet:
+Va de la mano con :mod:`bes.core.housing`, que cubre la tercera verificación de
+la misma familia (la presión que aguanta la carcasa). Entre los tres módulos
+responden la nota al pie que los fabricantes imprimen en toda hoja de datos:
 
-    "Maximum staging may be limited by housing pressure limit, shaft capacity
-     or thrust loading."
+    «Maximum staging may be limited by housing pressure limit, shaft capacity
+     or thrust loading.»
 
-Three independent ceilings on the stage count. The design must respect the
-**lowest** of the three — a stack that fits the housing pressure can still
-twist the shaft off.
+O sea: **hay tres topes distintos a la cantidad de etapas** y el diseño tiene
+que respetar el MENOR de los tres. Una sarta que entra holgada en la presión de
+carcasa igual puede torcer el eje.
 
-Formulas (cátedra, Unidad N°9 pág. 140):
+Los tres topes
+--------------
+    1. Presión de carcasa   -> housing.py
+    2. Capacidad del eje    -> este módulo
+    3. Carga sobre el cojinete de empuje -> este módulo
 
-- **Power on the shaft** — ``HP_eje = P_etapa · #Etapas · Pem``
-- **Load on the bearing** — ``Carga TL = Ho · Pem · A_eje``
+Las fórmulas (apuntes de cátedra, Unidad N°9 pág. 140)
+------------------------------------------------------
+**Potencia sobre el eje**::
 
-  where ``Ho`` is the lift the pump must raise to the wellhead and ``A_eje``
-  the shaft cross-section.
+    HP_eje = P_etapa · #Etapas · Pem
 
-  .. note::
-     The printed formula reads ``Carga TL = Ho · #Etapas · Pem · A_eje``, but
-     ``Ho`` is defined there as the **total** lift, which already is the sum of
-     what every stage contributes — the ``#Etapas`` factor counts the column
-     twice. For a 1500 m lift on a 250-stage pump the printed form gives
-     198 000 lbs against protectors rated 5 000–30 000 lbs; without it, 792 lbs,
-     which agrees with the Takács estimate the electrical design already uses
-     (779 lbs on the same case). The ``#Etapas`` factor is therefore taken as a
-     typo and dropped.
+**Carga sobre el cojinete**::
 
-Data comes from the per-series catalog (``pump_series.json``). A series with no
-entry leaves every check **unverified** — reported as such, never as passed.
+    Carga TL = Ho · Pem · A_eje
+
+donde ``Ho`` es la elevación que la bomba tiene que levantar hasta boca de pozo
+y ``A_eje`` la sección transversal del eje.
+
+Una errata del apunte, ya resuelta
+----------------------------------
+El impreso dice ``Carga TL = Ho · #Etapas · Pem · A_eje``, pero ahí mismo
+define ``Ho`` como la elevación **total**, que ya es la suma de lo que aporta
+cada etapa: el factor ``#Etapas`` cuenta la columna dos veces.
+
+Con 1500 m de elevación y una bomba de 250 etapas, la forma impresa da
+**198 000 lbs** contra sellos calificados para 5 000–30 000 lbs. Sin ese
+factor da **792 lbs**, que coincide con la estimación de Takács que ya usa el
+diseño eléctrico (779 lbs en el mismo caso). Por eso se toma como tipeo y se
+descarta. **No volver a agregarlo.**
+
+De dónde salen los datos
+------------------------
+Del catálogo por serie (``pump_series.json``). Una serie sin ficha deja todas
+las verificaciones **SIN REALIZAR** — y se reporta así, nunca como aprobadas.
+Hoy sólo está cargada la serie 400, de la hoja *ENGINEERING DATA TD1750 50Hz*
+de Wood Group. **No agregar series con valores estimados.**
+
+Nomenclatura
+------------
+    HP_eje    Potencia que el eje tiene que transmitir      [hp]
+    P_etapa   Potencia por etapa, de la curva de catálogo   [hp/etapa]
+    #Etapas   Cantidad de etapas activas                    [-]
+    Pem       Gravedad específica media del fluido bombeado [-]
+    Ho        Elevación hasta boca de pozo                  [ft]
+    A_eje     Sección transversal del eje                   [in²]
+    TL        Thrust Load: carga axial sobre el cojinete    [lbs]
+    BHT       Bottom Hole Temperature: temperatura de fondo [°F]
 """
 from __future__ import annotations
 
@@ -43,21 +70,25 @@ _LBS_PER_KG = 2.2046226
 
 
 def shaft_power(hp_per_stage: float, stages: int, pem: float) -> float:
-    """Power the shaft must transmit [hp] — ``HP_eje = P_etapa · #Etapas · Pem``.
+    """Potencia que el eje tiene que transmitir [hp].
 
-    Catalog ``hp/stage`` is rated for water (SG = 1), hence the ``Pem`` factor
-    for the real produced mixture. This is the same quantity
-    :func:`bes.core.pump_design.calculate_motor_hp` returns; it is restated here
-    because it is the input to the shaft check, and having it named makes the
-    verification read like the cátedra procedure.
+        HP_eje = P_etapa · #Etapas · Pem
+
+    El ``hp/etapa`` del catálogo está calibrado para agua (SG = 1), de ahí el
+    factor ``Pem`` con la gravedad específica de la mezcla real.
+
+    Es la misma magnitud que devuelve
+    :func:`bes.core.pump_design.calculate_motor_hp`; se vuelve a escribir acá
+    porque es el dato de entrada de la verificación del eje, y tenerla con
+    nombre propio hace que el módulo se lea como el procedimiento de cátedra.
 
     Args:
-        hp_per_stage: Power per stage at the operating rate [hp/stage].
-        stages: Number of active stages.
-        pem: Average specific gravity of the pumped fluid.
+        hp_per_stage: Potencia por etapa al caudal de operación [hp/etapa].
+        stages: Cantidad de etapas activas.
+        pem: Gravedad específica media del fluido bombeado.
 
     Returns:
-        Shaft power [hp]. Zero if any argument is non-positive.
+        Potencia sobre el eje [hp]. Cero si algún argumento no es positivo.
     """
     if hp_per_stage <= 0 or stages <= 0 or pem <= 0:
         return 0.0
@@ -67,28 +98,31 @@ def shaft_power(hp_per_stage: float, stages: int, pem: float) -> float:
 def shaft_hp_limit_at_frequency(
     limit_hp: float, limit_frequency_hz: float, frequency_hz: float
 ) -> float:
-    """Shaft power limit rescaled to another drive frequency [hp].
+    """Lleva el límite de potencia del eje a otra frecuencia [hp].
 
-    What a shaft can take is a **torque**, not a power, and power is torque
-    times speed. At constant torque the admissible power therefore scales
-    linearly with the frequency:
+    Lo que aguanta un eje es un **torque**, no una potencia. Y potencia es
+    torque por velocidad, así que a torque constante la potencia admisible
+    escala linealmente con la frecuencia::
 
-        ``HP_limit(f) = HP_limit(f_ref) · f / f_ref``
+        HP_limite(f) = HP_limite(f_ref) · f / f_ref
 
-    This matters because catalogs publish the limit at one frequency — the
-    Wood Group sheet at 50 Hz, Alkhorayef's at 60 Hz — and comparing a 60 Hz
-    design against a 50 Hz limit under-rates the shaft by 20 %.
+    Importa porque los catálogos publican el límite a una frecuencia sola —la
+    hoja de Wood Group a 50 Hz, la de Alkhorayef a 60 Hz— y comparar un diseño
+    de 60 Hz contra un límite de 50 Hz subestima el eje en un 20 %.
+
+    Ejemplo: los 104 hp que la hoja de Wood Group da a 50 Hz son 124.8 hp a
+    60 Hz.
 
     Args:
-        limit_hp: Published limit [hp].
-        limit_frequency_hz: Frequency the published limit refers to [Hz].
-        frequency_hz: Frequency of the design [Hz].
+        limit_hp: Límite publicado [hp].
+        limit_frequency_hz: Frecuencia a la que se publicó ese límite [Hz].
+        frequency_hz: Frecuencia del diseño [Hz].
 
     Returns:
-        Limit at the design frequency [hp].
+        Límite a la frecuencia del diseño [hp].
 
     Raises:
-        ValueError: If either frequency is not positive.
+        ValueError: Si alguna de las dos frecuencias no es positiva.
     """
     if limit_frequency_hz <= 0:
         raise ValueError(
@@ -100,21 +134,27 @@ def shaft_hp_limit_at_frequency(
 
 
 def bearing_load_tl(lift_ft: float, pem: float, shaft_area_in2: float) -> float:
-    """Axial load on the seal-section thrust bearing [lbs].
+    """Carga axial sobre el cojinete de empuje de la sección sellante [lbs].
 
-    ``Carga TL = Ho · Pem · A_eje`` — the pressure of the column the pump has
-    to raise, acting on the shaft cross-section. In field units the lift in
-    feet becomes a pressure with the usual head↔pressure constant:
+        Carga TL = Ho · Pem · A_eje
 
-        ``TL [lbs] = (Ho [ft] · Pem / 2.31) · A_eje [in²]``
+    Es la presión de la columna que la bomba tiene que levantar, actuando sobre
+    la sección del eje. En unidades de campo, la elevación en pies se pasa a
+    presión con la constante de siempre::
+
+        TL [lbs] = (Ho [ft] · Pem / 2.31) · A_eje [in²]
+
+    Ver la nota del encabezado del módulo sobre el factor ``#Etapas`` que trae
+    el apunte impreso y que acá se descarta a propósito.
 
     Args:
-        lift_ft: Lift the pump must raise to the wellhead [ft].
-        pem: Average specific gravity of the pumped fluid.
-        shaft_area_in2: Shaft cross-sectional area [in²].
+        lift_ft: Elevación que la bomba tiene que levantar hasta boca de
+            pozo [ft].
+        pem: Gravedad específica media del fluido bombeado.
+        shaft_area_in2: Sección transversal del eje [in²].
 
     Returns:
-        Axial load [lbs]. Zero if any argument is non-positive.
+        Carga axial [lbs]. Cero si algún argumento no es positivo.
     """
     if lift_ft <= 0 or pem <= 0 or shaft_area_in2 <= 0:
         return 0.0
@@ -127,11 +167,17 @@ def bearing_load_kg(lift_ft: float, pem: float, shaft_area_in2: float) -> float:
 
 
 def shaft_area_in2(series: dict) -> float:
-    """Shaft cross-section of a series [in²], from the area or the diameter.
+    """Sección transversal del eje de una serie [in²].
 
-    Catalogs publish both and they agree (239.51 mm² = π/4·17.463 mm²); the
-    published area wins when present so the number is the manufacturer's, not
-    ours.
+    Los catálogos publican tanto el área como el diámetro, y coinciden
+    (239.51 mm² = π/4 · 17.463 mm²). Cuando está el área publicada, gana: así
+    el número es del fabricante y no nuestro.
+
+    Args:
+        series: Ficha de la serie, del catálogo.
+
+    Returns:
+        Sección del eje [in²]. Cero si la serie no publica ninguno de los dos.
     """
     area = float(series.get("shaft_area_in2") or 0.0)
     if area > 0:
@@ -143,22 +189,24 @@ def shaft_area_in2(series: dict) -> float:
 def verify_shaft(
     hp_shaft: float, series: dict | None, frequency_hz: float
 ) -> dict:
-    """Check the shaft power against the series limits.
+    """Verifica la potencia sobre el eje contra los límites de la serie.
 
-    A design over the **standard** limit is not a failure: it calls for a
-    high-strength shaft, exactly as an over-pressured housing calls for a
-    high-pressure one. Only exceeding the high-strength limit is infeasible.
+    Pasarse del límite **estándar** no es una falla: significa que hace falta un
+    eje de alta resistencia, igual que una carcasa sobrepresionada pide una
+    carcasa de alta presión. Recién pasarse del límite de alta resistencia hace
+    inviable el diseño.
 
     Args:
-        hp_shaft: Power on the shaft [hp], from :func:`shaft_power`.
-        series: Series record from the catalog, or ``None`` if unknown.
-        frequency_hz: Design frequency [Hz], to rescale the published limit.
+        hp_shaft: Potencia sobre el eje [hp], la que da :func:`shaft_power`.
+        series: Ficha de la serie del catálogo, o ``None`` si no se conoce.
+        frequency_hz: Frecuencia del diseño [Hz], para llevar el límite
+            publicado a la frecuencia real.
 
     Returns:
-        dict with ``verified`` (False = the catalog has no data for this
-        series), ``hp_shaft``, ``limit_std``, ``limit_high_strength``,
+        dict con ``verified`` (False = el catálogo no tiene datos de esta
+        serie), ``hp_shaft``, ``limit_std``, ``limit_high_strength``,
         ``shaft_type`` (``"standard"`` / ``"high_strength"`` / ``""``),
-        ``ok`` and ``note``.
+        ``ok`` y ``note``.
     """
     if not series or not series.get("shaft_hp_limit_std"):
         return {
@@ -200,23 +248,25 @@ def verify_shaft(
 def verify_bearing_staging(
     stages: int, bottom_hole_temp_f: float, series: dict | None
 ) -> dict:
-    """Check the stage count against the floater thrust-bearing capacity.
+    """Verifica la cantidad de etapas contra la capacidad del cojinete de empuje.
 
-    Manufacturers publish this ceiling as a **stage count with a temperature
-    cap** — the Wood Group 400 series allows 303 stages on the standard bearing
-    up to 230 °F, or 1529 on the high-load one up to 250 °F — because the
-    bearing material loses capacity with temperature. Both conditions bind: a
-    well hotter than the cap rules that bearing out no matter how few stages it
-    carries.
+    Los fabricantes publican este tope como una **cantidad de etapas con un
+    límite de temperatura**, no como una carga: la serie 400 de Wood Group
+    admite 303 etapas con el cojinete estándar hasta 230 °F, o 1529 con el de
+    alta carga hasta 250 °F. Es así porque el material del cojinete pierde
+    capacidad al calentarse.
+
+    **Las dos condiciones atan**: un pozo más caliente que el tope descarta ese
+    cojinete por más pocas etapas que lleve.
 
     Args:
-        stages: Active stages in the string.
-        bottom_hole_temp_f: Bottom-hole temperature [°F].
-        series: Series record from the catalog, or ``None`` if unknown.
+        stages: Etapas activas de la sarta.
+        bottom_hole_temp_f: Temperatura de fondo [°F].
+        series: Ficha de la serie del catálogo, o ``None`` si no se conoce.
 
     Returns:
-        dict with ``verified``, ``stages``, ``limit_stages``, ``bearing_type``
-        (``"standard"`` / ``"high_load"`` / ``""``), ``bht_max_f``, ``ok`` and
+        dict con ``verified``, ``stages``, ``limit_stages``, ``bearing_type``
+        (``"standard"`` / ``"high_load"`` / ``""``), ``bht_max_f``, ``ok`` y
         ``note``.
     """
     if not series or not series.get("max_staging_bearing_std"):
@@ -282,9 +332,19 @@ def max_stages_by_shaft(
 def max_stages_by_housing_pressure(
     shutin_head_per_stage: float, pem: float, limit_psi: float
 ) -> int:
-    """Highest stage count the housing pressure rating allows, 0 when unknown.
+    """Máximo de etapas que permite la presión de carcasa. 0 si no se conoce.
 
-    Inverts ``MaxP = P(Q0) · #Etapas · Pem`` — see :mod:`bes.core.housing`.
+    Es la inversa de ``MaxP = P(Q0) · #Etapas · Pem`` — ver
+    :mod:`bes.core.housing`.
+
+    Args:
+        shut_in_head_psi: Presión que da la bomba a caudal cero, por
+            etapa [psi/etapa].
+        pressure_limit_psi: Presión que aguanta la carcasa [psi].
+        pem: Gravedad específica media del fluido bombeado.
+
+    Returns:
+        Cantidad máxima de etapas.
     """
     if limit_psi <= 0 or shutin_head_per_stage <= 0 or pem <= 0:
         return 0
@@ -295,10 +355,19 @@ def max_stages_by_housing_pressure(
 def max_stages_by_bearing(
     bottom_hole_temp_f: float, series: dict | None
 ) -> int:
-    """Highest stage count the thrust bearing allows at this temperature.
+    """Máximo de etapas que permite el cojinete a esta temperatura.
 
-    Returns 0 when the series has no data, and 0 as well when the well is
-    hotter than every bearing option — there is no admissible stage count then.
+    Devuelve 0 cuando la serie no tiene datos, y también 0 cuando el pozo está
+    más caliente que todas las opciones de cojinete — ahí no hay ninguna
+    cantidad de etapas admisible.
+
+    Args:
+        bottom_hole_temp_f: Temperatura de fondo [°F].
+        series: Ficha de la serie del catálogo, o ``None``.
+
+    Returns:
+        Cantidad máxima de etapas, 0 si no hay dato o si el pozo es demasiado
+        caliente.
     """
     if not series or not series.get("max_staging_bearing_std"):
         return 0
@@ -323,17 +392,20 @@ def staging_ceiling(
     series: dict | None,
     frequency_hz: float,
 ) -> dict:
-    """The three ceilings on the stage count, and which one governs.
+    """Los tres topes a la cantidad de etapas, y cuál manda.
 
-    This is the manufacturer's own footnote turned into a number: the design is
-    capped by the housing pressure, the shaft capacity or the thrust loading,
-    whichever bites first. Ceilings with no data are reported as 0 and excluded
-    from the comparison rather than treated as zero-stage limits.
+    Es la nota al pie del fabricante convertida en número: el diseño queda
+    limitado por la presión de carcasa, por la capacidad del eje o por la carga
+    sobre el cojinete, **lo que muerda primero**.
+
+    Los topes sin datos se reportan como 0 y quedan EXCLUIDOS de la
+    comparación, no tratados como un límite de cero etapas — que sería decir
+    que no se puede instalar ninguna.
 
     Returns:
-        dict with ``by_housing_pressure``, ``by_shaft``, ``by_bearing``,
-        ``governing`` (the binding ceiling, 0 if none is known) and
-        ``governing_by`` (which one, ``""`` if none).
+        dict con ``by_housing_pressure``, ``by_shaft``, ``by_bearing``,
+        ``governing`` (el tope que manda, 0 si no se conoce ninguno) y
+        ``governing_by`` (cuál de los tres es, ``""`` si ninguno).
     """
     ceilings = {
         "by_housing_pressure": max_stages_by_housing_pressure(
@@ -351,3 +423,110 @@ def staging_ceiling(
         ceilings["governing"] = 0
         ceilings["governing_by"] = ""
     return ceilings
+
+
+# --------------------------------------------------------------------------
+# Traza de fórmulas
+# --------------------------------------------------------------------------
+
+def mechanical_trace(
+    hp_per_stage: float,
+    stages: int,
+    pem: float,
+    lift_ft: float,
+    shutin_head_per_stage: float,
+    active_stages: int,
+    housing_limit_psi: float,
+    bottom_hole_temp_f: float,
+    series: dict | None,
+    frequency_hz: float,
+) -> list[dict]:
+    """Las tres verificaciones mecánicas con sus números, y cuál manda.
+
+    Función aparte, como :func:`bes.core.ipr.ipr_trace`, para no cambiarle la
+    firma a las funciones puras. Llama a las mismas que usa el diseño.
+
+    Args:
+        hp_per_stage: Potencia por etapa de la curva de catálogo [hp/etapa].
+        stages: Etapas de la sarta [-].
+        pem: Gravedad específica media del fluido bombeado [-].
+        lift_ft: Elevación hasta boca de pozo [ft].
+        shutin_head_per_stage: Altura por etapa a caudal cero [ft/etapa].
+        active_stages: Etapas activas acumuladas en la carcasa crítica [-].
+        housing_limit_psi: Presión admisible de la carcasa [psi].
+        bottom_hole_temp_f: Temperatura de fondo [°F].
+        series: Ficha de la serie (``pump_series.json``) o ``None``.
+        frequency_hz: Frecuencia de operación [Hz].
+
+    Returns:
+        Lista de dicts de :class:`bes.core.formulas.Formula`. Las verificaciones
+        sin datos de serie **no** emiten fórmula: quedan sin realizar, que no es
+        lo mismo que aprobadas.
+    """
+    from bes.core.formulas import FormulaTrace
+    from bes.core.housing import housing_pressure_psi
+
+    trace = FormulaTrace()
+
+    trace.add(
+        "mec_potencia_eje",
+        {"P_etapa": hp_per_stage, "N": stages, "Pem": pem},
+        shaft_power(hp_per_stage, stages, pem),
+    )
+
+    if series:
+        limite = series.get("shaft_hp_limit_std") or 0.0
+        f_ref = series.get("reference_frequency_hz") or 0.0
+        if limite > 0 and f_ref > 0:
+            trace.add(
+                "mec_limite_eje_frecuencia",
+                {"HP_lim(f_ref)": limite, "f_ref": f_ref, "f": frequency_hz},
+                shaft_hp_limit_at_frequency(limite, f_ref, frequency_hz),
+                context=f"El fabricante publica el límite a {f_ref:.0f} Hz y "
+                        f"este diseño corre a {frequency_hz:.0f} Hz.",
+            )
+
+    area = shaft_area_in2(series or {})
+    if area > 0:
+        trace.add(
+            "mec_carga_cojinete",
+            {"Ho": lift_ft, "Pem": pem, "A_eje": area},
+            bearing_load_tl(lift_ft, pem, area),
+            context="Ho es la elevación TOTAL, así que no lleva el factor "
+                    "«× N etapas» que trae impreso el apunte.",
+        )
+
+    if shutin_head_per_stage > 0 and active_stages > 0:
+        trace.add(
+            "mec_presion_carcasa",
+            {"P(Q=0)": shutin_head_per_stage, "N_activas": active_stages,
+             "Pem": pem},
+            housing_pressure_psi(shutin_head_per_stage, active_stages, pem),
+            context=(
+                f"Contra un límite de {housing_limit_psi:,.0f} psi."
+                if housing_limit_psi > 0 else
+                "Sin límite publicado para esta carcasa: queda SIN VERIFICAR."
+            ),
+        )
+
+    topes = staging_ceiling(
+        hp_per_stage=hp_per_stage,
+        shutin_head_per_stage=shutin_head_per_stage,
+        pem=pem,
+        bottom_hole_temp_f=bottom_hole_temp_f,
+        housing_limit_psi=housing_limit_psi,
+        series=series,
+        frequency_hz=frequency_hz,
+    )
+    if topes["governing"] > 0:
+        trace.add(
+            "mec_tope_etapas",
+            {"N_carcasa": topes["by_housing_pressure"],
+             "N_eje": topes["by_shaft"],
+             "N_cojinete": topes["by_bearing"]},
+            topes["governing"],
+            context=f"Manda «{topes['governing_by']}». Un tope en 0 es una "
+                    f"verificación SIN DATOS, no un límite de cero etapas: se "
+                    f"excluye de la comparación.",
+        )
+    return trace.as_list()

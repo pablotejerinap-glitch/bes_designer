@@ -1,6 +1,69 @@
-"""
-TDH (Total Dynamic Head) calculations for BES/ESP pump design.
-Based on: Kermit Brown, "The Technology of Artificial Lift Methods", Vol. 2b, Ch. 4.5.
+"""TDH — Altura dinámica total que tiene que desarrollar la bomba.
+
+TDH quiere decir *Total Dynamic Head*. Es **la pregunta central del diseño**:
+¿cuánta altura de columna tiene que levantar la bomba para sacar el fluido del
+pozo y entregarlo en superficie con la presión que se necesita?
+
+Se descompone en tres términos que se suman::
+
+    TDH = Elevación vertical + Fricción en el tubing + Altura de boca de pozo
+
+Qué significa cada uno
+----------------------
+**Elevación vertical.** Lo que hay que levantar de verdad. No es toda la
+profundidad de la bomba: el fluido ya viene con algo de presión propia (el
+PIP), que equivale a una columna que la bomba NO tiene que levantar. Esa
+columna se llama sumergencia::
+
+    H_vert = profundidad_bomba − sumergencia
+    sumergencia = PIP · 2.31 / SG
+
+**Fricción en el tubing.** Lo que se pierde rozando contra las paredes de la
+cañería. Cuanto más caudal y más angosto el tubing, más se pierde.
+
+**Altura de boca de pozo.** El fluido no puede llegar arriba con presión cero:
+tiene que entrar al separador. Esa presión se convierte a altura equivalente.
+
+El 2.31 que aparece en todos lados
+----------------------------------
+Es la constante que pasa de presión a altura: **una columna de 2.31 pies de
+agua dulce hace 1 psi**. Dividir por el SG la lleva al fluido real, que es más
+pesado que el agua o más liviano según el caso.
+
+Cuál correlación de fricción se usa
+-----------------------------------
+La decide la física, no el usuario. Se mira cuánto **gas libre** hay en la
+admisión de la bomba:
+
+    - poco gas  -> Hazen-Williams (fórmula monofásica, para líquido)
+    - mucho gas -> Poettmann-Carpenter (multifásica), sólo el término de
+      fricción
+
+El umbral por defecto es 1 % de gas libre. Ver
+``.claude/rules/domain.md``.
+
+Contenido
+---------
+1. Fricción por Hazen-Williams (monofásica)
+2. Fricción por Poettmann-Carpenter (multifásica), integrada por tramos
+3. Temperatura a una profundidad dada (perfil geotérmico lineal)
+4. El TDH completo, con su traza de fórmulas
+
+Nomenclatura
+------------
+    TDH       Altura dinámica total                        [ft]
+    H_vert    Elevación vertical neta                      [ft]
+    H_fric    Pérdida por fricción en el tubing            [ft]
+    H_wh      Altura equivalente a la presión de cabeza    [ft]
+    H_pip     Sumergencia                                  [ft]
+    PIP       Pump Intake Pressure: presión en la admisión [psia]
+    Pwh       Presión requerida en boca de pozo            [psi]
+    SG        Gravedad específica del líquido producido    [-]
+    2.31      Pies de columna de agua dulce por psi        [ft/psi]
+
+Referencia
+----------
+Brown, K.E. "The Technology of Artificial Lift Methods", Vol. 2b, §4.5324.
 """
 from __future__ import annotations
 
@@ -13,16 +76,26 @@ def friction_loss_hazen_williams(
     length_ft: float,
     c_factor: float = 120.0,
 ) -> float:
-    """Hazen-Williams friction head loss in production tubing.
+    """Pérdida de carga por fricción en el tubing — Hazen-Williams.
+
+    Es la fórmula **monofásica**: vale cuando lo que sube por el tubing se puede
+    tratar como líquido, o sea con poco gas libre::
+
+        H_fric = 0.2083 · (100/C)^1.852 · q^1.852 / d^4.8655 · L/100
+
+    Fijarse en los exponentes: la pérdida crece casi con el **cuadrado del
+    caudal** y baja con la **quinta potencia del diámetro**. Por eso un tubing
+    un poco más ancho reduce muchísimo la fricción.
 
     Args:
-        q_bpd: Flow rate [STB/d].
-        pipe_id_in: Pipe inner diameter [in].
-        length_ft: Pipe length [ft].
-        c_factor: H-W roughness coefficient (120 = design steel, 130 = new steel).
+        q_bpd: Caudal [STB/d].
+        pipe_id_in: Diámetro interior de la cañería [in].
+        length_ft: Largo de la cañería [ft].
+        c_factor: Coeficiente de rugosidad de Hazen-Williams
+            (120 = acero de diseño, 130 = acero nuevo).
 
     Returns:
-        Total friction head loss [ft].
+        Pérdida de carga total por fricción [ft].
     """
     q_gpm = q_bpd * 42.0 / 1440.0
     return (
@@ -88,50 +161,57 @@ def _friction_loss_poettmann_carpenter(
     bottom_temp_f: float,
     n_segments: int = _PC_SEGMENTS,
 ) -> tuple[float, dict]:
-    """Tubing friction head by Poettmann-Carpenter, in ft of produced liquid.
+    """Fricción en el tubing por Poettmann-Carpenter, en pies de líquido producido.
 
-    Only the **friction** term of the P&C gradient is accumulated: the gravity
-    term of the multiphase column is the physical counterpart of the
-    vertical-lift head that :func:`calculate_tdh` already accounts for, so
-    adding it would count the column twice. See
+    Se acumula **sólo el término de fricción** del gradiente P&C. El término de
+    gravedad de la columna multifásica es la contraparte física de la elevación
+    vertical que :func:`calculate_tdh` ya contabiliza, así que sumarlo contaría
+    la columna dos veces. Ver
     :func:`bes.core.multiphase.poettmann_carpenter_components`.
 
-    The friction gradient cannot be evaluated at a single representative point.
-    Free gas expands as the pressure falls towards the surface, so the mixture
-    velocity near the wellhead is several times what it is at the pump and the
-    friction term — which goes with v² — is strongly weighted to the top of the
-    string. This function therefore marches the tubing in ``n_segments``:
+    Por qué se integra por tramos y no se evalúa en un punto
+    --------------------------------------------------------
+    El gas libre **se expande** a medida que la presión cae hacia la superficie.
+    Cerca del cabezal la mezcla va varias veces más rápido que en la bomba, y
+    el término de fricción va con v², así que la fricción está fuertemente
+    cargada hacia el tope de la sarta. Evaluarla en un punto medio la
+    subestima.
 
-    1. start at the wellhead, where the pressure is known (THP);
-    2. per segment, evaluate the P&C gradient at the segment mid-point
-       (predictor step on the pressure, mid-point on the temperature);
-    3. accumulate the **friction** contribution, and advance the pressure with
-       the **total** gradient — the pressure profile in the tubing is governed
-       by both terms, even though only friction goes into the TDH.
+    Por eso esta función recorre el tubing en ``n_segments`` tramos:
 
-    Marching downward from the known wellhead pressure also removes the
-    circularity: no estimate of the TDH is needed to compute the friction.
+        1. arranca en el cabezal, donde la presión se conoce (la de boca de
+           pozo);
+        2. en cada tramo evalúa el gradiente P&C en el punto medio (paso
+           predictor sobre la presión, punto medio sobre la temperatura);
+        3. acumula la contribución de **fricción**, y avanza la presión con el
+           gradiente **total** — el perfil de presión del tubing lo gobiernan
+           los dos términos, aunque al TDH sólo vaya la fricción.
+
+    Bajar desde la presión conocida del cabezal además **saca la
+    circularidad**: no hace falta estimar el TDH para calcular la fricción.
 
     Args:
-        fluid: Fluid PVT and composition.
-        well: Well geometry — tubing ID and the temperature profile.
-        surface: Surface conditions — wellhead pressure (start of the march).
-        objectives: Design objectives — target flow rate.
-        pump_depth: Pump setting depth [ft TVD], i.e. the tubing length.
-        sg: Produced-liquid specific gravity, for the psi → ft conversion.
+        fluid: PVT y composición del fluido.
+        well: Geometría del pozo — ID del tubing y perfil de temperatura.
+        surface: Condiciones de superficie — presión de boca de pozo, que es
+            donde arranca el recorrido.
+        objectives: Objetivos de diseño — caudal buscado.
+        pump_depth: Profundidad de la bomba [ft TVD], o sea el largo del
+            tubing.
+        sg: Gravedad específica del líquido producido, para pasar psi a ft.
         bottom_temp_f: Temperatura de fondo [°F] — el extremo inferior del
             perfil geotérmico, o sea ``reservoir.reservoir_temp``.
-        n_segments: Number of integration segments. 30 keeps the result within
-            a fraction of a foot of a much finer march.
+        n_segments: Cantidad de tramos de integración. Con 30 el resultado
+            queda a una fracción de pie de un recorrido mucho más fino.
 
     Returns:
-        ``(friction_head_ft, diagnostics)``. The diagnostics carry the pressure
-        at both ends of the string and the gradients at the wellhead and at the
-        pump, which is what shows how much the expansion weights the top.
+        ``(fricción_ft, diagnósticos)``. Los diagnósticos traen la presión en
+        los dos extremos de la sarta y los gradientes en el cabezal y en la
+        bomba, que es lo que muestra cuánto carga la expansión hacia el tope.
 
     Raises:
-        ValueError: Propagated from the P&C correlation for a non-physical
-            flow rate or tubing diameter.
+        ValueError: Propagado desde la correlación P&C si el caudal o el
+            diámetro no son físicos.
     """
     from bes.core.multiphase import poettmann_carpenter_components
 
@@ -193,50 +273,61 @@ def calculate_tdh(
     pip: float,
     free_gas_fraction: float | None = None,
 ) -> dict:
-    """Total Dynamic Head per Brown, Vol. 2b, Section 4.5324.
+    """Altura dinámica total (TDH) — Brown Vol. 2b, §4.5324.
 
-    TDH = Vertical Lift + Tubing Friction + Wellhead Pressure Head
+    Es la función central del módulo::
 
-    - Vertical Lift  = pump_depth − (PIP in ft of fluid head)
-    - Wellhead Pressure Head = Pwh × 2.31 / SG_liquid
-    - Tubing Friction — **the correlation depends on how much free gas the
-      well carries at the pump intake**:
+        TDH = Elevación vertical + Fricción en tubing + Altura de boca de pozo
 
-      * ``free_gas_fraction <= objectives.gas_fraction_pc_threshold`` →
-        Hazen-Williams. The stream is essentially liquid and the single-phase
-        equation applies.
-      * above the threshold → Poettmann-Carpenter (friction term only). The
-        gas-liquid mixture is lighter and much faster than the liquid alone,
-        which the single-phase equation cannot represent.
+        Elevación vertical      = profundidad_bomba − (PIP en pies de columna)
+        Altura de boca de pozo  = Pwh · 2.31 / SG_líquido
+        Fricción                = ver abajo
 
-    Only the friction term of P&C is substituted; the vertical lift and the
-    wellhead head keep the produced-liquid SG. This is a deliberate hybrid: it
-    preserves the three-term breakdown that the reports and the UI show. Be
-    aware of what it leaves out — in a real gassy well the tubing column is
-    also lighter than the liquid column, so the vertical-lift term computed
-    here is conservative (it over-estimates the head the pump must develop).
+    Qué correlación de fricción se usa
+    ----------------------------------
+    **Lo decide la cantidad de gas libre en la admisión**, no el usuario:
+
+        - ``fracción_gas <= objectives.gas_fraction_pc_threshold``
+          -> **Hazen-Williams**. Lo que sube es esencialmente líquido y vale la
+          ecuación monofásica.
+        - por encima del umbral
+          -> **Poettmann-Carpenter**, sólo el término de fricción. La mezcla
+          gas-líquido es más liviana y mucho más rápida que el líquido solo, y
+          eso la ecuación monofásica no lo puede representar.
+
+    Un híbrido deliberado, y lo que deja afuera
+    -------------------------------------------
+    Se sustituye **sólo** el término de fricción; la elevación vertical y la
+    altura de cabeza siguen usando el SG del líquido. Es a propósito: conserva
+    el desglose de tres términos que muestran la pantalla y los reportes.
+
+    Pero hay que saber qué deja afuera: en un pozo con gas de verdad, la
+    columna del tubing también es más liviana que la columna de líquido, así
+    que la elevación vertical calculada acá es **conservadora** — sobreestima
+    la altura que la bomba tiene que desarrollar.
 
     Args:
-        reservoir: Reservoir properties (carried for API symmetry with other calcs).
-        fluid: Fluid PVT and composition — provides SG for head conversions.
-        well: Well geometry — tubing ID used for friction.
-        surface: Surface conditions — wellhead pressure required.
-        objectives: Design objectives — target flow rate and the gas-fraction
-            threshold that selects the friction correlation.
-        pump_depth: Pump setting depth [ft TVD].
-        pip: Pump intake pressure [psi].
-        free_gas_fraction: Free-gas volume fraction at the pump intake [0–1].
-            Computed from the fluid at ``pip`` when omitted; pass it in when
-            the caller already evaluated it (``design_pump_complete`` does, so
-            it is computed once per design rather than once per candidate).
+        reservoir: Propiedades del reservorio (se lleva por simetría de API con
+            los otros cálculos).
+        fluid: PVT y composición — aporta el SG para pasar presión a altura.
+        well: Geometría del pozo — el ID del tubing entra en la fricción.
+        surface: Condiciones de superficie — presión requerida en boca de pozo.
+        objectives: Objetivos de diseño — caudal buscado y el umbral de
+            fracción de gas que elige la correlación de fricción.
+        pump_depth: Profundidad de asentamiento de la bomba [ft TVD].
+        pip: Presión en la admisión de la bomba [psi].
+        free_gas_fraction: Fracción volumétrica de gas libre en la admisión
+            [0–1]. Si se omite se calcula del fluido a ``pip``; conviene
+            pasarla cuando quien llama ya la evaluó (``design_pump_complete``
+            lo hace, así se calcula una vez por diseño y no una por candidata).
 
     Returns:
-        dict with keys: ``tdh_ft``, ``vertical_lift_ft``, ``tubing_friction_ft``,
+        dict con ``tdh_ft``, ``vertical_lift_ft``, ``tubing_friction_ft``,
         ``wellhead_pressure_head_ft``, ``pip_head_ft``, ``sg_liquid``,
         ``pump_depth_ft``, ``pip_psi``, ``free_gas_fraction``,
-        ``gas_fraction_threshold``, ``friction_method`` (``"hazen_williams"``
-        or ``"poettmann_carpenter"``) and, only in the P&C case, the
-        ``pc_*`` diagnostics of the converged gradient.
+        ``gas_fraction_threshold``, ``friction_method``
+        (``"hazen_williams"`` o ``"poettmann_carpenter"``) y, sólo en el caso
+        P&C, los diagnósticos ``pc_*`` del gradiente convergido.
     """
     from bes.core.formulas import Formula, FormulaTrace
     trace = FormulaTrace()
@@ -255,41 +346,32 @@ def calculate_tdh(
 
     sg = _sg_liquid(fluid)
     trace.add(
-        "sg_liquid", "Gravedad específica del líquido producido",
-        "SG = SG_o · (1 − WC) + SG_w · WC",
+        "sg_liquid",
         {"SG_o": 141.5 / (131.5 + fluid.oil_api), "WC": fluid.water_cut,
          "SG_w": fluid.water_sg},
-        sg, "-", "Brown Vol. 2b §4.5324",
-        note="Ponderación por corte de agua. El catálogo publica la potencia "
-             "para agua (SG = 1), por eso después se corrige por este valor.",
+        sg,
     )
 
     pip_head_ft = pip * 2.31 / sg
-    trace.add(
-        "pip_head", "Sumergencia — altura equivalente a la presión de admisión",
-        "H_pip = PIP · 2.31 / SG",
-        {"PIP": pip, "SG": sg}, pip_head_ft, "ft", "Brown Vol. 2b §4.5324",
-        note="2.31 ft/psi es la columna de agua dulce; dividir por SG la lleva "
-             "al fluido real. Es la altura que la bomba NO tiene que levantar.",
-    )
+    trace.add("pip_head", {"PIP": pip, "SG": sg}, pip_head_ft)
 
     vertical_lift = pump_depth - pip_head_ft
     trace.add(
-        "vertical_lift", "Elevación vertical neta",
-        "H_vert = D_bomba − H_pip",
+        "vertical_lift",
         {"D_bomba": pump_depth, "H_pip": pip_head_ft},
-        vertical_lift, "ft", "Brown Vol. 2b §4.5324",
-        note="Si el nivel de fluido queda por encima de la bomba, H_pip supera "
-             "la profundidad y este término se vuelve negativo: la sumergencia "
-             "ayuda en vez de estorbar (caso del ejemplo #2B).",
+        vertical_lift,
+        context=(
+            "La sumergencia ayuda en vez de estorbar: el nivel de fluido queda "
+            "por encima de la bomba (caso del ejemplo #2B)."
+            if vertical_lift < 0 else ""
+        ),
     )
 
     wellhead_pressure_head = surface.wellhead_pressure_required * 2.31 / sg
     trace.add(
-        "wellhead_head", "Altura equivalente a la presión de boca de pozo",
-        "H_wh = P_wh · 2.31 / SG",
+        "wellhead_head",
         {"P_wh": surface.wellhead_pressure_required, "SG": sg},
-        wellhead_pressure_head, "ft", "Brown Vol. 2b §4.5324",
+        wellhead_pressure_head,
     )
 
     if free_gas_fraction is None:
@@ -312,16 +394,13 @@ def calculate_tdh(
             bottom_temp_f=reservoir.reservoir_temp,
         )
         trace.add(
-            "friction", "Pérdida por fricción en el tubing (Poettmann-Carpenter)",
-            "H_fric = (dP/dz)_fricción · L · 2.31 / SG",
+            "friccion_pc",
             {"(dP/dz)_fricción": extra.get("pc_friction_gradient_psi_ft", 0.0),
              "L": pump_depth, "SG": sg},
-            tubing_friction, "ft",
-            "Poettmann & Carpenter (1952); Brown Vol. 2b §4.5324",
-            note=f"Se usa P&C porque la fracción de gas libre en la admisión "
-                 f"({free_gas_fraction:.3f}) supera el umbral ({threshold:.2f}). "
-                 f"Se toma SOLO el término de fricción: el de gravedad ya está "
-                 f"contado en la elevación vertical.",
+            tubing_friction,
+            context=f"La fracción de gas libre en la admisión "
+                    f"({free_gas_fraction:.3f}) supera el umbral "
+                    f"({threshold:.2f}), así que la fricción se calcula con P&C.",
         )
     else:
         friction_method = "hazen_williams"
@@ -331,25 +410,22 @@ def calculate_tdh(
             length_ft=pump_depth,
         )
         trace.add(
-            "friction", "Pérdida por fricción en el tubing (Hazen-Williams)",
-            "H_fric = 0.2083 · (100/C)^1.852 · q^1.852 / d^4.8655 · L/100",
+            "friccion_hazen_williams",
             {"C": 120.0, "q": objectives.target_flow_rate * 0.02917,
              "d": well.tubing_id, "L": pump_depth},
-            tubing_friction, "ft", "Brown Vol. 2b §4.5324",
-            note=f"Se usa Hazen-Williams porque la fracción de gas libre en la "
-                 f"admisión ({free_gas_fraction:.3f}) no supera el umbral "
-                 f"({threshold:.2f}): el flujo se trata como monofásico. "
-                 f"q va en gpm y d en pulgadas.",
+            tubing_friction,
+            context=f"La fracción de gas libre en la admisión "
+                    f"({free_gas_fraction:.3f}) no supera el umbral "
+                    f"({threshold:.2f}), así que el flujo en el tubing se "
+                    f"trata como monofásico.",
         )
 
     tdh = vertical_lift + tubing_friction + wellhead_pressure_head
     trace.add(
-        "tdh", "TDH — Altura dinámica total",
-        "TDH = H_vert + H_fric + H_wh",
+        "tdh",
         {"H_vert": vertical_lift, "H_fric": tubing_friction,
          "H_wh": wellhead_pressure_head},
-        tdh, "ft", "Brown Vol. 2b §4.5324",
-        note="Es la altura total que la bomba tiene que desarrollar.",
+        tdh,
     )
 
     return {

@@ -1,8 +1,8 @@
-"""Case-bundle serializer.
+"""Serializador de casos — guardar y abrir un diseño completo.
 
-Bundles a complete design case (inputs + result) into a plain dict / JSON bytes.
-Extracted from the "Guardar Caso JSON" download in ``app.py`` so the same
-format can back the future save/open feature and the SQLite ``designs`` table.
+Empaqueta un caso entero (las entradas más el resultado) en un dict plano o
+en bytes JSON. Es el formato que respalda la función de guardar/abrir y, a
+futuro, la tabla ``designs`` de la base de datos.
 """
 from __future__ import annotations
 

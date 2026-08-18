@@ -1,10 +1,16 @@
-"""Sensitivity-analysis service.
+"""Servicio de análisis de sensibilidad.
 
-Extracted from ``ui/sensitivity_view.py``. Varies a single input parameter over
-a range and reports how the optimal design's HP, stages, efficiency and TDH
-respond. Reads no framework state: the base domain objects are passed in, and an
-optional ``progress`` callback lets a UI show progress without this layer
-knowing anything about Streamlit.
+Responde la pregunta «¿y si me equivoqué en este dato?». Hace variar **un
+solo parámetro de entrada** dentro de un rango y muestra cómo responden la
+potencia, las etapas, el rendimiento y el TDH del diseño óptimo.
+
+Sirve para saber qué datos hay que medir bien y cuáles no importan tanto: si
+mover el corte de agua un 20 % cambia el diseño por completo, ese dato hay
+que medirlo; si no lo mueve, alcanza con una estimación.
+
+No lee estado de ningún framework: los objetos del dominio se pasan por
+argumento, y un callback opcional ``progress`` permite que una interfaz
+muestre el avance sin que esta capa sepa nada de ella.
 """
 from __future__ import annotations
 
@@ -68,11 +74,12 @@ def apply_param(
     param: str,
     value: float,
 ) -> tuple[Reservoir, Fluid, DesignObjectives]:
-    """Return copies of (reservoir, fluid, objectives) with *param* = *value*.
+    """Devuelve copias de (reservoir, fluid, objectives) con *param* cambiado.
 
-    Uses ``dataclasses.replace`` and clamps each parameter to its valid domain.
-    The reservoir-decline warning is suppressed (a low static pressure is a
-    legitimate point of the sweep, not an error).
+    Usa ``dataclasses.replace`` y acota cada parámetro a su dominio válido.
+
+    La advertencia de declinación del reservorio se silencia a propósito: una
+    presión estática baja es un **punto legítimo del barrido**, no un error.
     """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
@@ -100,21 +107,24 @@ def run_sensitivity(
     n_points: int = DEFAULT_N_POINTS,
     progress: Callable[[int, int, float], None] | None = None,
 ) -> dict:
-    """Sweep *param* and return the optimal-design metrics at each point.
+    """Barre un parámetro y devuelve las métricas del diseño óptimo en cada punto.
 
     Args:
-        reservoir, fluid, well, surface, objectives: Base domain inputs.
-        catalog: Loaded equipment catalog.
-        param: Key from ``PARAM_LABELS``.
-        pct_range_pct: Sweep half-width around the base value [%].
-        n_points: Number of evaluation points.
-        progress: Optional ``(index, total, value)`` callback for UI progress.
+        reservoir, fluid, well, surface, objectives: Entradas base del dominio.
+        catalog: Catálogo de equipos cargado.
+        param: Clave de ``PARAM_LABELS``, o sea qué parámetro variar.
+        pct_range_pct: Semi-ancho del barrido alrededor del valor base [%].
+        n_points: Cantidad de puntos a evaluar.
+        progress: Callback opcional ``(índice, total, valor)`` para que la
+            interfaz muestre el avance.
 
     Returns:
-        dict with ``param``, ``param_label``, ``param_values`` (only feasible
-        points), ``metrics`` (HP / Etapas / Eficiencia (%) / TDH (ft) lists,
-        aligned with ``param_values``) and ``n_points``. Infeasible points are
-        silently skipped.
+        dict con ``param``, ``param_label``, ``param_values`` (sólo los puntos
+        viables), ``metrics`` (listas de HP / Etapas / Eficiencia (%) / TDH
+        (ft), alineadas con ``param_values``) y ``n_points``.
+
+        Los puntos inviables se saltean en silencio: en un barrido amplio es
+        normal que algunos extremos no tengan diseño posible.
     """
     values = sweep_values(base_value(reservoir, fluid, objectives, param), param, pct_range_pct, n_points)
 

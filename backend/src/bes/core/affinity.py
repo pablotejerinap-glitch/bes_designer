@@ -1,35 +1,75 @@
-"""
-Affinity laws — centrifugal pump performance at a different speed, impeller
-diameter or fluid.
+"""Leyes de afinidad — la misma bomba a otra velocidad, diámetro o fluido.
 
-Catalog performance curves are published at a fixed speed, for clean water
-(SG = 1, µ = 1 cp) and for **one stage**. The affinity laws predict the curve at
-other conditions:
+Las curvas de catálogo se publican a una velocidad fija, con agua limpia
+(SG = 1, µ = 1 cp) y **para una sola etapa**. Las leyes de afinidad dicen cómo
+se mueve esa curva cuando cambian las condiciones::
 
-    Q₂ = Q₁ · (N₂/N₁) · (D₂/D₁)
-    H₂ = H₁ · (N₂/N₁)² · (D₂/D₁)²
+    Q₂  = Q₁  · (N₂/N₁)  · (D₂/D₁)
+    H₂  = H₁  · (N₂/N₁)² · (D₂/D₁)²
     HP₂ = HP₁ · (N₂/N₁)³ · (D₂/D₁)³ · (SG₂/SG₁)
 
-Efficiency is **not** scaled: it is invariant under a speed or diameter change,
-which is what makes the laws a similarity transform and not a fit.
+En castellano: si la bomba gira al doble de vueltas, entrega el doble de
+caudal, cuatro veces la altura y ocho veces la potencia.
 
-Working in hertz instead of rpm
--------------------------------
-An ESP is driven by a two-pole induction motor, so the synchronous speed is
-``120·f / poles`` and the shaft turns slower by the slip (about 2.8 %: 3000 rpm
-synchronous at 50 Hz against roughly 2917 rpm real). Since the slip is
-essentially the same at both frequencies it cancels in the ratio,
+Dos detalles que se prestan a confusión
+---------------------------------------
+El **rendimiento NO se escala**: queda igual. Eso es justamente lo que hace que
+esto sea una transformación de semejanza y no un ajuste estadístico.
+
+La **altura no lleva término de SG, pero la potencia sí**. Levantar una columna
+de fluido hasta cierta altura da la misma altura sea cual sea el fluido; lo que
+cambia es lo que cuesta hacerlo, porque un fluido más pesado pide más potencia.
+
+Por qué se trabaja en hertz y no en rpm
+---------------------------------------
+Una bomba BES la mueve un motor de inducción, cuya velocidad sincrónica es
+``120·f / polos``. El eje gira un poco más lento por el deslizamiento (unos
+2.8 %: 3000 rpm sincrónicas a 50 Hz contra unas 2917 reales). Como el
+deslizamiento es prácticamente el mismo a las dos frecuencias, **se cancela en
+la división**::
 
     N₂/N₁ = f₂/f₁
-    
-    
-    
-so the laws can be applied directly to the drive frequency. That is how a VSD
-design is done in practice and it avoids carrying a slip assumption into the
-result. :func:`synchronous_rpm` and :func:`motor_rpm` are provided for display.
 
-Reference: Brown, *The Technology of Artificial Lift Methods*, Vol. 2b,
-Table 4.21; and the cátedra notes, Unidad N°9 (pág. 135).
+Así que las leyes se pueden aplicar directamente sobre la frecuencia del
+variador, sin arrastrar ninguna suposición de deslizamiento al resultado. Es
+como se diseña con VSD en la práctica. :func:`synchronous_rpm` y
+:func:`motor_rpm` existen sólo para mostrar en pantalla.
+
+Dónde entra esto en el diseño
+-----------------------------
+Este módulo es sobre todo la pestaña «Leyes de afinidad», un banco de pruebas
+independiente del diseño. Pero hay **una excepción importante**:
+:func:`pump_at_frequency` sí interviene, y es obligatoria. El diseño lleva la
+curva a la frecuencia real ANTES de filtrar el catálogo por rango de caudal;
+sin eso, un pozo a 50 Hz se diseñaría contra la curva de 60 Hz y saldrían 44 %
+menos etapas de las que necesita.
+
+Contenido
+---------
+1. Las tres leyes, una por función (caudal, altura, potencia)
+2. Inversión: qué frecuencia hace falta para un caudal dado
+3. Velocidades del motor (sincrónica y real), sólo para mostrar
+4. Potencia hidráulica y rendimiento
+5. Escalado de una curva de catálogo completa
+6. Traza de fórmulas para auditar el cálculo
+
+Nomenclatura
+------------
+    Q       Caudal                                          [b/d]
+    H       Altura (head) por etapa                         [ft]
+    HP      Potencia al freno (brake horsepower)            [hp]
+    N       Velocidad de giro                               [rpm]
+    f       Frecuencia de alimentación                      [Hz]
+    D       Diámetro del impulsor                           [in]
+    SG      Gravedad específica del fluido                  [-]
+    η       Rendimiento                                     [-]
+    BEP     Best Efficiency Point: caudal de máximo rendimiento
+    VSD     Variador de frecuencia
+
+Referencias
+-----------
+Brown, K.E. "The Technology of Artificial Lift Methods", Vol. 2b, Tabla 4.21.
+Apuntes de cátedra, Unidad N°9 (pág. 135).
 """
 from __future__ import annotations
 
@@ -64,19 +104,24 @@ def _ratios(
 def scale_flow(
     q: float, freq_from: float, freq_to: float, diameter_ratio: float = 1.0
 ) -> float:
-    """Flow at the new speed/diameter: ``Q₂ = Q₁·(N₂/N₁)·(D₂/D₁)``.
+    """Ley de caudal: ``Q₂ = Q₁·(N₂/N₁)·(D₂/D₁)``.
+
+    El caudal va con la **primera** potencia de la relación de velocidades: al
+    doble de vueltas, el doble de caudal.
 
     Args:
-        q: Flow at the reference condition [b/d or m³/d — the unit passes through].
-        freq_from: Reference (catalog) frequency [Hz]. Must be > 0.
-        freq_to: Target frequency [Hz]. Must be > 0.
-        diameter_ratio: ``D₂/D₁``. 1.0 = unchanged impeller.
+        q: Caudal en la condición de referencia [b/d o m³/d — la unidad pasa
+            de largo, la función no la interpreta].
+        freq_from: Frecuencia de referencia, la del catálogo [Hz]. Debe ser > 0.
+        freq_to: Frecuencia buscada [Hz]. Debe ser > 0.
+        diameter_ratio: Relación ``D₂/D₁``. 1.0 = impulsor sin recortar.
 
     Returns:
-        Flow at the target condition, in the same unit as ``q``.
+        Caudal en la condición buscada, en la misma unidad que ``q``.
 
     Raises:
-        ValueError: If any frequency or the diameter ratio is not positive.
+        ValueError: Si alguna frecuencia o la relación de diámetros no es
+            positiva.
     """
     n, d = _ratios(freq_from, freq_to, diameter_ratio)
     return q * n * d
@@ -111,26 +156,30 @@ def scale_power(
     diameter_ratio: float = 1.0,
     sg_ratio: float = 1.0,
 ) -> float:
-    """Brake power: ``HP₂ = HP₁·(N₂/N₁)³·(D₂/D₁)³·(SG₂/SG₁)``.
+    """Ley de potencia: ``HP₂ = HP₁·(N₂/N₁)³·(D₂/D₁)³·(SG₂/SG₁)``.
 
-    Unlike head, power **does** depend on density: moving a heavier fluid over
-    the same head costs proportionally more. Catalog curves are for water, so
-    ``sg_ratio`` is the produced-fluid specific gravity when scaling from a
-    catalog value.
+    La potencia va con el **cubo** de la relación de velocidades: al doble de
+    vueltas, ocho veces la potencia. Es la ley que más muerde y la razón por la
+    que bajar un poco la frecuencia ahorra mucha energía.
+
+    A diferencia de la altura, la potencia **sí** depende de la densidad: mover
+    un fluido más pesado a la misma altura cuesta proporcionalmente más. Como
+    las curvas de catálogo están levantadas con agua, al escalar desde catálogo
+    se pasa como ``sg_ratio`` la gravedad específica del fluido producido.
 
     Args:
-        hp: Brake power at the reference condition [hp].
-        freq_from: Reference (catalog) frequency [Hz].
-        freq_to: Target frequency [Hz].
-        diameter_ratio: ``D₂/D₁``.
-        sg_ratio: ``SG₂/SG₁``. Must be > 0.
+        hp: Potencia al freno en la condición de referencia [hp].
+        freq_from: Frecuencia de referencia, la del catálogo [Hz].
+        freq_to: Frecuencia buscada [Hz].
+        diameter_ratio: Relación ``D₂/D₁``.
+        sg_ratio: Relación ``SG₂/SG₁``. Debe ser > 0.
 
     Returns:
-        Brake power at the target condition [hp].
+        Potencia al freno en la condición buscada [hp].
 
     Raises:
-        ValueError: If a frequency, the diameter ratio or ``sg_ratio`` is not
-            positive.
+        ValueError: Si una frecuencia, la relación de diámetros o ``sg_ratio``
+            no es positiva.
     """
     n, d = _ratios(freq_from, freq_to, diameter_ratio)
     if sg_ratio <= 0:
@@ -141,23 +190,27 @@ def scale_power(
 def frequency_for_flow(
     flow_at_reference: float, target_flow: float, reference_frequency: float
 ) -> float:
-    """Frequency that moves the pump to *target_flow* [Hz].
+    """Frecuencia que lleva la bomba al caudal buscado [Hz].
 
-    Inverts the flow law, which is linear in speed:
-    ``f₂ = f₁ · (Q₂/Q₁)``. This is the question a VSD design actually asks —
-    "at what frequency do I get the rate I want?" — rather than "what rate do I
-    get at this frequency".
+    Es la ley de caudal dada vuelta. Como el caudal es lineal con la
+    velocidad, el despeje es directo::
+
+        f₂ = f₁ · (Q₂/Q₁)
+
+    Ésta es la pregunta que se hace de verdad al diseñar con variador —«¿a qué
+    frecuencia consigo el caudal que quiero?»— y no la inversa.
 
     Args:
-        flow_at_reference: Known flow at ``reference_frequency`` [b/d]. Must be > 0.
-        target_flow: Desired flow [b/d]. Must be > 0.
-        reference_frequency: Frequency at which ``flow_at_reference`` holds [Hz].
+        flow_at_reference: Caudal conocido a ``reference_frequency`` [b/d].
+            Debe ser > 0.
+        target_flow: Caudal deseado [b/d]. Debe ser > 0.
+        reference_frequency: Frecuencia a la que vale ``flow_at_reference`` [Hz].
 
     Returns:
-        Required drive frequency [Hz].
+        Frecuencia de alimentación necesaria [Hz].
 
     Raises:
-        ValueError: If any argument is not positive.
+        ValueError: Si algún argumento no es positivo.
     """
     if flow_at_reference <= 0:
         raise ValueError(f"flow_at_reference must be > 0, got {flow_at_reference}")
@@ -182,10 +235,12 @@ def synchronous_rpm(freq_hz: float, poles: int = _DEFAULT_POLES) -> float:
 def motor_rpm(
     freq_hz: float, poles: int = _DEFAULT_POLES, slip: float = TYPICAL_SLIP
 ) -> float:
-    """Shaft speed after slip [rpm] — ``120·f/polos · (1 − s)``.
+    """Velocidad real del eje, ya descontado el deslizamiento [rpm].
 
-    Display value only: the slip cancels in every affinity ratio, so no result
-    of this module depends on it.
+        N = 120·f/polos · (1 − s)
+
+    **Sólo para mostrar en pantalla.** Ningún resultado de este módulo depende
+    del deslizamiento, porque se cancela en toda relación de afinidad.
     """
     if not (0.0 <= slip < 1.0):
         raise ValueError(f"slip must be in [0, 1), got {slip}")
@@ -193,20 +248,23 @@ def motor_rpm(
 
 
 def hydraulic_hp(flow_bpd: float, head_ft: float, sg: float) -> float:
-    """Hydraulic power delivered to the fluid [hp].
+    """Potencia hidráulica entregada al fluido [hp].
 
-    ``HHP = Q · Hd · SG / 135 771`` with Q in b/d and Hd in ft. Together with
-    the brake power read from the catalog curve this closes the efficiency
-    identity ``η = HHP / BHP``, which is how the digitised curves were quality
-    checked (see ``tools/catalog_pipeline``).
+        HHP = Q · Hd · SG / 135 771      (Q en b/d, Hd en ft)
+
+    Es el trabajo útil: lo que efectivamente se le entrega al fluido. Junto con
+    la potencia al freno que publica la curva de catálogo cierra la identidad
+    del rendimiento, ``η = HHP / BHP``, que es como se controló la calidad de
+    las curvas digitalizadas (ver ``tools/catalog_pipeline``).
 
     Args:
-        flow_bpd: Flow rate [b/d].
-        head_ft: Total head developed [ft].
-        sg: Specific gravity of the pumped fluid.
+        flow_bpd: Caudal [b/d].
+        head_ft: Altura total desarrollada [ft].
+        sg: Gravedad específica del fluido bombeado.
 
     Returns:
-        Hydraulic horsepower [hp]. Zero when any argument is non-positive.
+        Potencia hidráulica [hp]. Devuelve cero si algún argumento no es
+        positivo.
     """
     if flow_bpd <= 0 or head_ft <= 0 or sg <= 0:
         return 0.0
@@ -218,35 +276,40 @@ def pump_at_frequency(
     frequency_hz: float,
     diameter_ratio: float = 1.0,
 ) -> "PumpCurve":
-    """The same pump as it behaves at *frequency_hz*, as a ``PumpCurve``.
+    """La misma bomba, tal como se comporta a otra frecuencia.
 
-    Catalog curves are published at one frequency (60 Hz for every catalog in
-    this project). Designing a well that runs at another frequency — 50 Hz in
-    Argentina, or any frequency set on a VSD — against the published curve is
-    wrong in three ways at once: the head per stage is off by ``(f₂/f₁)²``, the
-    power per stage by ``(f₂/f₁)³``, and the recommended flow range by
-    ``f₂/f₁``, so the pump may not even belong in the shortlist.
+    **Esta función SÍ interviene en el diseño, y es obligatoria.** Las curvas de
+    catálogo se publican a una sola frecuencia (60 Hz en todos los catálogos de
+    este proyecto). Diseñar un pozo que va a girar a otra frecuencia contra la
+    curva publicada está mal de tres maneras a la vez:
 
-    Returning a real ``PumpCurve`` rather than a dict is deliberate: every
-    consumer downstream — the flow-range filter, the curve interpolation, the
-    stage count, the BEP distance in the ranking, the shut-in head of the
-    housing pressure check — keeps working unchanged, on numbers that are now
-    at the frequency the well actually runs at.
+        - la altura por etapa se equivoca por ``(f₂/f₁)²``
+        - la potencia por etapa, por ``(f₂/f₁)³``
+        - el rango de caudal recomendado, por ``f₂/f₁``
 
-    The result declares ``catalog_frequency_hz = frequency_hz``, so scaling an
-    already-scaled curve is a no-op and the operation is idempotent.
+    Ese tercer punto es el más traicionero: con el rango corrido, la bomba
+    correcta puede ni siquiera entrar en la lista de candidatas.
+
+    Devuelve un ``PumpCurve`` de verdad y no un diccionario, a propósito: así
+    todo lo que viene después —el filtro por rango de caudal, la interpolación
+    de la curva, el conteo de etapas, la distancia al BEP del ranking, la
+    presión a caudal cero de la verificación de carcasa— sigue funcionando sin
+    cambios, pero sobre números que ya están a la frecuencia real del pozo.
+
+    El resultado declara ``catalog_frequency_hz = frequency_hz``, así que
+    escalar una curva ya escalada no hace nada: la operación es idempotente.
 
     Args:
-        pump: Catalog pump, at its published frequency.
-        frequency_hz: Frequency the pump will actually run at [Hz].
-        diameter_ratio: ``D₂/D₁`` if the impeller is trimmed.
+        pump: Bomba de catálogo, a su frecuencia publicada.
+        frequency_hz: Frecuencia a la que va a girar realmente [Hz].
+        diameter_ratio: Relación ``D₂/D₁`` si el impulsor está recortado.
 
     Returns:
-        A new ``PumpCurve``. Identity, geometry and housings are carried over
-        untouched — only the hydraulic curve moves.
+        Un ``PumpCurve`` nuevo. La identidad, la geometría y las carcasas pasan
+        intactas — lo único que se mueve es la curva hidráulica.
 
     Raises:
-        ValueError: If ``frequency_hz`` or ``diameter_ratio`` is not positive.
+        ValueError: Si ``frequency_hz`` o ``diameter_ratio`` no es positivo.
     """
     from bes.core.models import PumpCurve, PumpPerformancePoint
 
@@ -294,32 +357,35 @@ def scale_curve(
     diameter_ratio: float = 1.0,
     sg_ratio: float = 1.0,
 ) -> dict:
-    """Rescale a whole catalog curve to another frequency, diameter and fluid.
+    """Reescala una curva de catálogo completa a otra frecuencia, diámetro y fluido.
 
-    Every point moves together — flow with the first power of the speed ratio,
-    head with the square, power with the cube — so the whole curve, its
-    recommended operating range and its BEP shift consistently. Efficiency is
-    carried over unchanged, which is the physical content of the laws.
+    Todos los puntos se mueven juntos —el caudal con la primera potencia de la
+    relación de velocidades, la altura con el cuadrado, la potencia con el
+    cubo—, así que la curva entera, su rango recomendado de operación y su BEP
+    se corren de forma consistente. El rendimiento pasa sin cambios, que es
+    justamente el contenido físico de las leyes.
 
     Args:
-        pump: Catalog pump whose curve is to be rescaled.
-        to_frequency_hz: Target drive frequency [Hz].
-        from_frequency_hz: Frequency the catalog curve was published at [Hz].
-            Defaults to the pump's own ``catalog_frequency_hz``.
-        diameter_ratio: ``D₂/D₁`` if the impeller is trimmed. 1.0 = as published.
-        sg_ratio: ``SG₂/SG₁`` for the power law. Catalog curves are for water,
-            so pass the produced-fluid SG to get brake power on the real fluid.
+        pump: Bomba de catálogo cuya curva se va a reescalar.
+        to_frequency_hz: Frecuencia buscada [Hz].
+        from_frequency_hz: Frecuencia a la que está publicada la curva [Hz].
+            Si se omite, se toma el ``catalog_frequency_hz`` de la bomba.
+        diameter_ratio: Relación ``D₂/D₁`` si el impulsor está recortado.
+            1.0 = tal como viene publicada.
+        sg_ratio: Relación ``SG₂/SG₁`` para la ley de potencia. Las curvas de
+            catálogo son de agua, así que pasar el SG del fluido producido da
+            la potencia al freno sobre el fluido real.
 
     Returns:
-        dict with ``frequency_hz``, ``from_frequency_hz``, ``speed_ratio``,
+        dict con ``frequency_hz``, ``from_frequency_hz``, ``speed_ratio``,
         ``synchronous_rpm``, ``motor_rpm``, ``min_flow``, ``max_flow``,
         ``bep_flow``, ``bep_head_per_stage``, ``bep_hp_per_stage``,
-        ``bep_efficiency`` and ``points`` (list of dicts with ``flow_bpd``,
-        ``head_ft_per_stage``, ``hp_per_stage`` and ``efficiency``).
+        ``bep_efficiency`` y ``points`` (lista de dicts con ``flow_bpd``,
+        ``head_ft_per_stage``, ``hp_per_stage`` y ``efficiency``).
 
     Raises:
-        ValueError: If a frequency, the diameter ratio or ``sg_ratio`` is not
-            positive.
+        ValueError: Si una frecuencia, la relación de diámetros o ``sg_ratio``
+            no es positiva.
     """
     base = from_frequency_hz or getattr(pump, "catalog_frequency_hz", 60.0) or 60.0
     n, _ = _ratios(base, to_frequency_hz, diameter_ratio)
@@ -358,3 +424,109 @@ def scale_curve(
         "bep_efficiency": at_bep.get("efficiency", 0.0),
         "points": points,
     }
+
+
+# --------------------------------------------------------------------------
+# Traza de fórmulas
+# --------------------------------------------------------------------------
+
+def affinity_trace(
+    q: float,
+    h: float,
+    hp: float,
+    freq_from: float,
+    freq_to: float,
+    diameter_ratio: float = 1.0,
+    sg_ratio: float = 1.0,
+    poles: int = _DEFAULT_POLES,
+) -> list[dict]:
+    """Las tres leyes de afinidad aplicadas a un punto, con sus números.
+
+    Función aparte, igual que :func:`bes.core.ipr.ipr_trace`, para no ensuciar
+    la firma de ``scale_flow`` / ``scale_head`` / ``scale_power``, que usa todo
+    el motor. Llama a esas mismas funciones, así que la traza no puede separarse
+    de la cuenta.
+
+    Args:
+        q: Caudal en la condición de referencia [b/d].
+        h: Altura en la condición de referencia [ft].
+        hp: Potencia al eje en la condición de referencia [hp].
+        freq_from: Frecuencia de referencia (la del catálogo) [Hz].
+        freq_to: Frecuencia de operación [Hz].
+        diameter_ratio: ``D₂/D₁``. 1.0 = impulsor sin recortar.
+        sg_ratio: ``SG₂/SG₁``. 1.0 = se queda en la curva de agua.
+        poles: Polos del motor, para la velocidad sincrónica.
+
+    Returns:
+        Lista de dicts de :class:`bes.core.formulas.Formula`.
+    """
+    from bes.core.formulas import FormulaTrace
+
+    n = freq_to / freq_from
+    q2 = scale_flow(q, freq_from, freq_to, diameter_ratio)
+    h2 = scale_head(h, freq_from, freq_to, diameter_ratio)
+    hp2 = scale_power(hp, freq_from, freq_to, diameter_ratio, sg_ratio)
+
+    trace = FormulaTrace()
+    trace.add(
+        "afinidad_caudal",
+        {"Q₁": q, "N₂/N₁": n, "D₂/D₁": diameter_ratio}, q2,
+        context=f"De {freq_from:.0f} Hz a {freq_to:.0f} Hz." + (
+            "" if diameter_ratio == 1.0 else
+            f" Con el impulsor recortado a {diameter_ratio:.3f} del original."
+        ),
+    )
+    trace.add(
+        "afinidad_altura",
+        {"H₁": h, "N₂/N₁": n, "D₂/D₁": diameter_ratio}, h2,
+        context=f"La relación va al cuadrado: {n:.4f}² = {n ** 2:.4f}.",
+    )
+    trace.add(
+        "afinidad_potencia",
+        {"HP₁": hp, "N₂/N₁": n, "D₂/D₁": diameter_ratio, "SG₂/SG₁": sg_ratio},
+        hp2,
+        context=f"La relación va al cubo: {n:.4f}³ = {n ** 3:.4f}." + (
+            " El SG es 1.0, o sea que el resultado sigue siendo de agua."
+            if sg_ratio == 1.0 else ""
+        ),
+    )
+    trace.add(
+        "afinidad_rpm_sincronica",
+        {"f": freq_to, "polos": poles}, synchronous_rpm(freq_to, poles),
+        context=f"Con deslizamiento típico el eje giraría a "
+                f"{motor_rpm(freq_to, poles):,.0f} rpm, pero el deslizamiento "
+                f"se cancela en todas las relaciones de arriba.",
+    )
+    trace.add(
+        "afinidad_hp_hidraulico",
+        {"Q": q2, "H": h2, "SG": sg_ratio}, hydraulic_hp(q2, h2, sg_ratio),
+        context="Con la potencia al eje cierra el rendimiento η = HHP / BHP.",
+    )
+    return trace.as_list()
+
+
+def frequency_for_flow_trace(
+    flow_at_reference: float, target_flow: float, reference_frequency: float
+) -> list[dict]:
+    """La ley del caudal invertida: a qué frecuencia sale el caudal que quiero.
+
+    Args:
+        flow_at_reference: Caudal conocido a ``reference_frequency`` [b/d].
+        target_flow: Caudal deseado [b/d].
+        reference_frequency: Frecuencia a la que vale el caudal conocido [Hz].
+
+    Returns:
+        Lista de dicts de :class:`bes.core.formulas.Formula`.
+    """
+    from bes.core.formulas import FormulaTrace
+
+    f2 = frequency_for_flow(flow_at_reference, target_flow, reference_frequency)
+    trace = FormulaTrace()
+    trace.add(
+        "afinidad_frecuencia_objetivo",
+        {"f₁": reference_frequency, "Q₂": target_flow, "Q₁": flow_at_reference},
+        f2,
+        context="Es la pregunta que hace un diseño con VSD: no «qué caudal da "
+                "a esta frecuencia» sino «a qué frecuencia da el que quiero».",
+    )
+    return trace.as_list()
