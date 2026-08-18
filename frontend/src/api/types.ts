@@ -255,6 +255,14 @@ export interface Formula {
   note: string;
   /** Por qué esta variante y con qué datos, en este caso concreto. */
   context: string;
+  /**
+   * Sólo en métodos partidos en tramos, como el Vogel generalizado:
+   * `true`  = es el tramo que gobierna este pozo,
+   * `false` = se muestra para poder revisar el método completo, pero el punto
+   *           de diseño no cae en este tramo,
+   * `null`  = no es un método partido y la pregunta no corresponde.
+   */
+  applies: boolean | null;
 }
 
 /**

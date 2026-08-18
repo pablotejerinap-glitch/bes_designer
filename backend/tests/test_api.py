@@ -724,3 +724,72 @@ class TestCatalogoDeFormulas:
         }
         assert corridas, "el diseño no emitió ninguna fórmula"
         assert corridas <= declaradas, sorted(corridas - declaradas)
+
+
+class TestElContratoSigueAlDominio:
+    """El esquema de la API no puede quedarse atrás de la dataclass del dominio.
+
+    Pydantic descarta **en silencio** los campos que no declara, así que agregar
+    uno a ``core.formulas.Formula`` y olvidarse de ``FormulaSchema`` hace que el
+    dato nunca llegue a la pantalla sin que falle nada. Ya pasó: ``step``,
+    ``topic``, ``symbols`` y ``context`` se agregaron al dominio y viajaron
+    perdidos hasta que este test existió.
+    """
+
+    def test_formula_schema_declara_todos_los_campos_del_dominio(self):
+        import dataclasses
+        from bes.core.formulas import Formula
+        from bes.api.schemas.outputs import FormulaSchema
+
+        dominio = {f.name for f in dataclasses.fields(Formula)}
+        esquema = set(FormulaSchema.model_fields)
+        faltan = dominio - esquema
+        assert not faltan, (
+            f"FormulaSchema no declara {sorted(faltan)}: esos campos se pierden "
+            f"al serializar y nunca llegan al front."
+        )
+
+    def test_los_campos_nuevos_llegan_de_verdad_por_la_API(self, client):
+        """No alcanza con declararlos: hay que verlos en la respuesta."""
+        resp = client.post("/api/design", json=_payload())
+        assert resp.status_code == 200
+        formulas = [
+            f
+            for rec in resp.json()["recommendations"]
+            for f in rec["design"]["formulas"]
+        ]
+        assert formulas, "el diseño no emitió ninguna fórmula"
+        assert any(f["topic"] for f in formulas), "topic llega vacío en todas"
+        assert any(f["step"] for f in formulas), "step llega vacío en todas"
+        assert any(f["symbols"] for f in formulas), "symbols llega vacío en todas"
+
+    def test_vogel_publica_los_dos_tramos_y_cual_gobierna(self, client):
+        """El profesor tiene que poder revisar el método completo, no una mitad.
+
+        Y la distinción de cuál gobierna tiene que ser un DATO (``applies``),
+        no una frase escondida en la prosa.
+        """
+        # Hace falta un reservorio SUBSATURADO (Pb < Pr) para que existan los
+        # dos tramos: con bubble_point 0 la Pb efectiva es Pr y no hay recta.
+        p = _payload(well="oil")
+        p["reservoir"] |= {
+            "static_pressure": 2600.0, "bubble_point": 1255.0,
+            "test_pwf": 2100.0, "test_rate": 1000.0, "ipr_method": "vogel",
+        }
+        p["fluid"]["bubble_point_pressure"] = 1255.0
+        p["objectives"]["target_flow_rate"] = 1800.0
+        resp = client.post("/api/design", json=p)
+        assert resp.status_code == 200, resp.json()
+
+        formulas = resp.json()["recommendations"][0]["design"]["formulas"]
+        tramos = [f for f in formulas if f["step"] == "pwf_diseno"]
+        claves = {f["key"] for f in tramos}
+        assert claves == {"pwf_vogel_recta", "pwf_vogel_bifasico"}, (
+            "Vogel generalizado es una función partida en dos: se publican los "
+            "dos tramos aunque el pozo caiga en uno solo."
+        )
+        gobiernan = [f for f in tramos if f["applies"] is True]
+        assert len(gobiernan) == 1, "tiene que gobernar exactamente un tramo"
+        assert [f for f in tramos if f["applies"] is False], (
+            "el tramo que no gobierna se marca como tal, no se omite"
+        )

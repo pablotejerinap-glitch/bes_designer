@@ -637,11 +637,45 @@ class TestTrazaIPR:
             test_pwf=2200.0, test_rate=1200.0, **kw,
         )
 
-    def test_vogel_bajo_la_burbuja_emite_los_tres_pasos(self):
+    def test_vogel_emite_SIEMPRE_los_dos_tramos(self):
+        """Vogel generalizado es una función partida: con media no se revisa.
+
+        Antes se emitía sólo el tramo que gobernaba, así que el profesor no
+        podía ver dónde se dobla la curva ni por qué el pozo cayó de un lado.
+        """
         res = self._res(IPRMethod.VOGEL)
         pwf = calculate_pwf_for_target_rate(res, 1200.0)
         claves = [f["key"] for f in ipr_trace(res, 1200.0, pwf)]
-        assert claves == ["pwf_qb", "pwf_vogel_bifasico", "diseno_drawdown"]
+        assert claves == [
+            "pwf_qb", "pwf_vogel_recta", "pwf_vogel_bifasico", "diseno_drawdown",
+        ]
+
+    def test_se_marca_cual_tramo_gobierna_como_dato(self):
+        """La distinción es `applies`, no una frase escondida en la prosa."""
+        res = self._res(IPRMethod.VOGEL)
+        for q, esperado in ((1200.0, "pwf_vogel_bifasico"),   # bajo la burbuja
+                            (400.0, "pwf_vogel_recta")):      # sobre la burbuja
+            pwf = calculate_pwf_for_target_rate(res, q)
+            tramos = [f for f in ipr_trace(res, q, pwf)
+                      if f["step"] == "pwf_diseno"]
+            gobiernan = [f for f in tramos if f["applies"] is True]
+            assert len(gobiernan) == 1
+            assert gobiernan[0]["key"] == esperado
+            assert [f for f in tramos if f["applies"] is False]
+
+    def test_el_tramo_que_no_gobierna_se_evalua_en_la_burbuja(self):
+        """Los dos tramos empalman en Pb: es la continuidad del método.
+
+        Evaluar el tramo inactivo en su propio borde muestra justamente eso,
+        y de paso dice hasta dónde llega cada uno.
+        """
+        res = self._res(IPRMethod.VOGEL)
+        pb = res.bubble_point
+        for q in (400.0, 1200.0):
+            pwf = calculate_pwf_for_target_rate(res, q)
+            inactivo = next(f for f in ipr_trace(res, q, pwf)
+                            if f["step"] == "pwf_diseno" and f["applies"] is False)
+            assert inactivo["result"] == pytest.approx(pb, abs=1.0)
 
     def test_el_paso_conceptual_agrupa_las_variantes(self):
         """Los cuatro caminos a la Pwf comparten `step` y difieren en `key`.
@@ -653,7 +687,7 @@ class TestTrazaIPR:
         res = self._res(IPRMethod.VOGEL)
         pwf = calculate_pwf_for_target_rate(res, 1200.0)
         f = next(x for x in ipr_trace(res, 1200.0, pwf)
-                 if x["step"] == "pwf_diseno")
+                 if x["step"] == "pwf_diseno" and x["applies"] is True)
         assert f["key"] == "pwf_vogel_bifasico"
         assert f["topic"] == "ipr"
 
@@ -661,7 +695,8 @@ class TestTrazaIPR:
         res = self._res(IPRMethod.VOGEL)
         pwf = calculate_pwf_for_target_rate(res, 400.0)      # queda sobre Pb
         t = ipr_trace(res, 400.0, pwf)
-        f = next(x for x in t if x["step"] == "pwf_diseno")
+        f = next(x for x in t
+                 if x["step"] == "pwf_diseno" and x["applies"] is True)
         assert f["key"] == "pwf_vogel_recta"
         assert "tramo recto" in f["label"]
         assert f["expression"] == "q = J · (Pr − Pwf)"
@@ -682,6 +717,9 @@ class TestTrazaIPR:
         assert f["key"] == "pwf_fetkovich"
         assert "C · (Pr² − Pwf²)^n" in f["expression"]
         assert "burbuja" in f["note"]
+        # Fetkovich NO se parte en la burbuja: un solo tramo, y se dice por qué.
+        assert f["applies"] is None
+        assert "no se parte" in f["context"].lower()
 
     def test_la_sustitucion_lleva_los_valores_del_pozo(self):
         """La sustitución se genera de las mismas variables que entran al cálculo."""

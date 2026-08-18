@@ -65,16 +65,41 @@ class FormulaSchema(BaseModel):
 
     La arma el mismo código que calcula (``bes/core/formulas.py``), de modo que
     la fórmula que se muestra en pantalla es necesariamente la que se aplicó.
+
+    **Los campos tienen que seguir a los de** :class:`bes.core.formulas.Formula`.
+    El mapper hace ``FormulaSchema(**asdict(f))`` y Pydantic descarta en
+    silencio lo que no esté declarado acá: si se agrega un campo al dominio y
+    no a este esquema, el dato nunca llega a la pantalla y no falla nada.
+    ``tests/test_api.py::TestElContratoSigueAlDominio`` lo verifica.
     """
-    key: str = Field(..., description="Identificador estable del paso")
+    key: str = Field(..., description="Clave única en el catálogo de fórmulas")
+    step: str = Field(
+        "", description="Paso conceptual. Varias fórmulas lo comparten cuando "
+                        "son el mismo cálculo por métodos distintos.",
+    )
+    topic: str = Field("", description="Tema del catálogo al que pertenece")
     label: str = Field(..., description="Qué se calcula, en castellano")
     expression: str = Field(..., description="La fórmula en símbolos")
     substitution: str = Field(..., description="La fórmula con los números puestos")
     inputs: dict[str, float] = Field(default_factory=dict)
+    symbols: dict[str, str] = Field(
+        default_factory=dict,
+        description="Qué significa cada símbolo, con su unidad",
+    )
     result: float
     units: str
     reference: str = Field("", description="Cita bibliográfica")
-    note: str = Field("", description="Condición de validez o supuesto")
+    note: str = Field("", description="Condición de validez que vale siempre")
+    context: str = Field(
+        "", description="Por qué esta variante y con qué datos, en este caso",
+    )
+    applies: bool | None = Field(
+        None,
+        description="Sólo en métodos partidos en tramos (Vogel generalizado): "
+                    "True = es el tramo que gobierna este pozo, False = se "
+                    "muestra para poder revisar el método completo pero el "
+                    "punto de diseño no cae acá, None = no corresponde.",
+    )
 
 
 class DesignResultSchema(BaseModel):

@@ -702,36 +702,99 @@ def ipr_trace(reservoir: Reservoir, target_rate: float, pwf: float) -> list[dict
         trace.add("pwf_lineal", {"Pr": pr, "q": target_rate, "J": pi}, pwf)
 
     elif metodo is IPRMethod.VOGEL:
-        if pwf >= pb_ef:
+        # Vogel generalizado es una función PARTIDA EN DOS, así que se muestran
+        # los dos tramos siempre, aunque el punto de diseño caiga en uno solo.
+        # Con una mitad sola no se puede revisar el método: no se ve dónde se
+        # dobla la curva ni por qué este pozo cayó del lado que cayó.
+        saturado = pb_ef >= pr
+        q_b = pi * (pr - pb_ef)
+        en_el_tramo_recto = pwf >= pb_ef
+
+        # El caudal de burbuja es la bisagra: marca dónde se dobla la curva.
+        if not saturado:
+            trace.add(
+                "pwf_qb", {"J": pi, "Pr": pr, "Pb": pb_ef}, q_b,
+                context=f"Es la bisagra del método: hasta {q_b:,.0f} STB/d la "
+                        f"IPR es una recta, y de ahí en adelante se dobla. El "
+                        f"caudal de diseño ({target_rate:,.0f} STB/d) cae "
+                        f"{'por debajo' if target_rate <= q_b else 'por encima'}"
+                        f", así que gobierna el tramo "
+                        f"{'recto' if en_el_tramo_recto else 'curvo'}.",
+            )
+
+        # --- Tramo recto: vale de Pr hasta Pb ---------------------------------
+        if saturado:
+            pass       # Reservorio saturado: no existe tramo recto.
+        elif en_el_tramo_recto:
             trace.add(
                 "pwf_vogel_recta",
                 {"q": target_rate, "J": pi, "Pr": pr}, pwf,
-                context=f"La Pwf de diseño ({pwf:.0f} psi) queda POR ENCIMA de "
-                        f"la presión de burbuja ({pb_ef:.0f} psi): el flujo en "
-                        f"el reservorio todavía es monofásico.",
+                applies=True,
+                context=f"La Pwf de diseño ({pwf:,.0f} psi) queda POR ENCIMA "
+                        f"de la presión de burbuja ({pb_ef:,.0f} psi): el "
+                        f"flujo en el reservorio todavía es monofásico y vale "
+                        f"la recta de Darcy.",
             )
         else:
-            q_b = pi * (pr - pb_ef)
+            # No gobierna: se muestra evaluado en su propio borde, la burbuja.
+            trace.add(
+                "pwf_vogel_recta",
+                {"q": q_b, "J": pi, "Pr": pr}, pb_ef,
+                applies=False,
+                context=f"Este tramo cubre de 0 a {q_b:,.0f} STB/d, o sea de "
+                        f"Pr hasta la burbuja. Acá se lo evalúa en su borde "
+                        f"para ver dónde termina. El caudal de diseño "
+                        f"({target_rate:,.0f} STB/d) lo supera.",
+            )
+
+        # --- Tramo curvo: vale de Pb hacia abajo ------------------------------
+        if not en_el_tramo_recto:
             x = pwf / pb_ef
-            trace.add("pwf_qb", {"J": pi, "Pr": pr, "Pb": pb_ef}, q_b)
             trace.add(
                 "pwf_vogel_bifasico",
                 {"q": target_rate, "q_b": q_b, "J": pi, "Pb": pb_ef}, pwf,
-                context=f"La Pwf de diseño ({pwf:.0f} psi) cae POR DEBAJO de la "
-                        f"burbuja ({pb_ef:.0f} psi), así que el punto está en el "
-                        f"tramo curvo: Pwf/Pb = {x:.4f} y el corchete vale "
-                        f"{1 - 0.2*x - 0.8*x**2:.4f}. No se despeja a mano: se "
-                        f"resuelve numéricamente por el método de Brent.",
+                applies=True,
+                context=f"La Pwf de diseño ({pwf:,.0f} psi) cae POR DEBAJO de "
+                        f"la burbuja ({pb_ef:,.0f} psi): Pwf/Pb = {x:.4f} y el "
+                        f"corchete vale {1 - 0.2*x - 0.8*x**2:.4f}. No se "
+                        f"despeja a mano; se resuelve numéricamente por Brent."
+                        + ("" if not saturado else
+                           f" El reservorio está SATURADO (Pb ≥ Pr), así que no "
+                           f"hay tramo recto y vale Vogel puro en todo el rango."),
+            )
+        else:
+            # No gobierna: arranca justo donde termina el recto, en la burbuja.
+            trace.add(
+                "pwf_vogel_bifasico",
+                {"q": q_b, "q_b": q_b, "J": pi, "Pb": pb_ef}, pb_ef,
+                applies=False,
+                context=f"Este tramo arranca en {q_b:,.0f} STB/d —el corchete "
+                        f"se anula y devuelve la burbuja, que es como los dos "
+                        f"tramos empalman sin quiebre— y sigue hasta el AOF. "
+                        f"El caudal de diseño ({target_rate:,.0f} STB/d) no "
+                        f"llega.",
             )
 
     elif metodo is IPRMethod.FETKOVICH:
         c = reservoir.fetkovich_c
         n = reservoir.fetkovich_n or 1.0
+        # El AOF ubica el punto de diseño dentro del rango del reservorio, que
+        # es lo que en Vogel muestra el caudal de burbuja.
+        trace.add(
+            "ajuste_aof_fetkovich", {"C": c, "Pr": pr, "n": n},
+            _compute_aof(reservoir, c, n),
+            context=f"Es el techo del reservorio. El caudal de diseño "
+                    f"({target_rate:,.0f} STB/d) tiene que caer por debajo.",
+        )
         trace.add(
             "pwf_fetkovich",
             {"q": target_rate, "C": c, "Pr": pr, "n": n}, pwf,
-            context="Se resuelve numéricamente por el método de Brent: la "
-                    "ecuación no tiene despeje directo para Pwf.",
+            context=f"Una sola ecuación para TODO el rango: Fetkovich **no se "
+                    f"parte** en la presión de burbuja ({pb_ef:,.0f} psi), a "
+                    f"diferencia de Vogel. El ajuste de C y n ya absorbe el "
+                    f"comportamiento bifásico del reservorio (Beggs ec. 2-58), "
+                    f"así que agregarle un tramo recto sería un error. Se "
+                    f"resuelve por Brent: no tiene despeje directo para Pwf.",
         )
 
     trace.add("diseno_drawdown", {"Pr": pr, "Pwf": pwf}, pr - pwf)

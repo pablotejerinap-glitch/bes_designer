@@ -409,6 +409,27 @@ son la mayoría— se comían la prosa de la fórmula. Los superíndices **no** 
 como frontera, para que `v_m` se reemplace también dentro de `v_m²`. Los dos
 casos están fijados en `tests/test_formula_catalog.py`.
 
+**Los métodos partidos en tramos publican TODOS sus tramos** (`Formula.applies`).
+Vogel generalizado es una función partida en dos, y emitir sólo la mitad que
+gobierna impide revisar el método: no se ve dónde se dobla la curva ni por qué
+el pozo cayó de un lado. `ipr_trace()` emite siempre el caudal de burbuja
+—la bisagra— y los dos tramos; el que no gobierna se evalúa **en la burbuja**,
+su propio borde, lo que además muestra que los dos empalman ahí sin quiebre.
+
+La distinción es un **dato**, no una frase en la prosa: `applies` vale `True`
+en el tramo que gobierna, `False` en el otro y `None` cuando el método no está
+partido. El front lo usa para atenuar el tramo inactivo y ponerle su etiqueta —
+mostrar los dos sin distinguirlos sería peor que mostrar uno, porque se podría
+leer el número equivocado. **Fetkovich sigue con `None`**: no se parte en la
+burbuja, y su `context` explica por qué (Beggs ec. 2-58).
+
+**`FormulaSchema` tiene que seguir a `core.formulas.Formula`.** El mapper hace
+`FormulaSchema(**asdict(f))` y Pydantic **descarta en silencio** lo que no esté
+declarado: `step`, `topic`, `symbols` y `context` se agregaron al dominio y
+viajaron perdidos hasta la pantalla sin que fallara nada.
+`tests/test_api.py::TestElContratoSigueAlDominio` compara los campos de las dos
+mitades y verifica que lleguen de verdad por la API.
+
 `docs/FORMULAS.md` se escribe a mano y por lo tanto puede atrasarse; la fuente
 autoritativa es el catálogo. Para los temas sin instrumentar sigue siendo lo
 único que hay.

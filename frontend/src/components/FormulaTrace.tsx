@@ -26,44 +26,73 @@ export function FormulaTrace({ formulas }: { formulas?: Formula[] }) {
         fuente. Se genera desde el mismo código que hace la cuenta.
       </Text>
 
-      {formulas.map((f, i) => (
-        <Card key={f.key + i} withBorder radius="sm" padding="sm">
-          <Group justify="space-between" align="flex-start" wrap="nowrap">
-            <Text fw={600} size="sm">
-              {i + 1}. {f.label}
-            </Text>
-            {f.reference && (
-              <Badge variant="light" size="sm" style={{ flexShrink: 0 }}>
-                {f.reference}
-              </Badge>
+      {formulas.map((f, i) => {
+        /*
+          Los métodos partidos en tramos (Vogel generalizado) publican TODOS
+          sus tramos, no sólo el que gobierna: con media función no se puede
+          revisar el método. Pero entonces hay que distinguirlos bien, porque
+          si no se puede leer el número equivocado. El tramo que no gobierna va
+          atenuado y con su etiqueta; el que gobierna, resaltado.
+        */
+        const inactivo = f.applies === false;
+        return (
+          <Card
+            key={f.key + i}
+            withBorder
+            radius="sm"
+            padding="sm"
+            style={inactivo ? { opacity: 0.62, borderStyle: "dashed" } : undefined}
+          >
+            <Group justify="space-between" align="flex-start" wrap="nowrap">
+              <Group gap={6} align="baseline" wrap="nowrap">
+                <Text fw={600} size="sm">
+                  {i + 1}. {f.label}
+                </Text>
+                {f.applies === true && (
+                  <Badge size="xs" variant="filled" color="teal">
+                    gobierna este pozo
+                  </Badge>
+                )}
+                {inactivo && (
+                  <Badge size="xs" variant="outline" color="gray">
+                    otro tramo del método
+                  </Badge>
+                )}
+              </Group>
+              {f.reference && (
+                <Badge variant="light" size="sm" style={{ flexShrink: 0 }}>
+                  {f.reference}
+                </Badge>
+              )}
+            </Group>
+
+            <Code block mt={6} style={{ fontSize: 13 }}>
+              {f.expression}
+            </Code>
+
+            <Code block mt={4} style={{ fontSize: 13 }}>
+              {f.substitution} = {formatResult(f.result)} {f.units}
+            </Code>
+
+            {/*
+              Dos notas distintas y a propósito separadas: `note` es del método y
+              vale siempre —viene del catálogo—; `context` es de ESTE pozo.
+              Mezclarlas haría parecer condición general lo que es circunstancia.
+            */}
+            {f.note && (
+              <Text size="xs" c="dimmed" mt={6}>
+                {f.note}
+              </Text>
             )}
-          </Group>
-
-          <Code block mt={6} style={{ fontSize: 13 }}>
-            {f.expression}
-          </Code>
-
-          <Code block mt={4} style={{ fontSize: 13 }}>
-            {f.substitution} = {formatResult(f.result)} {f.units}
-          </Code>
-
-          {/*
-            Dos notas distintas y a propósito separadas: `note` es del método y
-            vale siempre —viene del catálogo—; `context` es de ESTE pozo.
-            Mezclarlas haría parecer condición general lo que es circunstancia.
-          */}
-          {f.note && (
-            <Text size="xs" c="dimmed" mt={6}>
-              {f.note}
-            </Text>
-          )}
-          {f.context && (
-            <Text size="xs" c="teal.8" mt={4}>
-              En este caso: {f.context}
-            </Text>
-          )}
-        </Card>
-      ))}
+            {f.context && (
+              <Text size="xs" c={inactivo ? "dimmed" : "teal.8"} mt={4}>
+                {inactivo ? "" : "En este caso: "}
+                {f.context}
+              </Text>
+            )}
+          </Card>
+        );
+      })}
     </Stack>
   );
 }

@@ -119,6 +119,17 @@ class Formula:
         reference: De dónde sale la fórmula.
         note: Condición de validez que vale siempre (viene del catálogo).
         context: Por qué esta variante y con qué datos, en este caso concreto.
+        applies: Sólo para los métodos **partidos en tramos**, como el Vogel
+            generalizado. ``True`` = es el tramo que gobierna este pozo;
+            ``False`` = se muestra para poder revisar el método completo, pero
+            el punto de diseño no cae acá. ``None`` = no es un método partido y
+            la pregunta no corresponde, que es el caso de casi todas.
+
+            Existe porque mostrar sólo la mitad que se ejecutó impide revisar
+            el método: no se ve dónde se dobla la curva ni por qué este pozo
+            cayó de un lado. Y mostrar las dos sin distinguirlas sería peor
+            —se podría leer el número equivocado—, así que la distinción tiene
+            que ser un dato, no una frase en la prosa.
     """
 
     key: str
@@ -134,6 +145,7 @@ class Formula:
     reference: str = ""
     note: str = ""
     context: str = ""
+    applies: bool | None = None
 
 
 @dataclass
@@ -151,6 +163,7 @@ class FormulaTrace:
         context: str = "",
         label: str | None = None,
         substitute: bool = True,
+        applies: bool | None = None,
     ) -> float:
         """Registra una cuenta y devuelve el resultado, para poder encadenar.
 
@@ -170,6 +183,10 @@ class FormulaTrace:
             substitute: ``False`` deja la expresión sin reemplazar. Se usa en
                 los totales, donde sustituir un sumatorio por su propio valor
                 imprimiría «51.8 = 51.8».
+            applies: Para métodos partidos en tramos (Vogel generalizado):
+                ``True`` si es el tramo que gobierna este pozo, ``False`` si se
+                muestra sólo para poder revisar el método completo. ``None``
+                —el default— para todo lo demás.
 
         Returns:
             El mismo ``result`` que se le pasó.
@@ -190,7 +207,7 @@ class FormulaTrace:
             expression=spec.expression, substitution=sustituida,
             inputs={k: v for k, v in inputs.items()}, symbols=dict(spec.symbols),
             result=result, units=spec.units, reference=spec.reference,
-            note=spec.note, context=context,
+            note=spec.note, context=context, applies=applies,
         ))
         return result
 
