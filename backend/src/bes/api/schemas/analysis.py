@@ -1,4 +1,4 @@
-"""Esquemas de los endpoints de análisis: nodal, sensibilidad, gas y fórmulas."""
+"""Esquemas de los endpoints de análisis: nodal, gas y fórmulas."""
 from __future__ import annotations
 
 from enum import Enum
@@ -9,13 +9,6 @@ from bes.api.schemas.inputs import (
     FluidSchema, ObjectivesSchema, ReservoirSchema, SurfaceSchema, WellSchema,
 )
 from bes.api.schemas.outputs import DesignResultSchema, FormulaSchema
-
-
-class SensitivityParamStr(str, Enum):
-    water_cut = "water_cut"
-    gor = "gor"
-    static_pressure = "static_pressure"
-    target_flow_rate = "target_flow_rate"
 
 
 # --------------------------------------------------------------------------- #
@@ -320,6 +313,32 @@ class GasFeasibility(BaseModel):
         None, description="Eficiencia que haría falta; None si ya cumple",
     )
     verdict: str
+    # --- Escalera de manejo de gas (bes.core.gas_handling) -----------------
+    # Estos campos vienen del dominio y Pydantic los DESCARTA EN SILENCIO si no
+    # están declarados acá: sin ellos la pantalla no puede decir en qué escalón
+    # quedó el pozo. Ver DesignResultSchema y test_api::TestElContratoSigueAlDominio.
+    strategy: str = Field(
+        "", description="'ninguno' | 'simple' | 'tandem' | 'agh' | 'no_viable'",
+    )
+    n_separators: int = Field(0, description="Separadores en serie")
+    switch_lift_method: bool = Field(
+        False, description="True = ni el techo de la tecnología BES alcanza",
+    )
+    uses_agh: bool = Field(
+        False,
+        description="El aparejo lleva manejador avanzado de gas. NO retira gas: "
+                    "acondiciona la mezcla y sube la tolerancia de max_gip al "
+                    "GVF que publica el equipo.",
+    )
+    agh_model: str | None = None
+    agh_max_gvf: float | None = Field(
+        None, description="Fracción de vacío máxima del manejador [0-1]",
+    )
+    tolerance: float = Field(
+        0.0,
+        description="Contra qué se comparó el gas en la bomba: max_gip en los "
+                    "tres primeros escalones, el GVF del manejador en el cuarto",
+    )
 
 
 class GasCompleteDesignResponse(BaseModel):
@@ -350,28 +369,6 @@ class GasCompleteDesignResponse(BaseModel):
         description="Escalera de incrementos (Brown Fig. 4.56B) como Plotly "
                     "figure JSON. Acompaña al cálculo, igual que el nodal.",
     )
-
-
-# --------------------------------------------------------------------------- #
-# Sensitivity
-# --------------------------------------------------------------------------- #
-class SensitivityRequest(BaseModel):
-    reservoir: ReservoirSchema
-    fluid: FluidSchema
-    well: WellSchema
-    surface: SurfaceSchema
-    objectives: ObjectivesSchema
-    param: SensitivityParamStr
-    pct_range_pct: float = Field(40.0, gt=0, le=90, description="Semiancho del barrido [%]")
-    n_points: int = Field(7, ge=2, le=25)
-
-
-class SensitivityResponse(BaseModel):
-    param: str
-    param_label: str
-    param_values: list[float]
-    metrics: dict[str, list[float]]
-    figure: dict                       # Plotly figure JSON
 
 
 # --------------------------------------------------------------------------- #

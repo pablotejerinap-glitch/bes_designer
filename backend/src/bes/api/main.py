@@ -20,7 +20,6 @@ from fastapi.responses import JSONResponse
 
 from bes.api.routers import (
     affinity, catalogs, design, formulas, gas, ipr, nodal, plots, reports,
-    sensitivity,
 )
 
 app = FastAPI(
@@ -65,7 +64,6 @@ def health() -> dict:
 app.include_router(design.router)
 app.include_router(catalogs.router)
 app.include_router(nodal.router)
-app.include_router(sensitivity.router)
 app.include_router(reports.router)
 app.include_router(plots.router)
 app.include_router(ipr.router)

@@ -11,7 +11,7 @@ Los ocho pasos del procedimiento y dónde vive cada uno:
     1. TDH bombeando agua de SG 1.0            -> bes.core.tdh (ya existía)
     2. Viscosidad del crudo SIN gas            -> crude_viscosity_ssu()
     3. Corregir por gas en solución            -> crude_viscosity_ssu()
-    4. Convertir a SSU                         -> crude_viscosity_ssu()
+    4. Convertir a SSU (Takács ec. 4.14)       -> crude_viscosity_ssu()
     5. Corregir por corte de agua              -> parámetro measured_ssu (ver abajo)
     6. Factores de las tablas 4.520 / 4.521    -> viscosity_factors()
     7. Elegir bomba y motor                    -> water_equivalent_duty()
@@ -127,46 +127,86 @@ def _charts() -> dict:
 # Paso 4 — conversión de viscosidad
 # --------------------------------------------------------------------------
 
-def ssu_to_cst(ssu: float) -> float:
-    """SSU → centistokes, por ASTM D2161.
+#: Constantes de la ec. 4.14 de Takács. Se nombran porque la inversa las usa y
+#: tienen que ser las mismas: dos copias del 158.4 se pueden desincronizar.
+_TAKACS_K = 2.273
+_TAKACS_C = 158.4
 
-    Args:
-        ssu: Viscosidad en Segundos Saybolt Universal. Debe ser >= 31.
-
-    Returns:
-        Viscosidad cinemática [cSt].
-    """
-    if ssu < 31.0:
-        raise ValueError(f"ssu must be >= 31, got {ssu}")
-    if ssu < 100.0:
-        return 0.226 * ssu - 195.0 / ssu
-    return 0.220 * ssu - 135.0 / ssu
+#: SSU por debajo del cual la ec. 4.14 no tiene inversa real: es el valor que
+#: toma en cSt → 0, o sea ``k·sqrt(C)``. Corresponde a ~28.6 SSU, el piso físico
+#: del viscosímetro Saybolt.
+SSU_MIN = _TAKACS_K * _TAKACS_C ** 0.5
 
 
 def cst_to_ssu(cst: float) -> float:
-    """Centistokes → SSU (paso 4 de Riling, equivale a la Fig. 4L-3).
+    """Centistokes → SSU, por la ecuación 4.14 de Takács.
 
-    Es la inversa de :func:`ssu_to_cst`. ASTM D2161 publica la relación en el
-    sentido SSU → cSt y no tiene forma cerrada al revés, así que se invierte
-    numéricamente por bisección; la función es monótona creciente, de modo que
-    la raíz es única.
+    Es el **paso 4 de Riling**: la viscosidad hay que llevarla a Segundos
+    Saybolt Universal porque es la unidad con que se entra a las Tablas 4.520 y
+    4.521. El libro manda leer la Fig. 4L-3; ésta es su forma analítica::
+
+        SSU = 2.273 · ( cSt + sqrt( cSt² + 158.4 ) )
+
+    Una sola expresión para todo el rango, sin las dos ramas de ASTM D2161.
+
+    **Es la única conversión del proyecto**, y la usan los dos caminos: el de
+    Riling (Tablas 4.520/4.521) y el de verificación por Hydraulic Institute.
+    Antes convivían dos —ASTM D2161 invertida por bisección para Riling y ésta
+    para el HI—, que difieren hasta un 2 % alrededor de los 20 cSt: un mismo
+    crudo entraba a dos tablas con dos viscosidades distintas.
 
     Args:
         cst: Viscosidad cinemática [cSt]. Debe ser > 0.
 
     Returns:
-        Viscosidad en SSU.
+        Viscosidad en Segundos Saybolt Universal.
+
+    Raises:
+        ValueError: Si cst <= 0.
+
+    Referencia:
+        Takács, «Electrical Submersible Pumps Manual», 2ª ed. (2018), cap. 4
+        «Use of ESP Equipment in Special Conditions», ec. 4.14, pág. 159.
     """
     if cst <= 0:
         raise ValueError(f"cst must be > 0, got {cst}")
-    lo, hi = 31.0, 1.0e6
-    for _ in range(200):
-        mid = 0.5 * (lo + hi)
-        if ssu_to_cst(mid) < cst:
-            lo = mid
-        else:
-            hi = mid
-    return 0.5 * (lo + hi)
+    return _TAKACS_K * (cst + (cst * cst + _TAKACS_C) ** 0.5)
+
+
+def ssu_to_cst(ssu: float) -> float:
+    """SSU → centistokes: la inversa EXACTA de :func:`cst_to_ssu`.
+
+    La ec. 4.14 se despeja a mano, así que no hace falta iterar. Con
+    ``S = SSU/2.273``::
+
+        S − cSt = sqrt(cSt² + 158.4)
+        S² − 2·S·cSt = 158.4
+        cSt = (S² − 158.4) / (2·S)
+
+    Que sea la inversa exacta —y no la fórmula de otra norma— es lo que
+    garantiza que ida y vuelta cierren. Con ASTM en un sentido y Takács en el
+    otro, un valor de laboratorio en SSU volvía distinto.
+
+    Args:
+        ssu: Viscosidad en Segundos Saybolt Universal. Debe ser > ``SSU_MIN``
+            (~28.6), que es el piso de la correlación.
+
+    Returns:
+        Viscosidad cinemática [cSt].
+
+    Raises:
+        ValueError: Si ssu <= SSU_MIN, donde la inversa no existe.
+
+    Referencia:
+        Takács (2018), ec. 4.14 despejada.
+    """
+    if ssu <= SSU_MIN:
+        raise ValueError(
+            f"ssu must be > {SSU_MIN:.2f} (piso de la ec. 4.14 de Takács), "
+            f"got {ssu}"
+        )
+    sc = ssu / _TAKACS_K
+    return (sc * sc - _TAKACS_C) / (2.0 * sc)
 
 
 # --------------------------------------------------------------------------
@@ -658,29 +698,6 @@ HI_VISCOSITY_RANGE_CST = (4.0, 3_000.0)
 HI_Q_STAR_MAX = 3.3075e-2 / (2.0 * 2.8875e-4)
 
 
-def cst_to_ssu_takacs(cst: float) -> float:
-    """Centistokes → SSU por la forma cerrada de Takács (ec. 4.14).
-
-    Una sola expresión para todo el rango, sin las dos ramas de ASTM D2161::
-
-        SSU = 2.273 · (cSt + sqrt(cSt² + 158.4))
-
-    Se usa dentro del camino Hydraulic Institute, para reproducir los ejemplos
-    de Takács con su propia conversión. El camino de Riling sigue con
-    :func:`cst_to_ssu`, que es ASTM. Las dos difieren ~1-2 % en el rango de
-    interés; la diferencia se documenta en ``docs/CRUDOS_VISCOSOS.md``.
-
-    Args:
-        cst: Viscosidad cinemática [cSt]. Debe ser > 0.
-
-    Returns:
-        Viscosidad en Segundos Saybolt Universal.
-    """
-    if cst <= 0:
-        raise ValueError(f"cst must be > 0, got {cst}")
-    return 2.273 * (cst + (cst * cst + 158.4) ** 0.5)
-
-
 def brake_horsepower(q_bpd: float, head_ft: float, sg: float, efficiency: float) -> float:
     """Potencia al freno de una bomba centrífuga (Takács ec. 4.12).
 
@@ -832,7 +849,7 @@ def hydraulic_institute_factors(
         "efficiency_factor": c_eta,
         "head_factors": head_factors,
         "viscosity_cst": viscosity_cst,
-        "ssu": cst_to_ssu_takacs(viscosity_cst),
+        "ssu": cst_to_ssu(viscosity_cst),
         "q_bep_bpd": q_bep_bpd,
         "h_bep_ft": h_bep_ft,
         "warnings": warnings,

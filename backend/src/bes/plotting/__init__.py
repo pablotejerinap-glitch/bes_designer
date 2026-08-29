@@ -12,7 +12,6 @@ from bes.plotting.plots import (
     plot_pressure_profile,
     plot_pump_catalog_curve,
     plot_pump_curve,
-    plot_sensitivity_analysis,
 )
 
 __all__ = [
@@ -23,5 +22,4 @@ __all__ = [
     "plot_pressure_profile",
     "plot_pump_catalog_curve",
     "plot_pump_curve",
-    "plot_sensitivity_analysis",
 ]

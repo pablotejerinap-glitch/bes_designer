@@ -1,0 +1,78 @@
+{
+  "_note": "Guía de aplicación de elastómeros de REDA: límite de temperatura y resistencia química de cada compuesto. Digitalizado de REDA_ESP_Catalog.pdf, «Elastomer Application Guidelines», pág. 404 (índice 403). Es la tabla completa, con las cinco columnas del impreso.",
+  "_para_que_sirve": "Es la única fuente de límite de temperatura que REDA publica para los sellos/protectores. NO se puede aplicar todavía a seals.json: el catálogo de protectores no dice qué elastómero lleva cada modelo, así que asignarle una temperatura a un sello concreto sería suponer. Queda cargado para el día que aparezca esa correspondencia, y como respaldo del criterio de selección de materiales en la tesis.",
+  "_advertencia_del_impreso": "«Temperature limit indicates maximum operating temperature for the elastomers. An elastomeric component will operate at a higher temperature than the ambient wellbore temperature, depending on its location in the equipment.» O sea: el límite NO se compara contra la temperatura de fondo sin más — el componente trabaja más caliente que el pozo. El propio catálogo remite al representante para cada aplicación.",
+  "_escala_de_resistencia": {
+    "1": "Excelente — resistencia a largo plazo (poco hinchamiento, conserva sus propiedades físicas)",
+    "2": "Buena — resistencia a largo plazo (hinchamiento moderado, buena conservación de propiedades)",
+    "3": "Regular — depende del tiempo de exposición y la temperatura (buena resistencia a corto plazo)",
+    "4": "Mala — no resiste, ni siquiera a corto plazo"
+  },
+  "elastomers": [
+    {
+      "name": "Neoprene/Nitrile",
+      "temp_limit_f": 250,
+      "temp_limit_c": 121,
+      "resistance": {
+        "water_oil": 1,
+        "hydrogen_sulfide": 1,
+        "amines": 3,
+        "polar_chemicals": 4,
+        "carbon_dioxide": 2
+      },
+      "_source": "REDA ESP Catalog, «Elastomer Application Guidelines», pág. 404"
+    },
+    {
+      "name": "Carboxynitrile",
+      "temp_limit_f": 275,
+      "temp_limit_c": 135,
+      "resistance": {
+        "water_oil": 1,
+        "hydrogen_sulfide": 3,
+        "amines": 3,
+        "polar_chemicals": 4,
+        "carbon_dioxide": 2
+      },
+      "_source": "REDA ESP Catalog, «Elastomer Application Guidelines», pág. 404"
+    },
+    {
+      "name": "HSN",
+      "temp_limit_f": 300,
+      "temp_limit_c": 149,
+      "resistance": {
+        "water_oil": 1,
+        "hydrogen_sulfide": 1,
+        "amines": 3,
+        "polar_chemicals": "1-2",
+        "carbon_dioxide": 2
+      },
+      "_source": "REDA ESP Catalog, «Elastomer Application Guidelines», pág. 404. El impreso da «1–2» para químicos polares; se conserva el rango tal cual en vez de elegir uno."
+    },
+    {
+      "name": "Viton",
+      "temp_limit_f": 351,
+      "temp_limit_c": 177,
+      "resistance": {
+        "water_oil": 2,
+        "hydrogen_sulfide": 4,
+        "amines": 4,
+        "polar_chemicals": 3,
+        "carbon_dioxide": 4
+      },
+      "_source": "REDA ESP Catalog, «Elastomer Application Guidelines», pág. 404. Viton® es marca registrada."
+    },
+    {
+      "name": "Aflas",
+      "temp_limit_f": 399,
+      "temp_limit_c": 204,
+      "resistance": {
+        "water_oil": 1,
+        "hydrogen_sulfide": 1,
+        "amines": 1,
+        "polar_chemicals": 3,
+        "carbon_dioxide": 2
+      },
+      "_source": "REDA ESP Catalog, «Elastomer Application Guidelines», pág. 404. Aflas® es marca registrada."
+    }
+  ]
+}

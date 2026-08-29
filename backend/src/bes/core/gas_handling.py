@@ -89,6 +89,7 @@ Takács, G. "Electrical Submersible Pumps Manual".
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from bes.core.formulas import FormulaTrace
@@ -295,6 +296,163 @@ def gas_ingestion_percentage(
     return max(0.0, min(1.0, gip))
 
 
+#: Potencia que consume el separador de gas de fondo [hp]. Va montado en el
+#: mismo eje, entre el sello y la bomba, así que su consumo **se suma al de la
+#: bomba antes de elegir el motor**: el motor mueve las dos cosas.
+#:
+#: **Es el respaldo, ya no el camino normal.** Desde que el catálogo de REDA
+#: está digitalizado, el consumo sale **del modelo elegido** (campo ``hp`` de
+#: ``gas_handlers.json``, publicado a 60 Hz): 3 hp el VGSA D20-60, 6 el S20-90,
+#: 14 el S70-150. Estos 2 hp quedan para los modelos que el fabricante no
+#: publica —los rotativos ARS, CRS-ES y DRS-ES, que sólo figuran en las tablas
+#: de armado— y son del orden de lo que consume un separador de tamaño BES.
+#:
+#: La consulta va por :func:`gas_handler_hp`, nunca leyendo esta constante
+#: directamente: si se lee suelta, el consumo publicado se pierde.
+GAS_SEPARATOR_HP = 2.0
+
+
+def total_intake_rate(liquid_rate_bpd: float, free_gas_fraction: float) -> float:
+    """Caudal TOTAL —líquido más gas libre— que ve el manejador de gas [bpd].
+
+    El separador se monta debajo de la bomba, así que por él pasa la mezcla
+    entera. REDA declara su rango de aplicación exactamente así: *"total liquid
+    and gas operating range, B/D at 60 Hz"* (ESP Catalog, pág. 392). Consultar
+    el catálogo con el caudal de líquido solo subestima lo que el equipo tiene
+    que manejar y descarta separadores que en realidad califican::
+
+        q_total = q_líquido / (1 − f_gas)
+
+    Con 63 % de gas libre, 1 227 bpd de líquido son 3 316 bpd de mezcla: el
+    primero cae fuera del rango 2 000–6 000 del VGSA D20-60 y el segundo entra
+    cómodo. La diferencia decide si el pozo se puede diseñar o no.
+
+    El caudal de líquido que se pasa es el de **superficie**, que es la
+    convención del resto del selector; a presión de admisión el líquido está
+    algo expandido (Bo, Bw), así que el total resultante es una cota inferior.
+
+    Args:
+        liquid_rate_bpd: Caudal de líquido [bpd].
+        free_gas_fraction: Fracción volumétrica de gas libre en la admisión
+            [0–1], la que devuelve :func:`free_gas_fraction_at_intake`.
+
+    Returns:
+        Caudal total de mezcla en la admisión [bpd]. Con ``f_gas`` fuera de
+        [0, 1) devuelve el caudal de líquido sin tocar.
+    """
+    f = free_gas_fraction
+    if not (0.0 <= f < 1.0):
+        return liquid_rate_bpd
+    return liquid_rate_bpd / (1.0 - f)
+
+
+def gas_handler_hp(handler: dict | None) -> float:
+    """Consumo publicado del manejador de gas, a su frecuencia base [hp].
+
+    El separador va montado en el mismo eje que la bomba, así que su consumo lo
+    entrega el mismo motor y **se suma antes de dimensionarlo**.
+
+    Args:
+        handler: Entrada del catálogo (``gas_handlers.json``), o ``None``.
+
+    Returns:
+        El ``hp`` que publica el fabricante para ese modelo; si no lo publica
+        —o si no hay equipo—, :data:`GAS_SEPARATOR_HP` como respaldo.
+    """
+    if not handler:
+        return GAS_SEPARATOR_HP
+    hp = handler.get("hp")
+    return float(hp) if hp else GAS_SEPARATOR_HP
+
+#: Frecuencia a la que se entiende publicado ``GAS_SEPARATOR_HP`` [Hz].
+#:
+#: Los fabricantes publican el consumo de estos dispositivos **a una frecuencia
+#: fija**, 50 o 60 Hz (Takács §4.4.5). Los catálogos del proyecto son de 60 Hz,
+#: así que ese es el valor base. Es un **supuesto declarado**: si mañana el
+#: catálogo publica el consumo con su propia frecuencia, este número se
+#: reemplaza por el del modelo.
+GAS_SEPARATOR_BASE_FREQUENCY_HZ = 60.0
+
+
+def gas_handler_power_at_frequency(
+    base_hp: float,
+    frequency_hz: float,
+    base_frequency_hz: float = GAS_SEPARATOR_BASE_FREQUENCY_HZ,
+) -> float:
+    """Potencia del manejador de gas a la frecuencia de operación [hp].
+
+    El separador va en el mismo eje que la bomba, así que gira a la misma
+    velocidad y **su consumo escala con la tercera potencia de la frecuencia**,
+    igual que el de cualquier máquina rotante::
+
+        BHP = BHP_base · (f / f_base)³
+
+    Sin esta corrección un pozo a 50 Hz cargaría al motor con el consumo de
+    60 Hz: 2 hp en vez de 1.16, un 72 % de más sobre ese término. Es la misma
+    ley de afinidad con que ``bes.core.affinity.pump_at_frequency`` escala la
+    curva de la bomba — dejar una escalada y la otra no era incoherente.
+
+    Args:
+        base_hp: Consumo publicado por el fabricante [hp].
+        frequency_hz: Frecuencia de operación [Hz]. Debe ser > 0.
+        base_frequency_hz: Frecuencia a la que está publicado *base_hp* [Hz].
+
+    Returns:
+        Consumo a la frecuencia de operación [hp].
+
+    Raises:
+        ValueError: Si alguna frecuencia no es positiva.
+
+    Referencia:
+        Takács, G. (2018). *Electrical Submersible Pumps Manual*, 2.ª ed.,
+        §4.4.5, ec. 4.31.
+    """
+    if frequency_hz <= 0:
+        raise ValueError(f"frequency_hz must be > 0, got {frequency_hz}")
+    if base_frequency_hz <= 0:
+        raise ValueError(
+            f"base_frequency_hz must be > 0, got {base_frequency_hz}"
+        )
+    return base_hp * (frequency_hz / base_frequency_hz) ** 3
+
+
+def tandem_separation_efficiency(efficiencies: "Sequence[float]") -> float:
+    """Eficiencia de varios separadores **en serie**.
+
+    Cada separador trabaja sobre lo que le deja el anterior, así que lo que se
+    multiplica es el gas que **pasa**, no el que se retira::
+
+        η_total = 1 − Π (1 − ηᵢ)
+
+    Con un rotativo de 90 % seguido de un vórtex de 97 % el tándem retira
+    99.7 %, no el 93.5 % que daría promediarlos ni el 187 % de sumarlos.
+
+    Takács (pág. 195) señala que el tándem se arma con separadores de **tipos
+    distintos** —no dos iguales apilados— porque cada tipo rinde mejor en un
+    rango distinto de fracción de vacío.
+
+    Args:
+        efficiencies: Eficiencias individuales, cada una en [0, 1].
+
+    Returns:
+        Eficiencia combinada [0–1]. Con la lista vacía devuelve 0.
+
+    Raises:
+        ValueError: Si alguna eficiencia cae fuera de [0, 1].
+
+    Referencia:
+        Takács, G. (2018), §4.4.5: *"The greatest relative amounts of free gas
+        can be handled by a tandem RGS, composed of different types of
+        separators."*
+    """
+    pasa = 1.0
+    for eta in efficiencies:
+        if not (0.0 <= eta <= 1.0):
+            raise ValueError(f"cada eficiencia debe estar en [0, 1], got {eta}")
+        pasa *= (1.0 - eta)
+    return 1.0 - pasa
+
+
 def separator_outlet_fraction(free_gas_fraction: float, efficiency: float) -> float:
     """Fracción de gas que QUEDA tras separar *efficiency* del gas libre.
 
@@ -354,6 +512,324 @@ def required_separator_efficiency(
     if r_in <= 0:
         return None
     return 1.0 - fraction_to_ratio(max_gip) / r_in
+
+
+#: Los cuatro escalones de manejo de gas, de menor a mayor capacidad.
+#: Espeja el orden de la Fig. 4.25 de Takács (pág. 195), que compara el rango
+#: de aplicación de cada solución contra la fracción de vacío en la admisión.
+#:
+#: El cuarto —``"agh"``— **no separa gas**, y por eso va aparte de los otros
+#: tres: el manejador avanzado (REDA AGH, Takács §4.4.6 «gas handlers»)
+#: homogeneiza la mezcla para que la bomba la pueda bombear con gas adentro.
+#: No baja ``f_pump``: **sube la tolerancia** de ``max_gip`` a ``max_gvf``.
+GAS_STRATEGY_LADDER = ("ninguno", "simple", "tandem", "agh")
+
+#: Relación gas/líquido *in situ* hasta la que hay evidencia publicada de que un
+#: separador rotativo asegura desempeño ideal de la bomba (Takács pág. 186,
+#: ref. [41]: *"the use of such rotary separators ensures ideal pump performance
+#: for in situ gas-liquid ratios as high as 0.6"*).
+#:
+#: Es **relación**, no fracción: 0.6 de relación equivale a 37.5 % de fracción.
+#: Por encima de eso el cálculo sigue corriendo pero se avisa, porque se está
+#: extrapolando fuera del rango documentado.
+RGS_DOCUMENTED_RATIO_LIMIT = 0.6
+
+
+def select_gas_handling_strategy(
+    free_gas_fraction_intake: float,
+    single_efficiency: float | None = None,
+    tandem_efficiencies: "Sequence[float] | None" = None,
+    vent_fraction: float = 0.0,
+    max_gip: float = GAS_FRACTION_PUMP_LIMIT,
+    single_model: str | None = None,
+    tandem_models: "Sequence[str] | None" = None,
+    agh_max_gvf: float | None = None,
+    agh_model: str | None = None,
+) -> dict:
+    """Elige el manejo de gas mínimo que hace viable la BES, o la descarta.
+
+    Sube por la escalera y **se queda en el primer escalón que alcanza**, para
+    no instalar equipo de más::
+
+        f_admisión → venteo por el anular
+                        ↓
+            ¿alcanza sin separador?      → "ninguno"
+                        ↓ no
+            ¿alcanza con uno solo?       → "simple"
+                        ↓ no
+            ¿alcanza con el tándem?      → "tandem"
+                        ↓ no
+            ¿un manejador AGH lo tolera? → "agh"
+                        ↓ no
+            NO VIABLE → cambiar de método de levantamiento
+
+    **Los tres primeros escalones bajan el gas; el cuarto sube la tolerancia.**
+    Un separador retira gas y por lo tanto reduce ``f_pump``. El manejador
+    avanzado (AGH) no retira nada: acondiciona la mezcla para que la bomba pueda
+    bombearla con el gas adentro, hasta la fracción de vacío que publique el
+    fabricante (REDA declara 45 % de GVF, pág. 393). Por eso su escalón se
+    evalúa contra ``agh_max_gvf`` y no contra ``max_gip``, y por eso se apila
+    **sobre** la separación que ya se haya conseguido: el propio catálogo dice
+    que el AGH *«can also be installed in series above rotary or vortex-type gas
+    separators»*.
+
+    **El último escalón es el que importa.** Si ni con el AGH sobre el tándem el
+    gas queda por debajo de lo que el equipo tolera, la bomba centrífuga no
+    converge y no hay equipo que lo arregle: corresponde evaluar otro método de
+    levantamiento artificial. Es el techo de la tecnología BES para gas
+    (Takács, Fig. 4.25), así que fallar ahí es fallar del todo.
+
+    Todas las reducciones se aplican **sobre la relación** gas/líquido, no
+    sobre la fracción — ver :func:`separator_outlet_fraction`.
+
+    Args:
+        free_gas_fraction_intake: Fracción de gas libre en la admisión, antes
+            de cualquier separación [0–1].
+        single_efficiency: Eficiencia del separador simple [0–1]. ``None`` = no
+            hay separador disponible en el catálogo.
+        tandem_efficiencies: Eficiencias de los separadores del tándem. ``None``
+            o menos de dos elementos = no se evalúa el escalón de tándem.
+        vent_fraction: Fracción del gas libre venteada por el anular antes de
+            llegar al separador [0–1].
+        max_gip: Fracción máxima de gas admisible en la bomba.
+        single_model: Modelo del separador simple, para el texto del veredicto.
+        tandem_models: Modelos del tándem, para el texto del veredicto.
+        agh_max_gvf: Fracción de vacío máxima que tolera el manejador avanzado
+            disponible [0–1]. ``None`` = el catálogo no tiene uno que entre en
+            este pozo, y el escalón no se ofrece.
+        agh_model: Modelo del manejador avanzado, para el texto del veredicto.
+
+    Returns:
+        dict con:
+          - ``strategy``    ``"ninguno"`` / ``"simple"`` / ``"tandem"`` /
+                            ``"no_viable"``
+          - ``viable``      bool
+          - ``n_separators``  cuántos separadores lleva el aparejo
+          - ``efficiency``  eficiencia combinada aplicada [0–1]
+          - ``f_intake`` / ``f_after_vent`` / ``f_pump``  las fracciones
+          - ``ladder``      la evaluación de cada escalón, para mostrar
+          - ``verdict``     el texto
+          - ``switch_lift_method``  bool — ``True`` sólo si hay que cambiar de
+            método de levantamiento
+
+    Raises:
+        ValueError: Si *max_gip* cae fuera de [0, 1].
+    """
+    if not (0.0 <= max_gip <= 1.0):
+        raise ValueError(f"max_gip must be in [0, 1], got {max_gip}")
+
+    f_intake = min(max(0.0, free_gas_fraction_intake), 1.0)
+    f_vent = separator_outlet_fraction(f_intake, vent_fraction)
+
+    tandem = list(tandem_efficiencies or [])
+    eta_tandem = (
+        tandem_separation_efficiency(tandem) if len(tandem) >= 2 else None
+    )
+
+    # Los tres escalones, evaluados siempre: el veredicto muestra la escalera
+    # entera aunque se detenga en el primero, porque saber cuánto margen sobra
+    # (o falta) es parte de la decisión.
+    escalones = [
+        ("ninguno", 0, None, f_vent),
+        ("simple", 1, single_efficiency,
+         separator_outlet_fraction(f_vent, single_efficiency)
+         if single_efficiency is not None else None),
+        ("tandem", len(tandem), eta_tandem,
+         separator_outlet_fraction(f_vent, eta_tandem)
+         if eta_tandem is not None else None),
+    ]
+    ladder = [
+        {"strategy": nombre, "n_separators": n, "efficiency": eta,
+         "f_pump": f, "tolerancia": max_gip,
+         "alcanza": (f is not None and f <= max_gip)}
+        for nombre, n, eta, f in escalones
+    ]
+
+    # Cuarto escalón: el manejador avanzado. NO baja f_pump — lo deja donde lo
+    # dejó la mejor separación conseguida— y en cambio sube la tolerancia de
+    # max_gip a la fracción de vacío que el fabricante declara para el equipo.
+    f_mejor = next(
+        (e["f_pump"] for e in reversed(ladder) if e["f_pump"] is not None), f_vent,
+    )
+    n_sep_mejor = next(
+        (e["n_separators"] for e in reversed(ladder) if e["f_pump"] is not None), 0,
+    )
+    eta_mejor = next(
+        (e["efficiency"] for e in reversed(ladder) if e["f_pump"] is not None), None,
+    )
+    # El manejador sólo puede SUBIR la tolerancia por encima del límite estándar
+    # de la tecnología. Si el usuario apretó ``max_gip`` por debajo de
+    # GAS_FRACTION_PUMP_LIMIT está declarando un requisito más estricto que el
+    # de la bomba convencional —una instalación particular, un criterio de
+    # operación—, y un equipo de catálogo no puede pasarle por encima. Al revés
+    # sí: con la tolerancia estándar, el AGH la extiende hasta su GVF publicado.
+    agh_aplicable = (
+        agh_max_gvf is not None
+        and max_gip >= GAS_FRACTION_PUMP_LIMIT
+        and float(agh_max_gvf) > max_gip
+    )
+    if agh_aplicable:
+        ladder.append({
+            "strategy": "agh", "n_separators": n_sep_mejor,
+            "efficiency": eta_mejor, "f_pump": f_mejor,
+            "tolerancia": float(agh_max_gvf),
+            "alcanza": f_mejor <= float(agh_max_gvf),
+            "agh_model": agh_model,
+        })
+
+    elegido = next((e for e in ladder if e["alcanza"]), None)
+
+    if elegido is not None:
+        estrategia = elegido["strategy"]
+        f_pump = elegido["f_pump"]
+        eta_aplicada = elegido["efficiency"]
+        n_sep = elegido["n_separators"]
+        if estrategia == "ninguno":
+            veredicto = (
+                f"Viable sin separador: el gas libre en la admisión "
+                f"({f_intake:.1%}) ya está por debajo del máximo admisible "
+                f"({max_gip:.1%})."
+            )
+        elif estrategia == "simple":
+            equipo = f" ({single_model})" if single_model else ""
+            veredicto = (
+                f"Viable con UN separador{equipo}: el gas libre baja de "
+                f"{f_intake:.1%} en la admisión a {f_pump:.1%} en la bomba, "
+                f"por debajo del máximo admisible ({max_gip:.1%})."
+            )
+        elif estrategia == "agh":
+            equipo = f" ({agh_model})" if agh_model else ""
+            con_sep = (
+                f"Sobre la separación conseguida ({n_sep} separador"
+                f"{'es' if n_sep != 1 else ''}, {f_pump:.1%} de gas en la bomba)"
+                if n_sep else
+                f"Sin separador que entre en este pozo, el gas llega entero a "
+                f"la bomba ({f_pump:.1%})"
+            )
+            veredicto = (
+                f"Viable con MANEJADOR AVANZADO DE GAS{equipo}. {con_sep}, por "
+                f"encima del {max_gip:.1%} que tolera una bomba convencional. "
+                f"El manejador NO retira gas: acondiciona la mezcla para que la "
+                f"bomba la pueda bombear con el gas adentro, hasta "
+                f"{float(agh_max_gvf):.0%} de fracción de vacío. Va en el mismo "
+                f"eje, así que suma su consumo al motor y su longitud a la "
+                f"sarta."
+            )
+        else:
+            equipo = f" ({' + '.join(tandem_models)})" if tandem_models else ""
+            veredicto = (
+                f"Viable sólo con separador en TÁNDEM{equipo}: un separador "
+                f"solo deja {ladder[1]['f_pump']:.1%} de gas en la bomba, por "
+                f"encima del límite ({max_gip:.1%}). Los dos en serie retiran "
+                f"{eta_aplicada:.1%} del gas libre y lo bajan a {f_pump:.1%}. "
+                f"El tándem se arma con separadores de tipos distintos y suma "
+                f"su consumo al motor y su longitud a la sarta."
+            )
+    else:
+        # Ningún escalón alcanza: el techo de la tecnología no da.
+        estrategia = "no_viable"
+        n_sep = 0
+        eta_aplicada = eta_tandem if eta_tandem is not None else single_efficiency
+        f_pump = next(
+            (e["f_pump"] for e in reversed(ladder) if e["f_pump"] is not None),
+            f_vent,
+        )
+        eta_necesaria = required_separator_efficiency(f_vent, max_gip)
+        if eta_necesaria is None or eta_necesaria >= 1.0:
+            detalle = (
+                "Aun retirando el 100 % del gas libre el remanente seguiría por "
+                "encima del límite."
+            )
+        else:
+            disponible = (
+                f"{eta_aplicada:.1%}" if eta_aplicada is not None
+                else "no hay separador en el catálogo que entre en este pozo"
+            )
+            detalle = (
+                f"Haría falta una eficiencia de separación de "
+                f"{eta_necesaria:.1%}; el tándem alcanza {disponible}."
+            )
+        techo = (
+            f"ni con un manejador avanzado encima "
+            f"(tolera {float(agh_max_gvf):.0%} de fracción de vacío)"
+            if agh_aplicable
+            else "y el catálogo no tiene manejador avanzado que entre en este pozo"
+        )
+        veredicto = (
+            f"DISEÑO BES NO VIABLE — CAMBIAR DE MÉTODO DE LEVANTAMIENTO. "
+            f"El gas libre en la admisión ({f_intake:.1%}) queda en "
+            f"{f_pump:.1%} en la bomba incluso con separador en tándem, {techo}; "
+            f"por encima del máximo que tolera ({max_gip:.1%}). {detalle} "
+            f"El tándem es la mayor capacidad de manejo de gas de la "
+            f"tecnología BES (Takács, Fig. 4.25): si no alcanza, no hay equipo "
+            f"que lo resuelva y corresponde evaluar otro método de "
+            f"levantamiento artificial —bombeo de cavidad progresiva, gas lift "
+            f"o pistón— según las condiciones del pozo."
+        )
+
+    # --- Avisos: dónde el resultado se apoya en un supuesto optimista -------
+    warnings: list[str] = []
+    if n_sep > 0:
+        warnings.append(
+            "La eficiencia usada es la MÁXIMA que publica el catálogo. Takács "
+            "(Fig. 4.19) muestra que la eficiencia real cae al subir el caudal "
+            "de líquido, y que por encima de un caudal límite se desploma a "
+            "cero porque el inductor deja de vencer la caída de presión en los "
+            "puertos de descarga. El gas remanente calculado acá es por lo "
+            "tanto una cota INFERIOR: en operación puede ser mayor."
+        )
+    if estrategia == "agh":
+        warnings.append(
+            "El manejador avanzado NO retira gas: el gas libre sigue entrando a "
+            f"la bomba ({f_pump:.1%}). Lo que cambia es que la mezcla llega "
+            "homogeneizada y la bomba la puede impulsar. La curva de la bomba "
+            "se sigue leyendo con el caudal de mezcla, así que el deterioro de "
+            "altura por gas NO desaparece — sólo desaparece el bloqueo."
+        )
+    if fraction_to_ratio(f_vent) > RGS_DOCUMENTED_RATIO_LIMIT and n_sep > 0:
+        warnings.append(
+            f"La relación gas/líquido que llega al separador "
+            f"({fraction_to_ratio(f_vent):.2f}) supera el 0.6 hasta el que hay "
+            f"evidencia publicada de desempeño ideal del separador rotativo "
+            f"(Takács pág. 186). El resultado es extrapolación."
+        )
+
+    return {
+        "strategy": estrategia,
+        "viable": elegido is not None,
+        "switch_lift_method": elegido is None,
+        "n_separators": n_sep,
+        "efficiency": eta_aplicada,
+        "warnings": warnings,
+        "f_intake": f_intake,
+        "f_after_vent": f_vent,
+        "f_pump": f_pump,
+        "max_gip": max_gip,
+        "vent_fraction": vent_fraction,
+        "single_efficiency": single_efficiency,
+        "tandem_efficiency": eta_tandem,
+        "ladder": ladder,
+        "verdict": veredicto,
+        # Cuarto escalón. ``uses_agh`` es lo que mira el armado del aparejo para
+        # saber si hay que colgar un manejador avanzado además del separador.
+        "uses_agh": estrategia == "agh",
+        # Alias de continuidad con la compuerta anterior (evaluate_gas_feasibility):
+        # qué separador se supuso y con qué eficiencia. Los consumen la respuesta
+        # de /api/gas/design y los reportes.
+        "separator_model": (
+            " + ".join(tandem_models) if estrategia == "tandem" and tandem_models
+            else single_model if n_sep else None
+        ),
+        "separator_efficiency": eta_aplicada,
+        "agh_model": agh_model if estrategia == "agh" else None,
+        "agh_max_gvf": agh_max_gvf,
+        # Contra qué se comparó el gas en la bomba: max_gip en los tres primeros
+        # escalones, la capacidad de GVF del manejador en el cuarto.
+        "tolerance": (
+            float(agh_max_gvf) if estrategia == "agh" and agh_max_gvf is not None
+            else max_gip
+        ),
+    }
 
 
 def evaluate_gas_feasibility(
@@ -754,7 +1230,8 @@ def _manufacturer_has_motors(
 
     Las bombas del libro (``Brown (libro)``) no son de un proveedor: son los
     ejemplos numerados que anclan la validación, y la regla de no mezclar
-    fabricantes no les aplica.
+    fabricantes no les aplica. No están en el catálogo de la aplicación desde
+    ago-2026 — sólo las inyectan los tests.
     """
     if manufacturer in _NO_ES_PROVEEDOR_GAS:
         return True
@@ -817,7 +1294,7 @@ def _viscosity_factors_for_interval(
 
     # El dato medido sólo vale a la temperatura a la que se midió.
     dead_oil_cp = None
-    if fluid.oil_viscosity_dead and fluid.oil_viscosity_dead > 0:
+    if fluid.oil_viscosity_dead is not None:
         if abs(fluid.viscosity_temp_ref - temp_f) <= 20.0:
             dead_oil_cp = fluid.oil_viscosity_dead
 
@@ -1582,6 +2059,13 @@ def increment_result_to_candidate(
         "warnings": warnings,
         # --- Específico del método por incrementos ---------------------
         "design_method": "pressure_increment",
+        # Los tres caudales que definen la zona operativa del método. Con gas
+        # el caudal NO es constante a lo largo de la bomba, así que un solo
+        # número no la describe: la bomba se eligió contra el representativo y
+        # hay que poder verificar dónde caen los dos extremos.
+        "gas_q_representative_bpd": q_rep,
+        "gas_q_intake_bpd": inc["q_mix_intake_bpd"],
+        "gas_q_discharge_bpd": inc["q_mix_discharge_bpd"],
         "increment_table": tabla,
         "p_discharge_psi": inc["p_discharge"],
         "increment_psi": inc["increment_psi"],

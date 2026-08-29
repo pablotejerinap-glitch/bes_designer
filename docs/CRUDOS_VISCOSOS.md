@@ -147,7 +147,7 @@ La conversión pasa por la viscosidad **cinemática**:
 ν [cSt] = μ [cp] / SG
 ```
 
-y de ahí a SSU. Equivalente analítico (ASTM D2161, el que ya usa la app en
+y de ahí a SSU. Equivalente analítico (Takács ec. 4.14, el que usa la app en
 `pump_design.py` en sentido inverso):
 
 ```
@@ -323,7 +323,7 @@ El gas disuelto **partió la viscosidad al medio**.
 
 ```
 ν = 32.91 cp / 0.9593 = 34.31 cSt
-                      → 160 SSU        (Fig. 4L-3 / ASTM D2161)
+                      → 160 SSU        (Fig. 4L-3 / Takács ec. 4.14)
 ```
 
 ### Paso 5 — corrección por corte de agua
@@ -401,7 +401,7 @@ Todo en **`bes/core/viscosity.py`**, con las tablas en
 | `viscosity_factors()` | 6 | Los cuatro factores, interpolando en SSU y entre tablas |
 | `water_equivalent_duty()` | 7 | Invierte el sentido: `Q/C_Q`, `H/C_H` |
 | `evaluate_viscosity()` | 2-6 | Punto de entrada: aplica el corte y encadena todo |
-| `cst_to_ssu()` / `ssu_to_cst()` | 4 | ASTM D2161 en los dos sentidos |
+| `cst_to_ssu()` / `ssu_to_cst()` | 4 | Takács ec. 4.14 y su inversa exacta |
 
 ### Lo que se eliminó
 
@@ -553,7 +553,7 @@ Encadena lo que **ya existe** en `pvt.py`:
 |---|---|---|
 | 2 — crudo sin gas | `dead_oil_viscosity_chart(api, t)` | **Fig. 4L(2) digitalizada** |
 | 3 — corregir por gas | `gas_saturated_viscosity_chart(mu_dead, rs)` | **Fig. 4L(1) digitalizada** |
-| 4 — a SSU | `cst_to_ssu(cst)` | ASTM D2161 invertida por bisección |
+| 4 — a SSU | `cst_to_ssu(cst)` | Takács ec. 4.14, forma cerrada |
 
 Devuelve el encadenado completo —`mu_dead`, `mu_live`, `cst`, `ssu`— para poder
 mostrarlo en la traza de fórmulas.
@@ -844,7 +844,7 @@ Cada camino usa la conversión de su propia fuente:
 
 | Camino | Fórmula | Fuente |
 |---|---|---|
-| Riling | dos ramas, corte en 100 SSU | ASTM D2161 |
+| Riling | una sola expresión | Takács ec. 4.14 |
 | Hydraulic Institute | `SSU = 2.273·(cSt + √(cSt² + 158.4))` | Takács ec. 4.14 |
 
 Difieren menos del 3 % en todo el rango de interés (a 88 cSt: 407.6 contra
@@ -943,7 +943,7 @@ una bomba así— y la conversión vive en un único lugar,
   curves for viscosity». *Oil & Gas Journal*, 29 de mayo de 2000. Presentado en
   el 47th Southwestern Petroleum Short Course, Lubbock, Texas.
 - Hydraulic Institute — diagramas originales de corrección por viscosidad.
-- ASTM D2161 — conversión SSU ↔ cSt.
+- Takács (2018), cap. 4, ec. 4.14, pág. 159 — conversión cSt ↔ SSU (única del proyecto; reemplazó a ASTM D2161).
 - Beggs, H.D. & Robinson, J.R. (1975). «Estimating the Viscosity of Crude Oil
   Systems», *JPT* — **las dos** correlaciones que el proyecto ejecuta:
   crudo muerto (`pvt.oil_viscosity_dead`) y crudo vivo

@@ -24,7 +24,6 @@ A partir de los datos del pozo (reservorio, fluido, geometría, superficie y obj
 - **Leyes de afinidad**: sección aparte para explorar la misma bomba a distintas frecuencias del variador (Q ∝ N·D, H ∝ N²·D², HP ∝ N³·D³·SG), con la frecuencia que alcanza un caudal objetivo
 - **Método métrico de cátedra** ("ESP 01") como motor paralelo en kg/cm² · m · °C · m³/d
 - **Reportes** PDF, Excel y JSON descargables desde la app
-- **Análisis de sensibilidad** sobre parámetros clave
 - **855 tests** con pytest
 
 ---
@@ -124,9 +123,8 @@ izquierda, los resultados a la derecha.
 1. **Panel izquierdo** — cargar un caso de ejemplo o completar los datos del pozo (reservorio, fluido, geometría, superficie y objetivos) → Calcular
 2. **Diseño** — las 3 opciones ordenadas por criterios de ingeniería, con la comparación y las curvas de bomba
 3. **Curva IPR** — el análisis nodal del pozo
-4. **Sensibilidad** — impacto de variaciones en Pr, WC, GOR
-5. **Biblioteca ESP** — el catálogo de equipos disponible
-6. **Descargar** — PDF · Excel · JSON
+4. **Biblioteca ESP** — el catálogo de equipos disponible
+5. **Descargar** — PDF · Excel · JSON
 
 ### API Python
 

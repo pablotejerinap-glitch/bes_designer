@@ -8,11 +8,9 @@ export type DriveMechanism =
   | "water_drive"
   | "gas_cap"
   | "combination";
-export type SensitivityParam =
-  | "water_cut"
-  | "gor"
-  | "static_pressure"
-  | "target_flow_rate";
+/** Correlación de pérdida de carga en el tubing. `null` = la decide la
+ *  fracción de gas libre en la admisión (comportamiento histórico). */
+export type PressureLossMethod = "poettmann_carpenter" | "hazen_williams";
 
 export interface ReservoirInput {
   static_pressure: number;
@@ -45,8 +43,15 @@ export interface FluidInput {
   gor: number;
   gas_sg: number;
   water_sg: number;
-  oil_viscosity_dead: number;
-  viscosity_temp_ref: number;
+  /**
+   * Viscosidad del crudo muerto medida [cp]. Opcional: `null` deja que el
+   * backend la lea de la Fig. 4L(2) del libro con la °API y la temperatura de
+   * admisión. `null`, no `0` — un crudo de viscosidad cero no existe y el
+   * backend lo rechaza con 422.
+   */
+  oil_viscosity_dead: number | null;
+  /** Temperatura del ensayo de viscosidad [°F]. Obligatoria sólo si hay viscosidad medida. */
+  viscosity_temp_ref: number | null;
   bubble_point_pressure: number;
   h2s_content: number;
   co2_content: number;
@@ -106,9 +111,9 @@ export interface ObjectivesInput {
   max_gip: number;
   design_life_years: number;
   use_vsd: boolean;
-  /** Fracción de gas libre en la admisión por encima de la cual la pérdida de
-   *  carga en el tubing se calcula con Poettmann-Carpenter en vez de
-   *  Hazen-Williams [0-1]. Default 0.10. */
+  /** Correlación de pérdida de carga en tubing. Vacío = la decide la fracción
+   *  de gas libre. "poettmann_carpenter" exige tubing de 2, 2½ o 3 pulg. */
+  pressure_loss_method?: PressureLossMethod | null;
   /** Frecuencia de operación [Hz]. Vacío = frecuencia de red. Sólo con use_vsd. */
   design_frequency_hz?: number | null;
 }
@@ -374,6 +379,26 @@ export interface DesignResult {
   gas_handler_model: string;
   gas_handler_type: string;
   gas_handler_efficiency: number;
+  /** hp que consume el separador y que el motor mueve además de la bomba.
+   *  0 cuando el aparejo no lleva separador. */
+  gas_handler_hp: number;
+  /** Zona operativa del método de incrementos (pozos con gas). 0 en el camino
+   *  convencional, donde el caudal de la bomba es uno solo. */
+  gas_q_representative_bpd: number;
+  gas_q_intake_bpd: number;
+  gas_q_discharge_bpd: number;
+  /** Cuántos equipos de manejo de gas cuelgan del eje. 2 puede ser un tándem
+   *  de separadores o un separador con un manejador avanzado encima. */
+  gas_handler_count: number;
+  /** Escalón de la escalera: "ninguno" | "simple" | "tandem" | "agh" |
+   *  "no_viable". Los tres primeros RETIRAN gas; "agh" no —el manejador
+   *  avanzado acondiciona la mezcla y sube la tolerancia de la bomba—. */
+  gas_strategy: string;
+  /** Fracción de gas libre que efectivamente entra a la bomba [0-1]. */
+  gas_fraction_at_pump: number;
+  /** true = ni el techo de la tecnología BES alcanza para este gas. */
+  switch_lift_method: boolean;
+  gas_verdict: string;
   sensor_manufacturer: string;
   sensor_model: string;
 }
@@ -455,20 +480,6 @@ export interface NodalResponse {
   static_pressure_eff: number;
   has_pump: boolean;
   metrics: Record<string, number>;
-  figure: PlotlyFigure;
-}
-
-export interface SensitivityRequest extends DesignInputs {
-  param: SensitivityParam;
-  pct_range_pct?: number;
-  n_points?: number;
-}
-
-export interface SensitivityResponse {
-  param: string;
-  param_label: string;
-  param_values: number[];
-  metrics: Record<string, number[]>;
   figure: PlotlyFigure;
 }
 

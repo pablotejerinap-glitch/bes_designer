@@ -14,10 +14,16 @@ import type { DesignInputs } from "./api/types";
  *     neuquina. No es un pozo real y no debe citarse como tal.
  *   - **Acuífero / Gas en bomba** — escenarios propios del proyecto, ya
  *     verificados contra el backend.
+ *   - **Pozo real MA-102** — datos de un informe de diseño de SLB, con el
+ *     aparejo de referencia anotado. Es el único caso que sale de un pozo que
+ *     existe, así que la trazabilidad de cada dato está escrita en su
+ *     docstring: qué vino del informe, qué se derivó y qué es supuesto.
  *
- * En todos, la presión de burbuja es la que Standing devuelve para el GOR, °API
- * y temperatura del caso. Poner una Pb arbitraria haría que el PVT se
- * contradijera consigo mismo.
+ * En los casos inventados y en los del libro, la presión de burbuja es la que
+ * Standing devuelve para el GOR, °API y temperatura del caso. Poner una Pb
+ * arbitraria haría que el PVT se contradijera consigo mismo. **La excepción es
+ * el MA-102**, donde hay un dato medido de laboratorio y ése manda sobre la
+ * correlación; la diferencia queda anotada en su docstring.
  *
  * Si el usuario guarda un caso con el mismo nombre, el suyo gana: estos sólo
  * completan los que faltan (ver `readCases()` en App.tsx).
@@ -156,11 +162,19 @@ const VACA_MUERTA: DesignInputs = {
  *
  * Referencia impresa: TDH ≈ 1 670 ft, 28 etapas, ≈180 hp, bomba Centrilift I-300.
  *
- * Verificado contra el backend: elige la **I-300**, TDH 1 721 ft (+3 %) y 29
- * etapas (+4 %). La potencia da 217 hp al eje contra los ≈180 impresos, y el
- * desvío es enteramente el SG: acá el fluido es agua pura de γw = 1.1, y
- * 217 × 0.945/1.10 = 186 hp. El valor impreso sale de un SG de 0.945, no de
- * 1.10. Conviene contrastarlo con la página del libro antes de citarlo.
+ * **La app ya no puede elegir la I-300**: las tres bombas del libro se
+ * retiraron del catálogo en ago-2026, porque la aplicación publica sólo curvas
+ * digitalizadas de catálogos reales de fabricante. Sus datos impresos siguen
+ * en `backend/tests/data/brown_pumps.json` y con ellos los tests reproducen el
+ * ejemplo: elegía la I-300, TDH 1 721 ft (+3 %) y 29 etapas (+4 %).
+ *
+ * Con el catálogo de hoy el pozo se diseña con una **REDA GN10000** (62 etapas,
+ * 205 hp al eje), que es una bomba real para 10 000 b/d. La comparación contra
+ * el impreso ya no es bomba a bomba: lo que se contrasta es el TDH y el método.
+ *
+ * Sobre la potencia del libro: los ≈180 hp impresos salen de un SG de 0.945, no
+ * del 1.10 del agua pura de este caso. Conviene contrastarlo con la página del
+ * libro antes de citarlo.
  */
 const BROWN_1A: DesignInputs = {
   reservoir: {
@@ -251,13 +265,18 @@ const BROWN_1A: DesignInputs = {
  * Referencia impresa: TDH ≈ 4 258 ft, 112 etapas, ≈65 hp, Centrilift I-42B, a
  * unos 2 080 b/d.
  *
- * **La app no elige la I-42B, y no es un error.** Con 2 080 b/d hay 12 bombas
- * candidatas y el orden es por distancia al BEP: la REDA DN2150 tiene su BEP
- * justo en 2 080 (distancia 0 %) y la I-42B queda séptima, a 22,4 %. El libro
- * eligió dentro de la línea Centrilift de 1980; el catálogo de hoy tiene bombas
- * mucho mejor centradas. Forzando la I-42B a mano (selección manual de bomba),
- * el head por etapa da **38,10 ft, exactamente el del libro**, y salen 117
- * etapas contra 112 — la diferencia es el +4,7 % del TDH, no la hidráulica.
+ * **La app no elige la I-42B, y no es un error.** Ya no puede: las bombas del
+ * libro se retiraron del catálogo en ago-2026 (la app publica sólo curvas de
+ * catálogos reales). Pero tampoco la elegía antes: con 2 080 b/d el orden es
+ * por distancia al BEP, la REDA DN2150 tiene su BEP justo en 2 080
+ * (distancia 0 %) y la I-42B quedaba séptima, a 22,4 %. El libro eligió dentro
+ * de la línea Centrilift de 1980; el catálogo de hoy tiene bombas mucho mejor
+ * centradas.
+ *
+ * Con la I-42B forzada —hoy sólo desde los tests, con
+ * `tests.brown_pumps`— el head por etapa da **38,10 ft, exactamente el del
+ * libro**, y salen 117 etapas contra 112: la diferencia es el +4,7 % del TDH,
+ * no la hidráulica.
  *
  * La potencia sí se aparta: 84 hp al eje contra los ≈65 impresos. El desvío es
  * la densidad de la mezcla — con 75 % de agua a γw = 1.07 el SG da 1.014, y los
@@ -788,9 +807,188 @@ const CON_GAS: DesignInputs = {
   },
 };
 
+
+// ===========================================================================
+// d) Pozo real MA-102 — Meseta Alta, Rincón de los Sauces, Neuquén
+// ===========================================================================
+
+/**
+ * **MA-102 — pozo REAL.** Campo Meseta Alta, Rincón de los Sauces, Neuquén.
+ *
+ * Fuente: informe de diseño de SLB «20260309 - MA 0102_ecd_General_Case»,
+ * 9-mar-2026, ing. Tamara Lobianco, para PSA (`TESIS/Casos reales/`). Es el
+ * caso que se desarrolla a lo largo del **Capítulo II** de la tesis, así que
+ * acá la trazabilidad del dato importa más que en el resto del archivo: cada
+ * valor dice si viene del informe, si se derivó de él o si es supuesto.
+ *
+ * El informe está en métrico; las conversiones están hechas y anotadas al lado
+ * de cada valor.
+ *
+ * ## La IPR se lee de la carta del informe (pág. 5)
+ *
+ * El informe no publica la presión estática ni el ensayo como números: los
+ * publica como la carta «Inflow / Outflow Performance Curve **Utilizada para
+ * el diseño**» (pág. 5), que es la que SLB efectivamente usó — distinta de la
+ * de la pág. 4, «Enviada por el cliente». De ahí salen los tres valores:
+ *
+ * ```
+ *   Pr    = 52,0 kgf/cm²  = 739,6 psia   (curva roja «Inflow Performance» en q = 0)
+ *   Pwf   = 39,6 kgf/cm²  = 563,2 psia   (punto verde «Test Point»)
+ *   q     = 167 m³/d      = 1 050,4 b/d  (mismo punto verde)
+ * ```
+ *
+ * **La carta está en presión ABSOLUTA**, no manométrica. Se verificó contra la
+ * curva «Inflow At Intake», que al caudal de diseño lee ≈28,5 kgf/cm² =
+ * 405,4 psia, contra los 407,9 psia de PIP que el informe sí publica como
+ * número: 0,6 % de desvío. Leída como manométrica el desvío sería del 3 %.
+ *
+ * ## Tres controles cruzados de que la lectura reproduce el diseño de SLB
+ *
+ * 1. `vogel_qmax_from_test(739.6, 563.2, 1050.4)` = 2 737 b/d = **435,2 m³/d**,
+ *    contra los **≈440 m³/d** donde la curva roja corta el eje → **1,1 %**.
+ * 2. Esa misma Vogel al caudal de diseño (195,62 m³/d = 1 230,4 b/d) da
+ *    **Pwf = 528,0 psia**. Por un camino **independiente** —el PIP y el
+ *    gradiente de mezcla que publica el informe, bajando por la columna del
+ *    anular desde la admisión hasta los punzados—:
+ *
+ *    ```
+ *      PIP a 960 m (3 149,6 ft)      =  407,9 psia      (informe)
+ *      punzados a 1 046 m (3 431,8 ft)
+ *      columna = 1 046 − 960 = 86 m  =  282,2 ft
+ *      Δp = 282,2 ft × 0,448 psi/ft  =  126,4 psi       (gradiente del informe)
+ *      Pwf = 407,9 + 126,4           =  534,3 psia
+ *    ```
+ *
+ *    Las dos rutas cierran a **1,2 %**.
+ * 3. De 1 y 2 se concluye que **SLB resolvió la IPR con Vogel puro**, que es lo
+ *    que declara `ipr_method`.
+ *
+ * Con esa Pwf y Pb = 3 052,6 psia el reservorio queda **saturado en todo el
+ * rango operativo**, así que `Reservoir` emite el aviso de reservorio depletado
+ * (`bubble_point > static_pressure`). Es correcto y esperado para este pozo, y
+ * con la Pr real es aún más marcado —la burbuja es 4,1 veces la presión
+ * estática— pero no se silencia.
+ *
+ * ## PVT: manda el informe, no Standing
+ *
+ * Para Rs = 449,2 scf/STB, 24 °API y 127,4 °F, Standing devuelve **Pb ≈ 2 684
+ * psia** contra los **3 052,6 psia** que informa SLB: 12 % de diferencia. La
+ * regla del archivo —Pb = la de Standing— existe para que los casos inventados
+ * no se contradigan solos; acá hay un dato de laboratorio y **ese manda**. La
+ * consecuencia asumida es que el Rs que calcula el motor a la Pb del informe no
+ * coincide exactamente con el GOR declarado.
+ *
+ * ## SUPUESTOS (el informe no los da)
+ *
+ * - `perforations_bottom = 3 441,6 ft`: el informe publica una sola
+ *   profundidad de punzados (1 046 m), no un intervalo, y el dominio exige
+ *   espesor (`perforations_bottom must be > perforations_top`). Se adoptan
+ *   3 m de espesor.
+ * - `deviation_max = 0`: no hay survey en el informe.
+ * - `power_supply_voltage = 480 V`: el informe sólo da 1 227,2 V en la caja de
+ *   empalme, que es la tensión del cable, no la de red.
+ * - `surface.frequency = 50 Hz`: red argentina. Los **51 Hz del informe son la
+ *   frecuencia de operación del variador**, no la de red, y viajan en
+ *   `objectives.design_frequency_hz`. La curva de la bomba se reescala de 50 a
+ *   51 Hz con las leyes de afinidad antes de elegir nada
+ *   (`bes.core.affinity.pump_at_frequency`), así que el diseño sale a la
+ *   frecuencia del informe. Una red de 51 Hz no existe y el dominio la
+ *   rechaza.
+ * - Línea de conducción y presión de separador: los mismos que los casos
+ *   propios (`SUPERFICIE_PROPIA`).
+ *
+ * ## APAREJO DE REFERENCIA — lo que diseñó SLB
+ *
+ * Es el valor del caso: contra esto se compara lo que arma la app.
+ *
+ * ```
+ *   Bomba      REDA 400 DN1750, 173 etapas, CR-CT, ES
+ *   Separador  REDA 400/400 DRS-ES · 2,6 hp
+ *              separación natural 23,94 % · separador 95 % · total 96,2 %
+ *              gas libre a la bomba 0,4 %
+ *   Protector  400 Maximus HL, 3 sellos, LSBSB, 3 cámaras
+ *   Motor      REDA 456 Maximus 4053 · 60 hp placa, 1 402,8 V, 27,4 A,
+ *              derrateo 80 % · a 51 Hz: 39,2 hp, 22,5 A, 1 192,4 V
+ *   Cable      ELB #4, 3 249,61 ft, 5 kV, 450 °F
+ *   Sensor     Phoenix XT150 Tipo 0
+ *
+ *   PIP 407,9 psia · descarga 1 557,3 psia · TDH 2 564,5 ft (781,65 m)
+ *   gradiente de mezcla 0,448 psi/ft · sumergencia 774,3 ft (236 m)
+ * ```
+ */
+const MA_102: DesignInputs = {
+  reservoir: {
+    // 52,0 kgf/cm² abs — arranque de la curva «Inflow Performance» de la carta
+    // de la pág. 5 del informe. Ver el docstring: lectura verificada por tres
+    // controles cruzados.
+    static_pressure: 739.6,
+    bubble_point: 3052.6,        // psia — informe
+    test_pwf: 563.2,             // psia — 39,6 kgf/cm², punto verde de la carta
+    test_rate: 1050.4,           // b/d — 167 m³/d, mismo punto verde
+    ipr_method: "vogel",
+    reservoir_temp: 127.4,       // °F — informe
+    drive_mechanism: "solution_gas",
+    fetkovich_n: null,
+  },
+  fluid: {
+    oil_api: 24.0,               // informe
+    water_cut: 0.96,             // informe
+    gor: 449.2,                  // scf/STB — 80 m³/m³ × 35,3147/6,28981
+    gas_sg: 0.65,                // informe
+    water_sg: 1.05,              // informe
+    // Sin ensayo de viscosidad: se lee la Fig. 4L(2) con °API y temperatura.
+    oil_viscosity_dead: null,
+    viscosity_temp_ref: null,
+    bubble_point_pressure: 3052.6,   // informe — NO la de Standing (docstring)
+    ...SIN_ACIDOS,
+  },
+  well: {
+    total_depth: 4150.3,         // ft — 1 265 m de casing (informe)
+    // Casing 5½" del informe: 14 lb/ft, ID 5,012". NO es el CASING_5_5 de este
+    // archivo, que es el de 17 lb/ft (ID 4,892") de los ejemplos de Brown.
+    casing_od: 5.5,
+    casing_weight: 14.0,
+    casing_id: 5.012,
+    ...TUBING_2_875,
+    perforations_top: 3431.8,    // ft — 1 046 m (informe)
+    // SUPUESTO: el informe da UNA sola profundidad de punzados (1 046 m), y el
+    // dominio exige que el intervalo tenga espesor. Se le dan 3 m (9,8 ft)
+    // hacia abajo. El valor no interviene en el diseño —la bomba se asienta
+    // por `pump_setting_depth`— pero cambia el arranque del recorrido de
+    // presión, así que cuando aparezca el intervalo real hay que corregirlo.
+    perforations_bottom: 3441.6,
+    deviation_max: 0.0,          // SUPUESTO: no hay survey en el informe
+    wellhead_temp: 86.0,         // °F — informe
+    pump_setting_depth: 3149.6,  // ft — 960 m, «Intake Depth» del informe
+  },
+  surface: {
+    ...SUPERFICIE_PROPIA,        // SUPUESTOS: línea de conducción y separador
+    wellhead_pressure_required: 142.2,  // psia — informe
+    power_supply_voltage: 480.0,        // SUPUESTO: el informe no da la de red
+    // SUPUESTO: red argentina de 50 Hz. Los 51 Hz que declara el informe son
+    // la frecuencia de OPERACIÓN del variador, no la de red — viajan en
+    // `objectives.design_frequency_hz`, y el motor las aplica reescalando la
+    // curva con las leyes de afinidad. Una red de 51 Hz no existe, y el
+    // dominio la rechaza (`frequency must be 50 or 60 Hz`).
+    frequency: 50.0,
+  },
+  objectives: {
+    target_flow_rate: 1258.0,    // b/d — 200 m³/d de diseño (informe)
+    // La admisión viene dada por `pump_setting_depth`, así que el margen no
+    // interviene: ponerle un valor movería la bomba respecto del informe.
+    safety_margin_depth: 0.0,
+    allow_gas_venting: false,
+    max_gip: 0.1,
+    design_life_years: 5.0,
+    use_vsd: true,               // informe
+    design_frequency_hz: 51.0,   // Hz — informe
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Registro. El orden es el del menú: primero el genérico, después los seis
-// ejemplos del libro en el orden del capítulo, y al final los propios.
+// ejemplos del libro en el orden del capítulo, después los propios y al final
+// el pozo real.
 // ---------------------------------------------------------------------------
 
 export const EXAMPLE_CASES: Record<string, DesignInputs> = {
@@ -803,6 +1001,7 @@ export const EXAMPLE_CASES: Record<string, DesignInputs> = {
   "Brown #4B · Crudo viscoso 12 °API": BROWN_4B,
   "Propio · Acuífero (sin gas)": ACUIFERO,
   "Propio · Gas en bomba (5,9 %)": CON_GAS,
+  "Real · MA-102 Meseta Alta": MA_102,
 };
 
 /** Orden de presentación en el menú (los `Record` no garantizan orden estable

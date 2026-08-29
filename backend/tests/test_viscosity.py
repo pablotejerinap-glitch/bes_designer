@@ -9,7 +9,7 @@ del Apéndice 4L):
 
     Paso 2  Fig. 4L-2  ->  150 cp   (crudo sin gas)
     Paso 3  Fig. 4L-1  ->   68 cp   (saturado con gas)
-    Paso 4  Fig. 4L-3  ->  325 SSU
+    Paso 4  Takács ec. 4.14 (Fig. 4L-3)  ->  325 SSU
     Paso 5  30 % de agua, MEDIDO -> 650 SSU
     Paso 6  Tabla 4.521 -> C_Q = 88 %, C_H = 88.75 %, C_HP = 117.3 %
     Paso 7  1700/0.88 = 1932 b/d ; 5230/0.8875 = 5893 ft
@@ -40,7 +40,6 @@ from bes.core.viscosity import (
     dead_oil_viscosity_chart,
     gas_saturated_viscosity_chart,
     centrilift_factors,
-    cst_to_ssu_takacs,
     evaluate_viscosity,
     hi_corrected_curve,
     hydraulic_institute_factors,
@@ -131,10 +130,24 @@ class TestConversionSSU:
         for cst in (2.0, 10.0, 34.31, 70.88, 500.0, 1080.0):
             assert ssu_to_cst(cst_to_ssu(cst)) == pytest.approx(cst, rel=1e-6)
 
-    def test_las_dos_ramas_de_astm_d2161(self):
-        # < 100 SSU y >= 100 SSU usan fórmulas distintas
-        assert ssu_to_cst(50.0) == pytest.approx(0.226 * 50 - 195 / 50)
-        assert ssu_to_cst(200.0) == pytest.approx(0.220 * 200 - 135 / 200)
+    def test_es_la_ecuacion_4_14_de_takacs(self):
+        """La expresión, escrita a mano acá para que el test no sea circular.
+
+        SSU = 2.273 · (cSt + sqrt(cSt² + 158.4)) — Takács (2018), cap. 4,
+        pág. 159. Es la que manda para entrar a las Tablas 4.520 / 4.521.
+        """
+        for cst in (1.0, 4.0, 88.0, 3000.0):
+            esperado = 2.273 * (cst + (cst * cst + 158.4) ** 0.5)
+            assert cst_to_ssu(cst) == pytest.approx(esperado, rel=1e-12)
+
+    def test_reproduce_el_ejemplo_del_libro(self):
+        """88 cSt → 402 SSU."""
+        assert cst_to_ssu(88.0) == pytest.approx(402.0, abs=1.0)
+
+    def test_cubre_los_extremos_declarados(self):
+        """El libro dice «4 a 3000 cSt (40 a 15 000 SSU)»."""
+        assert cst_to_ssu(4.0) == pytest.approx(40.0, abs=1.5)
+        assert cst_to_ssu(3000.0) > 13_000.0
 
     def test_el_ejemplo_de_la_filmina(self):
         """68 cp de crudo de 16 °API → 325 SSU."""
@@ -145,10 +158,24 @@ class TestConversionSSU:
         vals = [cst_to_ssu(c) for c in (5.0, 20.0, 100.0, 500.0)]
         assert vals == sorted(vals)
 
+    def test_hay_una_sola_conversion_en_el_proyecto(self):
+        """Riling y Hydraulic Institute entran con la MISMA viscosidad.
+
+        Convivieron dos conversiones —ASTM D2161 para Riling y la ec. 4.14 para
+        el HI—, que difieren hasta 2 % alrededor de los 20 cSt: el mismo crudo
+        entraba a dos tablas con dos números distintos. Este test es lo que
+        impide que vuelvan a separarse.
+        """
+        import bes.core.viscosity as v
+        assert not hasattr(v, "cst_to_ssu_takacs")
+        assert v.hydraulic_institute_factors(
+            q_bep_bpd=3400.0, h_bep_ft=100.0, viscosity_cst=88.0,
+        )["ssu"] == pytest.approx(cst_to_ssu(88.0), rel=1e-12)
+
     def test_rechaza_valores_imposibles(self):
         with pytest.raises(ValueError, match="cst must be > 0"):
             cst_to_ssu(0.0)
-        with pytest.raises(ValueError, match="ssu must be >= 31"):
+        with pytest.raises(ValueError, match="piso de la ec. 4.14"):
             ssu_to_cst(10.0)
 
 
@@ -379,7 +406,7 @@ class TestViscosidadDelCrudo:
 
             paso 2  Fig. 4L(2)   -> 150 cp
             paso 3  Fig. 4L(1)   ->  68 cp
-            paso 4  ASTM D2161   -> 325 SSU
+            paso 4  Takács 4.14  -> 325 SSU
         """
         r = crude_viscosity_ssu(16.0, 130.0, 50.0)
         assert r["mu_dead_cp"] == pytest.approx(150.0, rel=0.03)
@@ -752,27 +779,6 @@ class TestHydraulicInstitute:
 
 class TestConversionYPotencia:
 
-    def test_ec_4_14_reproduce_el_ejemplo(self):
-        assert cst_to_ssu_takacs(88.0) == pytest.approx(402.0, abs=1.0)
-
-    def test_ec_4_14_cubre_los_extremos_declarados(self):
-        """El libro dice «4 a 3000 cSt (40 a 15 000 SSU)»."""
-        assert cst_to_ssu_takacs(4.0) == pytest.approx(40.0, abs=1.5)
-        assert cst_to_ssu_takacs(3000.0) > 13_000.0
-
-    def test_ec_4_14_es_monotona(self):
-        anterior = 0.0
-        for cst in (1, 4, 10, 50, 88, 400, 1000, 3000):
-            v = cst_to_ssu_takacs(cst)
-            assert v > anterior
-            anterior = v
-
-    def test_takacs_y_astm_no_son_la_misma_cuenta(self):
-        """Se documenta la brecha, no se disimula: van ~1-2 % aparte."""
-        for cst in (50.0, 88.0, 400.0, 1000.0):
-            a, t = cst_to_ssu(cst), cst_to_ssu_takacs(cst)
-            assert abs(a - t) / a < 0.03, f"brecha inesperada a {cst} cSt"
-
     def test_ec_4_12_con_rendimiento_en_fraccion(self):
         """El BEP con agua del Ej. 4.1 tiene que dar los 0.225 HP del Ej. 4.2."""
         assert brake_horsepower(900.0, 21.8, 1.0, 0.64) == pytest.approx(0.225, abs=0.002)
@@ -877,9 +883,16 @@ from bes.core.models import (
     SurfaceConditions, WellGeometry,
 )
 from bes.core.pump_design import (
-    VISCOSITY_TEMP_TOLERANCE_F, _pump_max_efficiency_pct, _viscosity_context,
-    design_pump_complete,
+    VISCOSITY_TEMP_TOLERANCE_F, _pump_max_efficiency_pct, _rs_en_la_admision,
+    _viscosity_context, design_pump_complete,
 )
+
+
+#: Presión de admisión de estos pozos de prueba [psia]. `_viscosity_context`
+#: la necesita para despejar cuánto gas queda EN SOLUCIÓN, que es lo que pide
+#: el paso 3 de Riling: el GOR total incluye el gas ya liberado, que viaja al
+#: lado del líquido y no lo adelgaza.
+_PIP_DE_PRUEBA = 400.0
 
 
 def _pozo(oil_api: float, mu_dead: float, temp_ref: float) -> dict:
@@ -982,43 +995,143 @@ class TestEngancheAlMotorDeDiseno:
         assert len(avisos) == len(set(avisos))
 
 
+def _contexto(p: dict) -> dict:
+    """Atajo: ``_viscosity_context`` con los cuatro argumentos del pozo."""
+    return _viscosity_context(
+        p["fluid"], p["well"], p["pump_setting_depth"],
+        p["reservoir"].reservoir_temp, _PIP_DE_PRUEBA,
+    )
+
+
 class TestTemperaturaDeEvaluacion:
+    """La lámina se lee a temperatura de RESERVORIO (decisión de ago-2026).
 
-    def test_se_evalua_en_la_admision_no_en_el_fondo(self):
-        """136 °F en la admisión (5600 ft), no los 140 °F de fondo."""
-        p = _pozo(16.0, 150.0, 136.0)
-        v = _viscosity_context(p["fluid"], p["well"], p["pump_setting_depth"],
-                           p["reservoir"].reservoir_temp)
-        assert v["intake_temp_f"] == pytest.approx(136.0, abs=0.5)
-        assert v["intake_temp_f"] < p["reservoir"].reservoir_temp
+    El paso 2 de Riling dice «a temperatura de reservorio» y el encabezado de
+    las Tablas 4.520 / 4.521 dice «at pumping temperatures». Durante un tiempo
+    el motor usó lo segundo, tomando el perfil geotérmico a la profundidad de
+    la bomba, pero eso confunde dos magnitudes: **el perfil geotérmico da la
+    temperatura de la ROCA, no la del FLUIDO**. El fluido sale de los punzados
+    a temperatura de reservorio y el intercambio de calor con la formación es
+    lento frente al tiempo de tránsito, así que con la bomba cerca de los
+    punzados llega prácticamente sin enfriarse; tomar la de la roca subestima
+    la del fluido y **sobrestima** la viscosidad.
 
-    def test_usa_la_viscosidad_medida_si_esta_a_la_temperatura_correcta(self):
-        p = _pozo(16.0, 150.0, 136.0)
-        v = _viscosity_context(p["fluid"], p["well"], p["pump_setting_depth"],
-                           p["reservoir"].reservoir_temp)
+    Estos tests usan un pozo donde las dos temperaturas difieren 40 °F. El
+    ``_pozo`` genérico del archivo tiene la bomba casi contra los punzados y
+    las dos quedan a 4 °F —dentro de la tolerancia de 5 °F—, así que no
+    discrimina: la versión anterior de esta clase pasaba con las dos
+    convenciones y por eso el cambio no rompió nada.
+    """
+
+    #: Bomba muy por encima de los punzados: 2000 ft de 6000, con boca a 80 °F
+    #: y fondo a 140 °F, da 100 °F de perfil geotérmico contra 140 de fondo.
+    POCO_PROFUNDA = 2000.0
+    T_PERFIL = 100.0
+    T_RESERVORIO = 140.0
+
+    def _pozo_discriminante(self, temp_ref: float | None) -> dict:
+        p = _pozo(16.0, 150.0 if temp_ref is not None else None, temp_ref)
+        p["pump_setting_depth"] = self.POCO_PROFUNDA
+        return p
+
+    def test_se_evalua_en_el_reservorio_no_en_el_perfil_geotermico(self):
+        v = _contexto(self._pozo_discriminante(140.0))
+        assert v["viscosity_temp_f"] == pytest.approx(self.T_RESERVORIO, abs=0.5)
+        # La del perfil se sigue publicando, pero como dato informativo.
+        assert v["intake_temp_f"] == pytest.approx(self.T_PERFIL, abs=1.0)
+        assert v["viscosity_temp_f"] > v["intake_temp_f"]
+
+    def test_la_diferencia_entre_las_dos_convenciones_no_es_despreciable(self):
+        """40 °F de diferencia mueven la viscosidad de la lámina."""
+        from bes.core.viscosity import dead_oil_viscosity_chart
+        mu_res = dead_oil_viscosity_chart(16.0, self.T_RESERVORIO)["mu_cp"]
+        mu_perf = dead_oil_viscosity_chart(16.0, self.T_PERFIL)["mu_cp"]
+        assert mu_perf > mu_res          # más frío, más viscoso
+        assert mu_perf / mu_res > 1.5    # y no por poco
+
+    def test_usa_la_viscosidad_medida_si_esta_a_temperatura_de_reservorio(self):
+        v = _contexto(self._pozo_discriminante(self.T_RESERVORIO))
         assert v["viscosity"]["dead_oil_source"] == "medido"
         assert v["viscosity"]["mu_dead_cp"] == 150.0
 
+    def test_descarta_la_medida_si_esta_a_la_del_PERFIL(self):
+        """El ensayo se compara contra la temperatura que entra a la lámina.
+
+        Es el caso que la convención anterior aceptaba y ésta rechaza, y por
+        eso es el que fija la decisión: un ensayo referido a los 100 °F del
+        perfil geotérmico ya no sirve, porque la evaluación se hace a 140 °F.
+        """
+        v = _contexto(self._pozo_discriminante(self.T_PERFIL))
+        assert v["viscosity"]["dead_oil_source"] == "fig_4L_2"
+        assert any("temperatura de reservorio" in w for w in v["warnings"])
+
     def test_descarta_la_medida_si_es_a_otra_temperatura(self):
         """No se extrapola un dato medido: la viscosidad es exponencial con T."""
-        p = _pozo(16.0, 150.0, 60.0)      # medida a 60 °F, admisión a 136 °F
-        v = _viscosity_context(p["fluid"], p["well"], p["pump_setting_depth"],
-                           p["reservoir"].reservoir_temp)
+        v = _contexto(self._pozo_discriminante(60.0))
         assert v["viscosity"]["dead_oil_source"] == "fig_4L_2"
         assert any("referida a" in w for w in v["warnings"])
 
     def test_la_tolerancia_es_la_declarada(self):
         assert VISCOSITY_TEMP_TOLERANCE_F == 5.0
-        p = _pozo(16.0, 150.0, 136.0 + 4.0)          # dentro
-        assert _viscosity_context(
+        dentro = _contexto(self._pozo_discriminante(self.T_RESERVORIO + 4.0))
+        assert dentro["viscosity"]["dead_oil_source"] == "medido"
+        fuera = _contexto(self._pozo_discriminante(self.T_RESERVORIO + 20.0))
+        assert fuera["viscosity"]["dead_oil_source"] == "fig_4L_2"
+
+    def test_los_dos_caminos_leen_la_misma_temperatura(self):
+        """El de gas ya usaba reservorio; el convencional ahora también.
+
+        Que discreparan era el síntoma: el mismo pozo daba dos viscosidades
+        distintas según por qué pestaña se entrara.
+        """
+        p = self._pozo_discriminante(None)
+        assert _contexto(p)["viscosity_temp_f"] == pytest.approx(
+            p["reservoir"].reservoir_temp, abs=0.01
+        )
+
+
+class TestSinEnsayoDeViscosidadElDisenoCorreIgual:
+    """No tener el ensayo de laboratorio es el caso NORMAL, no un error.
+
+    El paso 2 de Riling manda leer la Fig. 4L(2), que entra sólo con °API y
+    temperatura. Exigir un valor medido obligaba a inventar un número —o a
+    escribir un cero, que es peor porque parece un dato—. Con ``None`` el
+    motor va a la lámina y lo declara en ``dead_oil_source``.
+    """
+
+    def test_la_viscosidad_sale_de_la_lamina(self):
+        p = _pozo(16.0, None, None)
+        v = _viscosity_context(p["fluid"], p["well"], p["pump_setting_depth"],
+                               p["reservoir"].reservoir_temp, _PIP_DE_PRUEBA)
+        assert v["viscosity"]["dead_oil_source"] == "fig_4L_2"
+        assert v["viscosity"]["mu_dead_cp"] > 0
+        assert v["is_viscous"] is True
+
+    def test_no_avisa_de_temperatura_porque_no_hay_dato_que_descartar(self):
+        """El aviso de «medida a otra temperatura» sólo aplica si hay medición."""
+        p = _pozo(16.0, None, None)
+        v = _viscosity_context(p["fluid"], p["well"], p["pump_setting_depth"],
+                               p["reservoir"].reservoir_temp, _PIP_DE_PRUEBA)
+        assert not any("referida a" in w for w in v["warnings"])
+
+    def test_el_diseno_completo_llega_a_una_bomba(self):
+        """La prueba que importa: sin el dato, el pozo igual se diseña."""
+        c = _misma_bomba(16.0, None, None)
+        assert c is not None
+        assert c["viscosity_correction"] is not None
+        assert c["stages"] > 0
+
+    def test_da_lo_mismo_que_pasarle_la_lectura_de_la_lamina_a_mano(self):
+        """La lámina no es un atajo: es el mismo camino con el mismo número."""
+        p = _pozo(16.0, None, None)
+        leido = _viscosity_context(
             p["fluid"], p["well"], p["pump_setting_depth"],
-            p["reservoir"].reservoir_temp
-        )["viscosity"]["dead_oil_source"] == "medido"
-        p = _pozo(16.0, 150.0, 136.0 + 20.0)         # fuera
-        assert _viscosity_context(
-            p["fluid"], p["well"], p["pump_setting_depth"],
-            p["reservoir"].reservoir_temp
-        )["viscosity"]["dead_oil_source"] == "fig_4L_2"
+            p["reservoir"].reservoir_temp,
+            _PIP_DE_PRUEBA)["viscosity"]["mu_dead_cp"]
+        a_mano = _misma_bomba(16.0, leido, 136.0)
+        sin_dato = _misma_bomba(16.0, None, None)
+        assert a_mano["pump_model"] == sin_dato["pump_model"]
+        assert a_mano["stages"] == sin_dato["stages"]
 
 
 class TestUnidadDelRendimiento:
@@ -1039,3 +1152,144 @@ class TestUnidadDelRendimiento:
     def test_y_aceptan_el_porcentaje(self):
         f = viscosity_factors(365.0, 70.0)
         assert 0 < f["capacity_factor"] <= 100
+
+
+# ---------------------------------------------------------------------------
+# La conversión a SSU dentro del diseño completo
+# ---------------------------------------------------------------------------
+
+class TestLaConversionQueEjecutaElDiseno:
+    """El paso 4 no es un helper suelto: es la puerta a las Tablas 4.520/4.521.
+
+    Estos tests verifican que el diseño **completo** convierte con la ec. 4.14
+    de Takács y que los cuatro factores de la bomba salen de las tablas.
+    """
+
+    def _diseno_viscoso(self):
+        from dataclasses import replace as _replace
+        from bes.catalogs.loader import CatalogManager
+        from bes.recommender.pump_selector import select_top_n_pumps
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path(__file__).parent))
+        from test_pump_design import _caso_con_gas
+
+        r, f, w, su, o = _caso_con_gas()
+        f = _replace(f, oil_api=16.0, oil_viscosity_dead=None,
+                     viscosity_temp_ref=None)
+        return select_top_n_pumps(r, f, w, su, o, CatalogManager(), n=1)[0]
+
+    def test_la_traza_publica_la_conversion_con_su_cita(self):
+        d = self._diseno_viscoso()
+        f = next(x for x in d.formulas if x["key"] == "visc_ssu")
+        assert "2.273" in f["expression"] and "158.4" in f["expression"]
+        assert "4.14" in f["reference"]
+
+    def test_el_ssu_de_la_traza_es_el_de_la_ecuacion(self):
+        """El número mostrado y el ejecutado son el mismo."""
+        d = self._diseno_viscoso()
+        f = next(x for x in d.formulas if x["key"] == "visc_ssu")
+        assert f["result"] == pytest.approx(cst_to_ssu(f["inputs"]["ν"]))
+
+    def test_los_cuatro_factores_salen_de_las_tablas(self):
+        """Caudal, altura, rendimiento y potencia: los cuatro, de la tabla.
+
+        Se recalculan acá desde :func:`viscosity_factors` con el SSU de la
+        traza y el rendimiento máximo de la bomba, y tienen que dar lo mismo
+        que usó el diseño. Si alguna corrección viniera de otra fuente —del
+        Hydraulic Institute, por ejemplo— este test lo detecta.
+        """
+        d = self._diseno_viscoso()
+        ssu = next(x for x in d.formulas if x["key"] == "visc_ssu")["result"]
+        q = next(x for x in d.formulas if x["key"] == "visc_q_water")
+        h = next(x for x in d.formulas if x["key"] == "visc_h_water")
+        hp = next(x for x in d.formulas if x["key"] == "visc_hp")
+
+        from bes.catalogs.loader import CatalogManager
+        from bes.core.pump_design import _pump_max_efficiency_pct
+        bomba = next(p for p in CatalogManager().get_all_pumps()
+                     if p.model == d.pump_model)
+        esperados = viscosity_factors(ssu, _pump_max_efficiency_pct(bomba))
+        assert q["inputs"]["C_Q"] == pytest.approx(
+            esperados["capacity_factor"] / 100.0)
+        assert h["inputs"]["C_H"] == pytest.approx(
+            esperados["head_factor"] / 100.0)
+        assert hp["inputs"]["C_HP"] == pytest.approx(
+            esperados["hp_factor"] / 100.0)
+
+
+class TestElGasQueEntraALaLaminaEsElDISUELTO:
+    """El paso 3 de Riling se lee con el gas EN SOLUCIÓN, no con el GOR total.
+
+    La Fig. 4L(1) se titula «Viscosity of gas SATURATED crude oil at reservoir
+    temperature & pressure»: pregunta cuánto gas lleva DISUELTO el petróleo en
+    la admisión, porque ése es el que lo adelgaza. El gas ya liberado viaja al
+    lado, libre, y no cambia la viscosidad del líquido.
+
+    Durante un tiempo `_viscosity_context` pasaba `fluid.gor`, el GOR total,
+    que es el disuelto MÁS el liberado. El efecto no era menor: sobre el pozo
+    MA-102 la lámina devolvía 6 cp en lugar de 24, el SSU caía por debajo del
+    piso de 50 de las Tablas 4.520/4.521 y la corrección **se anulaba sola**,
+    acotada a factores «prácticamente los del agua».
+    """
+
+    #: MA-102: 24 °API, GOR 449.2 scf/STB, Pb 3052.6 psia, admisión a 402 psia.
+    API, GOR, PB, PIP, T = 24.0, 449.2, 3052.6, 402.2, 127.4
+
+    def _fluido(self):
+        return Fluid(
+            oil_api=self.API, water_cut=0.96, gor=self.GOR, gas_sg=0.65,
+            water_sg=1.05, oil_viscosity_dead=None, viscosity_temp_ref=None,
+            bubble_point_pressure=self.PB, h2s_content=0.0, co2_content=0.0,
+            sand_production=False,
+        )
+
+    def test_en_la_admision_queda_disuelta_una_fraccion_del_gor(self):
+        rs = _rs_en_la_admision(self._fluido(), self.PIP, self.T)
+        assert 0 < rs < self.GOR
+        assert rs == pytest.approx(48.6, abs=1.0)   # ~11 % del GOR total
+
+    def test_por_encima_de_la_burbuja_esta_todo_disuelto(self):
+        rs = _rs_en_la_admision(self._fluido(), self.PB + 500.0, self.T)
+        assert rs == pytest.approx(self.GOR)
+
+    def test_nunca_supera_el_gor_producido(self):
+        """Un pozo no puede llevar disuelto más gas del que produce."""
+        f = self._fluido()
+        for p in (100.0, 1000.0, 3000.0, 6000.0):
+            assert _rs_en_la_admision(f, p, self.T) <= f.gor + 1e-9
+
+    def test_sin_gas_no_falla(self):
+        """El Ejemplo 1A del libro es un pozo de agua: GOR nulo.
+
+        `standing_pb` exige Rs > 0, así que sin la guarda el diseño entero se
+        caía con «rs must be > 0».
+        """
+        f = Fluid(
+            oil_api=30.0, water_cut=1.0, gor=0.0, gas_sg=0.65, water_sg=1.02,
+            oil_viscosity_dead=None, viscosity_temp_ref=None,
+            bubble_point_pressure=0.0, h2s_content=0.0, co2_content=0.0,
+            sand_production=False,
+        )
+        assert _rs_en_la_admision(f, 500.0, 150.0) == 0.0
+
+    def test_con_el_gor_total_la_correccion_se_anula_sola(self):
+        """El síntoma que delató el problema, fijado como control."""
+        from bes.core.viscosity import evaluate_viscosity
+        con_gor = evaluate_viscosity(
+            oil_api=self.API, temp_f=self.T, rs_scf_bbl=self.GOR,
+            pump_efficiency_pct=64.6, dead_oil_cp=None,
+        )
+        assert con_gor["clamped_ssu"] is True          # cae bajo el piso
+        assert con_gor["capacity_factor"] == pytest.approx(100.0, abs=0.1)
+        assert con_gor["head_factor"] == pytest.approx(100.0, abs=0.1)
+
+        rs = _rs_en_la_admision(self._fluido(), self.PIP, self.T)
+        con_rs = evaluate_viscosity(
+            oil_api=self.API, temp_f=self.T, rs_scf_bbl=rs,
+            pump_efficiency_pct=64.6, dead_oil_cp=None,
+        )
+        assert con_rs["clamped_ssu"] is False          # dentro de las tablas
+        assert con_rs["design_ssu"] > 2 * con_gor["design_ssu"]
+        assert con_rs["capacity_factor"] < 99.0
+        assert con_rs["hp_factor"] > con_gor["hp_factor"] + 5.0

@@ -130,7 +130,6 @@ User inputs (Reservoir, Fluid, WellGeometry, SurfaceConditions, DesignObjectives
     │
     └─ bes/services/               → orquestación agnóstica de framework (números crudos, no UI)
            nodal_service.py        → run_nodal_analysis()
-           sensitivity_service.py  → run_sensitivity()
            case_bundle.py          → case_bundle_json() — formato guardar/abrir (futuro DB)
 ```
 
@@ -228,6 +227,25 @@ Expuesto en `POST /api/gas/increment-design` (sólo hidráulica) y
 `POST /api/gas/design` (aparejo completo, mismo `DesignResultSchema` que el
 convencional), pestaña **"Pozo con gas"** del front.
 
+**Zona operativa sobre la curva de bomba** (`plotting.plots._draw_gas_zone`):
+con gas el caudal **no** es constante a lo largo de la bomba, así que un solo
+punto de operación no la describe. La curva de todo diseño con gas marca:
+
+- la banda **0.75 a 1.25 × q_representativo** — el caudal de mezcla con que se
+  eligió la bomba (`GAS_ZONE_LOWER` / `GAS_ZONE_UPPER`);
+- **q admisión** (el que entra) y **q descarga** (el que sale, ya comprimido),
+  cada uno con su razón contra q_rep. El que se sale de la banda se dibuja en
+  rojo y rotulado `FUERA`: el problema se ve en la figura, no sólo en un aviso.
+
+Son **dos zonas distintas y se dibujan las dos**: el *rango operativo
+recomendado* es la banda de color del fabricante y es propiedad de la bomba;
+la *zona operativa del método de gas* es propiedad de este diseño.
+
+Los tres caudales viajan en `DesignResult.gas_q_representative_bpd`,
+`gas_q_intake_bpd` y `gas_q_discharge_bpd` (0.0 en el camino convencional), y
+el front los pasa como query params opcionales a `GET /api/plots/pump-curve`.
+Sin `q_representative` la curva sale como siempre.
+
 **Escalera de incrementos** (`plotting.plot_gas_increment_ladder`): reproduce la
 Fig. 4.56B del libro —admisión abajo, descarga arriba, caudal de mezcla a la
 izquierda de cada peldaño, presión a la derecha, ΔP total acotado al costado— y
@@ -277,6 +295,31 @@ la tabla del front — es lo que hace citable el número en la tesis.
 **No extrapola**: fuera del rango medido devuelve `None` y cae a la correlación
 avisando. Rs se acota al GOR total incluso si la tabla dice otra cosa.
 
+### La viscosidad medida es opcional — `None`, nunca cero
+
+`Fluid.oil_viscosity_dead` y `Fluid.viscosity_temp_ref` son **opcionales**. Sin
+ensayo de laboratorio el paso 2 de Riling lee la **Fig. 4L(2)** con la °API y la
+temperatura de admisión, así que el dato medido es un refinamiento y no un
+requisito. De hecho es el camino normal: un valor medido a más de
+`VISCOSITY_TEMP_TOLERANCE_F` (5 °F) de la admisión **se descarta** y termina en
+la misma lámina, porque la viscosidad varía exponencialmente con la temperatura.
+
+- **`None` no es `0`.** Cero es un valor, y un crudo de viscosidad cero no
+  existe: se rechaza en `__post_init__` y con `gt=0` en el schema. Antes el
+  campo era obligatorio en las dos mitades del contrato, así que un pozo sin
+  ensayo no se podía diseñar — había que inventar un número.
+- **Un ensayo sin su temperatura tampoco se acepta**: `viscosity_temp_ref` es
+  obligatoria *si* hay `oil_viscosity_dead`. Al revés no: la temperatura sola
+  sobra pero no miente.
+- Los consumidores preguntan `is not None`, no por verdad: `_viscosity_context`
+  (`pump_design`) y `_viscosity_factors_for_interval` (`gas_handling`).
+- Los reportes publican «Sin ensayo — Fig. 4L(2)» en vez de un número.
+
+Fijado en `tests/test_models.py::TestLaViscosidadMedidaEsOpcional`,
+`tests/test_viscosity.py::TestSinEnsayoDeViscosidadElDisenoCorreIgual` (incluido
+que el diseño completo da lo mismo que pasarle a mano la lectura de la lámina) y
+`tests/test_api.py::TestLaViscosidadMedidaNoEsObligatoriaEnLaAPI`.
+
 ### Key models (`bes/core/models.py`)
 
 All inputs are dataclasses with `__post_init__` validation:
@@ -286,7 +329,17 @@ All inputs are dataclasses with `__post_init__` validation:
 
 ### Catalog system (`bes/catalogs/`)
 
-JSON files (`pumps.json`, `motors.json`, `cables.json`, `seals.json`) loaded once by `CatalogManager`. Key query methods:
+JSON files (`pumps.json`, `motors.json`, `cables.json`, `seals.json`) loaded once by `CatalogManager`.
+
+**El catálogo de bombas es SÓLO de catálogos reales de fabricante.** Las tres
+bombas de los ejemplos de Brown (I-300, I-42B, M-34) se retiraron en ago-2026:
+sus datos impresos viven en `backend/tests/data/brown_pumps.json` y los inyecta
+`tests.brown_pumps.catalogo_con_bombas_del_libro()`, que es lo que usan los
+tests que reproducen los ejemplos numerados. La validación contra el libro sigue
+intacta; lo que ya no pasa es que la app ofrezca una bomba que no existe en
+ningún catálogo. Un test lo fija — no volver a agregarlas.
+
+Key query methods:
 - `get_pumps_by_casing(casing_id_in)` — filters `pump.od < casing_id`
 - `get_pumps_by_flow_range(flow_bpd)` — filters `min_flow ≤ q ≤ max_flow`
 - `interpolate_pump_curve(pump, flow_bpd)` — linear interpolation → `{head_per_stage, hp_per_stage, efficiency}`
@@ -329,10 +382,24 @@ pérdida de carga en el tubing:
 | `f_g <= objectives.gas_fraction_pc_threshold` | Hazen-Williams (monofásica) |
 | `f_g >` umbral | Poettmann-Carpenter, **solo el término de fricción** |
 
+**Pero el método ahora se puede elegir a mano.**
+`DesignObjectives.pressure_loss_method` (selector «Cálculo de pérdidas de carga
+en tubería», pestaña de objetivos) acepta `"poettmann_carpenter"`,
+`"hazen_williams"` o `None`. `None` es el default y significa «que lo decida la
+física» — la tabla de arriba. Con un método elegido a mano se usa ése, y si la
+física pedía el otro el diseño **avisa** en vez de corregir en silencio.
+
+Elegir P&C activa además la verificación de su **envelope** —tubing de 2, 2½ o
+3 pulg (duro: 422), menos de 5 cp, RGL < 1500 scf/bbl y más de 400 bbl/d
+(avisan)—, en `multiphase.poettmann_carpenter_applicability()`. La RGL sale de
+`GOR/(1+WOR)`, no del GOR pelado. Fuente: apuntes de cátedra aportados por
+Pablo. Ver `.claude/rules/domain.md`.
+
 El umbral por defecto es **0.01** (1 %), no 0.10: por encima del 1 % de gas
 libre, usar un gradiente de líquido constante introduce un error de diseño
-grande. **No se pide por pantalla ni por la API** — el programa evalúa la
-fracción de gas y elige solo la correlación. Sobrevive como parámetro sólo para
+grande. **El umbral no se pide por pantalla ni por la API** — es el corte con
+que el programa elige solo cuando el usuario no eligió método. Lo que sí se
+elige es el método; son dos cosas distintas. Sobrevive como parámetro sólo para
 reproducir los ejemplos impresos de Brown, que lo fijan en 1.0; nada más que
 los tests lo tocan. Ver `.claude/rules/domain.md`.
 
@@ -387,9 +454,9 @@ toda clave que el motor ejecuta está declarada, y toda fórmula declarada la
 ejecuta alguien. Se verifica por AST sobre `core/*.py`, no con grep. Además
 exige glosario, cita, unidades y módulo en cada entrada.
 
-**Cobertura: 82 fórmulas en 10 temas, sin pendientes** — IPR 16, gas 14, PVT 11,
-multifásico 9, eléctrico 9, TDH 7, afinidad 6, mecánica 5, viscosidad 3,
-diseño 2. Si se agrega un tema nuevo sin instrumentar, se declara con
+**Cobertura: 92 fórmulas en 10 temas, sin pendientes** — IPR 16, PVT 15,
+gas 14, multifásico 14, eléctrico 9, TDH 7, afinidad 6, mecánica 5,
+viscosidad 4, diseño 2. Si se agrega un tema nuevo sin instrumentar, se declara con
 `instrumented=False` y la pantalla lo muestra como pendiente en vez de
 esconderlo; un test avisa. **No esconder lo que falta** — un catálogo que
 aparenta completitud es peor que uno que declara su cobertura.
@@ -401,6 +468,16 @@ que es el patrón que ya usaba `ipr.ipr_trace`: no se le toca la firma a las
 funciones puras que usa todo el motor, y la traza llama a **esas mismas
 funciones**, así que no puede separarse de la cuenta. `poettmann_carpenter_components()`
 devuelve además sus intermedios para que la traza no tenga que recalcular nada.
+
+**El PIP no aparece de la nada.** `calculate_tdh()` lo recibe ya calculado, así
+que la traza arrancaba la sumergencia con un número sin origen. `tdh._traza_pip()`
+publica el eslabón que faltaba —Pwf del IPR → recorrido por el **anular** (ID de
+casing) → PIP— junto con la cadena completa de P&C evaluada **en la admisión**:
+un punto y no los veinte tramos, porque todos resuelven la misma cadena y veinte
+copias taparían el resto. El tramo se emite **sólo si `0 < PIP < Pwf`**: un caso
+de prueba puede pasarle a esa función un PIP impreso del libro que no salga del
+recorrido, y atribuírselo sería mentir sobre la cuenta. Fijado en
+`tests/test_pump_design.py::TestLaTrazaExplicaDeDondeSaleElPIP`.
 
 **La sustitución respeta fronteras de palabra** (`formulas._sustituir`). Un
 `str.replace` pelado convertía `(dP/dz)_fric = f · ρ_m · v_m² / (2 · g_c · d · 144)`
@@ -493,7 +570,29 @@ El encadenado completo reproduce el ejercicio de cátedra **entrando sólo con
 |---|---|---|---|---|
 | 2 | Fig. 4L(2) | 151.9 cp | 150 cp | 59.2 cp |
 | 3 | Fig. 4L(1) | 68.7 cp | 68 cp | 76.6 cp |
-| 4 | ASTM D2161 | 327.2 SSU | 325 SSU | — |
+| 4 | Takács ec. 4.14 | 327.9 SSU | 325 SSU | — |
+
+**El paso 4 convierte con la ec. 4.14 de Takács**, no con ASTM D2161:
+
+```
+SSU = 2.273 · ( ν + sqrt( ν² + 158.4 ) )        ν en cSt
+```
+
+Una sola expresión para todo el rango, y **una sola conversión en todo el
+proyecto**: antes el camino de Riling usaba ASTM D2161 invertida por bisección
+y el de Hydraulic Institute esta misma ec. 4.14, que difieren hasta 2 %
+alrededor de los 20 cSt — el mismo crudo entraba a dos tablas con dos
+viscosidades distintas. `ssu_to_cst()` es ahora su **inversa exacta**
+despejada a mano, así que ida y vuelta cierran. Fuente: Takács, *Electrical
+Submersible Pumps Manual*, 2ª ed. (2018), cap. 4, pág. 159, aportada por Pablo.
+Declarada como `visc_ssu` en el catálogo de fórmulas y trazada en cada diseño
+viscoso.
+
+**Los cuatro factores de la bomba salen de las Tablas 4.520 / 4.521 y de
+ninguna otra fuente**: caudal (`C_Q`), altura (`C_H`), rendimiento nuevo y
+potencia (`C_HP`), interpolados en SSU dentro de cada tabla y entre tablas
+según el rendimiento máximo de la bomba. El modelo Hydraulic Institute sigue
+siendo sólo verificación, nunca diseño.
 
 Consecuencia documentada de la 4L(2): en el umbral de 28 °API la lámina da
 18.8 cp donde la correlación daba 12.1, así que la corrección pasó de ~0.4 % a
@@ -579,6 +678,65 @@ arriba y habilita tándems mixtos estándar / alta presión.
 
 `DesignResult.housing_detail` es la ficha por carcasa y `housing_rationale` la
 justificación generada a partir de los valores calculados.
+
+### El manejo de gas suma su potencia al motor (`catalogs/gas_handlers.json`)
+
+El separador de fondo va en el mismo eje que la bomba, así que su consumo lo
+mueve el mismo motor. `_assemble_design()` (en `recommender/pump_selector.py`)
+elige el manejador de gas **antes** del diseño eléctrico y le suma su hp al HP
+con que se dimensiona el motor. Elegir el motor primero lo dejaría corto justo
+en los pozos con gas.
+
+**El consumo sale del catálogo, por modelo.** REDA lo publica a 60 Hz: 3 hp el
+VGSA D20-60, 6 el S20-90, 14 el S70-150, 13 a 102 los AGH. Se consulta por
+`gas_handling.gas_handler_hp()`; `GAS_SEPARATOR_HP = 2.0` quedó como respaldo
+para los modelos que el fabricante no publica. Con dos equipos en el eje se
+suman los dos, cada uno con su hp y con su frecuencia base — por eso
+`gas_handler_count` viaja como dato propio y no se despeja dividiendo.
+
+El hp viaja aparte en `DesignResult.gas_handler_hp`: `total_pump_hp` y
+`motor_hp_max` siguen siendo **la bomba sola**, para que la cuenta de
+etapas × hp/etapa × SG se siga reproduciendo contra el libro. Se publican en el
+PDF, el Excel y la tabla de resultados.
+
+**El catálogo es REDA** (12 equipos, digitalizados del *REDA ESP Catalog* págs.
+391-399): 3 separadores de vórtice, 3 rotativos y 6 AGH. Reemplaza a los 12 de
+ChampionX, fabricante que la purga de proveedores había eliminado del resto del
+proyecto. Tres consecuencias que hay que conocer antes de tocar esto:
+
+1. **REDA no publica eficiencia de separación de ninguno**, así que
+   `max_efficiency` es `null` en todas las entradas y el dominio aplica
+   `SEPARATOR_DEFAULT_EFFICIENCY = 0.75` declarándolo. Los 90 %/97 % viejos eran
+   de ChampionX y no se trasladaron. **No estimar.**
+2. **Los rotativos no tienen rango de caudal publicado**, así que no se pueden
+   elegir. Sin dos tipos distintos no hay tándem: ese escalón queda inalcanzable
+   con el catálogo actual, y la lógica se verifica por unidad.
+3. **El rango del separador es de MEZCLA**, no de líquido
+   (`gas_handling.total_intake_rate`): 1 227 bpd con 63 % de gas son 3 316 bpd,
+   y esa es la diferencia entre que el VGSA D20-60 califique o no.
+
+El aparejo incorpora separador con más de 10 % de gas libre en la admisión
+(`_GIP_PARA_SEPARADOR`), que **no** es el 5 % de `GAS_FRACTION_SEPARATOR_REQUIRED`
+con que el veredicto lo declara obligatorio — discrepancia heredada, anotada en
+`.claude/rules/domain.md`.
+
+### El cuarto escalón: el manejador avanzado (AGH) no separa, tolera
+
+La escalera de manejo de gas tiene **cuatro** escalones —ninguno → simple →
+tándem → **agh**— antes de mandar a cambiar de método de levantamiento. Los tres
+primeros retiran gas y bajan `f_pump`; el cuarto no toca el gas: acondiciona la
+mezcla para que la bomba pueda impulsarla, hasta el 45 % de GVF que declara REDA
+(ESP Catalog pág. 393). Se apila **sobre** la separación ya conseguida, que es
+lo que dice el propio catálogo.
+
+Consecuencia que hay que leer bien: un pozo puede salir viable con **30 % de gas
+libre en la bomba**. No se separó hasta ahí — se tolera. La advertencia lo dice
+y el deterioro de altura por gas no desaparece. `select_gas_handling_strategy`
+devuelve `uses_agh`, `agh_model`, `agh_max_gvf` y `tolerance` (contra qué se
+comparó: `max_gip` en los tres primeros, el GVF del equipo en el cuarto).
+
+El AGH **no puede pasar por encima de un `max_gip` más estricto** que el
+estándar de la tecnología: si el usuario lo bajó de 0.10, manda él.
 
 ### Engineering-criteria ordering (no scoring)
 

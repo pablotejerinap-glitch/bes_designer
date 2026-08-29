@@ -24,8 +24,21 @@ from bes.core.models import (
     SurfaceConditions,
     WellGeometry,
 )
-from bes.core.pump_design import design_pump_by_model, design_pump_complete
+from bes.core.pump_design import (
+    design_pump_by_model,
+    design_pump_complete,
+    operating_frequency,
+)
 from bes.core.electrical import electrical_design_complete
+from bes.core.gas_handling import (
+    GAS_SEPARATOR_BASE_FREQUENCY_HZ,
+    GAS_SEPARATOR_HP,
+    SEPARATOR_DEFAULT_EFFICIENCY,
+    gas_handler_hp,
+    total_intake_rate,
+    gas_handler_power_at_frequency,
+    select_gas_handling_strategy,
+)
 from bes.core.tdh import _sg_liquid
 from bes.core.pvt import standing_rs, gas_z_factor, gas_bg, standing_bo, water_bw
 from bes.recommender.ranking import bep_distance, ranking_key
@@ -35,11 +48,17 @@ if TYPE_CHECKING:
 
 _BBL_TO_FT3 = 5.615
 
-# Entradas del catálogo de bombas que NO son un proveedor comercial. Hoy solo
+# Entradas de bombas que NO son de un proveedor comercial. Hoy solo
 # «Brown (libro)»: I-300, I-42B y M-34 no salen de un catálogo sino de los
 # ejemplos numerados de Kermit Brown Vol. 2b (1980), y son las anclas de
 # validación del motor de cálculo. La regla de aparejo único no les aplica
 # porque no existe un «motor Brown»: se les arma el aparejo con lo que haya.
+#
+# **Ya no están en el catálogo de la aplicación** (ago-2026): la app publica
+# sólo bombas digitalizadas de catálogos reales, y los datos impresos se
+# mudaron a `backend/tests/data/brown_pumps.json`. La excepción sobrevive
+# porque los tests de validación contra el libro sí las inyectan, y sin ella
+# no podrían armar el aparejo.
 _NO_ES_PROVEEDOR = {"Brown (libro)"}
 
 
@@ -85,6 +104,12 @@ def _build_design_result(
     target_rate: float,
     gip: float,
     gas_handler: dict | None = None,
+    # Consumo TOTAL del manejo de gas [hp] y cuántos equipos lo producen. Van
+    # separados a propósito: con el consumo publicado por modelo (REDA: 3, 6 o
+    # 14 hp) la cantidad ya no se puede despejar dividiendo por una constante.
+    gas_handler_hp_total: float = 0.0,
+    gas_handler_count: int = 0,
+    gas_strategy: dict | None = None,
     sensor: dict | None = None,
     gas_fraction_threshold: float = 0.10,
 ) -> DesignResult:
@@ -105,6 +130,12 @@ def _build_design_result(
     warnings.extend(elec.get("cable_warnings") or [])
     if elec.get("controller_warning"):
         warnings.append(elec["controller_warning"])
+    if gas_strategy:
+        if gas_strategy.get("switch_lift_method"):
+            warnings.append(gas_strategy["verdict"])
+        elif gas_strategy.get("strategy") in ("tandem", "agh"):
+            warnings.append(gas_strategy["verdict"])
+        warnings.extend(gas_strategy.get("warnings", []))
 
     return DesignResult(
         pump_manufacturer=pump_dict["pump_manufacturer"],
@@ -177,6 +208,18 @@ def _build_design_result(
             float(gas_handler["max_efficiency"])
             if gas_handler and gas_handler.get("max_efficiency") else 0.0
         ),
+        gas_handler_hp=gas_handler_hp_total,
+        # Zona operativa del método de incrementos. Sólo el camino de
+        # pozos con gas los trae; el convencional deja 0.0.
+        gas_q_representative_bpd=float(
+            pump_dict.get("gas_q_representative_bpd") or 0.0),
+        gas_q_intake_bpd=float(pump_dict.get("gas_q_intake_bpd") or 0.0),
+        gas_q_discharge_bpd=float(pump_dict.get("gas_q_discharge_bpd") or 0.0),
+        gas_handler_count=gas_handler_count,
+        gas_strategy=str((gas_strategy or {}).get("strategy", "")),
+        gas_fraction_at_pump=float((gas_strategy or {}).get("f_pump", 0.0)),
+        switch_lift_method=bool((gas_strategy or {}).get("switch_lift_method", False)),
+        gas_verdict=str((gas_strategy or {}).get("verdict", "")),
         sensor_manufacturer=(sensor["manufacturer"] if sensor else ""),
         sensor_model=(sensor["model"] if sensor else ""),
     )
@@ -304,6 +347,138 @@ def assemble_design(
     )
 
 
+#: Fracción de gas libre en la admisión a partir de la cual el aparejo lleva
+#: manejador de gas. Estaba escrito como un 0.10 suelto adentro del armado; se
+#: nombra para poder decir que NO coincide con el umbral del dominio
+#: (``gas_handling.GAS_FRACTION_SEPARATOR_REQUIRED``, que vale 0.05).
+_GIP_PARA_SEPARADOR = 0.10
+
+
+def _select_gas_handler(
+    catalog: "CatalogManager",
+    well: "WellGeometry",
+    objectives: "DesignObjectives",
+    gip: float,
+) -> dict | None:
+    """Elige el manejador de gas, si el pozo lo justifica.
+
+    Se incorpora cuando la fracción de gas libre en la admisión pasa
+    :data:`_GIP_PARA_SEPARADOR`.
+
+    **Ojo**: ese 10 % NO es el ``GAS_FRACTION_SEPARATOR_REQUIRED = 0.05`` del
+    dominio, que es donde el separador pasa a ser obligatorio. El aparejo lo
+    incorpora recién al 10 %, así que entre 5 % y 10 % el veredicto de gas pide
+    separador y el aparejo no lo trae. Es una discrepancia heredada, se deja
+    documentada en vez de cambiarla en silencio: mover el corte cambiaría el
+    motor de todos los pozos de esa franja.
+
+    Args:
+        catalog: Catálogo de equipos.
+        well: Geometría del pozo — el ID de casing limita el diámetro.
+        objectives: Objetivos de diseño — el caudal.
+        gip: Fracción de gas libre en la admisión [0-1].
+
+    Returns:
+        El manejador elegido, o ``None`` si el pozo no lo necesita o el
+        catálogo no tiene uno que entre.
+    """
+    if gip <= _GIP_PARA_SEPARADOR:
+        return None
+    # El catálogo declara el rango del separador en caudal TOTAL de mezcla
+    # (líquido + gas), no en líquido: por el equipo pasa todo. Ver
+    # gas_handling.total_intake_rate.
+    return catalog.select_gas_handler(
+        flow_bpd=total_intake_rate(objectives.target_flow_rate, gip),
+        casing_id_in=well.casing_id,
+        prefer_type="vortex",
+    )
+
+
+def _estrategia_de_gas(
+    catalog: "CatalogManager",
+    well: "WellGeometry",
+    objectives: "DesignObjectives",
+    gip: float,
+    gas_handler: dict | None,
+    vent_fraction: float = 0.0,
+) -> dict:
+    """Cuántos separadores hacen falta, o si hay que cambiar de método.
+
+    Arma el tándem con **tipos distintos** —un rotativo y un vórtex, que es lo
+    que indica Takács (pág. 195)— y no con dos iguales apilados: cada tipo
+    rinde mejor en un rango distinto de fracción de vacío.
+
+    Si el catálogo no tiene con qué armar el tándem, el escalón simplemente no
+    se ofrece y la escalera se detiene donde llegue.
+    """
+    # El manejador avanzado (AGH) es el cuarto escalón y se busca SIEMPRE, haya
+    # o no separador: es la única respuesta que el catálogo REDA ofrece por
+    # debajo de 2000 bpd, donde no entra ningún separador de vórtice.
+    q_mezcla = total_intake_rate(objectives.target_flow_rate, gip)
+    agh = catalog.select_gas_handler(
+        flow_bpd=q_mezcla,
+        casing_id_in=well.casing_id,
+        prefer_type="agh",
+        require_separation=False,
+    )
+    if agh is not None and agh.get("type") != "agh":
+        agh = None
+    agh_gvf = float(agh["max_gvf"]) if agh and agh.get("max_gvf") else None
+
+    if gas_handler is None:
+        estrategia = select_gas_handling_strategy(
+            gip, single_efficiency=None, max_gip=objectives.max_gip,
+            vent_fraction=vent_fraction,
+            agh_max_gvf=agh_gvf,
+            agh_model=(agh.get("model") if agh else None),
+        )
+        estrategia["equipos"] = [agh] if estrategia.get("uses_agh") and agh else []
+        return estrategia
+
+    eta_simple = gas_handler.get("max_efficiency") or SEPARATOR_DEFAULT_EFFICIENCY
+
+    # El segundo del tándem: el otro tipo, para no repetir el mismo principio.
+    otro_tipo = "rotary" if gas_handler.get("type") == "vortex" else "vortex"
+    segundo = catalog.select_gas_handler(
+        flow_bpd=q_mezcla,
+        casing_id_in=well.casing_id,
+        prefer_type=otro_tipo,
+    )
+    tandem_etas = None
+    tandem_modelos = None
+    equipos = [gas_handler]
+    if segundo is not None and segundo.get("model") != gas_handler.get("model"):
+        tandem_etas = [
+            eta_simple,
+            segundo.get("max_efficiency") or SEPARATOR_DEFAULT_EFFICIENCY,
+        ]
+        tandem_modelos = [gas_handler.get("model", "?"), segundo.get("model", "?")]
+        equipos.append(segundo)
+
+    estrategia = select_gas_handling_strategy(
+        gip,
+        single_efficiency=eta_simple,
+        tandem_efficiencies=tandem_etas,
+        vent_fraction=vent_fraction,
+        max_gip=objectives.max_gip,
+        single_model=gas_handler.get("model"),
+        tandem_models=tandem_modelos,
+        agh_max_gvf=agh_gvf,
+        agh_model=(agh.get("model") if agh else None),
+    )
+    # Los equipos concretos, en el orden en que se apilan. Hacen falta acá
+    # afuera porque el consumo lo publica el catálogo POR MODELO: un tándem de
+    # un vórtex de 14 hp y un rotativo sin dato no consume "2 × algo".
+    #
+    # El AGH va ARRIBA del separador, no en su lugar: el catálogo dice que
+    # «can also be installed in series above rotary or vortex-type gas
+    # separators» (pág. 393). Se recorta después a n_separators + el AGH.
+    if estrategia.get("uses_agh") and agh is not None:
+        equipos = equipos[: max(0, int(estrategia.get("n_separators", 0)))] + [agh]
+    estrategia["equipos"] = equipos
+    return estrategia
+
+
 def _assemble_design(
     cand: dict,
     pump_obj,
@@ -330,11 +505,78 @@ def _assemble_design(
     candidata de reemplazo que probar, así que corresponde avisar el motivo en
     vez de seguir en silencio.
     """
+    # --- Manejador de gas ---------------------------------------------------
+    # Se elige ANTES del diseño eléctrico, y no después, porque el separador va
+    # montado en el mismo eje y su consumo lo tiene que mover el mismo motor:
+    # si se eligiera el motor primero, quedaría 2 hp corto.
+    #
+    # La fracción de gas libre en la admisión ya viene calculada de
+    # design_pump_complete (se evalúa una sola vez, antes del TDH, porque es la
+    # que decide la correlación de fricción). Acá sólo se lee.
+    gip = cand.get("free_gas_fraction")
+    if gip is None:
+        from bes.core.gas_handling import free_gas_fraction_at_intake
+        gip = free_gas_fraction_at_intake(fluid, cand["pip_psi"], bottom_temp)
+
+    gas_handler = _select_gas_handler(catalog, well, objectives, gip)
+
+    # --- Escalera de manejo de gas: ninguno → simple → tándem → otro método --
+    # Takács (pág. 195, Fig. 4.25): el mayor manejo de gas de la tecnología BES
+    # lo da un tándem de separadores de TIPOS DISTINTOS. Si ni con eso el gas
+    # en la bomba baja del límite, no hay equipo que lo resuelva y corresponde
+    # cambiar de método de levantamiento.
+    estrategia_gas = _estrategia_de_gas(catalog, well, objectives, gip, gas_handler)
+
+    # Cuántos separadores consumen potencia. Ojo con las dos decisiones, que
+    # NO usan el mismo corte y no se pueden mezclar:
+    #   - si se INSTALA uno lo decide _select_gas_handler (gip > 10 %, corte
+    #     heredado y documentado en .claude/rules/domain.md);
+    #   - si hace falta un SEGUNDO lo decide la escalera contra objectives.max_gip.
+    # Un separador instalado consume aunque la escalera diga que no hacía falta:
+    # está en el eje igual. Por eso el piso es 1 cuando hay equipo.
+    n_separadores = (
+        max(1, estrategia_gas["n_separators"]) if gas_handler else 0
+    )
+
+    # Lo que efectivamente cuelga del eje: los separadores recortados a esa
+    # cuenta, más el manejador avanzado si la escalera llegó hasta ahí. El AGH
+    # se instala ARRIBA del separador, no en su lugar (catálogo REDA, pág. 393).
+    equipos_gas = list(estrategia_gas.get("equipos") or [])
+    if gas_handler is not None and not equipos_gas:
+        equipos_gas = [gas_handler]
+    if estrategia_gas.get("uses_agh"):
+        separadores = [e for e in equipos_gas if e.get("type") != "agh"]
+        agh_eq = [e for e in equipos_gas if e.get("type") == "agh"]
+        equipos_gas = separadores[:n_separadores] + agh_eq
+    else:
+        equipos_gas = equipos_gas[:n_separadores]
+
+    # El consumo escala con la frecuencia al cubo (Takács ec. 4.31): va en el
+    # mismo eje que la bomba, así que gira a su misma velocidad. Sin esto un
+    # pozo a 50 Hz cargaba al motor con el consumo de 60 Hz.
+    #
+    # El consumo base sale del CATÁLOGO, modelo por modelo (REDA lo publica a
+    # 60 Hz: 3 hp el VGSA D20-60, 6 el S20-90, 14 el S70-150). No es un valor
+    # único de aparejo: un tándem suma los dos equipos que efectivamente se
+    # apilan, no dos veces el mismo número.
+    frecuencia = operating_frequency(surface, objectives)
+    separator_hp = sum(
+        gas_handler_power_at_frequency(
+            gas_handler_hp(eq),
+            frecuencia,
+            float(eq.get("hp_frequency_hz") or GAS_SEPARATOR_BASE_FREQUENCY_HZ),
+        )
+        for eq in equipos_gas
+    )
+
     elec = electrical_design_complete(
         # El motor se dimensiona sobre el HP MÁXIMO (fluido más pesado, Brown
         # §4.5325), no sobre el operativo, para que no se sobrecargue durante
         # el arranque/desgasificado o produciendo agua.
-        motor_hp=cand.get("motor_hp_max", cand["total_pump_hp"]),
+        #
+        # Más el consumo del separador de gas, si el aparejo lleva uno: el
+        # motor mueve la bomba Y el separador.
+        motor_hp=cand.get("motor_hp_max", cand["total_pump_hp"]) + separator_hp,
         pump_od=cand["pump_od"],
         well=well,
         fluid=fluid,
@@ -353,23 +595,6 @@ def _assemble_design(
         bottom_temp_f=bottom_temp,
     )
 
-    # La fracción de gas libre en la admisión ya viene calculada de
-    # design_pump_complete (se evalúa una sola vez, antes del TDH, porque es la
-    # que decide la correlación de fricción). Acá sólo se lee.
-    gip = cand.get("free_gas_fraction")
-    if gip is None:
-        from bes.core.gas_handling import free_gas_fraction_at_intake
-        gip = free_gas_fraction_at_intake(fluid, cand["pip_psi"], bottom_temp)
-
-    # Gas handler recommended only when free gas at intake is non-trivial.
-    gas_handler = None
-    if gip > 0.10:
-        gas_handler = catalog.select_gas_handler(
-            flow_bpd=objectives.target_flow_rate,
-            casing_id_in=well.casing_id,
-            prefer_type="vortex",
-        )
-
     # Downhole sensor: always recommend a model covering well conditions.
     sensor = catalog.select_sensor(
         intake_pressure_psi=cand["pip_psi"],
@@ -386,7 +611,12 @@ def _assemble_design(
         surface=surface,
         target_rate=objectives.target_flow_rate,
         gip=gip,
-        gas_handler=gas_handler,
+        # Si no hubo separador pero sí manejador avanzado, el equipo que se
+        # reporta es el AGH: es lo que efectivamente va en la sarta.
+        gas_handler=(gas_handler or (equipos_gas[0] if equipos_gas else None)),
+        gas_handler_hp_total=separator_hp,
+        gas_handler_count=len(equipos_gas),
+        gas_strategy=estrategia_gas,
         sensor=sensor,
         gas_fraction_threshold=objectives.gas_fraction_pc_threshold,
     )

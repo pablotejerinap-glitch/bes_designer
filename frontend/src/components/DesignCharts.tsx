@@ -84,6 +84,11 @@ export function DesignCharts({
     flow_rate_achieved,
     pump_setting_depth,
     operating_frequency,
+    // Zona operativa del método de incrementos. Valen 0 en el camino
+    // convencional, y ahí la curva se dibuja como siempre.
+    gas_q_representative_bpd,
+    gas_q_intake_bpd,
+    gas_q_discharge_bpd,
   } = design;
 
   const curve = useFigure(
@@ -94,9 +99,20 @@ export function DesignCharts({
           operating_flow: flow_rate_achieved,
           stages: num_stages,
           frequency: operating_frequency,
+          q_representative: gas_q_representative_bpd || undefined,
+          q_intake: gas_q_intake_bpd || undefined,
+          q_discharge: gas_q_discharge_bpd || undefined,
         })
         .then((r) => r.figure),
-    [pump_model, flow_rate_achieved, num_stages, operating_frequency]
+    [
+      pump_model,
+      flow_rate_achieved,
+      num_stages,
+      operating_frequency,
+      gas_q_representative_bpd,
+      gas_q_intake_bpd,
+      gas_q_discharge_bpd,
+    ]
   );
 
   const nodal = useFigure(

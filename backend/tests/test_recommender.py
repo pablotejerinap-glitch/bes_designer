@@ -20,6 +20,8 @@ from bes.core.models import (
     SurfaceConditions,
     WellGeometry,
 )
+from bes.core.gas_handling import GAS_SEPARATOR_HP
+from bes.core.tdh import _sg_liquid
 from bes.recommender.ranking import (
     BEP_ACCEPTABLE_MAX,
     BEP_OPTIMAL_MAX,
@@ -565,3 +567,221 @@ class TestGenerateRecommendationForPump:
                 reservoir, fluid, well, surface, objectives, manager,
                 pump_model="NO-EXISTE",
             )
+
+
+# ---------------------------------------------------------------------------
+# El separador de gas consume potencia, y la mueve el mismo motor
+# ---------------------------------------------------------------------------
+
+class TestElSeparadorDeGasSumaSuPotencia:
+    """El separador va en el mismo eje: el motor tiene que moverlo también.
+
+    El consumo sale del CATÁLOGO, modelo por modelo —REDA lo publica a 60 Hz:
+    3 hp el VGSA D20-60, 6 el S20-90, 14 el S70-150— y se suma al HP de la
+    bomba **antes** de elegir el motor. Si se sumara después, el motor quedaría
+    corto justo en los pozos con gas, que son los que menos margen tienen.
+
+    ``gas_handling.GAS_SEPARATOR_HP = 2.0`` quedó como respaldo, para los
+    modelos que el fabricante no publica.
+    """
+
+    def _diseno_con_gas(self, manager):
+        """El diseño del pozo con gas. Atajo de :meth:`_caso`."""
+        return self._caso(manager)[0]
+
+    def _caso(self, manager):
+        """Pozo con 63 % de gas libre en la admisión: lleva separador seguro.
+
+        Returns:
+            ``(diseño, fluido)`` — el fluido hace falta para reconstruir a mano
+            la cuenta de potencia de la bomba.
+        """
+        reservoir = Reservoir(
+            static_pressure=2000.0, bubble_point=2000.0,
+            productivity_index=1.2, ipr_method=IPRMethod.VOGEL,
+            reservoir_temp=170.0, drive_mechanism=DriveMechanism.SOLUTION_GAS,
+        )
+        fluid = Fluid(
+            oil_api=30.0, water_cut=0.15, gor=350.0, gas_sg=0.75,
+            water_sg=1.02, oil_viscosity_dead=5.0, viscosity_temp_ref=100.0,
+            bubble_point_pressure=2000.0, h2s_content=0.0, co2_content=0.0,
+            sand_production=False,
+        )
+        well = WellGeometry(
+            total_depth=6150.0, casing_od=5.5, casing_weight=17.0,
+            casing_id=4.892, tubing_od=2.375, tubing_id=1.995,
+            perforations_top=5900.0, perforations_bottom=6030.0,
+            deviation_max=0.0, wellhead_temp=120.0,
+        )
+        surface = SurfaceConditions(
+            wellhead_pressure_required=200.0, flowline_length=1000.0,
+            flowline_id=3.0, flowline_elevation_change=0.0,
+            separator_pressure=100.0, power_supply_voltage=7200.0,
+            frequency=60.0,
+        )
+        objectives = DesignObjectives(
+            target_flow_rate=1227.0, safety_margin_depth=50.0,
+            allow_gas_venting=False, max_gip=0.7, design_life_years=5.0,
+            use_vsd=False,
+        )
+        diseno = select_top_n_pumps(
+            reservoir, fluid, well, surface, objectives, manager, n=1
+        )[0]
+        return diseno, fluid
+
+    def test_el_aparejo_con_separador_declara_el_hp_QUE_PUBLICA_EL_CATALOGO(
+        self, manager
+    ):
+        """No es un valor fijo: es el ``hp`` del modelo que se eligió.
+
+        Antes se sumaban 2 hp para cualquier separador. Con el catálogo REDA
+        digitalizado el consumo es del equipo: el VGSA D20-60 son 3 hp, y ese
+        número tiene que llegar entero al aparejo.
+        """
+        d = self._diseno_con_gas(manager)
+        assert d.gas_handler_model != ""
+
+        equipo = next(
+            g for g in manager.get_all_gas_handlers()
+            if g["model"] == d.gas_handler_model
+        )
+        publicado = equipo["hp"] or GAS_SEPARATOR_HP
+        # Un solo equipo en este pozo, y a 60 Hz: sin escalar.
+        assert d.gas_handler_count == 1
+        assert d.gas_handler_hp == pytest.approx(publicado)
+        assert d.gas_handler_hp != pytest.approx(GAS_SEPARATOR_HP)
+
+    def test_sin_separador_no_se_suma_nada(
+        self, reservoir, fluid, well, surface, objectives, manager
+    ):
+        """Pozo de poco gas: no lleva separador, así que no hay hp que sumar."""
+        d = select_top_n_pumps(
+            reservoir, fluid, well, surface, objectives, manager, n=1
+        )[0]
+        assert d.gas_handler_model == ""
+        assert d.gas_handler_hp == 0.0
+
+    def test_el_motor_alcanza_para_la_bomba_MAS_el_separador(self, manager):
+        """La verificación que importa: el motor cubre las dos cargas.
+
+        Si los 2 hp se sumaran después de elegir el motor, esta desigualdad
+        podría no cumplirse justo en el escalón de catálogo.
+        """
+        d = self._diseno_con_gas(manager)
+        assert d.motor_hp >= d.motor_hp_max + d.gas_handler_hp
+
+    def test_los_2_hp_no_se_esconden_adentro_del_hp_de_la_bomba(self, manager):
+        """``total_pump_hp`` y ``motor_hp_max`` son la BOMBA sola.
+
+        El consumo del separador viaja en su propio campo. Mezclarlos haría
+        irreproducible la cuenta de etapas × hp/etapa, que es la que se audita
+        contra el libro.
+        """
+        d, fluid = self._caso(manager)
+        # La potencia de la bomba sigue siendo exactamente etapas × hp/etapa ×
+        # SG del líquido: los 2 hp del separador no entraron acá.
+        assert d.total_pump_hp == pytest.approx(
+            d.hp_per_stage * d.num_stages * _sg_liquid(fluid), rel=1e-6
+        )
+        # Y el motor de placa cubre las dos cargas.
+        assert d.motor_hp >= d.motor_hp_max + d.gas_handler_hp
+
+
+class TestLaEscaleraDeGasYLaFrecuenciaLleganAlAparejo:
+    """La escalera de gas y la ley de afinidad, vistas desde el DesignResult.
+
+    **Con el catálogo REDA el escalón de TÁNDEM es inalcanzable, y está bien
+    que lo sea.** El tándem se arma con separadores de tipos distintos (Takács
+    pág. 195), y los únicos separadores REDA seleccionables son de vórtice: los
+    rotativos ARS / CRS-ES / DRS-ES aparecen sólo en las tablas de armado, que
+    no publican rango de caudal, así que no se pueden verificar contra un pozo
+    y no se ofrecen. La lógica del tándem se verifica por unidad en
+    ``test_gas_separator.py``, contra eficiencias dadas; acá se verifica lo que
+    el catálogo real sí puede armar.
+    """
+
+    def _pozo(self, gor, pb, freq, q=1200.0):
+        from bes.core.models import (
+            DesignObjectives, DriveMechanism, Fluid, IPRMethod, Reservoir,
+            SurfaceConditions, WellGeometry,
+        )
+        return dict(
+            reservoir=Reservoir(
+                static_pressure=2500.0, bubble_point=pb, ipr_method=IPRMethod.VOGEL,
+                reservoir_temp=180.0, drive_mechanism=DriveMechanism.SOLUTION_GAS,
+                test_pwf=1000.0, test_rate=1000.0),
+            fluid=Fluid(
+                oil_api=30.0, water_cut=0.15, gor=gor, gas_sg=0.75, water_sg=1.02,
+                oil_viscosity_dead=5.0, viscosity_temp_ref=100.0,
+                bubble_point_pressure=pb, h2s_content=0.0, co2_content=0.0,
+                sand_production=False),
+            well=WellGeometry(
+                total_depth=6150.0, casing_od=7.0, casing_weight=26.0,
+                casing_id=6.276, tubing_od=2.875, tubing_id=2.441,
+                perforations_top=5900.0, perforations_bottom=6030.0,
+                deviation_max=0.0, wellhead_temp=120.0),
+            surface=SurfaceConditions(
+                wellhead_pressure_required=200.0, flowline_length=1000.0,
+                flowline_id=3.0, flowline_elevation_change=0.0,
+                separator_pressure=100.0, power_supply_voltage=7200.0,
+                frequency=freq),
+            objectives=DesignObjectives(
+                target_flow_rate=q, safety_margin_depth=50.0,
+                allow_gas_venting=False, max_gip=0.10, design_life_years=5.0,
+                use_vsd=False),
+        )
+
+    def _diseno(self, manager, **kw):
+        from bes.recommender.recommendation_engine import generate_recommendations
+        import warnings as w
+        with w.catch_warnings():
+            w.simplefilter("ignore")
+            r = generate_recommendations(catalog=manager, n=1, **self._pozo(**kw))
+        return r["recommendations"][0]["design"]
+
+    def test_gas_alto_sube_al_manejador_avanzado(self, manager):
+        """70 % de gas libre: el separador solo no alcanza, el AGH sí.
+
+        El manejador **no retira gas** —``f_pump`` sigue muy por encima del
+        10 %—: lo que hace es subir la tolerancia hasta el 45 % de GVF que
+        publica REDA. Que el pozo sea viable con 36.9 % de gas en la bomba es
+        exactamente el punto del cuarto escalón.
+        """
+        d = self._diseno(manager, gor=400.0, pb=2500.0, freq=60.0)
+        assert d.gas_strategy == "agh"
+        assert not d.switch_lift_method
+        assert 0.10 < d.gas_fraction_at_pump <= 0.45
+        assert d.gas_fraction_at_pump < d.gip_fraction   # el separador algo hizo
+        # Separador + manejador: dos equipos en el eje, y los dos consumen.
+        assert d.gas_handler_count == 2
+        assert d.gas_handler_hp > 0.0
+
+    def test_gas_por_encima_del_techo_manda_cambiar_de_metodo(self, manager):
+        """88 % de gas: ni el AGH lo tolera. No se entrega un aparejo dudoso."""
+        d = self._diseno(manager, gor=1200.0, pb=2500.0, freq=60.0)
+        assert d.gas_strategy == "no_viable"
+        assert d.switch_lift_method
+        assert d.gas_fraction_at_pump > 0.45
+        assert any("CAMBIAR DE MÉTODO" in w for w in d.warnings)
+
+    def test_a_50_hz_el_manejo_de_gas_consume_menos(self, manager):
+        """Misma configuración, distinta frecuencia: (50/60)³.
+
+        Vale para el aparejo entero, tenga uno o dos equipos: todos van en el
+        mismo eje y todos escalan con el cubo (Takács ec. 4.31).
+        """
+        a = self._diseno(manager, gor=400.0, pb=2500.0, freq=60.0)
+        b = self._diseno(manager, gor=400.0, pb=2500.0, freq=50.0)
+        assert a.gas_handler_count == b.gas_handler_count
+        assert b.gas_handler_hp == pytest.approx(a.gas_handler_hp * (50/60)**3, rel=1e-6)
+        assert b.gas_handler_hp < a.gas_handler_hp
+
+    def test_el_veredicto_sale_en_las_advertencias(self, manager):
+        d = self._diseno(manager, gor=400.0, pb=2500.0, freq=60.0)
+        assert any("MANEJADOR AVANZADO" in w for w in d.warnings)
+
+    def test_sin_gas_no_hay_separador_ni_consumo(self, manager):
+        d = self._diseno(manager, gor=20.0, pb=200.0, freq=60.0)
+        assert d.gas_handler_count == 0
+        assert d.gas_handler_hp == 0.0
+        assert d.gas_strategy == "ninguno"

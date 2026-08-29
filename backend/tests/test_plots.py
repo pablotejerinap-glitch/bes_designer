@@ -264,3 +264,84 @@ class TestEscaleraDeIncrementos:
         assert len(fig.layout.shapes) == 61 + 1 + 3
         # Sin adelgazar serían 61*2 + 60 + 3 ≈ 185 anotaciones.
         assert len(fig.layout.annotations) < 60
+
+
+# ---------------------------------------------------------------------------
+# Zona operativa del método de gas sobre la curva de bomba
+# ---------------------------------------------------------------------------
+
+class TestZonaOperativaDelMetodoDeGas:
+    """Con gas el caudal NO es constante a lo largo de la bomba.
+
+    La bomba se elige contra un caudal de mezcla representativo, y hay que
+    poder ver dónde caen los dos extremos —el que entra y el que sale— contra
+    la banda 0.75–1.25 × q_rep.
+    """
+
+    @pytest.fixture(scope="class")
+    def pump(self):
+        from bes.catalogs.loader import CatalogManager
+        return next(p for p in CatalogManager().get_all_pumps()
+                    if p.model == "TD-850")
+
+    def _fig(self, pump, **cotas):
+        from bes.plotting.plots import plot_pump_curve
+        return plot_pump_curve(
+            pump, operating_flow=pump.bep_flow, stages=100,
+            gas_zone=cotas or None,
+        )
+
+    def _textos(self, fig) -> str:
+        return " | ".join(a.text or "" for a in fig.layout.annotations)
+
+    def test_sin_gas_no_se_dibuja_la_zona(self, pump):
+        """El camino convencional tiene un solo caudal: la pregunta no existe."""
+        assert "Zona operativa" not in self._textos(self._fig(pump))
+
+    def test_la_banda_va_de_075_a_125_del_representativo(self, pump):
+        from bes.plotting.plots import GAS_ZONE_LOWER, GAS_ZONE_UPPER
+        q = 1000.0
+        fig = self._fig(pump, q_representative=q, q_intake=1100.0,
+                        q_discharge=900.0)
+        xs = [sh.x0 for sh in fig.layout.shapes if sh.type == "rect"]
+        assert GAS_ZONE_LOWER * q in xs
+        assert any(sh.x1 == GAS_ZONE_UPPER * q for sh in fig.layout.shapes
+                   if sh.type == "rect")
+
+    def test_marca_los_dos_extremos_con_su_razon(self, pump):
+        fig = self._fig(pump, q_representative=1000.0, q_intake=1100.0,
+                        q_discharge=900.0)
+        t = self._textos(fig)
+        assert "q admisión (entra): 1,100 bpd (1.10× q_rep)" in t
+        assert "q descarga (sale): 900 bpd (0.90× q_rep)" in t
+
+    def test_el_extremo_fuera_de_banda_se_marca_en_el_dibujo(self, pump):
+        """No alcanza con un aviso de texto: tiene que verse en la figura."""
+        fig = self._fig(pump, q_representative=1000.0, q_intake=1800.0,
+                        q_discharge=900.0)
+        assert "FUERA" in self._textos(fig)
+        # Y la línea del extremo que se fue queda en rojo.
+        assert any(
+            sh.line.color == "#C62828" for sh in fig.layout.shapes
+            if sh.type == "line"
+        )
+
+    def test_la_banda_de_catalogo_sigue_estando(self, pump):
+        """Son DOS zonas distintas y las dos tienen que verse.
+
+        La del fabricante es propiedad de la bomba; la del método es de este
+        diseño. Que una tape a la otra sería perder información.
+        """
+        fig = self._fig(pump, q_representative=1000.0, q_intake=1100.0,
+                        q_discharge=900.0)
+        t = self._textos(fig)
+        assert "Rango operativo recomendado" in t
+        assert "Zona operativa del método de gas" in t
+        rects = [sh for sh in fig.layout.shapes if sh.type == "rect"]
+        assert len(rects) == 2
+
+    def test_sin_caudal_representativo_no_hay_contra_que_leer(self, pump):
+        """Los extremos solos no dicen nada: se ignoran sin romper."""
+        assert "Zona operativa" not in self._textos(
+            self._fig(pump, q_intake=1100.0, q_discharge=900.0)
+        )

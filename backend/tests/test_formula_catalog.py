@@ -223,10 +223,22 @@ class TestElCatalogoSeEnumeraSinCorrerNada:
             "pwf_fetkovich", "pwf_lineal", "pwf_vogel_bifasico", "pwf_vogel_recta",
         ]
 
-    def test_estan_las_dos_correlaciones_de_friccion(self):
+    def test_estan_las_tres_correlaciones_de_friccion(self):
+        """Una multifásica y DOS monofásicas.
+
+        Enumerarlas todas es el punto del catálogo: la traza de una corrida
+        sólo muestra la rama que ese pozo ejecutó, y con tres alternativas para
+        el mismo paso hace falta poder verlas juntas. Entre las dos monofásicas
+        la diferencia es la viscosidad: Hazen-Williams no la contempla, y por
+        eso no puede seguir un flujo laminar.
+        """
         tdh = next(t for t in catalog_by_topic() if t["key"] == "tdh")
         fric = sorted(f["key"] for f in tdh["formulas"] if f["step"] == "friccion")
-        assert fric == ["friccion_hazen_williams", "friccion_pc"]
+        assert fric == [
+            "friccion_darcy_weisbach",
+            "friccion_hazen_williams",
+            "friccion_pc",
+        ]
 
     def test_todos_los_temas_del_motor_estan_instrumentados(self):
         """Hoy no queda ninguno pendiente: los diez temas emiten fórmulas.

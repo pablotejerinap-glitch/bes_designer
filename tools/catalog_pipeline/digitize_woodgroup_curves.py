@@ -317,13 +317,22 @@ def _label_positions(words: list[dict]) -> dict[str, tuple[float, float]]:
 
 
 def _assign_by_shape(tracks: list[dict[int, float]],
-                     known: dict[str, int]) -> dict[str, int]:
+                     known: dict[str, int],
+                     necesarias: frozenset[str] = frozenset(
+                         {"head", "efficiency", "power"})
+                     ) -> dict[str, int]:
     """Completa la asignación por la forma de cada traza.
 
     En coordenadas de imagen la *y* crece hacia abajo, así que la altura —que
     baja con el caudal— es la que más sube en *y* de punta a punta, y la
     potencia es la de menor recorrido vertical. El rendimiento queda por
-    descarte. No hace falta más: son tres trazas y tres magnitudes.
+    descarte.
+
+    *necesarias* son las magnitudes que hacen falta en esta página. Cuando la
+    potencia se deriva sólo hay dos trazas (altura y rendimiento) y no tres:
+    sin decirle que no busque «power», el paso de potencia —que va segundo—
+    se queda con la única traza libre que le sobraría al rendimiento, y el
+    rendimiento termina sin asignar.
     """
     assignment = dict(known)
     free = [i for i in range(len(tracks)) if i not in assignment.values()]
@@ -337,15 +346,15 @@ def _assign_by_shape(tracks: list[dict[int, float]],
         span = max(track.values()) - min(track.values())
         return drop, span
 
-    if "head" not in assignment and free:
+    if "head" in necesarias and "head" not in assignment and free:
         chosen = max(free, key=lambda i: traits(i)[0])
         assignment["head"] = chosen
         free.remove(chosen)
-    if "power" not in assignment and free:
+    if "power" in necesarias and "power" not in assignment and free:
         chosen = min(free, key=lambda i: traits(i)[1])
         assignment["power"] = chosen
         free.remove(chosen)
-    if "efficiency" not in assignment and free:
+    if "efficiency" in necesarias and "efficiency" not in assignment and free:
         assignment["efficiency"] = free[0]
     return assignment
 
@@ -431,6 +440,19 @@ def digitize_page(page, n_points: int = 21) -> dict | None:
                 if recovered:
                     axes[name] = recovered
         faltan = {"flow", "head_ft", "power", "efficiency"} - set(axes)
+
+    # Bombas de una sola etapa (TD-1750, TD-6000): el eje de potencia imprime
+    # una sola marca numérica legible, insuficiente para ajustar una recta
+    # (hacen falta al menos tres). NO se descarta la página: si caudal, altura
+    # y rendimiento sí calibraron, la potencia se DERIVA por la misma
+    # identidad hidráulica que REDA usa como método principal —no es una
+    # estimación, es exacta por la propia definición de rendimiento de bomba—
+    # y se marca `power_derived=True` para que quede explícito que en esta
+    # página la potencia no es una lectura independiente y por lo tanto
+    # `hydraulic_check()` sería circular si se le aplicara.
+    power_derivable = faltan == {"power"}
+    if power_derivable:
+        faltan = set()
     if faltan:
         return None
 
@@ -439,7 +461,16 @@ def digitize_page(page, n_points: int = 21) -> dict | None:
     box = (axes["flow"].lo - 8, axes["head_ft"].lo - 8,
            axes["flow"].hi + 8, axes["head_ft"].hi + 8)
     bands = red_bands(image, box)
-    xs = sorted(x for x in bands if len(bands[x]) >= 3)
+    # Con la potencia derivada, esta caja —recortada al eje de ALTURA— sólo
+    # encierra DOS trazas: la de potencia vive fuera de ese rango vertical, que
+    # es justamente el motivo por el que su eje no calibró. El arranque
+    # (x_right) tiene que tener EXACTAMENTE la cantidad esperada y no "al
+    # menos": una columna con una traza de más por accidente —ruido de grilla,
+    # o el borde de la banda de rango operativo— hace que el semillero tome un
+    # punto que no es ni altura ni rendimiento, y el rastreo sigue esa traza
+    # espuria en vez de la buena.
+    xs = sorted(x for x in bands
+                if len(bands[x]) == (2 if power_derivable else 3))
     if len(xs) < 50:
         return None
     x_right = xs[-1]
@@ -452,6 +483,8 @@ def digitize_page(page, n_points: int = 21) -> dict | None:
     used: set[int] = set()
     scored = []
     for name, (lx, ly) in labels.items():
+        if power_derivable and name == "power":
+            continue  # la traza de potencia no está en esta caja: ver más abajo
         for index, track in enumerate(tracks):
             near = [y for x, y in track.items() if abs(x - lx) < 120]
             if near:
@@ -461,11 +494,13 @@ def digitize_page(page, n_points: int = 21) -> dict | None:
             assignment[name] = index
             used.add(index)
     # Lo que el OCR no rotuló se resuelve por forma. Son tres trazas y tres
-    # magnitudes, así que cada una que se identifica reduce el problema: la
-    # altura es la que más cae de punta a punta y la potencia la más plana.
-    if len(assignment) < 3:
-        assignment = _assign_by_shape(tracks, assignment)
-    if len(assignment) < 3:
+    # magnitudes (dos si la potencia se deriva), así que cada una que se
+    # identifica reduce el problema: la altura es la que más cae de punta a
+    # punta y la potencia la más plana.
+    requeridas = {"head", "efficiency"} if power_derivable else {"head", "efficiency", "power"}
+    if not requeridas <= assignment.keys():
+        assignment = _assign_by_shape(tracks, assignment, frozenset(requeridas))
+    if not requeridas <= assignment.keys():
         return None
 
     def sample(track: dict[int, float], x: float) -> float | None:
@@ -478,11 +513,12 @@ def digitize_page(page, n_points: int = 21) -> dict | None:
                 return ya if b == a else ya + (yb - ya) * (x - a) / (b - a)
         return track[keys[-1]]
 
-    # El rango útil es donde las TRES trazas existen. Tomar el de la altura y
-    # descartar después los puntos sin rendimiento o sin potencia dejaba curvas
-    # de seis puntos sueltos; así se obtienen los mismos puntos, contiguos y
-    # sobre el tramo que las tres cubren.
-    usados = [tracks[assignment[n]] for n in ("head", "efficiency", "power")]
+    # El rango útil es donde las trazas requeridas existen —las tres, o la
+    # altura y el rendimiento cuando la potencia se deriva—. Tomar el de la
+    # altura y descartar después los puntos sin las demás dejaba curvas de
+    # pocos puntos sueltos; así se obtienen los mismos puntos, contiguos y
+    # sobre el tramo que todas cubren.
+    usados = [tracks[assignment[n]] for n in requeridas]
     x_min = max(min(track) for track in usados)
     x_max = min(max(track) for track in usados)
     if x_max - x_min < 100:
@@ -493,6 +529,23 @@ def digitize_page(page, n_points: int = 21) -> dict | None:
         x = x_min + (x_max - x_min) * i / (n_points - 1)
         y_head = sample(head_track, x)
         y_eff = sample(tracks[assignment["efficiency"]], x)
+        if power_derivable:
+            if None in (y_head, y_eff):
+                continue
+            head_val = round(axes["head_ft"].value(y_head), 4)
+            eff_val = round(max(axes["efficiency"].value(y_eff), 0.0) / 100, 4)
+            flow_val = round(axes["flow"].value(x), 1)
+            if eff_val > 0.02:
+                hp_val = (flow_val * GPM_PER_BPD * head_val) / (3960.0 * eff_val)
+            else:
+                hp_val = 0.0
+            points.append({
+                "flow_rate": flow_val,
+                "head_per_stage": head_val,
+                "efficiency": eff_val,
+                "hp_per_stage": round(max(hp_val, 0.0), 5),
+            })
+            continue
         y_power = sample(tracks[assignment["power"]], x)
         if None in (y_head, y_eff, y_power):
             continue
@@ -508,6 +561,7 @@ def digitize_page(page, n_points: int = 21) -> dict | None:
         "rpm": int(rpm.group(1).replace(",", "")) if rpm else None,
         "r2": {name: round(axis.r2, 6) for name, axis in axes.items()},
         "points": points,
+        "power_derived": power_derivable,
     }
 
 
@@ -537,7 +591,13 @@ def digitize(pdf_path: str, n_points: int = 21) -> list[dict]:
             if not digitized or not digitized["points"]:
                 continue
             digitized["page"] = index + 1
-            digitized["hp_read_vs_identity"] = hydraulic_check(digitized["points"])
+            # Si la potencia se derivó de la identidad, compararla contra la
+            # misma identidad es circular por construcción (daría 1.0000
+            # siempre) y no es una verificación real.
+            digitized["hp_read_vs_identity"] = (
+                None if digitized["power_derived"]
+                else hydraulic_check(digitized["points"])
+            )
             results.append(digitized)
     return results
 

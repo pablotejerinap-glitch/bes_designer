@@ -12,6 +12,7 @@ Contenido
 2. Integración del gradiente          ->  pressure_traverse()
 3. Presión en la admisión de la bomba ->  calculate_pip()
 4. Presión en la descarga de la bomba ->  calculate_discharge_pressure()
+5. Envelope de aplicabilidad          ->  poettmann_carpenter_applicability()
 
 Referencias
 -----------
@@ -286,6 +287,12 @@ def pressure_traverse(
 # 3. PRESIONES DE ADMISIÓN Y DESCARGA DE LA BOMBA
 # ===========================================================================
 
+#: Tramos en que se parte el recorrido anular perforaciones -> admisión. Vive
+#: acá y no como número suelto porque la traza de fórmulas lo publica: quien
+#: audita el PIP tiene que poder saber en cuántos pasos se integró.
+PIP_TRAVERSE_SEGMENTS = 20
+
+
 def calculate_pip(
     reservoir: Reservoir,
     fluid: Fluid,
@@ -334,7 +341,7 @@ def calculate_pip(
         p_start=pwf,
         t_start=temp_at(well.perforations_bottom),
         t_end=temp_at(pump_setting_depth),
-        n_segments=20,
+        n_segments=PIP_TRAVERSE_SEGMENTS,
     )
     return float(pressures[-1])
 
@@ -453,8 +460,11 @@ def _make_fluid(
         gor=max(gor, 0.0),
         gas_sg=gas_sg,
         water_sg=water_sg,
-        oil_viscosity_dead=10.0,   # placeholder: el PVT usa Beggs-Robinson
-        viscosity_temp_ref=100.0,
+        # Sin ensayo: el PVT de P&C resuelve la viscosidad con Beggs-Robinson,
+        # así que un valor acá no se usaría. None lo dice; un placeholder
+        # numérico haría creer que hay un dato medido.
+        oil_viscosity_dead=None,
+        viscosity_temp_ref=None,
         bubble_point_pressure=pb,
         h2s_content=0.0,
         co2_content=0.0,
@@ -576,4 +586,219 @@ def poettmann_carpenter_trace(
          "v_m": c["mixture_velocity"], "g_c": _GC, "d": c["pipe_id_ft"]},
         c["friction"],
     )
+    trace.add(
+        "pc_gradiente_total",
+        {"(dP/dz)_grav": c["gravity"], "(dP/dz)_fric": c["friction"]},
+        c["total"],
+        context=(
+            f"La fricción es el {100.0 * c['friction'] / c['total']:.2f} % del "
+            f"gradiente en este punto: en un pozo vertical manda el peso de la "
+            f"columna."
+            if c["total"] > 0 else ""
+        ),
+    )
     return trace.as_list()
+
+
+# ===========================================================================
+# 5. ENVELOPE DE APLICABILIDAD DE POETTMANN & CARPENTER
+# ===========================================================================
+#
+# Las hipótesis del método y el rango de pozos para el que fue levantado. Están
+# acá, en el mismo módulo que la correlación, para que nadie pueda usar una sin
+# leer las otras.
+#
+# Hipótesis:
+#
+#   1. Gas, petróleo y agua son un ÚNICO fluido que se mueve en conjunto.
+#   2. Factor de pérdida de carga CONSTANTE en toda la tubería. Es el gran
+#      problema del método.
+#   3. Flujo turbulento en toda la cañería: ignora los patrones de flujo.
+#   4. La aceleración es despreciable.
+#   5. El hold-up y el resbalamiento no se tienen en cuenta — quedan absorbidos
+#      dentro del factor de fricción empírico.
+#   6. Los efectos de viscosidad se desprecian.
+#
+# Las hipótesis 2, 3, 5 y 6 son las que explican los cuatro límites de abajo.
+#
+# Fuente: apuntes de cátedra aportados por Pablo (agosto 2026). NO agregar acá
+# límites de otra procedencia sin que él los verifique.
+
+#: Diámetros de tubing para los que se levantó la correlación: los nominales
+#: 2 pulg, 2½ pulg y 3 pulg, que en la tabla API/Tenaris son estos OD [in].
+PC_TUBING_OD_IN: tuple[float, ...] = (2.375, 2.875, 3.5)
+
+#: Los mismos, como se rotulan en el catálogo.
+PC_TUBING_OD_LABELS: tuple[str, ...] = ("2 3/8", "2 7/8", "3 1/2")
+
+#: Tolerancia al comparar un OD contra la lista [in].
+PC_TUBING_OD_TOL = 1e-3
+
+#: Viscosidad máxima del petróleo [cp]. Por encima el método no vale: los
+#: efectos viscosos son justamente lo que la hipótesis 6 desprecia.
+PC_MAX_OIL_VISCOSITY_CP = 5.0
+
+#: Relación gas-líquido máxima [scf/bbl].
+PC_MAX_GLR_SCF_BBL = 1500.0
+
+#: Caudal mínimo de líquido [bbl/d]. Por debajo el resbalamiento gobierna, y
+#: la hipótesis 5 lo ignora.
+PC_MIN_LIQUID_RATE_BPD = 400.0
+
+
+def gas_liquid_ratio(gor: float, water_cut: float) -> float:
+    """Relación gas-líquido (RGL) a partir del GOR y el corte de agua.
+
+    El GOR se mide **por barril de petróleo**; la RGL, **por barril de líquido**
+    (petróleo + agua). En un pozo con agua no son lo mismo, y el envelope de
+    Poettmann & Carpenter está declarado en RGL::
+
+        RGL = GOR / (1 + WOR)        con WOR = Wc / (1 − Wc)
+
+    Como ``1 + WOR = 1/(1 − Wc)``, la cuenta se reduce a ``RGL = GOR · (1 − Wc)``,
+    pero se deja escrita en la forma de la cátedra porque es la que se audita.
+
+    Args:
+        gor: Relación gas-petróleo de producción [scf/STB]. Debe ser >= 0.
+        water_cut: Corte de agua [0-1). Debe ser < 1: un pozo que produce sólo
+            agua no tiene barriles de petróleo con los que definir el GOR.
+
+    Returns:
+        Relación gas-líquido [scf/bbl].
+
+    Raises:
+        ValueError: Si gor < 0 o water_cut queda fuera de [0, 1).
+    """
+    if gor < 0:
+        raise ValueError(f"gor must be >= 0, got {gor}")
+    if not (0.0 <= water_cut < 1.0):
+        raise ValueError(f"water_cut must be in [0, 1), got {water_cut}")
+
+    wor = water_cut / (1.0 - water_cut)
+    return gor / (1.0 + wor)
+
+
+def tubing_od_is_pc_range(tubing_od: float) -> bool:
+    """¿El OD del tubing es uno de los tres para los que vale P&C?
+
+    Args:
+        tubing_od: Diámetro exterior del tubing [in].
+
+    Returns:
+        ``True`` si coincide con 2 3/8, 2 7/8 o 3 1/2 dentro de la tolerancia.
+    """
+    return any(abs(tubing_od - od) <= PC_TUBING_OD_TOL for od in PC_TUBING_OD_IN)
+
+
+def poettmann_carpenter_applicability(
+    fluid: Fluid,
+    well: WellGeometry,
+    q_liq: float,
+    temp_f: float,
+) -> dict:
+    """Verifica el pozo contra el envelope declarado de Poettmann & Carpenter.
+
+    Los cuatro límites del método, verificados uno por uno::
+
+        tubing   2 pulg, 2½ pulg o 3 pulg (OD 2.375 / 2.875 / 3.5 in)
+        mu_o     < 5 cp — petróleos livianos
+        RGL      < 1500 scf/bbl
+        q_liq    > 400 bbl/d
+
+    **No falla ni corrige nada**: devuelve el veredicto y los avisos, y quien
+    llama decide. La única restricción dura del proyecto es la del tubing, y se
+    aplica más arriba —en el formulario y en el contrato— para que no se pueda
+    elegir una cañería fuera de rango con P&C seleccionado a mano.
+
+    La viscosidad sale del ensayo de laboratorio si hay uno cargado; si no, se
+    lee de la Fig. 4L(2) con la °API y la temperatura del punto, que es el mismo
+    camino que usa el procedimiento de Riling. Es el dato que decide el segundo
+    límite, así que se declara de dónde salió.
+
+    Args:
+        fluid: Fluido producido — °API, corte de agua, GOR y viscosidad medida.
+        well: Geometría del pozo — OD del tubing.
+        q_liq: Caudal bruto de líquido en superficie [bbl/d].
+        temp_f: Temperatura a la que evaluar la viscosidad [°F]. Normalmente la
+            de admisión de la bomba.
+
+    Returns:
+        dict con:
+
+        - ``applicable``: ``True`` si los cuatro límites se cumplen.
+        - ``checks``: una entrada por límite, con ``item``, ``value``,
+          ``limit``, ``ok`` y ``message``.
+        - ``warnings``: los ``message`` de los límites que NO se cumplen.
+        - ``viscosity_cp`` / ``viscosity_source``: el valor usado y su origen.
+        - ``glr_scf_bbl``: la RGL calculada.
+    """
+    from bes.core.viscosity import dead_oil_viscosity_chart
+
+    if fluid.oil_viscosity_dead is not None:
+        mu_o = fluid.oil_viscosity_dead
+        visc_source = f"ensayo de laboratorio a {fluid.viscosity_temp_ref:.0f} °F"
+    else:
+        mu_o = dead_oil_viscosity_chart(fluid.oil_api, temp_f)["mu_cp"]
+        visc_source = f"Fig. 4L(2) con {fluid.oil_api:.1f} °API a {temp_f:.0f} °F"
+
+    glr = gas_liquid_ratio(fluid.gor, fluid.water_cut)
+    tubing_ok = tubing_od_is_pc_range(well.tubing_od)
+    etiquetas = ", ".join(PC_TUBING_OD_LABELS)
+
+    checks = [
+        {
+            "item": "tubing",
+            "value": well.tubing_od,
+            "limit": f"OD {etiquetas} in",
+            "ok": tubing_ok,
+            "message": (
+                f"Poettmann-Carpenter se levantó con tubing de 2, 2½ y 3 pulg "
+                f"(OD {etiquetas} in). El pozo tiene {well.tubing_od:.3f} in: "
+                f"fuera del rango del método."
+            ),
+        },
+        {
+            "item": "viscosidad",
+            "value": mu_o,
+            "limit": f"< {PC_MAX_OIL_VISCOSITY_CP:.0f} cp",
+            "ok": mu_o < PC_MAX_OIL_VISCOSITY_CP,
+            "message": (
+                f"Poettmann-Carpenter vale para petróleos livianos, de menos de "
+                f"{PC_MAX_OIL_VISCOSITY_CP:.0f} cp. Acá la viscosidad es "
+                f"{mu_o:.1f} cp ({visc_source}): el método desprecia justamente "
+                f"los efectos viscosos, así que la pérdida de carga sale corta."
+            ),
+        },
+        {
+            "item": "rgl",
+            "value": glr,
+            "limit": f"< {PC_MAX_GLR_SCF_BBL:.0f} scf/bbl",
+            "ok": glr < PC_MAX_GLR_SCF_BBL,
+            "message": (
+                f"La relación gas-líquido es {glr:,.0f} scf/bbl y el método vale "
+                f"hasta {PC_MAX_GLR_SCF_BBL:,.0f}. Con tanto gas el "
+                f"resbalamiento entre fases gobierna, y P&C no lo representa."
+            ),
+        },
+        {
+            "item": "caudal",
+            "value": q_liq,
+            "limit": f"> {PC_MIN_LIQUID_RATE_BPD:.0f} bbl/d",
+            "ok": q_liq > PC_MIN_LIQUID_RATE_BPD,
+            "message": (
+                f"El caudal de líquido es {q_liq:,.0f} bbl/d y el método vale "
+                f"por encima de {PC_MIN_LIQUID_RATE_BPD:.0f}. A caudal bajo la "
+                f"mezcla no va turbulenta en toda la cañería y el resbalamiento "
+                f"deja de ser despreciable."
+            ),
+        },
+    ]
+
+    return {
+        "applicable": all(c["ok"] for c in checks),
+        "checks": checks,
+        "warnings": [c["message"] for c in checks if not c["ok"]],
+        "viscosity_cp": mu_o,
+        "viscosity_source": visc_source,
+        "glr_scf_bbl": glr,
+    }

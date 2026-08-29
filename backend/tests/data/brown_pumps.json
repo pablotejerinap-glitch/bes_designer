@@ -1,0 +1,275 @@
+{
+  "_note": "Las tres bombas de los ejemplos numerados de Kermit Brown (Vol. 2b, Cap. 4.5). NO son de catálogo: son los datos impresos del libro, y por eso NO viajan en el catálogo de la aplicación (bes/catalogs/pumps.json), que sólo publica bombas digitalizadas de catálogos reales de fabricante. Viven acá porque anclan la validación contra el libro, que es la regla de oro del proyecto: los tests las inyectan con tests/brown_pumps.catalogo_con_bombas_del_libro().",
+  "_retiradas_del_catalogo": "ago-2026 — la aplicación sólo ofrece bombas de catálogo real.",
+  "pumps": [
+    {
+      "manufacturer": "Brown (libro)",
+      "series": "513",
+      "model": "I-42B",
+      "od_inches": 5.13,
+      "min_flow_bpd": 1200,
+      "max_flow_bpd": 2200,
+      "bep_flow_bpd": 1700,
+      "max_stages": 160,
+      "housing_options": [
+        40,
+        60,
+        80,
+        100,
+        120,
+        140,
+        160
+      ],
+      "performance_curve": [
+        {
+          "flow_bpd": 900,
+          "head_ft_per_stage": 51.5,
+          "hp_per_stage": 0.62,
+          "efficiency": 0.49
+        },
+        {
+          "flow_bpd": 1100,
+          "head_ft_per_stage": 49.5,
+          "hp_per_stage": 0.645,
+          "efficiency": 0.53
+        },
+        {
+          "flow_bpd": 1200,
+          "head_ft_per_stage": 48.2,
+          "hp_per_stage": 0.658,
+          "efficiency": 0.55
+        },
+        {
+          "flow_bpd": 1400,
+          "head_ft_per_stage": 46.5,
+          "hp_per_stage": 0.678,
+          "efficiency": 0.58
+        },
+        {
+          "flow_bpd": 1600,
+          "head_ft_per_stage": 44.5,
+          "hp_per_stage": 0.695,
+          "efficiency": 0.61
+        },
+        {
+          "flow_bpd": 1700,
+          "head_ft_per_stage": 43.5,
+          "hp_per_stage": 0.702,
+          "efficiency": 0.625
+        },
+        {
+          "flow_bpd": 1800,
+          "head_ft_per_stage": 42.2,
+          "hp_per_stage": 0.706,
+          "efficiency": 0.618
+        },
+        {
+          "flow_bpd": 2000,
+          "head_ft_per_stage": 39.5,
+          "hp_per_stage": 0.71,
+          "efficiency": 0.593
+        },
+        {
+          "flow_bpd": 2200,
+          "head_ft_per_stage": 36.0,
+          "hp_per_stage": 0.706,
+          "efficiency": 0.558
+        },
+        {
+          "flow_bpd": 2400,
+          "head_ft_per_stage": 31.5,
+          "hp_per_stage": 0.692,
+          "efficiency": 0.51
+        },
+        {
+          "flow_bpd": 2600,
+          "head_ft_per_stage": 26.0,
+          "hp_per_stage": 0.668,
+          "efficiency": 0.452
+        }
+      ],
+      "_source": "Brown, K.E. (1980) The Technology of Artificial Lift Methods, Vol. 2b, Cap. 4.5, Ejemplo 2B (bomba de validación)",
+      "housing_pressure_limit_psi": 4000
+    },
+    {
+      "manufacturer": "Brown (libro)",
+      "series": "738",
+      "model": "I-300",
+      "od_inches": 7.38,
+      "min_flow_bpd": 8000,
+      "max_flow_bpd": 11500,
+      "bep_flow_bpd": 10000,
+      "max_stages": 120,
+      "housing_options": [
+        20,
+        30,
+        40,
+        50,
+        60,
+        70,
+        80,
+        100,
+        120
+      ],
+      "performance_curve": [
+        {
+          "flow_bpd": 6500,
+          "head_ft_per_stage": 70.5,
+          "hp_per_stage": 5.82,
+          "efficiency": 0.55
+        },
+        {
+          "flow_bpd": 7500,
+          "head_ft_per_stage": 67.0,
+          "hp_per_stage": 6.08,
+          "efficiency": 0.59
+        },
+        {
+          "flow_bpd": 8000,
+          "head_ft_per_stage": 65.2,
+          "hp_per_stage": 6.22,
+          "efficiency": 0.61
+        },
+        {
+          "flow_bpd": 9000,
+          "head_ft_per_stage": 62.5,
+          "hp_per_stage": 6.48,
+          "efficiency": 0.63
+        },
+        {
+          "flow_bpd": 9500,
+          "head_ft_per_stage": 61.0,
+          "hp_per_stage": 6.6,
+          "efficiency": 0.64
+        },
+        {
+          "flow_bpd": 10000,
+          "head_ft_per_stage": 59.5,
+          "hp_per_stage": 6.8,
+          "efficiency": 0.648
+        },
+        {
+          "flow_bpd": 10500,
+          "head_ft_per_stage": 57.5,
+          "hp_per_stage": 6.92,
+          "efficiency": 0.638
+        },
+        {
+          "flow_bpd": 11000,
+          "head_ft_per_stage": 55.0,
+          "hp_per_stage": 7.02,
+          "efficiency": 0.618
+        },
+        {
+          "flow_bpd": 11500,
+          "head_ft_per_stage": 52.0,
+          "hp_per_stage": 7.08,
+          "efficiency": 0.592
+        },
+        {
+          "flow_bpd": 12000,
+          "head_ft_per_stage": 48.0,
+          "hp_per_stage": 7.05,
+          "efficiency": 0.552
+        },
+        {
+          "flow_bpd": 12500,
+          "head_ft_per_stage": 43.0,
+          "hp_per_stage": 6.92,
+          "efficiency": 0.502
+        }
+      ],
+      "_source": "Brown, K.E. (1980) The Technology of Artificial Lift Methods, Vol. 2b, Cap. 4.5, Ejemplo 1A (bomba de validación)",
+      "housing_pressure_limit_psi": 3000
+    },
+    {
+      "manufacturer": "Brown (libro)",
+      "series": "400",
+      "model": "M-34",
+      "od_inches": 4.0,
+      "min_flow_bpd": 600,
+      "max_flow_bpd": 1100,
+      "bep_flow_bpd": 850,
+      "max_stages": 300,
+      "housing_options": [
+        75,
+        100,
+        125,
+        150,
+        200,
+        250,
+        300
+      ],
+      "performance_curve": [
+        {
+          "flow_bpd": 400,
+          "head_ft_per_stage": 34.5,
+          "hp_per_stage": 0.198,
+          "efficiency": 0.44
+        },
+        {
+          "flow_bpd": 500,
+          "head_ft_per_stage": 32.8,
+          "hp_per_stage": 0.208,
+          "efficiency": 0.48
+        },
+        {
+          "flow_bpd": 600,
+          "head_ft_per_stage": 31.2,
+          "hp_per_stage": 0.218,
+          "efficiency": 0.52
+        },
+        {
+          "flow_bpd": 700,
+          "head_ft_per_stage": 29.5,
+          "hp_per_stage": 0.226,
+          "efficiency": 0.55
+        },
+        {
+          "flow_bpd": 800,
+          "head_ft_per_stage": 28.0,
+          "hp_per_stage": 0.232,
+          "efficiency": 0.57
+        },
+        {
+          "flow_bpd": 850,
+          "head_ft_per_stage": 27.2,
+          "hp_per_stage": 0.234,
+          "efficiency": 0.582
+        },
+        {
+          "flow_bpd": 900,
+          "head_ft_per_stage": 26.5,
+          "hp_per_stage": 0.236,
+          "efficiency": 0.578
+        },
+        {
+          "flow_bpd": 1000,
+          "head_ft_per_stage": 24.8,
+          "hp_per_stage": 0.238,
+          "efficiency": 0.558
+        },
+        {
+          "flow_bpd": 1100,
+          "head_ft_per_stage": 22.5,
+          "hp_per_stage": 0.237,
+          "efficiency": 0.524
+        },
+        {
+          "flow_bpd": 1200,
+          "head_ft_per_stage": 19.8,
+          "hp_per_stage": 0.233,
+          "efficiency": 0.481
+        },
+        {
+          "flow_bpd": 1300,
+          "head_ft_per_stage": 16.5,
+          "hp_per_stage": 0.224,
+          "efficiency": 0.422
+        }
+      ],
+      "_source": "Brown, K.E. (1980) The Technology of Artificial Lift Methods, Vol. 2b, Cap. 4.5, Ejemplos 2A/3A (bomba de validación)",
+      "housing_pressure_limit_psi": 5000
+    }
+  ]
+}

@@ -134,14 +134,32 @@ Dimensiones del pozo: profundidad total, diámetros de casing y tubing, interval
 Condiciones en superficie: presión mínima en cabezal (WHP), flowline (longitud, diámetro, elevación), presión del separador, voltaje disponible y frecuencia de red.
 
 #### Pestaña: Objetivos
-Tasa objetivo (STB/d), GIP máximo permitido, margen de seguridad en profundidad de bomba, vida útil de diseño, opción de variador de velocidad (VSD) y el umbral de gas que elige la correlación de pérdida de carga.
+Tasa objetivo (STB/d), GIP máximo permitido, margen de seguridad en profundidad de bomba, vida útil de diseño, opción de variador de velocidad (VSD) y el **cálculo de pérdidas de carga en tubería**.
 
-> **Gas para usar Poettmann-Carpenter.** La app calcula la fracción de gas libre
-> en la admisión *antes* del TDH y con ella elige cómo computar la pérdida de
-> carga en el tubing: por debajo del umbral usa Hazen-Williams (flujo
-> monofásico), por encima usa Poettmann-Carpenter para flujo multifásico
-> vertical. El default es 0.10. La correlación efectivamente usada aparece en
-> la tabla de resultados de cada opción.
+> **Cálculo de pérdidas de carga en tubería.** El desplegable elige con qué
+> correlación se calcula la fricción en el tubing. Dejarlo vacío
+> —«Automático»— es lo recomendado: la app calcula la fracción de gas libre en
+> la admisión *antes* del TDH y con ella decide sola —por debajo del 1 %,
+> Hazen-Williams (monofásico); por encima, Poettmann-Carpenter (multifásico
+> vertical)—. La correlación efectivamente usada aparece en la tabla de
+> resultados de cada opción.
+>
+> Si se elige una a mano, se usa ésa. Cuando la elección no coincide con lo que
+> pide la fracción de gas, el diseño sale igual pero **con un aviso**: forzar el
+> monofásico en un pozo con gas subestima la fricción.
+>
+> **Poettmann-Carpenter tiene un rango de validez** y elegirlo lo activa:
+>
+> | Límite | Valor |
+> |---|---|
+> | Tubería | 2, 2½ y 3 pulg (OD 2 3/8, 2 7/8, 3 1/2) |
+> | Viscosidad del petróleo | menor a 5 cp — crudos livianos |
+> | Relación gas-líquido (RGL) | menor a 1500 scf/bbl |
+> | Caudal de líquido | mayor a 400 bbl/d |
+>
+> El de la tubería es el único **duro**: con P&C elegido, el desplegable de OD
+> del tubing ofrece nada más que esos tres diámetros. Los otros tres avisan en
+> los resultados sin frenar el diseño.
 
 > **Frecuencia de diseño (VSD).** Al activar el variador aparece un campo para
 > fijar la frecuencia a la que va a girar la bomba. Vacío = la frecuencia de red
@@ -205,19 +223,7 @@ Presenta las opciones calculadas en una tabla comparativa con:
 
 ---
 
-### 4.4 📈 Análisis de Sensibilidad
-
-Permite variar parámetros del reservorio y el fluido (Pr, WC, GOR, tasa objetivo) dentro de un rango definido y ver cómo cambian:
-- TDH
-- Número de etapas
-- HP total
-- Eficiencia del sistema
-
-El gráfico muestra la curva de sensibilidad y marca el punto de diseño base.
-
----
-
-### 4.5 🔁 Leyes de afinidad
+### 4.4 🔁 Leyes de afinidad
 
 Sección independiente del diseño: un banco de pruebas sobre la curva de catálogo
 de cualquier bomba. Se elige la bomba, se marcan las frecuencias a comparar
@@ -239,7 +245,7 @@ variador.
 
 ---
 
-### 4.6 📥 Descargar Reportes
+### 4.5 📥 Descargar Reportes
 
 Al final de la sección **Diseño BES**, aparecen tres botones de descarga:
 
@@ -260,8 +266,7 @@ Al final de la sección **Diseño BES**, aparecen tres botones de descarga:
 2. Ir a "Diseño BES" → Calcular
 3. Revisar las 3 opciones → seleccionar la más adecuada
 4. Verificar Comparación de Opciones para confirmar elección
-5. Opcionalmente: Análisis de Sensibilidad para evaluar robustez
-6. Descargar reporte PDF/Excel para documentación
+5. Descargar reporte PDF/Excel para documentación
 ```
 
 ---

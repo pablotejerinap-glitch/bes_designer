@@ -85,11 +85,51 @@ if TYPE_CHECKING:
 VISCOSITY_TEMP_TOLERANCE_F = 5.0
 
 
+def _rs_en_la_admision(fluid: Fluid, p_psia: float, t_f: float) -> float:
+    """Gas **en solución** a la presión y temperatura de la admisión [scf/bbl].
+
+    Es lo que pide el paso 3 de Riling para entrar a la Fig. 4L(1), y no el GOR
+    total de producción: el gas ya liberado viaja aparte y no adelgaza el
+    líquido.
+
+    Por encima de la burbuja está todo disuelto y el resultado es el GOR. Por
+    debajo se resuelve con Standing, acotado al GOR: un pozo no puede llevar
+    disuelto más gas del que produce.
+
+    Es la misma lógica que aplica ``pvt.fluid_properties_at_conditions()`` para
+    el PVT general; se repite acá en lugar de reusarla porque ésta necesita
+    sólo el Rs y aquélla calcula el juego completo de propiedades.
+
+    Args:
+        fluid: Fluido producido.
+        p_psia: Presión de evaluación [psia] — la de admisión de la bomba.
+        t_f: Temperatura de evaluación [°F].
+
+    Returns:
+        Gas en solución [scf/bbl], entre 0 y ``fluid.gor``.
+    """
+    from bes.core.pvt import standing_pb, standing_rs
+
+    # Sin gas no hay nada que despejar, y además `standing_pb` exige Rs > 0:
+    # un pozo de agua de inyección —el Ejemplo 1A del libro— entraba acá con
+    # GOR nulo y hacía fallar el diseño entero.
+    if fluid.gor <= 0 or p_psia <= 0:
+        return 0.0
+    pb = fluid.bubble_point_pressure or standing_pb(
+        fluid.gor, t_f, fluid.oil_api, fluid.gas_sg
+    )
+    if pb <= 0 or p_psia >= pb:
+        return fluid.gor
+    rs = standing_rs(p_psia, t_f, fluid.oil_api, fluid.gas_sg, pb)
+    return max(0.0, min(rs, fluid.gor))
+
+
 def _viscosity_context(
     fluid: Fluid,
     well: WellGeometry,
     pump_setting_depth: float,
     bottom_temp_f: float,
+    intake_pressure_psia: float,
 ) -> dict:
     """Viscosidad del crudo en la **admisión de la bomba** (Riling, pasos 2 a 5).
 
@@ -98,18 +138,37 @@ def _viscosity_context(
     fracción de gas— y viaja con todos los candidatos. Recalcularla por bomba
     sería trabajo de más y una oportunidad para que los candidatos no coincidan.
 
-    **La temperatura es la de la admisión, no la de reservorio.** El paso 2 del
-    procedimiento dice «a temperatura de reservorio», pero el encabezado de las
-    Tablas 4.520 / 4.521 dice *«at pumping temperatures»*, y son cosas distintas:
-    el fluido se enfría subiendo, y la viscosidad es exponencial con la
-    temperatura. Se toma la del perfil geotérmico a la profundidad de la bomba,
-    que es donde el fluido efectivamente entra — más conservador que reservorio.
+    **La temperatura es la de RESERVORIO** (decisión de Pablo, ago-2026), que
+    es la que indica el paso 2 del procedimiento. El encabezado de las Tablas
+    4.520 / 4.521 dice *«at pumping temperatures»* y durante un tiempo esta
+    función usó el perfil geotérmico a la profundidad de la bomba, pero eso
+    confunde dos magnitudes distintas: **el perfil geotérmico da la temperatura
+    de la ROCA, no la del FLUIDO.** El fluido sale de los punzados a temperatura
+    de reservorio y se enfría subiendo, pero el intercambio de calor con la
+    formación es lento frente al tiempo de tránsito, así que con la bomba cerca
+    de los punzados llega prácticamente sin enfriarse. Tomar la temperatura de
+    la roca subestima la del fluido y por lo tanto **sobrestima** la viscosidad.
+
+    En MA-102 la diferencia es 127.4 °F contra 117.4 °F — 86 m de separación
+    entre punzados y admisión— y da 33.1 cp contra 38.4 cp: un 16 %, porque la
+    viscosidad es exponencial con la temperatura.
+
+    Saber cuánto se enfría realmente el fluido exige un modelo térmico del pozo
+    (caudal, distancia, intercambio con la formación) que **está fuera del
+    alcance del proyecto** y se declara como tal en la tesis. Mientras tanto se
+    sigue el libro. Es además lo que ya hacía ``gas_handling``, de modo que los
+    dos caminos quedan unificados.
 
     Args:
         fluid: Fluido producido.
         well: Geometría del pozo.
-        pump_setting_depth: Profundidad de la admisión [ft].
+        pump_setting_depth: Profundidad de la admisión [ft]. Ya no interviene
+            en la temperatura de evaluación; se conserva porque el resultado
+            publica ``intake_temp_f`` como dato informativo.
         bottom_temp_f: Temperatura de fondo [°F] — ``reservoir.reservoir_temp``.
+            **Es la temperatura de evaluación.**
+        intake_pressure_psia: Presión en la admisión de la bomba [psia]. Fija
+            cuánto gas queda **en solución**, que es lo que pide el paso 3.
 
     Returns:
         Lo que devuelve :func:`bes.core.viscosity.evaluate_viscosity`, más
@@ -118,38 +177,65 @@ def _viscosity_context(
     """
     from bes.core.viscosity import evaluate_viscosity
 
+    # Temperatura de EVALUACIÓN: la de reservorio (ver el docstring).
+    t_eval = bottom_temp_f
+    # La del perfil geotérmico en la bomba se conserva sólo como dato
+    # informativo del resultado: ya no gobierna ninguna cuenta.
     t_intake = temp_at_depth(well, pump_setting_depth, bottom_temp_f)
 
     # El dato medido gana sobre la correlación, pero sólo si está a la
     # temperatura correcta. Fuera de la tolerancia no se usa: extrapolarlo
-    # sería inventar.
+    # sería inventar. Se compara contra la temperatura de EVALUACIÓN, que es
+    # la que va a entrar a la lámina — si se comparara contra otra, un ensayo
+    # podría aceptarse y usarse a una temperatura distinta de la suya.
     dead_oil_cp = None
     aviso_temp = None
-    if fluid.oil_viscosity_dead and fluid.oil_viscosity_dead > 0:
-        delta = abs(fluid.viscosity_temp_ref - t_intake)
+    if fluid.oil_viscosity_dead is not None:
+        # temp_ref no puede ser None acá: Fluid.__post_init__ la exige junto
+        # con la viscosidad medida.
+        delta = abs(fluid.viscosity_temp_ref - t_eval)
         if delta <= VISCOSITY_TEMP_TOLERANCE_F:
             dead_oil_cp = fluid.oil_viscosity_dead
         else:
             aviso_temp = (
                 f"La viscosidad medida ({fluid.oil_viscosity_dead:.1f} cp) está "
-                f"referida a {fluid.viscosity_temp_ref:.0f} °F y la admisión de la "
-                f"bomba está a {t_intake:.0f} °F ({delta:.0f} °F de diferencia). "
-                f"No se usa el dato medido —la viscosidad varía exponencialmente "
-                f"con la temperatura— y se lee la Fig. 4L(2) del libro a "
-                f"{t_intake:.0f} °F. Para usar el dato, medirlo a temperatura "
-                f"de admisión."
+                f"referida a {fluid.viscosity_temp_ref:.0f} °F y la evaluación se "
+                f"hace a temperatura de reservorio, {t_eval:.0f} °F "
+                f"({delta:.0f} °F de diferencia). No se usa el dato medido —la "
+                f"viscosidad varía exponencialmente con la temperatura— y se lee "
+                f"la Fig. 4L(2) del libro a {t_eval:.0f} °F. Para usar el dato, "
+                f"medirlo a temperatura de reservorio."
             )
+
+    # --- Gas EN SOLUCIÓN, no GOR total ------------------------------------
+    # El paso 3 de Riling lee la Fig. 4L(1), cuyo título es «Viscosity of gas
+    # SATURATED crude oil at reservoir temperature & pressure»: pide el gas que
+    # el petróleo lleva DISUELTO en la admisión, porque ése es el que lo
+    # adelgaza. El gas que ya se liberó está al lado, libre, y no afecta la
+    # viscosidad del líquido.
+    #
+    # Durante un tiempo acá se pasaba `fluid.gor`, el GOR total del pozo, que
+    # es el disuelto MÁS el liberado. En MA-102 eso son 449.2 contra 49.5
+    # scf/STB reales a 402 psia: la lámina devolvía 6.0 cp en vez de 24.0, el
+    # SSU caía a 47 —por debajo del piso de 50 de las Tablas 4.520/4.521— y la
+    # corrección se anulaba sola, acotada a «los factores del extremo, que son
+    # prácticamente los del agua». La potencia quedaba 8 % corta.
+    #
+    # `gas_handling._viscosity_factors_for_interval` ya lo hacía bien, con el
+    # Rs de cada tramo; esto lo alinea con aquél.
+    rs_intake = _rs_en_la_admision(fluid, intake_pressure_psia, t_eval)
 
     resultado = evaluate_viscosity(
         oil_api=fluid.oil_api,
-        temp_f=t_intake,
-        rs_scf_bbl=fluid.gor,
+        temp_f=t_eval,
+        rs_scf_bbl=rs_intake,
         # El rendimiento entra por bomba en _design_candidate; acá se pide el
         # de la tabla de 70 % sólo para poblar el diagnóstico del pozo.
         pump_efficiency_pct=70.0,
         dead_oil_cp=dead_oil_cp,
     )
     resultado["intake_temp_f"] = t_intake
+    resultado["viscosity_temp_f"] = t_eval
     if aviso_temp:
         resultado["warnings"] = [aviso_temp, *resultado.get("warnings", [])]
     return resultado
@@ -576,6 +662,13 @@ def _design_candidate(
             **duty,
             "pump_max_efficiency_pct": eff_max,
             "design_ssu": viscosity["design_ssu"],
+            # La cinemática con la que se entró a la conversión. ``None`` si el
+            # SSU de diseño vino medido de laboratorio (paso 5): en ese caso no
+            # hubo conversión que mostrar, y fabricar una sería mentir.
+            "design_cst": (
+                (viscosity.get("viscosity") or {}).get("cst")
+                if viscosity.get("water_cut_correction") != "medida" else None
+            ),
             "intake_temp_f": viscosity.get("intake_temp_f"),
             "q_required": objectives.target_flow_rate,
             "h_required": tdh_ft,
@@ -613,6 +706,18 @@ def _design_candidate(
 
     # --- Corrección por viscosidad: la traza, antes de usar los valores -----
     if visc_detail is not None:
+        if visc_detail.get("design_cst"):
+            trace.add(
+                "visc_ssu",
+                {"ν": visc_detail["design_cst"]},
+                visc_detail["design_ssu"],
+                context=f"Con esta viscosidad se entra a las Tablas 4.520 "
+                        f"(bombas de 60 %) y 4.521 (de 70 %), interpoladas "
+                        f"según el rendimiento máximo de esta bomba "
+                        f"({visc_detail['pump_max_efficiency_pct']:.1f} %). De "
+                        f"ahí salen los cuatro factores —caudal, altura, "
+                        f"rendimiento y potencia— y de ninguna otra fuente.",
+            )
         trace.add(
             "visc_q_water",
             {"Q_pedido": visc_detail["q_required"],
@@ -742,6 +847,56 @@ def _design_candidate(
     }
 
 
+def _avisos_envelope_pc(
+    fluid: Fluid,
+    well: WellGeometry,
+    objectives: DesignObjectives,
+    tdh_info: dict,
+    pump_depth: float,
+    bottom_temp_f: float,
+) -> list[str]:
+    """Verifica el pozo contra el envelope de P&C, si es que P&C se usó.
+
+    El envelope —tubing de 2, 2½ o 3 pulg, menos de 5 cp, RGL menor a
+    1500 scf/bbl y más de 400 bbl/d— vive en
+    :func:`bes.core.multiphase.poettmann_carpenter_applicability`. Acá sólo se
+    decide **cuándo** corresponde mirarlo y se enriquece el aviso del tubing,
+    que es el único límite duro del proyecto.
+
+    Se verifica el método que efectivamente corrió (``friction_method``), no el
+    que se pidió: cuando el usuario no elige, P&C lo elige la física, y los
+    límites del método valen igual.
+
+    La viscosidad se evalúa a la temperatura de **admisión de la bomba**, que
+    es donde el fluido entra al tubing.
+
+    Args:
+        fluid: Fluido producido.
+        well: Geometría del pozo.
+        objectives: Objetivos de diseño — caudal buscado.
+        tdh_info: Lo que devolvió :func:`bes.core.tdh.calculate_tdh`.
+        pump_depth: Profundidad de asiento de la bomba [ft].
+        bottom_temp_f: Temperatura de fondo [°F].
+
+    Returns:
+        Los avisos de los límites que no se cumplen. Lista vacía si el diseño
+        no usó P&C o si el pozo cae dentro del envelope.
+    """
+    if tdh_info.get("friction_method") != "poettmann_carpenter":
+        return []
+
+    from bes.core.multiphase import poettmann_carpenter_applicability
+    from bes.core.tdh import temp_at_depth
+
+    verificacion = poettmann_carpenter_applicability(
+        fluid=fluid,
+        well=well,
+        q_liq=objectives.target_flow_rate,
+        temp_f=temp_at_depth(well, pump_depth, bottom_temp_f),
+    )
+    return list(verificacion["warnings"])
+
+
 def design_pump_complete(
     reservoir: Reservoir,
     fluid: Fluid,
@@ -822,7 +977,7 @@ def design_pump_complete(
     # Viscosidad en la admisión: propiedad del pozo y del fluido, se evalúa una
     # sola vez y viaja con todos los candidatos (igual que la fracción de gas).
     viscosity = _viscosity_context(
-        fluid, well, pump_setting_depth, reservoir.reservoir_temp
+        fluid, well, pump_setting_depth, reservoir.reservoir_temp, pip
     )
 
     # ¿El método IPR elegido sigue siendo válido en el punto de diseño? El caso
@@ -833,6 +988,19 @@ def design_pump_complete(
         reservoir, calculate_pwf_for_target_rate(reservoir, objectives.target_flow_rate)
     )
     avisos_pozo = [aviso_ipr] if aviso_ipr else []
+
+    # Pérdida de carga: si la elección del usuario contradice a la física, el
+    # aviso ya viene armado del TDH.
+    avisos_pozo += tdh_info.get("pressure_loss_warnings", [])
+
+    # Y si el método que terminó corriendo es P&C, el pozo se verifica contra
+    # el envelope declarado de la correlación. Se verifica el método que se
+    # USÓ, no el que se pidió: con `None` lo eligió la física y los límites
+    # valen igual.
+    avisos_pozo += _avisos_envelope_pc(
+        fluid, well, objectives, tdh_info, pump_setting_depth,
+        reservoir.reservoir_temp,
+    )
 
     # El prefiltro por rango de caudal va contra el caudal EQUIVALENTE EN AGUA,
     # que es contra el que después se busca en la curva. Filtrar con el caudal
@@ -936,7 +1104,7 @@ def design_pump_by_model(
         catalog_manager, pump, objectives, tdh_ft, sg, pip, tdh_info, sg_max,
         strict=True, bottom_temp_f=reservoir.reservoir_temp,
         viscosity=_viscosity_context(
-            fluid, well, pump_setting_depth, reservoir.reservoir_temp
+            fluid, well, pump_setting_depth, reservoir.reservoir_temp, pip
         ),
     )
     assert cand is not None   # strict=True convierte todo fallo en ValueError

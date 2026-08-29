@@ -201,6 +201,16 @@ class DesignResultSchema(BaseModel):
     gas_handler_model: str = ""
     gas_handler_type: str = ""
     gas_handler_efficiency: float = 0.0
+    gas_handler_hp: float = 0.0
+    gas_q_representative_bpd: float = 0.0
+    gas_q_intake_bpd: float = 0.0
+    gas_q_discharge_bpd: float = 0.0
+    # Escalera de manejo de gas (Takács §4.4.5). 2 separadores = TÁNDEM.
+    gas_handler_count: int = 0
+    gas_strategy: str = ""
+    gas_fraction_at_pump: float = 0.0
+    switch_lift_method: bool = False
+    gas_verdict: str = ""
     # Downhole sensor (optional)
     sensor_manufacturer: str = ""
     sensor_model: str = ""

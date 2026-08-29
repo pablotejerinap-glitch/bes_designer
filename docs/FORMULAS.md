@@ -272,19 +272,40 @@ $$SG_l = \gamma_o\,(1 - f_w) + \gamma_w\,f_w$$
 
 ### 4.2 Elección de la correlación de pérdida de carga
 
-La fricción en el tubing **no siempre se calcula igual**: la decide la fracción
-volumétrica de gas libre en la admisión, $f_g$, evaluada antes que el TDH
-(`bes.core.gas_handling.free_gas_fraction_at_intake`).
+La fricción en el tubing **no siempre se calcula igual**. La elige el usuario
+con `objectives.pressure_loss_method`; si no eligió —el default— la decide la
+fracción volumétrica de gas libre en la admisión, $f_g$, evaluada antes que el
+TDH (`bes.core.gas_handling.free_gas_fraction_at_intake`).
 
 | Condición | Correlación |
 |---|---|
 | $f_g \le$ umbral | Hazen–Williams (§4.3) — la corriente es prácticamente líquida |
 | $f_g >$ umbral | Poettmann–Carpenter, **solo el término de fricción** (§4.4) |
 
-El umbral es `DesignObjectives.gas_fraction_pc_threshold`, por defecto **0.10**
-— el mismo corte con que se clasifica el riesgo de gas lock y se recomienda
-separador. Es configurable por caso: los ejemplos impresos de Brown lo fijan en
-1.0 porque el libro los resuelve como monofásicos.
+El umbral es `DesignObjectives.gas_fraction_pc_threshold`, por defecto **0.01**
+— el mismo corte por debajo del cual el gas se considera despreciable. **No se
+expone** ni por pantalla ni por la API; sobrevive como parámetro sólo porque los
+ejemplos impresos de Brown lo fijan en 1.0, ya que el libro los resuelve como
+monofásicos.
+
+Con un método elegido a mano se usa ése y el umbral no interviene. Si la
+elección contradice a la física, el diseño sale con un aviso.
+
+### 4.2b Envelope de Poettmann-Carpenter
+
+El método se levantó con pozos de un tipo determinado, y fuera de ahí no vale:
+
+| Límite | Valor | Si no se cumple |
+|---|---|---|
+| Tubería | 2, 2½ y 3 pulg (OD 2 3/8, 2 7/8, 3 1/2) | Restricción dura |
+| Viscosidad del petróleo | < 5 cp | Aviso |
+| Relación gas-líquido | < 1500 scf/bbl | Aviso |
+| Caudal de líquido | > 400 bbl/d | Aviso |
+
+$$RGL = \frac{GOR}{1 + WOR},\qquad WOR = \frac{W_c}{1 - W_c}$$
+
+El GOR se mide por barril de **petróleo** y el límite está declarado por barril
+de **líquido**: con corte de agua no son lo mismo.
 
 > **Qué deja afuera este híbrido.** Solo se sustituye la fricción; la elevación
 > vertical y el head de cabeza siguen usando el SG del líquido. En un pozo con
@@ -516,7 +537,7 @@ se rechaza.
 > ley bien aplicada.
 
 ### 5.8 Corrección por viscosidad (Hydraulic Institute) — [pump_design.py:118](../backend/src/bes/core/pump_design.py#L118)
-Conversión SSU → cSt (ASTM D2161):
+Conversión cSt → SSU (Takács 2018, ec. 4.14 — la única del proyecto):
 
 $$\text{SSU} < 100:\ cSt = 0.226\,\text{SSU} - 195/\text{SSU}$$
 $$\text{SSU} \ge 100:\ cSt = 0.220\,\text{SSU} - 135/\text{SSU}$$

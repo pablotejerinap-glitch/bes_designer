@@ -357,23 +357,18 @@ def run_gas_design_complete(
     # El separador se elige del catálogo ANTES de diseñar, porque su eficiencia
     # decide si el pozo es viable. Si el modelo no publica eficiencia se supone
     # la conservadora por defecto y queda declarado en el veredicto.
-    separador = catalog_manager.select_gas_handler(
-        flow_bpd=target, casing_id_in=well.casing_id, prefer_type="vortex",
-    )
-    eta = None
-    modelo_sep = None
-    if separador is not None:
-        eta = separador.get("max_efficiency") or SEPARATOR_DEFAULT_EFFICIENCY
-        modelo_sep = f"{separador.get('manufacturer', '')} {separador.get('model', '')}".strip()
-        if not separador.get("max_efficiency"):
-            modelo_sep += f", eficiencia no publicada — se supone {SEPARATOR_DEFAULT_EFFICIENCY:.0%}"
+    # Se usa LA MISMA escalera que el camino convencional
+    # (``pump_selector._estrategia_de_gas``): ninguno → simple → tándem →
+    # manejador avanzado → cambiar de método. Antes acá se evaluaba sólo el
+    # separador simple, así que un pozo que el camino convencional resolvía con
+    # tándem o con AGH, éste lo declaraba inviable.
+    from bes.recommender.pump_selector import _estrategia_de_gas, _select_gas_handler
 
-    factibilidad = evaluate_gas_feasibility(
-        free_gas_fraction_intake=decision["free_gas_fraction"],
-        separator_efficiency=eta,
+    gip_admision = decision["free_gas_fraction"]
+    separador = _select_gas_handler(catalog_manager, well, objectives, gip_admision)
+    factibilidad = _estrategia_de_gas(
+        catalog_manager, well, objectives, gip_admision, separador,
         vent_fraction=vent_gas_pct,
-        max_gip=objectives.max_gip,
-        separator_model=modelo_sep,
     )
     if not factibilidad["viable"]:
         raise ValueError(factibilidad["verdict"])

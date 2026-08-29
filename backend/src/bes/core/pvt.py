@@ -72,6 +72,8 @@ Ahmed, T. (2010). "Reservoir Engineering Handbook", 4ª ed. — de donde se toma
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 from scipy.optimize import fsolve
 
@@ -400,6 +402,47 @@ def water_bw(p: float, t: float) -> float:
     a2 = -4.228e-6 + 1.8376e-8 * t - 6.77e-11 * t ** 2
     a3 = 1.3e-10 - 1.3855e-12 * t + 4.285e-15 * t ** 2
     return a1 + a2 * p + a3 * p ** 2
+
+
+def water_viscosity(t: float) -> float:
+    """Viscosidad del agua de formación — van Wingen (1950).
+
+    Depende casi por completo de la temperatura; la presión y la salinidad la
+    mueven poco frente a esa dependencia::
+
+        mu_w = exp( 1.003 − 1.479e-2·T + 1.982e-5·T² )      (T en °F)
+
+    Hace falta para la viscosidad de la MEZCLA de líquido producido, que es la
+    que gobierna la fricción en la tubería cuando el flujo es monofásico. En un
+    pozo de corte de agua alto —que en esta aplicación son la mayoría— la
+    mezcla es prácticamente agua, y tratarla con la viscosidad del petróleo
+    sobrestimaría groseramente la pérdida de carga.
+
+    **No corrige por salinidad**: el modelo de fluido lleva la gravedad
+    específica del agua pero no su composición, de modo que aplicar una
+    corrección por sales exigiría un dato que no se tiene. El agua de formación
+    salada es algo más viscosa que la dulce, así que el valor resulta una cota
+    inferior; la diferencia es menor frente a la incerteza del modelo de mezcla
+    descripto en :func:`bes.core.tdh.liquid_mixture_viscosity`.
+
+    Args:
+        t: Temperatura [°F]. Debe ser > 0.
+
+    Returns:
+        Viscosidad dinámica del agua [cp]. Del orden de 1.1 cp a 60 °F y de
+        0.3 cp a 200 °F.
+
+    Raises:
+        ValueError: Si t <= 0.
+
+    Referencia:
+        van Wingen, N. (1950), «Viscosity of Air, Water, Natural Gas, Crude Oil
+        and Its Associated Gases», API Secondary Recovery of Oil in the United
+        States; forma publicada en Ahmed (2010), ec. 2-119.
+    """
+    if t <= 0:
+        raise ValueError(f"t must be > 0 °F, got {t}")
+    return math.exp(1.003 - 1.479e-2 * t + 1.982e-5 * t ** 2)
 
 
 # ===========================================================================
@@ -880,6 +923,8 @@ def pvt_trace(fluid: Fluid, p: float, t: float) -> list[dict]:
     pb = fluid.bubble_point_pressure or standing_pb(fluid.gor, t, api, gas_sg)
     rs = standing_rs(p, t, api, gas_sg, pb)
     bo = standing_bo(rs, t, api, gas_sg)
+    ppc, tpc = _pseudo_critical_standing(gas_sg)
+    ppr, tpr = p / ppc, (t + 460.0) / tpc
     z = gas_z_factor(p, t, gas_sg)
     bg = gas_bg(p, t, z)
     bw = water_bw(p, t)
@@ -909,11 +954,26 @@ def pvt_trace(fluid: Fluid, p: float, t: float) -> list[dict]:
         "pvt_bo",
         {"F": rs * (gas_sg / sg_o) ** 0.5 + 1.25 * t}, bo,
     )
+    fuera_de_rango = gas_sg < 0.55 or gas_sg > 0.75
     trace.add(
-        "pvt_z", {"ρ_r": 0.27 * p / max(z, 1e-9)}, z,
+        "pvt_ppc", {"γ_g": gas_sg}, ppc,
+        context=(f"γ_g = {gas_sg:.3f} queda fuera del rango 0.55–0.75 de la "
+                 f"correlación: el valor se usa igual, extrapolado."
+                 if fuera_de_rango else ""),
+    )
+    trace.add("pvt_tpc", {"γ_g": gas_sg}, tpc)
+    trace.add("pvt_ppr", {"P": p, "P_pc": ppc}, ppr)
+    trace.add("pvt_tpr", {"T": t, "T_pc": tpc}, tpr)
+    fuera_dak = not (1.05 <= tpr <= 3.0 and 0.2 <= ppr <= 30.0)
+    trace.add(
+        "pvt_z", {"ρ_r": 0.27 * ppr / (max(z, 1e-9) * tpr), "P_pr": ppr,
+                  "T_pr": tpr}, z,
         substitute=False,
         context=f"Resuelta por iteración (es implícita en z). Da {z:.4f}, o sea "
-                f"un {abs(1 - z) * 100:.0f} % de apartamiento del gas ideal.",
+                f"un {abs(1 - z) * 100:.0f} % de apartamiento del gas ideal."
+                + (f" ATENCIÓN: P_pr = {ppr:.2f} y T_pr = {tpr:.2f} caen fuera "
+                   f"del rango declarado por Dranchuk y Abou-Kassem."
+                   if fuera_dak else ""),
     )
     trace.add("pvt_bg", {"z": z, "T": t, "P": p}, bg)
     trace.add("pvt_bw", {"ΔT": t - 60.0, "P": p}, bw)

@@ -36,5 +36,5 @@
 ## Endpoints previstos
 
 `POST /api/design` · `GET /api/catalogs` · `POST /api/nodal` ·
-`POST /api/sensitivity` · `POST /api/reports/{pdf,xlsx}` ·
+`POST /api/reports/{pdf,xlsx}` ·
 `POST/GET/GET{id} /api/designs` (SQLite, Semana 4).

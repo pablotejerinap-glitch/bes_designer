@@ -165,7 +165,7 @@ Hc = CH · H_agua
 Ec = CE · E_agua
 ```
 
-Los factores CQ, CH, CE se interpolan de la tabla HI en función de la viscosidad cinemática en cSt (conversión desde SSU mediante ASTM D2161).
+Los factores CQ, CH, CE se interpolan de la tabla HI en función de la viscosidad cinemática en cSt (conversión desde SSU mediante la inversa de la ec. 4.14 de Takács).
 
 ---
 
@@ -247,7 +247,7 @@ Clasificación de la distancia al BEP (solo visualización, nunca ordena):
 | Sin correlación de emulsión | Viscosidad de la mezcla agua-crudo puede subestimarse | Medir viscosidad de la emulsión y usar el campo de corrección HI |
 | Sin cálculo de fuerza axial | No se verifica la carga sobre el sello/protector | Revisar el límite de empuje axial de la bomba con el fabricante |
 | Temperatura de motor estimada | Se usa T_bottom_hole como temperatura del motor | La temperatura real del motor depende del flujo refrigerante; verificar con el fabricante |
-| Sin modelo de degradación | No proyecta cambios de PI o GOR en el tiempo | Correr el análisis de sensibilidad para distintos escenarios de declinación |
+| Sin modelo de degradación | No proyecta cambios de PI o GOR en el tiempo | Rediseñar con los datos actualizados a medida que el pozo declina |
 | Una sola correlación multifásica (Poettmann-Carpenter) | No reproduce los ejemplos del libro resueltos con Hagedorn-Brown. En el #3B la presión de descarga da 1120 psi contra 1300 impresos (−14 %), y de ahí 175 etapas contra 209 | Documentado en `docs/EJEMPLO_3B_BROWN.md`. P&C es una de las cinco correlaciones que el propio libro habilita para ese paso |
 | Método de incrementos: último escalón con resto | Con un salto que no sea múltiplo de 200 psi, el último incremento queda corto (p. ej. 20 psi) y distorsiona su conteo de etapas | Elegir un `increment_psi` que divida el salto, o repartir el paso de forma pareja |
 | Método de incrementos: bomba distinta por escalón | Sin `fixed_pump_model` se arman combinaciones de 3-4 modelos apilados, que no son construibles | Pasar `fixed_pump_model` con la bomba elegida, como hace el libro |
@@ -286,18 +286,23 @@ Clasificación de la distancia al BEP (solo visualización, nunca ordena):
 
 ### Tasas de producción y equipamiento
 
+Las bombas marcadas «(libro)» son las de los ejemplos numerados de Brown:
+**no están en el catálogo de la aplicación** (se retiraron en ago-2026, que
+sólo publica curvas de catálogos reales) y se conservan en
+`backend/tests/data/brown_pumps.json` para la validación.
+
 | Bomba | Rango de caudal | Casing mínimo |
 |---|---|---|
-| Centrilift M-34 | 600–1 100 STB/d | 4.5 in (OD 4.00 in) |
+| Centrilift M-34 (libro) | 600–1 100 STB/d | 4.5 in (OD 4.00 in) |
 | Reda D-40 | 1 000–1 600 STB/d | 4.5 in (OD 4.00 in) |
 | Reda D-55 | 1 700–2 600 STB/d | 4.5 in (OD 4.00 in) |
 | Reda D-82 | 2 500–3 500 STB/d | 4.5 in (OD 4.00 in) |
-| Centrilift I-42B | 1 200–2 200 STB/d | 5.5 in (OD 5.13 in) |
+| Centrilift I-42B (libro) | 1 200–2 200 STB/d | 5.5 in (OD 5.13 in) |
 | Centrilift Y-62B | 1 700–2 200 STB/d | 5.5 in (OD 5.13 in) |
 | Centrilift N-80 | 1 590–3 520 STB/d | 5.5 in (OD 5.13 in) |
 | Centrilift Z-69 | 1 700–2 600 STB/d | 5.5 in (OD 5.13 in) |
 | Reda G-52E | 2 000–3 200 STB/d | 5.5 in (OD 5.40 in) |
-| Centrilift I-300 | 8 000–11 500 STB/d | 8.625 in (OD 7.38 in) |
+| Centrilift I-300 (libro) | 8 000–11 500 STB/d | 8.625 in (OD 7.38 in) |
 
 ---
 

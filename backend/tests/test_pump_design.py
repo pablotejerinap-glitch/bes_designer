@@ -9,10 +9,13 @@ Book examples used:
 """
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 from pathlib import Path
 
 from bes.catalogs.loader import CatalogManager
+from tests.brown_pumps import catalogo_con_bombas_del_libro
 from bes.core.models import (
     DesignObjectives,
     DriveMechanism,
@@ -50,17 +53,26 @@ def d40(manager: CatalogManager) -> PumpCurve:
     return match[0]
 
 
+#: Catálogo de la app MÁS las tres bombas de los ejemplos del libro. Se usa
+#: sólo donde hace falta reproducir un ejemplo numerado: las bombas del libro
+#: se retiraron del catálogo de la aplicación en ago-2026 porque no salen de un
+#: catálogo de fabricante. Ver :mod:`tests.brown_pumps`.
 @pytest.fixture(scope="module")
-def i300(manager: CatalogManager) -> PumpCurve:
-    match = [p for p in manager.get_all_pumps() if p.model == "I-300"]
-    assert match, "I-300 not found in catalog"
+def manager_libro() -> CatalogManager:
+    return catalogo_con_bombas_del_libro()
+
+
+@pytest.fixture(scope="module")
+def i300(manager_libro: CatalogManager) -> PumpCurve:
+    match = [p for p in manager_libro.get_all_pumps() if p.model == "I-300"]
+    assert match, "I-300 no está en tests/data/brown_pumps.json"
     return match[0]
 
 
 @pytest.fixture(scope="module")
-def i42b(manager: CatalogManager) -> PumpCurve:
-    match = [p for p in manager.get_all_pumps() if p.model == "I-42B"]
-    assert match, "I-42B not found in catalog"
+def i42b(manager_libro: CatalogManager) -> PumpCurve:
+    match = [p for p in manager_libro.get_all_pumps() if p.model == "I-42B"]
+    assert match, "I-42B no está en tests/data/brown_pumps.json"
     return match[0]
 
 
@@ -548,8 +560,14 @@ class TestDesignPumpComplete:
         models = [r["pump_model"] for r in results]
         assert "D-40" in models, f"D-40 not found; got {models}"
 
-    def test_large_well_i300_selected(self, manager):
-        """High-flow 9-5/8" casing well — I-300 must appear in candidates."""
+    def test_large_well_i300_selected(self, manager_libro):
+        """Pozo de alto caudal, casing 9⅝" — el Ejemplo #1A elige la I-300.
+
+        Corre contra el catálogo **con las bombas del libro** (``manager_libro``):
+        la I-300 se retiró del catálogo de la aplicación en ago-2026. Lo que
+        este test valida es el motor de selección contra el ejemplo impreso,
+        no lo que la app le ofrece hoy a un usuario.
+        """
         reservoir = Reservoir(
             static_pressure=2500.0, bubble_point=800.0, productivity_index=15.0,
             ipr_method=IPRMethod.VOGEL, reservoir_temp=185.0,
@@ -585,7 +603,7 @@ class TestDesignPumpComplete:
         )
         results = design_pump_complete(
             reservoir, fluid, well, surface, objectives,
-            pump_setting_depth=6000.0, catalog_manager=manager,
+            pump_setting_depth=6000.0, catalog_manager=manager_libro,
         )
         models = [r["pump_model"] for r in results]
         assert "I-300" in models, f"I-300 not found in results; got {models}"
@@ -1095,3 +1113,253 @@ class TestHousingOptimizer:
         assert w["housing_size_stages"] == r["housing_size_stages"]
         assert w["n_housings"] == r["n_housings"]
         assert w["housings"] == r["housings"]
+
+
+# ---------------------------------------------------------------------------
+# El PIP deja de aparecer de la nada en la traza
+# ---------------------------------------------------------------------------
+
+class TestLaTrazaExplicaDeDondeSaleElPIP:
+    """El PIP le entra a ``calculate_tdh`` ya calculado.
+
+    Antes la traza arrancaba la sumergencia con un número sin origen: se veía
+    ``H_pip = 1378.4 · 2.31 / 1.042`` y nadie podía auditar el 1378.4. Ahora se
+    publica el eslabón que faltaba —Pwf del IPR, recorrido por el anular con
+    Poettmann & Carpenter, PIP— con la cadena completa de P&C evaluada en la
+    admisión.
+    """
+
+    @pytest.fixture(scope="class")
+    def traza(self, base_reservoir, base_fluid, base_well, base_surface,
+              base_objectives) -> list[dict]:
+        from bes.core.multiphase import calculate_pip
+        pump_depth = 3000.0
+        pip = calculate_pip(
+            base_reservoir, base_fluid, base_well, pump_depth,
+            base_objectives.target_flow_rate,
+        )
+        return calculate_tdh(
+            base_reservoir, base_fluid, base_well, base_surface,
+            base_objectives, pump_depth, pip,
+        )["formulas"]
+
+    def test_el_pip_se_publica_antes_de_usarse(self, traza):
+        """Y en ese orden: primero de dónde sale, después qué se hace con él."""
+        claves = [f["key"] for f in traza]
+        assert "pip_admision" in claves, "el PIP sigue apareciendo de la nada"
+        assert claves.index("pip_admision") < claves.index("pip_head")
+
+    def test_el_recorrido_muestra_la_cadena_de_poettmann_carpenter(self, traza):
+        """La correlación con la que se integró tiene que quedar a la vista."""
+        claves = [f["key"] for f in traza]
+        for k in ("pc_area", "pc_densidad_mezcla", "pc_factor_friccion",
+                  "pc_gradiente_gravedad", "pc_gradiente_friccion",
+                  "pc_gradiente_total"):
+            assert k in claves, f"falta {k} en la traza del PIP"
+        assert claves.index("pc_gradiente_total") < claves.index("pip_recorrido")
+
+    def test_la_cadena_se_evalua_en_el_anular_y_no_en_el_tubing(self, traza):
+        """El recorrido sube por el espacio anular: manda el ID del casing."""
+        area = next(f for f in traza if f["key"] == "pc_area")
+        assert area["inputs"]["d"] == pytest.approx(7.825)
+
+    def test_los_numeros_cierran_con_el_pip_que_se_uso(self, traza):
+        """La traza no puede contar una cuenta distinta de la que se hizo."""
+        pwf = next(f for f in traza if f["step"] == "pwf_diseno"
+                   and f["applies"] is not False)["result"]
+        recorrido = next(f for f in traza if f["key"] == "pip_recorrido")
+        pip_f = next(f for f in traza if f["key"] == "pip_admision")
+        pip_head = next(f for f in traza if f["key"] == "pip_head")
+        assert pip_f["result"] == pytest.approx(pwf - recorrido["result"])
+        assert pip_head["inputs"]["PIP"] == pytest.approx(pip_f["result"])
+
+    def test_el_gradiente_promedio_es_el_control_de_mano(self, traza):
+        """Δp/L, para comparar contra el gradiente del líquido."""
+        grad = next(f for f in traza if f["key"] == "pip_gradiente_promedio")
+        recorrido = next(f for f in traza if f["key"] == "pip_recorrido")
+        largo = 3400.0 - 3000.0
+        assert grad["result"] == pytest.approx(recorrido["result"] / largo)
+        assert 0.0 < grad["result"] < 0.5
+
+    def test_un_pip_que_no_sale_del_recorrido_no_se_publica(
+        self, base_reservoir, base_fluid, base_well, base_surface,
+        base_objectives,
+    ):
+        """Los casos del libro pasan un PIP impreso; atribuírselo sería mentir.
+
+        La condición es ``0 < PIP < Pwf``: un PIP por encima de la Pwf no puede
+        venir de haber subido por el anular perdiendo presión.
+        """
+        formulas = calculate_tdh(
+            base_reservoir, base_fluid, base_well, base_surface,
+            base_objectives, 3000.0, pip=5000.0,
+        )["formulas"]
+        claves = [f["key"] for f in formulas]
+        assert "pip_admision" not in claves
+        assert "pip_head" in claves, "el resto de la traza sigue saliendo"
+
+
+class TestLaFriccionPCMuestraElGradienteQueUso:
+    """La sustitución imprimía ``0 · 8600 = 170.6 ft``.
+
+    El sitio de la cuenta leía ``pc_friction_gradient_psi_ft``, una clave que
+    los diagnósticos nunca tuvieron —publican la del tope y la del fondo—, así
+    que el gradiente salía en cero y la línea no cerraba con su propio
+    resultado. Ahora se muestra el promedio del recorrido, Δp_fricción / L.
+    """
+
+    def test_el_gradiente_no_es_cero_y_reproduce_el_resultado(
+        self, base_reservoir, base_fluid, base_well, base_surface,
+    ):
+        # gas_fraction_pc_threshold = 0 fuerza la rama de Poettmann-Carpenter.
+        objetivos = DesignObjectives(
+            target_flow_rate=1227.0, safety_margin_depth=200.0,
+            allow_gas_venting=False, max_gip=0.10, design_life_years=3.0,
+            use_vsd=False, gas_fraction_pc_threshold=0.0,
+        )
+        r = calculate_tdh(
+            base_reservoir, base_fluid, base_well, base_surface, objetivos,
+            3000.0, pip=400.0,
+        )
+        assert r["friction_method"] == "poettmann_carpenter"
+        f = next(x for x in r["formulas"] if x["key"] == "friccion_pc")
+        grad = f["inputs"]["(dP/dz)_fricción"]
+        assert grad > 0.0
+        # La línea tiene que cerrar: grad · L · 2.31 / SG == el resultado.
+        esperado = grad * 3000.0 * 2.31 / r["sg_liquid"]
+        assert f["result"] == pytest.approx(esperado, rel=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# El selector de pérdida de carga en tubería
+# ---------------------------------------------------------------------------
+
+def _caso_con_gas(**cambios):
+    """Pozo con gas libre en la admisión, para probar las dos correlaciones.
+
+    Devuelve las cinco dataclases de entrada. ``cambios`` pisa campos del pozo
+    (es lo único que las pruebas necesitan variar: el diámetro del tubing).
+    """
+    reservoir = Reservoir(
+        static_pressure=2000.0,
+        bubble_point=2000.0,
+        productivity_index=1.2,
+        ipr_method=IPRMethod.VOGEL,
+        reservoir_temp=170.0,
+        drive_mechanism=DriveMechanism.SOLUTION_GAS,
+    )
+    fluid = Fluid(
+        oil_api=30.0, water_cut=0.15, gor=350.0, gas_sg=0.75, water_sg=1.02,
+        oil_viscosity_dead=2.0, viscosity_temp_ref=170.0,
+        bubble_point_pressure=2000.0, h2s_content=0.0, co2_content=0.0,
+        sand_production=False,
+    )
+    campos_pozo = dict(
+        total_depth=6150.0, casing_od=5.5, casing_weight=17.0, casing_id=4.892,
+        tubing_od=2.375, tubing_id=1.995, perforations_top=5900.0,
+        perforations_bottom=6030.0, deviation_max=0.0, wellhead_temp=120.0,
+    )
+    well = WellGeometry(**{**campos_pozo, **cambios})
+    surface = SurfaceConditions(
+        wellhead_pressure_required=200.0, flowline_length=1000.0,
+        flowline_id=3.0, flowline_elevation_change=0.0,
+        separator_pressure=100.0, power_supply_voltage=7200.0, frequency=60.0,
+    )
+    objectives = DesignObjectives(
+        target_flow_rate=1227.0, safety_margin_depth=50.0,
+        allow_gas_venting=False, max_gip=0.7, design_life_years=5.0,
+        use_vsd=False,
+    )
+    return reservoir, fluid, well, surface, objectives
+
+
+# ---------------------------------------------------------------------------
+# El selector de pérdida de carga en tubería
+# ---------------------------------------------------------------------------
+
+class TestElSelectorDePerdidaDeCarga:
+    """El usuario elige la correlación; si no elige, sigue mandando la física.
+
+    Lo que NO se puede elegir es el umbral de gas
+    (``gas_fraction_pc_threshold``): una cosa es elegir el método y otra mover
+    el corte con que se lo elige solo. Eso lo fija
+    ``tests/test_gas_handling.py::TestUmbralAutomaticoDePoettmannCarpenter``.
+    """
+
+    def _tdh(self, metodo, **cambios):
+        from bes.core.tdh import calculate_tdh
+        reservoir, fluid, well, surface, objectives = _caso_con_gas(**cambios)
+        objectives = replace(objectives, pressure_loss_method=metodo)
+        return calculate_tdh(
+            reservoir, fluid, well, surface, objectives,
+            pump_depth=5000.0, pip=500.0,
+        )
+
+    def test_sin_elegir_manda_la_fisica(self):
+        """El default es None y el comportamiento es el de siempre."""
+        info = self._tdh(None)
+        assert info["friction_method"] == info["friction_method_physics"]
+        assert info["friction_method_requested"] is None
+        assert info["pressure_loss_warnings"] == []
+
+    def test_elegir_hazen_williams_en_un_pozo_con_gas_se_respeta_pero_avisa(self):
+        """El usuario manda, pero enterado: nunca se corrige en silencio.
+
+        Se busca el aviso por su CONTENIDO y no por la cantidad de avisos: la
+        rama monofásica emite además el de la viscosidad de la mezcla, y contar
+        avisos ataría este test a algo que no es lo que verifica.
+        """
+        info = self._tdh("hazen_williams")
+        assert info["friction_method"] == "hazen_williams"
+        assert info["friction_method_physics"] == "poettmann_carpenter"
+        forzado = [
+            a for a in info["pressure_loss_warnings"]
+            if "SUBESTIMADA" in a and "gas libre" in a
+        ]
+        assert len(forzado) == 1, info["pressure_loss_warnings"]
+
+    def test_elegir_pc_donde_ya_correspondia_no_avisa(self):
+        info = self._tdh("poettmann_carpenter")
+        assert info["friction_method"] == "poettmann_carpenter"
+        assert info["pressure_loss_warnings"] == []
+
+    def test_la_eleccion_cambia_el_numero(self):
+        """Si las dos ramas dieran lo mismo, el selector sería decorativo."""
+        pc = self._tdh("poettmann_carpenter")["tubing_friction_ft"]
+        hw = self._tdh("hazen_williams")["tubing_friction_ft"]
+        assert pc != pytest.approx(hw)
+
+    def test_pc_a_mano_exige_tuberia_de_2_2y_medio_o_3_pulgadas(self):
+        """Restricción DURA, no aviso: el método no vale para otra cañería."""
+        with pytest.raises(ValueError, match="2 3/8, 2 7/8, 3 1/2"):
+            self._tdh("poettmann_carpenter", tubing_od=4.5, tubing_id=3.958)
+
+    def test_la_restriccion_de_tuberia_no_aplica_cuando_elige_la_fisica(self):
+        """Sin elección explícita el motor sigue corriendo como siempre.
+
+        El límite del tubing frena una elección equivocada del usuario; no
+        rompe retroactivamente los pozos que ya se diseñaban solos.
+        """
+        info = self._tdh(None, tubing_od=4.5, tubing_id=3.958)
+        assert info["friction_method"] == "poettmann_carpenter"
+
+    def test_un_metodo_inventado_no_se_acepta(self):
+        with pytest.raises(ValueError, match="pressure_loss_method"):
+            replace(_caso_con_gas()[4], pressure_loss_method="beggs_brill")
+
+    def test_la_traza_dice_si_fue_eleccion_o_fisica(self):
+        elegido = self._tdh("poettmann_carpenter")
+        automatico = self._tdh(None)
+        ctx_e = next(f for f in elegido["formulas"]
+                     if f["key"] == "friccion_pc")["context"]
+        ctx_a = next(f for f in automatico["formulas"]
+                     if f["key"] == "friccion_pc")["context"]
+        assert ctx_e.startswith("Poettmann-Carpenter elegido a mano")
+        assert ctx_a.startswith("La fracción de gas libre")
+
+    def test_la_rgl_queda_en_la_traza_cuando_corre_pc(self):
+        """Es el límite de gas del método, y se audita en la pestaña Fórmulas."""
+        f = next(f for f in self._tdh("poettmann_carpenter")["formulas"]
+                 if f["key"] == "pc_rgl")
+        assert f["expression"] == "RGL = GOR / (1 + WOR)"
+        assert f["result"] == pytest.approx(350.0 * 0.85)

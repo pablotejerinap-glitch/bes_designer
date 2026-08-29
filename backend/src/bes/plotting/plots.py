@@ -124,16 +124,45 @@ def plot_ipr_curve(reservoir, operating_point: tuple | None = None) -> go.Figure
 # 2. Pump curve
 # ---------------------------------------------------------------------------
 
-def plot_pump_curve(pump: "PumpCurve", operating_flow: float, stages: int) -> go.Figure:
+#: Cotas de la zona operativa del método de incrementos: el caudal de mezcla
+#: en los dos extremos de la bomba no puede apartarse del representativo más
+#: de esto. Con gas el caudal NO es constante a lo largo de la bomba —se
+#: comprime y parte pasa a solución—, así que la bomba se elige contra un
+#: caudal representativo y hay que verificar que los extremos sigan cayendo
+#: cerca. Fuera de la banda, la bomba trabaja lejos de donde se la eligió.
+GAS_ZONE_UPPER = 1.25
+GAS_ZONE_LOWER = 0.75
+
+
+def plot_pump_curve(
+    pump: "PumpCurve",
+    operating_flow: float,
+    stages: int,
+    gas_zone: dict | None = None,
+) -> go.Figure:
     """Grafica altura, rendimiento y potencia de la bomba contra el caudal.
 
     Es la curva característica de la bomba, ya multiplicada por la cantidad de
     etapas instaladas.
 
+    Marca **dos zonas distintas**, que no hay que confundir:
+
+    - **Rango operativo de catálogo** — la banda de color que el fabricante
+      publica en su curva. Es propiedad de la bomba y se dibuja siempre.
+    - **Zona operativa del método de gas** — 0.75 a 1.25 veces el caudal de
+      mezcla representativo. Es propiedad de *este* diseño, y sólo aparece
+      cuando se pasa ``gas_zone``.
+
     Args:
         pump: Bomba del catálogo.
         operating_flow: Caudal de operación [STB/d].
         stages: Cantidad de etapas instaladas.
+        gas_zone: Sólo para el camino de pozos con gas. dict con
+            ``q_representative`` (el caudal de mezcla con que se eligió la
+            bomba), ``q_intake`` (el que ENTRA a la bomba, en la admisión) y
+            ``q_discharge`` (el que SALE, ya comprimido). ``None`` —el
+            default— no dibuja nada de esto, que es lo que corresponde en el
+            camino convencional, donde el caudal es uno solo.
 
     Returns:
         Figura de Plotly con doble eje Y.
@@ -217,6 +246,9 @@ def plot_pump_curve(pump: "PumpCurve", operating_flow: float, stages: int) -> go
         annotation_position="top left",
     )
 
+    if gas_zone:
+        _draw_gas_zone(fig, gas_zone)
+
     fig.update_layout(
         title=f"Curva de Bomba — {pump.model} ({stages} etapas)",
         xaxis_title="Caudal (STB/d)",
@@ -229,6 +261,80 @@ def plot_pump_curve(pump: "PumpCurve", operating_flow: float, stages: int) -> go
                      range=[0, max(effs) * 1.3])
 
     return fig
+
+
+def _draw_gas_zone(fig: go.Figure, gas_zone: dict) -> None:
+    """Dibuja la zona operativa del método de incrementos sobre la curva.
+
+    Tres cotas y una banda:
+
+    .. code-block:: text
+
+        0.75·q_rep -------- q_rep -------- 1.25·q_rep
+             |                                  |
+             +-------- zona operativa ----------+
+
+        q_admisión   el caudal de mezcla que ENTRA a la bomba
+        q_descarga   el que SALE, ya comprimido
+
+    Con gas el caudal cae a lo largo de la bomba —el gas se comprime y parte
+    pasa a solución—, así que la admisión es el extremo alto y la descarga el
+    bajo. Los dos tienen que caer dentro de la banda: si no, la bomba está
+    trabajando lejos del caudal con que se la eligió, y en algún tramo puede
+    quedar fuera de su propio rango de catálogo.
+
+    Args:
+        fig: Figura sobre la que dibujar. Se modifica in situ.
+        gas_zone: dict con ``q_representative``, ``q_intake`` y
+            ``q_discharge`` [bpd].
+    """
+    q_rep = float(gas_zone.get("q_representative") or 0.0)
+    if q_rep <= 0:
+        return
+
+    lo, hi = GAS_ZONE_LOWER * q_rep, GAS_ZONE_UPPER * q_rep
+
+    fig.add_vrect(
+        x0=lo, x1=hi,
+        fillcolor="#66BB6A", opacity=0.12, line_width=0, layer="below",
+        annotation_text=(f"Zona operativa del método de gas "
+                         f"({GAS_ZONE_LOWER:g}–{GAS_ZONE_UPPER:g} × q_rep)"),
+        annotation_position="bottom right",
+    )
+    # Los bordes se dibujan aparte: la banda sola no deja leer dónde cae cada
+    # cota, y es exactamente lo que hay que verificar.
+    for x, texto in ((lo, f"{GAS_ZONE_LOWER:g}·q_rep"), (hi, f"{GAS_ZONE_UPPER:g}·q_rep")):
+        fig.add_vline(
+            x=x, line_dash="dashdot", line_color="#2E7D32", line_width=1.5,
+            annotation_text=texto, annotation_position="bottom",
+        )
+
+    fig.add_vline(
+        x=q_rep, line_dash="solid", line_color="#2E7D32", line_width=2,
+        annotation_text=f"q_rep = {q_rep:,.0f} bpd", annotation_position="top right",
+    )
+
+    for clave, etiqueta, color in (
+        ("q_intake", "q admisión (entra)", "#00838F"),
+        ("q_discharge", "q descarga (sale)", "#6A1B9A"),
+    ):
+        q = float(gas_zone.get(clave) or 0.0)
+        if q <= 0:
+            continue
+        razon = q / q_rep
+        # El fuera-de-banda se marca en el dibujo, no sólo en un aviso de
+        # texto: quien mira la figura tiene que ver el problema.
+        adentro = GAS_ZONE_LOWER <= razon <= GAS_ZONE_UPPER
+        fig.add_vline(
+            x=q,
+            line_dash="dot" if adentro else "dash",
+            line_color=color if adentro else "#C62828",
+            line_width=2,
+            annotation_text=(f"{etiqueta}: {q:,.0f} bpd "
+                             f"({razon:.2f}× q_rep)"
+                             + ("" if adentro else "  FUERA")),
+            annotation_position="top left",
+        )
 
 
 def plot_pump_catalog_curve(pump: "PumpCurve") -> go.Figure:
@@ -443,68 +549,7 @@ def plot_pressure_profile(
 
 
 # ---------------------------------------------------------------------------
-# 4. Sensitivity analysis
-# ---------------------------------------------------------------------------
-
-def plot_sensitivity_analysis(
-    param_values: list[float],
-    metrics_dict: dict[str, list[float]],
-    parameter_label: str,
-) -> go.Figure:
-    """Grilla de 4 paneles con el análisis de sensibilidad.
-
-    Args:
-        param_values: Valores del parámetro barrido (eje X de cada panel).
-        metrics_dict: ``{nombre_métrica: [valores]}`` — se esperan las claves
-            "HP", "Etapas", "Eficiencia (%)" y "TDH (ft)".
-        parameter_label: Nombre del parámetro para mostrar en el eje X.
-
-    Returns:
-        Figura de Plotly con una grilla de 2×2 paneles.
-    """
-    metrics_order = ["HP", "Etapas", "Eficiencia (%)", "TDH (ft)"]
-    colors = ["#1565C0", "#2E7D32", "#E65100", "#6A1B9A"]
-
-    fig = make_subplots(
-        rows=2, cols=2,
-        subplot_titles=metrics_order,
-        horizontal_spacing=0.12,
-        vertical_spacing=0.18,
-    )
-
-    positions = [(1, 1), (1, 2), (2, 1), (2, 2)]
-
-    for (row, col), metric, color in zip(positions, metrics_order, colors):
-        vals = metrics_dict.get(metric, [])
-        if not vals:
-            continue
-        fig.add_trace(
-            go.Scatter(
-                x=param_values[: len(vals)],
-                y=vals,
-                mode="lines+markers",
-                name=metric,
-                line=dict(color=color, width=2),
-                marker=dict(size=8),
-                showlegend=False,
-                hovertemplate=f"{parameter_label}=%{{x:.2f}}<br>{metric}=%{{y:.1f}}<extra></extra>",
-            ),
-            row=row,
-            col=col,
-        )
-
-    fig.update_layout(
-        title=f"Análisis de Sensibilidad — Variación de {parameter_label}",
-        template="plotly_white",
-        height=540,
-        margin=dict(t=80, b=40, l=50, r=20),
-    )
-
-    return fig
-
-
-# ---------------------------------------------------------------------------
-# 5. Nodal analysis
+# 4. Nodal analysis
 # ---------------------------------------------------------------------------
 
 def plot_nodal_analysis(

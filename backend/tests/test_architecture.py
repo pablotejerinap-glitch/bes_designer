@@ -147,8 +147,8 @@ def test_core_is_the_bottom_layer() -> None:
 
 
 def test_no_streamlit_app_left_behind() -> None:
-    """Streamlit se retiró cuando React alcanzó paridad (comparación y
-    sensibilidad). `streamlit` sigue en FORBIDDEN_FRAMEWORKS a propósito: es lo
+    """Streamlit se retiró cuando React alcanzó paridad. `streamlit` sigue
+    en FORBIDDEN_FRAMEWORKS a propósito: es lo
     que impide que vuelva a filtrarse en el dominio, sobre todo en
     `bes.plotting`, que lo consume la API.
     """

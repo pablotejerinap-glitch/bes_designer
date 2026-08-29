@@ -1,3 +1,22 @@
+"""RETIRADO — NO CORRER. Ver la nota de abajo.
+
+Este script reintroduce equipos de **ChampionX** en los catálogos. La purga de
+proveedores dejó tres fabricantes (REDA, Centrilift y Wood Group ESP) y borró
+todo lo demás; el último reducto de ChampionX era
+``catalogs/gas_handlers.json``, reemplazado en ago-2026 por los 12 manejadores
+de REDA digitalizados del ESP Catalog págs. 391-399.
+
+Correr esto deshace esa decisión en silencio. Se conserva sólo como registro de
+cómo se digitalizaron esas hojas de datos, con un tope duro que lo impide.
+Ver ``.claude/rules/domain.md``, «Proveedores del proyecto».
+"""
+import sys
+
+sys.exit(
+    "ingest_championx.py está RETIRADO: reintroduciría equipos ChampionX en "
+    "los catálogos. Ver .claude/rules/domain.md, «Proveedores del proyecto»."
+)
+
 """
 Vendor catalog ingestion (ChampionX / SLB) into the existing JSON catalogs.
 
@@ -36,7 +55,6 @@ Decisiones de digitalización (ver docs/CHAMPIONX_INGESTION_REPORT.md):
 Uso (desde la raíz del proyecto):
     python scripts/ingest_championx.py
 """
-from __future__ import annotations
 
 import json
 import sys

@@ -9,7 +9,8 @@
   El front formatea y renderiza.
 - **Orden de construcción (money-shot primero):** form 5-tabs → `/api/design` →
   vista de resultados → gráficos (curva de bomba + nodal) → descarga PDF/Excel.
-  Comparación y sensibilidad ya están cubiertas (tabs de resultados y de
-  nivel superior respectivamente).
+  La comparación de opciones ya está cubierta (tab de resultados).
+- **El análisis de sensibilidad se retiró** (ago-2026): no hacía falta en el
+  proyecto. No volver a agregarlo sin que Pablo lo pida.
 - **UI única:** React es la única interfaz. La app Streamlit se retiró al
   alcanzar paridad; si hace falta una vista nueva, va acá, no a otra UI.

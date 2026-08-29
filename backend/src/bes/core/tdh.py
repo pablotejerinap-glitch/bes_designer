@@ -47,7 +47,9 @@ Contenido
 1. Fricción por Hazen-Williams (monofásica)
 2. Fricción por Poettmann-Carpenter (multifásica), integrada por tramos
 3. Temperatura a una profundidad dada (perfil geotérmico lineal)
-4. El TDH completo, con su traza de fórmulas
+4. De dónde salió el PIP: el tramo de la traza que reconstruye el recorrido
+   por el anular (``_traza_pip``)
+5. El TDH completo, con su traza de fórmulas
 
 Nomenclatura
 ------------
@@ -66,6 +68,8 @@ Referencia
 Brown, K.E. "The Technology of Artificial Lift Methods", Vol. 2b, §4.5324.
 """
 from __future__ import annotations
+
+import math
 
 from bes.core.models import DesignObjectives, Fluid, Reservoir, SurfaceConditions, WellGeometry
 
@@ -105,6 +109,275 @@ def friction_loss_hazen_williams(
         / pipe_id_in ** 4.8655
         * length_ft / 100.0
     )
+
+
+#: Rugosidad absoluta del acero comercial [ft]. Es el valor de manual para
+#: cañería de acero al carbono; el tubing nuevo puede ser algo más liso, pero
+#: adoptar el más liso sería optimista para un cálculo de proyecto, igual que
+#: con el C = 120 de Hazen-Williams.
+RUGOSIDAD_ACERO_FT = 0.00015
+
+#: Reynolds por debajo del cual el flujo es laminar y f = 64/Re.
+RE_LAMINAR = 2000.0
+
+#: Reynolds por encima del cual vale el ajuste de Swamee-Jain.
+RE_TURBULENTO = 4000.0
+
+_CP_A_LB_FT_S = 6.7197e-4   # 1 cp en lbm/(ft·s)
+_BBL_A_FT3 = 5.615
+_G_FT_S2 = 32.174
+
+
+def friction_loss_darcy_weisbach(
+    q_bpd: float,
+    pipe_id_in: float,
+    length_ft: float,
+    density_lb_ft3: float,
+    viscosity_cp: float,
+    roughness_ft: float = RUGOSIDAD_ACERO_FT,
+) -> dict:
+    """Pérdida de carga por fricción — Darcy-Weisbach, con Reynolds.
+
+    Es la alternativa a :func:`friction_loss_hazen_williams` **que sí contempla
+    la viscosidad del fluido**::
+
+        h_f = f · (L/d) · v² / (2·g)
+
+    donde el factor de fricción ``f`` depende del régimen:
+
+        Re < 2000   ->  f = 64 / Re                  (laminar, Poiseuille)
+        Re > 4000   ->  f = ajuste de Swamee-Jain    (turbulento)
+
+    Por qué hace falta
+    ------------------
+    Hazen-Williams se estableció sobre ensayos con **agua** en régimen
+    turbulento, y su único parámetro libre —el coeficiente C— describe la
+    rugosidad de la cañería, no el fluido que circula. En un crudo pesado el
+    flujo deja de ser turbulento y la fórmula no puede seguirlo: en el caso de
+    14 °API de §3.4.5 el Reynolds cae a 363, muy por debajo de 2000, y allí el
+    factor de fricción crece **linealmente con la viscosidad**, comportamiento
+    que ninguna potencia fija del caudal reproduce. La diferencia medida en ese
+    pozo es de 1 740 pies sobre un TDH de 3 793, y **del lado no conservador**.
+
+    En crudos livianos las dos coinciden dentro del 2 %, de modo que esto no
+    corrige un error general sino uno acotado al extremo viscoso.
+
+    La zona de transición
+    ---------------------
+    Entre 2000 y 4000 no hay una ley: el régimen es inestable y ninguna de las
+    dos expresiones vale. Se interpola linealmente en ``log(Re)`` entre el
+    laminar en 2000 y el turbulento en 4000, **y se declara** con la bandera
+    ``transicion``. Es una convención de ingeniería, no un resultado: lo que
+    importa es que el valor quede acotado entre los dos regímenes y que quien
+    lea el resultado sepa que ahí la incerteza es mayor.
+
+    Args:
+        q_bpd: Caudal de líquido [bbl/d]. Debe ser > 0.
+        pipe_id_in: Diámetro interior de la cañería [in]. Debe ser > 0.
+        length_ft: Largo de la cañería [ft]. Debe ser >= 0.
+        density_lb_ft3: Densidad del líquido [lb/ft³]. Debe ser > 0.
+        viscosity_cp: Viscosidad dinámica del líquido [cp]. Debe ser > 0.
+        roughness_ft: Rugosidad absoluta de la pared [ft].
+
+    Returns:
+        dict con ``head_ft`` (pérdida [ft]), ``reynolds``, ``friction_factor``,
+        ``velocity_ft_s``, ``regimen`` (``"laminar"`` / ``"transicion"`` /
+        ``"turbulento"``) y ``transicion`` (bool).
+
+    Raises:
+        ValueError: Si algún argumento no es positivo.
+
+    Referencia:
+        Darcy-Weisbach; factor turbulento por Swamee, P. K. y Jain, A. K.
+        (1976), «Explicit equations for pipe-flow problems», Journal of the
+        Hydraulics Division, ASCE, 102(HY5), 657-664 — ajuste explícito de la
+        ecuación implícita de Colebrook-White.
+    """
+    if q_bpd <= 0:
+        raise ValueError(f"q_bpd must be > 0, got {q_bpd}")
+    if pipe_id_in <= 0:
+        raise ValueError(f"pipe_id_in must be > 0, got {pipe_id_in}")
+    if length_ft < 0:
+        raise ValueError(f"length_ft must be >= 0, got {length_ft}")
+    if density_lb_ft3 <= 0:
+        raise ValueError(f"density_lb_ft3 must be > 0, got {density_lb_ft3}")
+    if viscosity_cp <= 0:
+        raise ValueError(f"viscosity_cp must be > 0, got {viscosity_cp}")
+
+    d_ft = pipe_id_in / 12.0
+    area_ft2 = math.pi / 4.0 * d_ft ** 2
+    v = q_bpd * _BBL_A_FT3 / 86400.0 / area_ft2          # ft/s
+    mu = viscosity_cp * _CP_A_LB_FT_S                     # lbm/(ft·s)
+    re = density_lb_ft3 * v * d_ft / mu
+
+    def _turbulento(reynolds: float) -> float:
+        # Swamee-Jain, ajuste explícito de Colebrook-White.
+        return 0.25 / (
+            math.log10(roughness_ft / (3.7 * d_ft) + 5.74 / reynolds ** 0.9) ** 2
+        )
+
+    if re < RE_LAMINAR:
+        f, regimen = 64.0 / re, "laminar"
+    elif re > RE_TURBULENTO:
+        f, regimen = _turbulento(re), "turbulento"
+    else:
+        f_lam = 64.0 / RE_LAMINAR
+        f_tur = _turbulento(RE_TURBULENTO)
+        peso = (math.log(re) - math.log(RE_LAMINAR)) / (
+            math.log(RE_TURBULENTO) - math.log(RE_LAMINAR)
+        )
+        f, regimen = f_lam + peso * (f_tur - f_lam), "transicion"
+
+    return {
+        "head_ft": f * (length_ft / d_ft) * v ** 2 / (2.0 * _G_FT_S2),
+        "reynolds": re,
+        "friction_factor": f,
+        "velocity_ft_s": v,
+        "regimen": regimen,
+        "transicion": regimen == "transicion",
+    }
+
+
+def liquid_mixture_viscosity(
+    oil_viscosity_cp: float,
+    water_cut: float,
+    temp_f: float,
+) -> dict:
+    """Viscosidad del líquido producido — promedio por fracción volumétrica.
+
+    Es la que gobierna la fricción en la tubería cuando el flujo es monofásico::
+
+        mu_l = mu_o · (1 − Wc) + mu_w · Wc
+
+    Por lo que sube por el tubing no circula petróleo sino petróleo **y** agua,
+    y la diferencia entre una y otra viscosidad es de órdenes de magnitud: un
+    crudo pesado puede andar en los 200 cp y el agua no llega a 1. Con corte de
+    agua alto —el caso de la mayoría de los pozos de esta aplicación— tratar la
+    mezcla con la viscosidad del petróleo sobrestimaría groseramente la pérdida.
+
+    Lo que este modelo NO captura
+    -----------------------------
+    **Es una cota inferior**, y conviene tenerlo presente antes de apoyarse en
+    el resultado. Cuando el petróleo es la fase continua —esto es, por debajo
+    del punto de inversión— la mezcla forma una emulsión agua-en-petróleo cuya
+    viscosidad es **varias veces mayor** que la de cualquiera de las dos fases
+    por separado, no un promedio entre ellas. Riling (Brown §4.53112) da para
+    ese efecto factores de 2 a 3 con cortes de agua entre 20 y 40 %, y de 5 a 6
+    entre 55 y 75 %, pero **no entrega una correlación** que permita calcularlos,
+    y el punto de inversión tampoco figura como dato en ninguna de las fuentes
+    del proyecto.
+
+    Adoptar un valor medio de esos rangos sería inventar el dato. Se prefiere
+    el promedio volumétrico, que es la primera aproximación estándar, y se
+    **declara** que en el régimen de emulsión la viscosidad real es mayor y la
+    fricción calculada queda en consecuencia subestimada. Es el mismo criterio
+    con que el paso 5 del procedimiento de crudos viscosos se informa como no
+    realizado.
+
+    Args:
+        oil_viscosity_cp: Viscosidad del petróleo a las condiciones de
+            evaluación [cp]. Debe ser > 0.
+        water_cut: Corte de agua [fracción 0–1].
+        temp_f: Temperatura de evaluación [°F].
+
+    Returns:
+        dict con ``viscosity_cp`` (la de la mezcla), ``oil_cp``, ``water_cp``,
+        ``emulsion_posible`` (``True`` cuando el petróleo podría ser la fase
+        continua) y ``warnings``.
+
+    Raises:
+        ValueError: Si la viscosidad del petróleo no es positiva o el corte de
+            agua cae fuera de [0, 1].
+    """
+    from bes.core.pvt import water_viscosity
+
+    if oil_viscosity_cp <= 0:
+        raise ValueError(
+            f"oil_viscosity_cp must be > 0, got {oil_viscosity_cp}"
+        )
+    if not 0.0 <= water_cut <= 1.0:
+        raise ValueError(f"water_cut must be in [0, 1], got {water_cut}")
+
+    mu_w = water_viscosity(temp_f)
+    mu_l = oil_viscosity_cp * (1.0 - water_cut) + mu_w * water_cut
+
+    avisos: list[str] = []
+    # Con petróleo como fase continua la emulsión manda; el corte de inversión
+    # no es un dato del proyecto, así que se avisa en todo el rango en que la
+    # fase continua podría ser el petróleo en lugar de fijar una frontera.
+    emulsion = water_cut > 0.0 and oil_viscosity_cp > mu_w * 2.0
+    if emulsion:
+        avisos.append(
+            f"La viscosidad de la mezcla ({mu_l:.1f} cp) se calculó como "
+            f"promedio por fracción volumétrica entre el petróleo "
+            f"({oil_viscosity_cp:.1f} cp) y el agua ({mu_w:.2f} cp). Es una "
+            f"COTA INFERIOR: si el petróleo resulta la fase continua, la "
+            f"emulsión agua en petróleo es varias veces más viscosa que ese "
+            f"promedio —Riling da factores de 2 a 3 entre 20 y 40 % de corte "
+            f"de agua, y de 5 a 6 entre 55 y 75 %—, pero no publica una "
+            f"correlación ni el punto de inversión, de modo que el efecto no "
+            f"se modela. La pérdida de carga por fricción queda, en esa "
+            f"medida, subestimada."
+        )
+
+    return {
+        "viscosity_cp": mu_l,
+        "oil_cp": oil_viscosity_cp,
+        "water_cp": mu_w,
+        "emulsion_posible": emulsion,
+        "warnings": avisos,
+    }
+
+
+def _viscosidad_de_la_mezcla(
+    fluid: Fluid,
+    well: WellGeometry,
+    pump_depth: float,
+    bottom_temp_f: float,
+    pip: float,
+) -> dict | None:
+    """Viscosidad del líquido en la admisión, para el término de fricción.
+
+    Reúne los dos ingredientes que :func:`liquid_mixture_viscosity` necesita:
+    la viscosidad del petróleo vivo y el corte de agua.
+
+    La del petróleo sale de la **misma cadena** que emplea la corrección de la
+    curva de la bomba —las láminas 4L(2) y 4L(1) del libro, leídas a
+    temperatura de reservorio y con el gas efectivamente disuelto a la presión
+    de admisión—, de modo que un mismo pozo no puede tener dos viscosidades
+    distintas según qué parte del cálculo la pida.
+
+    Returns:
+        Lo que devuelve :func:`liquid_mixture_viscosity`, o ``None`` si la
+        viscosidad no se pudo establecer. Devolver ``None`` y no un valor por
+        defecto es deliberado: sin viscosidad el llamador se queda con
+        Hazen-Williams, que es el comportamiento previo, en lugar de calcular
+        un Reynolds sobre un número inventado.
+    """
+    from bes.core.viscosity import crude_viscosity_ssu
+
+    try:
+        from bes.core.pump_design import _rs_en_la_admision
+        rs = _rs_en_la_admision(fluid, pip, bottom_temp_f)
+        medida = (
+            fluid.oil_viscosity_dead
+            if fluid.oil_viscosity_dead is not None
+            and fluid.viscosity_temp_ref is not None
+            and abs(fluid.viscosity_temp_ref - bottom_temp_f) <= 5.0
+            else None
+        )
+        mu_o = crude_viscosity_ssu(
+            oil_api=fluid.oil_api,
+            temp_f=bottom_temp_f,
+            rs_scf_bbl=rs,
+            dead_oil_cp=medida,
+        )["mu_live_cp"]
+    except (ValueError, KeyError):
+        return None
+
+    if mu_o <= 0:
+        return None
+    return liquid_mixture_viscosity(mu_o, fluid.water_cut, bottom_temp_f)
 
 
 def _sg_liquid(fluid: Fluid) -> float:
@@ -149,6 +422,54 @@ def temp_at_depth(well: WellGeometry, depth: float, bottom_temp_f: float) -> flo
 
 
 _PC_SEGMENTS = 30
+
+#: Cómo se lee cada método en un mensaje.
+_NOMBRE_METODO = {
+    "poettmann_carpenter": "Poettmann-Carpenter (multifásico)",
+    "hazen_williams": "Hazen-Williams (monofásico)",
+}
+
+
+def _aviso_metodo_forzado(
+    elegido: str,
+    metodo_fisica: str,
+    free_gas_fraction: float,
+    threshold: float,
+) -> str:
+    """Redacta el aviso de cuando la elección del usuario contradice la física.
+
+    El método de pérdida de carga lo elige el usuario, pero la fracción de gas
+    libre en la admisión dice cuál correspondería. Cuando no coinciden **se
+    respeta la elección y se avisa**: corregirla en silencio escondería que el
+    resultado no es el que la física pide, y no avisar repetiría el error que ya
+    tuvo el proyecto (pozos con hasta 10 % de gas diseñados como monofásicos).
+
+    Args:
+        elegido: Método que eligió el usuario.
+        metodo_fisica: Método que corresponde por la fracción de gas.
+        free_gas_fraction: Fracción volumétrica de gas libre en la admisión.
+        threshold: Umbral con el que se compara.
+
+    Returns:
+        El aviso, listo para ``DesignResult.warnings``.
+    """
+    if elegido == "hazen_williams":
+        return (
+            f"Se eligió {_NOMBRE_METODO[elegido]} para la pérdida de carga, "
+            f"pero en la admisión hay {free_gas_fraction:.1%} de gas libre "
+            f"—más del {threshold:.0%} a partir del cual la corriente deja de "
+            f"ser prácticamente líquida—. La fricción calculada con un "
+            f"gradiente de líquido constante queda SUBESTIMADA; correspondería "
+            f"{_NOMBRE_METODO[metodo_fisica]}."
+        )
+    return (
+        f"Se eligió {_NOMBRE_METODO[elegido]} para la pérdida de carga, pero en "
+        f"la admisión hay apenas {free_gas_fraction:.1%} de gas libre —por "
+        f"debajo del {threshold:.0%}—, así que la corriente es prácticamente "
+        f"líquida y bastaba {_NOMBRE_METODO[metodo_fisica]}. El resultado es "
+        f"válido; la elección no era necesaria."
+    )
+
 
 
 def _friction_loss_poettmann_carpenter(
@@ -263,6 +584,98 @@ def _friction_loss_poettmann_carpenter(
     }
 
 
+def _traza_pip(
+    trace,
+    reservoir: Reservoir,
+    fluid: Fluid,
+    well: WellGeometry,
+    objectives: DesignObjectives,
+    pump_depth: float,
+    pip: float,
+    pwf: float,
+) -> None:
+    """Agrega a la traza de dónde salió el PIP.
+
+    El PIP le entra a :func:`calculate_tdh` como dato ya calculado, así que la
+    traza lo mostraba apareciendo de la nada: la sumergencia arrancaba con un
+    número que nadie podía auditar. Acá se publica el eslabón que faltaba, que
+    es :func:`bes.core.multiphase.calculate_pip`::
+
+        Pwf (del IPR)  ->  recorrido por el anular  ->  PIP
+
+    El recorrido se integra con **Poettmann & Carpenter**, que es la única
+    correlación multifásica del proyecto, así que primero se emite la cadena
+    completa de P&C —área, caudales de fondo, velocidades, densidad de la
+    mezcla, factor de fricción y los dos términos del gradiente— evaluada **en
+    la admisión**, y después la integración y el PIP.
+
+    Un punto y no los veinte: los tramos resuelven todos la misma cadena, y
+    veinte copias de diez fórmulas taparían el resto de la traza. Se elige la
+    admisión porque es el extremo que el diseño usa.
+
+    Args:
+        trace: :class:`bes.core.formulas.FormulaTrace` en construcción.
+        reservoir: Reservorio — aporta la temperatura de fondo del perfil.
+        fluid: Fluido — PVT, GOR y corte de agua.
+        well: Geometría — ID de casing (el anular) y profundidad de las
+            perforaciones, que son los dos extremos del recorrido.
+        objectives: Objetivos — el caudal con el que se hizo el recorrido.
+        pump_depth: Profundidad de la admisión [ft TVD].
+        pip: Presión en la admisión ya calculada [psia].
+        pwf: Presión de fondo fluyente en las perforaciones [psia].
+    """
+    from bes.core.formulas import Formula
+    from bes.core.multiphase import PIP_TRAVERSE_SEGMENTS, poettmann_carpenter_trace
+
+    largo = well.perforations_bottom - pump_depth
+    delta_p = pwf - pip
+    t_admision = temp_at_depth(well, pump_depth, reservoir.reservoir_temp)
+
+    cadena = poettmann_carpenter_trace(
+        q_liq=objectives.target_flow_rate,
+        wc=fluid.water_cut,
+        gor=fluid.gor,
+        oil_api=fluid.oil_api,
+        gas_sg=fluid.gas_sg,
+        water_sg=fluid.water_sg,
+        pipe_id=well.casing_id,
+        p=pip,
+        t=t_admision,
+    )
+    cadena[0]["context"] = (
+        f"Cadena de Poettmann & Carpenter con la que se recorre el ANULAR "
+        f"(ID de casing {well.casing_id:.3f} in) desde las perforaciones hasta "
+        f"la bomba. Se muestra evaluada en la admisión: {pip:,.1f} psia y "
+        f"{t_admision:.1f} °F. Los otros tramos del recorrido resuelven la "
+        f"misma cadena a su propia presión y temperatura."
+    )
+    for f in cadena:
+        trace.items.append(Formula(**f))
+
+    # El sumatorio queda en símbolos, pero Δz sí se sustituye: es un dato de
+    # entrada del recorrido, no el resultado de la propia cuenta.
+    trace.add(
+        "pip_recorrido",
+        {"Δz": largo / PIP_TRAVERSE_SEGMENTS},
+        delta_p,
+        context=(
+            f"Recorrido ascendente de {well.perforations_bottom:,.0f} ft "
+            f"(perforaciones) a {pump_depth:,.0f} ft (admisión), o sea "
+            f"{largo:,.0f} ft en {PIP_TRAVERSE_SEGMENTS} tramos de "
+            f"{largo / PIP_TRAVERSE_SEGMENTS:,.1f} ft, con "
+            f"{objectives.target_flow_rate:,.0f} STB/d de líquido."
+        ),
+    )
+    trace.add("pip_admision", {"Pwf": pwf, "Δp_anular": delta_p}, pip)
+    if largo > 0:
+        trace.add(
+            "pip_gradiente_promedio",
+            {"Δp_anular": delta_p, "D_perf": well.perforations_bottom,
+             "D_bomba": pump_depth},
+            delta_p / largo,
+        )
+
+
 def calculate_tdh(
     reservoir: Reservoir,
     fluid: Fluid,
@@ -285,7 +698,9 @@ def calculate_tdh(
 
     Qué correlación de fricción se usa
     ----------------------------------
-    **Lo decide la cantidad de gas libre en la admisión**, no el usuario:
+    La elige el usuario con ``objectives.pressure_loss_method``. Si no eligió
+    —``None``, el default— **lo decide la cantidad de gas libre en la
+    admisión**, que es el comportamiento histórico:
 
         - ``fracción_gas <= objectives.gas_fraction_pc_threshold``
           -> **Hazen-Williams**. Lo que sube es esencialmente líquido y vale la
@@ -294,6 +709,12 @@ def calculate_tdh(
           -> **Poettmann-Carpenter**, sólo el término de fricción. La mezcla
           gas-líquido es más liviana y mucho más rápida que el líquido solo, y
           eso la ecuación monofásica no lo puede representar.
+
+    Con un método elegido a mano se usa ese método, y si la física pedía el
+    otro el resultado sale con un **aviso** (``pressure_loss_warnings``): el
+    usuario manda, pero enterado. Lo que sigue sin poder elegirse es el
+    **umbral** ``gas_fraction_pc_threshold`` — una cosa es elegir el método y
+    otra mover el corte con que se lo elige solo.
 
     Un híbrido deliberado, y lo que deja afuera
     -------------------------------------------
@@ -335,6 +756,7 @@ def calculate_tdh(
     # La traza arranca en la IPR, que es el primer cálculo del diseño: de la
     # Pwf en las perforaciones sale el PIP, y de ahí todo lo que sigue.
     from bes.core.ipr import calculate_pwf_for_target_rate, ipr_trace
+    pwf = None
     try:
         pwf = calculate_pwf_for_target_rate(reservoir, objectives.target_flow_rate)
         for f in ipr_trace(reservoir, objectives.target_flow_rate, pwf):
@@ -343,6 +765,17 @@ def calculate_tdh(
         # Caudal objetivo por encima del AOF: el diseño falla más adelante con
         # su propio mensaje. Acá sólo se omite el tramo de la traza.
         pass
+
+    # De la Pwf al PIP: el recorrido por el anular. El PIP entra por parámetro
+    # ya calculado, así que la traza tiene que reconstruir de dónde salió — si
+    # no, la sumergencia arranca con un número sin origen.
+    #
+    # La condición no es cosmética: el tramo se publica sólo si el PIP es
+    # coherente con haber subido desde las perforaciones (0 < PIP < Pwf). Un
+    # caso de prueba puede pasarle a esta función un PIP impreso del libro que
+    # no salga del recorrido, y atribuírselo sería mentir sobre la cuenta.
+    if pwf is not None and 0.0 < pip < pwf:
+        _traza_pip(trace, reservoir, fluid, well, objectives, pump_depth, pip, pwf)
 
     sg = _sg_liquid(fluid)
     trace.add(
@@ -381,9 +814,58 @@ def calculate_tdh(
         )
 
     threshold = objectives.gas_fraction_pc_threshold
+    # Qué correlación corresponde POR LA FÍSICA, y qué eligió el usuario. Si no
+    # eligió nada manda la física, que es el comportamiento histórico.
+    metodo_fisica = (
+        "poettmann_carpenter" if free_gas_fraction > threshold
+        else "hazen_williams"
+    )
+    elegido = objectives.pressure_loss_method
+    if elegido == "poettmann_carpenter":
+        # Restricción DURA: el método se levantó con tubing de 2, 2½ y 3 pulg,
+        # y elegirlo a mano para otra cañería es pedir un número fuera del
+        # rango de la correlación. Los otros tres límites del envelope avisan;
+        # éste no, porque el formulario ya no deja elegir otra cosa y llegar
+        # acá significa que alguien salteó el contrato.
+        from bes.core.multiphase import (
+            PC_TUBING_OD_LABELS, tubing_od_is_pc_range,
+        )
+        if not tubing_od_is_pc_range(well.tubing_od):
+            raise ValueError(
+                f"Poettmann-Carpenter sólo es aplicable a tubing de 2, 2½ y "
+                f"3 pulg (OD {', '.join(PC_TUBING_OD_LABELS)} in). El pozo "
+                f"tiene {well.tubing_od:.3f} in: elegí otra cañería o dejá "
+                f"que la correlación la decida la fracción de gas."
+            )
+    metodo = elegido or metodo_fisica
+    avisos_metodo: list[str] = []
+    if elegido is not None and elegido != metodo_fisica:
+        avisos_metodo.append(_aviso_metodo_forzado(
+            elegido, metodo_fisica, free_gas_fraction, threshold
+        ))
+
     extra: dict = {}
-    if free_gas_fraction > threshold:
+    if metodo == "poettmann_carpenter":
         friction_method = "poettmann_carpenter"
+        # La RGL es la magnitud en la que está declarado el límite de gas del
+        # método (1500 scf/bbl). Se emite acá —y no en la verificación del
+        # envelope— para que quede en la traza del diseño, que es donde el
+        # profesor la va a buscar.
+        from bes.core.multiphase import (
+            PC_MAX_GLR_SCF_BBL, gas_liquid_ratio,
+        )
+        wor = fluid.water_cut / (1.0 - fluid.water_cut)
+        rgl = gas_liquid_ratio(fluid.gor, fluid.water_cut)
+        trace.add(
+            "pc_rgl", {"GOR": fluid.gor, "WOR": wor}, rgl,
+            context=(
+                f"Dentro del rango del método (hasta "
+                f"{PC_MAX_GLR_SCF_BBL:,.0f} scf/bbl)."
+                if rgl < PC_MAX_GLR_SCF_BBL else
+                f"FUERA del rango del método, que vale hasta "
+                f"{PC_MAX_GLR_SCF_BBL:,.0f} scf/bbl."
+            ),
+        )
         tubing_friction, extra = _friction_loss_poettmann_carpenter(
             fluid=fluid,
             well=well,
@@ -393,32 +875,135 @@ def calculate_tdh(
             sg=sg,
             bottom_temp_f=reservoir.reservoir_temp,
         )
+        # El gradiente que se muestra es el PROMEDIO del recorrido
+        # (Δp_fricción / L), no el de un punto: la fricción se integró tramo
+        # por tramo y el gas la carga hacia el cabezal. Se calcula desde
+        # `pc_friction_psi`, que es la integral que efectivamente se acumuló,
+        # así que la sustitución cierra con el resultado.
+        grad_fric_medio = (
+            extra["pc_friction_psi"] / pump_depth if pump_depth > 0 else 0.0
+        )
         trace.add(
             "friccion_pc",
-            {"(dP/dz)_fricción": extra.get("pc_friction_gradient_psi_ft", 0.0),
-             "L": pump_depth, "SG": sg},
+            {"(dP/dz)_fricción": grad_fric_medio, "L": pump_depth, "SG": sg},
             tubing_friction,
-            context=f"La fracción de gas libre en la admisión "
+            context=(
+                (
+                    "Poettmann-Carpenter elegido a mano en el formulario. "
+                    if elegido == "poettmann_carpenter" else
+                    f"La fracción de gas libre en la admisión "
                     f"({free_gas_fraction:.3f}) supera el umbral "
-                    f"({threshold:.2f}), así que la fricción se calcula con P&C.",
+                    f"({threshold:.2f}), así que la fricción se calcula con "
+                    f"P&C. "
+                )
+                + f"El gradiente es el promedio del recorrido: se integró en "
+                  f"{extra['pc_segments']} tramos, y va de "
+                  f"{extra['pc_friction_gradient_bottom_psi_ft']:.5f} psi/ft "
+                  f"en la bomba a "
+                  f"{extra['pc_friction_gradient_top_psi_ft']:.5f} psi/ft en "
+                  f"el cabezal, donde el gas ya se expandió."
+            ),
         )
     else:
-        friction_method = "hazen_williams"
-        tubing_friction = friction_loss_hazen_williams(
-            q_bpd=objectives.target_flow_rate,
-            pipe_id_in=well.tubing_id,
-            length_ft=pump_depth,
+        # --- Rama monofásica: Hazen-Williams o Darcy-Weisbach --------------
+        #
+        # Las dos coinciden dentro del 2 % mientras el líquido sea poco
+        # viscoso, así que el corte se pone donde empiezan a separarse, que es
+        # el mismo techo de 5 cp con que el envelope de Poettmann-Carpenter
+        # declara su límite viscoso. Por debajo manda Hazen-Williams, que es la
+        # que emplea el procedimiento de Brown y con la que se validaron los
+        # ejemplos del libro; por encima, Darcy-Weisbach, que es la única de
+        # las dos que puede seguir un flujo laminar.
+        from bes.core.multiphase import PC_MAX_OIL_VISCOSITY_CP
+
+        mezcla = _viscosidad_de_la_mezcla(fluid, well, pump_depth,
+                                          reservoir.reservoir_temp, pip)
+        mu_l = mezcla["viscosity_cp"] if mezcla else None
+        avisos_metodo.extend(mezcla["warnings"] if mezcla else [])
+
+        usa_dw = (
+            elegido == "darcy_weisbach"
+            or (elegido is None and mu_l is not None
+                and mu_l > PC_MAX_OIL_VISCOSITY_CP)
         )
-        trace.add(
-            "friccion_hazen_williams",
-            {"C": 120.0, "q": objectives.target_flow_rate * 0.02917,
-             "d": well.tubing_id, "L": pump_depth},
-            tubing_friction,
-            context=f"La fracción de gas libre en la admisión "
+
+        if usa_dw and mu_l is not None:
+            friction_method = "darcy_weisbach"
+            rho_l = sg * 62.4
+            dw = friction_loss_darcy_weisbach(
+                q_bpd=objectives.target_flow_rate,
+                pipe_id_in=well.tubing_id,
+                length_ft=pump_depth,
+                density_lb_ft3=rho_l,
+                viscosity_cp=mu_l,
+            )
+            tubing_friction = dw["head_ft"]
+            extra["friction_reynolds"] = dw["reynolds"]
+            extra["friction_regime"] = dw["regimen"]
+            extra["friction_factor"] = dw["friction_factor"]
+            extra["liquid_viscosity_cp"] = mu_l
+            trace.add(
+                "friccion_darcy_weisbach",
+                {"f": dw["friction_factor"], "L": pump_depth,
+                 "d": well.tubing_id / 12.0, "v": dw["velocity_ft_s"],
+                 "g": _G_FT_S2},
+                tubing_friction,
+                context=(
+                    f"El líquido producido tiene {mu_l:.1f} cp en la admisión, "
+                    f"por encima de los {PC_MAX_OIL_VISCOSITY_CP:.0f} cp a "
+                    f"partir de los cuales Hazen-Williams —establecida con agua "
+                    f"en régimen turbulento— deja de seguir el comportamiento "
+                    f"del fluido. Re = {dw['reynolds']:.0f}, régimen "
+                    f"{dw['regimen']}."
+                ),
+            )
+            if dw["transicion"]:
+                avisos_metodo.append(
+                    f"El número de Reynolds en la tubería ({dw['reynolds']:.0f}) "
+                    f"cae en la zona de transición entre el régimen laminar y "
+                    f"el turbulento, donde no rige ninguna de las dos leyes de "
+                    f"fricción. El factor se interpoló entre ambas: el valor "
+                    f"queda acotado, pero su incerteza es mayor que en "
+                    f"cualquiera de los dos regímenes."
+                )
+            if dw["regimen"] == "laminar":
+                avisos_metodo.append(
+                    f"El flujo en la tubería es LAMINAR (Re = "
+                    f"{dw['reynolds']:.0f}). La pérdida por fricción resulta de "
+                    f"{tubing_friction:.0f} ft contra los "
+                    f"{friction_loss_hazen_williams(objectives.target_flow_rate, well.tubing_id, pump_depth):.0f} ft "
+                    f"que daría Hazen-Williams, que no puede representar este "
+                    f"régimen. Se adopta Darcy-Weisbach."
+                )
+        else:
+            friction_method = "hazen_williams"
+            tubing_friction = friction_loss_hazen_williams(
+                q_bpd=objectives.target_flow_rate,
+                pipe_id_in=well.tubing_id,
+                length_ft=pump_depth,
+            )
+            if mu_l is not None:
+                extra["liquid_viscosity_cp"] = mu_l
+            trace.add(
+                "friccion_hazen_williams",
+                {"C": 120.0, "q": objectives.target_flow_rate * 0.02917,
+                 "d": well.tubing_id, "L": pump_depth},
+                tubing_friction,
+                context=(
+                    "Hazen-Williams elegido a mano en el formulario."
+                    if elegido == "hazen_williams" else
+                    f"La fracción de gas libre en la admisión "
                     f"({free_gas_fraction:.3f}) no supera el umbral "
                     f"({threshold:.2f}), así que el flujo en el tubing se "
-                    f"trata como monofásico.",
-        )
+                    f"trata como monofásico"
+                    + (
+                        f", y el líquido tiene {mu_l:.1f} cp, por debajo de los "
+                        f"{PC_MAX_OIL_VISCOSITY_CP:.0f} cp a partir de los "
+                        f"cuales corresponde Darcy-Weisbach."
+                        if mu_l is not None else "."
+                    )
+                ),
+            )
 
     tdh = vertical_lift + tubing_friction + wellhead_pressure_head
     trace.add(
@@ -441,5 +1026,10 @@ def calculate_tdh(
         "free_gas_fraction": free_gas_fraction,
         "gas_fraction_threshold": threshold,
         "friction_method": friction_method,
+        # Qué correspondía por la física y qué se pidió a mano. Se publican los
+        # dos: si coinciden, el aviso viene vacío.
+        "friction_method_physics": metodo_fisica,
+        "friction_method_requested": elegido,
+        "pressure_loss_warnings": avisos_metodo,
         **extra,
     }

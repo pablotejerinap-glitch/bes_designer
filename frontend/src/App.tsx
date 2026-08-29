@@ -26,7 +26,6 @@ import { EXAMPLE_CASES, EXAMPLE_ORDER } from "./exampleCases";
 import type { DesignInputs, DesignResponse, PumpSummary } from "./api/types";
 import { WellForm } from "./components/WellForm";
 import { ResultsView } from "./components/ResultsView";
-import { SensitivityView } from "./components/SensitivityView";
 import { IprPanel } from "./components/IprPanel";
 import { FormulaCatalogView } from "./components/FormulaCatalogView";
 import { PumpLibrary } from "./components/PumpLibrary";
@@ -79,8 +78,10 @@ const BLANK_INPUTS: DesignInputs = {
     gor: 0,
     gas_sg: 0.65,
     water_sg: 1.05,
-    oil_viscosity_dead: 0,
-    viscosity_temp_ref: 100,
+    // Vacío por defecto: sin ensayo el backend lee la Fig. 4L(2). Un 0 acá
+    // era un dato falso que además hacía rebotar el diseño con 422.
+    oil_viscosity_dead: null,
+    viscosity_temp_ref: null,
     bubble_point_pressure: 0,
     h2s_content: 0,
     co2_content: 0,
@@ -438,7 +439,6 @@ export function App() {
             <Tabs.List mb="md">
               <Tabs.Tab value="design">Diseño</Tabs.Tab>
               <Tabs.Tab value="ipr">Curva IPR</Tabs.Tab>
-              <Tabs.Tab value="sensitivity">Sensibilidad</Tabs.Tab>
               <Tabs.Tab value="gas">Pozo con gas</Tabs.Tab>
               <Tabs.Tab value="affinity">Leyes de afinidad</Tabs.Tab>
               <Tabs.Tab value="library">Biblioteca ESP</Tabs.Tab>
@@ -470,10 +470,6 @@ export function App() {
 
             <Tabs.Panel value="ipr">
               <IprPanel reservoir={inputs?.reservoir ?? null} active={tab === "ipr"} />
-            </Tabs.Panel>
-
-            <Tabs.Panel value="sensitivity">
-              <SensitivityView inputs={inputs} />
             </Tabs.Panel>
 
             <Tabs.Panel value="gas">

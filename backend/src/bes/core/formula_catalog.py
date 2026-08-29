@@ -423,8 +423,34 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
         },
         reference="Brown Vol. 2b §4.5324", module="bes.core.tdh",
         note="Correlación MONOFÁSICA. Se usa cuando la fracción de gas libre "
-             "en la admisión no supera el umbral: el flujo en el tubing se "
-             "puede tratar como líquido.",
+             "en la admisión no supera el umbral —el flujo en el tubing se "
+             "puede tratar como líquido— **y** el líquido tiene menos de 5 cp. "
+             "Por encima de esa viscosidad no puede seguir al fluido, porque "
+             "se estableció con agua en régimen turbulento y su único "
+             "parámetro libre, C, describe la rugosidad de la cañería y no el "
+             "fluido: ahí manda Darcy-Weisbach.",
+    ),
+    FormulaSpec(
+        key="friccion_darcy_weisbach", topic="tdh", step="friccion",
+        label="Pérdida por fricción en el tubing (Darcy-Weisbach)",
+        expression="H_fric = f · (L/d) · v² / (2·g)", units="ft",
+        symbols={
+            "f": "Factor de fricción de Darcy [-]",
+            "L": "Longitud de tubería [ft]",
+            "d": "Diámetro interno del tubing [ft]",
+            "v": "Velocidad media del líquido [ft/s]",
+            "g": "Aceleración de la gravedad [ft/s²]",
+        },
+        reference="Darcy-Weisbach; factor turbulento por Swamee y Jain (1976), "
+                  "ajuste explícito de Colebrook-White",
+        module="bes.core.tdh",
+        note="La otra MONOFÁSICA, y la única de las dos que contempla la "
+             "viscosidad. El factor depende del régimen: f = 64/Re en laminar "
+             "(Re < 2000) y el ajuste de Swamee-Jain en turbulento "
+             "(Re > 4000), interpolando entre ambos en la transición, donde no "
+             "rige ninguna ley. En crudo pesado el flujo se vuelve laminar y "
+             "ahí f crece LINEALMENTE con la viscosidad, comportamiento que "
+             "ninguna potencia fija del caudal reproduce.",
     ),
     FormulaSpec(
         key="friccion_pc", topic="tdh", step="friccion",
@@ -494,6 +520,21 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
     ),
 
     # -------------------------------------------------------- VISCOSIDAD --
+    FormulaSpec(
+        key="visc_ssu", topic="viscosidad", step="conversion_ssu",
+        label="Viscosidad en Segundos Saybolt Universal",
+        expression="SSU = 2.273 · ( ν + sqrt( ν² + 158.4 ) )", units="SSU",
+        symbols={"ν": "Viscosidad cinemática de la mezcla a temperatura de "
+                      "bombeo, μ/γ_o [cSt]"},
+        reference="Takács, «Electrical Submersible Pumps Manual», 2ª ed. "
+                  "(2018), cap. 4, ec. 4.14, pág. 159",
+        module="bes.core.viscosity",
+        note="Es el paso 4 de Riling: las Tablas 4.520 y 4.521 se indexan por "
+             "SSU, así que sin esta conversión no se puede entrar. Reemplaza a "
+             "la lectura de la Fig. 4L-3 y también a la ASTM D2161 que usaba "
+             "el proyecto: una sola conversión para los dos caminos —Riling y "
+             "Hydraulic Institute—, que antes entraban con números distintos.",
+    ),
     FormulaSpec(
         key="visc_q_water", topic="viscosidad", step="caudal_equivalente",
         label="Caudal equivalente en agua",
@@ -813,6 +854,22 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
              "cubre la carta impresa.",
     ),
     FormulaSpec(
+        key="pc_rgl", topic="multifasico", step="envelope",
+        label="Relación gas-líquido (RGL)",
+        expression="RGL = GOR / (1 + WOR)", units="scf/bbl",
+        symbols={
+            "GOR": "Relación gas-petróleo de producción [scf/STB]",
+            "WOR": "Relación agua-petróleo, Wc/(1−Wc) [-]",
+        },
+        reference="Envelope de Poettmann & Carpenter (apuntes de cátedra)",
+        module="bes.core.multiphase",
+        note="El GOR se mide por barril de PETRÓLEO y la RGL por barril de "
+             "LÍQUIDO: en un pozo con agua no son lo mismo. Es la magnitud en "
+             "la que está declarado el límite del método —hasta 1500 scf/bbl—, "
+             "así que compararlo contra el GOR pelado daría un veredicto "
+             "equivocado en cuanto hay corte de agua.",
+    ),
+    FormulaSpec(
         key="pc_gradiente_gravedad", topic="multifasico", step="gradiente",
         label="Gradiente por gravedad",
         expression="(dP/dz)_grav = ρ_m · sen θ / 144", units="psi/ft",
@@ -842,6 +899,60 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
         note="Éste es el único término que entra al TDH cuando hay gas libre, "
              "y se integra en tramos desde el cabezal hacia abajo porque el gas "
              "se expande y carga la fricción hacia el tope.",
+    ),
+    FormulaSpec(
+        key="pc_gradiente_total", topic="multifasico", step="gradiente",
+        label="Gradiente total de la mezcla",
+        expression="(dP/dz) = (dP/dz)_grav + (dP/dz)_fric", units="psi/ft",
+        symbols={
+            "(dP/dz)_grav": "Gradiente por gravedad [psi/ft]",
+            "(dP/dz)_fric": "Gradiente por fricción [psi/ft]",
+        },
+        reference="Poettmann & Carpenter (1952)", module="bes.core.multiphase",
+        note="Es el gradiente que se integra a lo largo del pozo para obtener "
+             "el PIP y la presión de descarga. En un pozo vertical la gravedad "
+             "aporta casi todo: la fricción rara vez pasa del 5 %.",
+    ),
+    FormulaSpec(
+        key="pip_recorrido", topic="multifasico", step="pip",
+        label="Caída de presión en el anular, de las perforaciones a la bomba",
+        expression="Δp_anular = Σᵢ (dP/dz)ᵢ · Δz", units="psi",
+        symbols={
+            "(dP/dz)ᵢ": "Gradiente total de P&C en el tramo i [psi/ft]",
+            "Δz": "Largo de cada tramo de integración [ft]",
+        },
+        reference="Brown Vol. 2b §4.532", module="bes.core.tdh",
+        note="El gradiente NO es constante: depende de la presión, que es "
+             "justamente lo que se busca. Por eso el recorrido se parte en "
+             "tramos y en cada uno se itera hasta que la presión del PVT sea "
+             "consistente con la que sale. El anular usa el ID del casing.",
+    ),
+    FormulaSpec(
+        key="pip_admision", topic="multifasico", step="pip",
+        label="PIP — presión en la admisión de la bomba",
+        expression="PIP = Pwf − Δp_anular", units="psia",
+        symbols={
+            "Pwf": "Presión de fondo fluyente en las perforaciones [psia]",
+            "Δp_anular": "Caída de presión en el anular hasta la bomba [psi]",
+        },
+        reference="Brown Vol. 2b §4.532", module="bes.core.tdh",
+        note="La Pwf sale del IPR y el fluido sube por el anular hasta la "
+             "admisión perdiendo peso de columna y fricción. El PIP es el dato "
+             "que después fija la sumergencia y, con ella, el TDH.",
+    ),
+    FormulaSpec(
+        key="pip_gradiente_promedio", topic="multifasico", step="pip",
+        label="Gradiente promedio del recorrido anular",
+        expression="grad_prom = Δp_anular / (D_perf − D_bomba)", units="psi/ft",
+        symbols={
+            "Δp_anular": "Caída de presión en el anular hasta la bomba [psi]",
+            "D_perf": "Profundidad de las perforaciones [ft TVD]",
+            "D_bomba": "Profundidad de asentamiento de la bomba [ft TVD]",
+        },
+        reference="Brown Vol. 2b §4.532", module="bes.core.tdh",
+        note="No es un paso del método: es el control de mano. Se compara "
+             "contra el gradiente del líquido (≈0.43 psi/ft para agua) — si da "
+             "mucho menos, hay gas libre aligerando la columna del anular.",
     ),
 
     # ---------------------------------------------------------- AFINIDAD --
@@ -1198,11 +1309,62 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
              "pozo, por el gas que lleva disuelto y la temperatura.",
     ),
     FormulaSpec(
+        key="pvt_ppc", topic="pvt", step="pseudo_criticas",
+        label="Presión pseudo-crítica del gas (Standing)",
+        expression="P_pc = 677 + 15·γ_g − 37.5·γ_g²", units="psia",
+        symbols={"γ_g": "Gravedad específica del gas (aire = 1) [-]"},
+        reference="Standing (1977), citado en Ahmed, «Reservoir Engineering "
+                  "Handbook»",
+        module="bes.core.pvt",
+        note="Un gas natural es una mezcla y no tiene punto crítico propio: se "
+             "usan valores «pseudo» a partir de su gravedad específica. "
+             "Correlación de gas seco, válida para 0.55 ≤ γ_g ≤ 0.75. Con H₂S "
+             "o CO₂ habría que corregir (Wichert-Aziz), que el motor **no** "
+             "aplica: el catálogo no lleva composición del gas.",
+    ),
+    FormulaSpec(
+        key="pvt_tpc", topic="pvt", step="pseudo_criticas",
+        label="Temperatura pseudo-crítica del gas (Standing)",
+        expression="T_pc = 168 + 325·γ_g − 12.5·γ_g²", units="°R",
+        symbols={"γ_g": "Gravedad específica del gas (aire = 1) [-]"},
+        reference="Standing (1977), citado en Ahmed, «Reservoir Engineering "
+                  "Handbook»",
+        module="bes.core.pvt",
+        note="Misma correlación y mismo rango de validez que P_pc: las dos "
+             "salen juntas de la gravedad específica del gas.",
+    ),
+    FormulaSpec(
+        key="pvt_ppr", topic="pvt", step="pseudo_reducidas",
+        label="Presión pseudo-reducida",
+        expression="P_pr = P / P_pc", units="-",
+        symbols={
+            "P": "Presión [psia]",
+            "P_pc": "Presión pseudo-crítica [psia]",
+        },
+        reference="Definición de estado correspondiente", module="bes.core.pvt",
+        note="Es la variable con la que se entra al factor z: dos gases "
+             "distintos con la misma P_pr y T_pr tienen el mismo z.",
+    ),
+    FormulaSpec(
+        key="pvt_tpr", topic="pvt", step="pseudo_reducidas",
+        label="Temperatura pseudo-reducida",
+        expression="T_pr = (T + 460) / T_pc", units="-",
+        symbols={
+            "T": "Temperatura [°F]",
+            "460": "Conversión de °F a °R",
+            "T_pc": "Temperatura pseudo-crítica [°R]",
+        },
+        reference="Definición de estado correspondiente", module="bes.core.pvt",
+        note="La temperatura va en absoluta: dividir °F por °R daría cualquier "
+             "cosa.",
+    ),
+    FormulaSpec(
         key="pvt_z", topic="pvt", step="factor_z",
         label="Factor de compresibilidad del gas (Dranchuk–Abou-Kassem)",
         expression="z = 1 + C₁·ρ_r + C₂·ρ_r² − C₃·ρ_r⁵ + C₄", units="-",
         symbols={
-            "ρ_r": "Densidad reducida, 0.27·P_pr/(z·T_pr) [-]",
+            "ρ_r": "Densidad reducida, 0.27·P_pr/(z·T_pr), con P_pr y T_pr la "
+                   "presión y la temperatura pseudo-reducidas [-]",
             "C₁": "A₁ + A₂/T_pr + A₃/T_pr³ + A₄/T_pr⁴ + A₅/T_pr⁵",
             "C₂": "A₆ + A₇/T_pr + A₈/T_pr²",
             "C₃": "A₉ · (A₇/T_pr + A₈/T_pr²)",
@@ -1212,12 +1374,17 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
         note="Ecuación de estado de 11 constantes. Es IMPLÍCITA —z aparece a "
              "los dos lados a través de ρ_r— así que se resuelve iterando, con "
              "la correlación de Papay como semilla. Las pseudo-críticas salen "
-             "de Standing.",
+             "de Standing (ver P_pc y T_pc). Rango declarado por los autores: "
+             "1.05 ≤ T_pr ≤ 3.0 y 0.2 ≤ P_pr ≤ 30.",
     ),
     FormulaSpec(
         key="pvt_bg", topic="pvt", step="factor_volumetrico_gas",
         label="Factor volumétrico del gas",
-        expression="Bg = 0.00504 · z · (T + 460) / P", units="bbl/scf",
+        # 0.005035, NO 0.00504: es la constante que ejecuta `pvt.gas_fvf()`.
+        # El catálogo declaraba la redondeada y la pantalla mostraba una
+        # fórmula que no era la que corría — que es exactamente lo que este
+        # catálogo existe para impedir.
+        expression="Bg = 0.005035 · z · (T + 460) / P", units="bbl/scf",
         symbols={
             "z": "Factor de compresibilidad [-]",
             "T": "Temperatura [°F]",
@@ -1232,16 +1399,28 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
     FormulaSpec(
         key="pvt_bw", topic="pvt", step="factor_volumetrico_agua",
         label="Factor volumétrico del agua (McCain)",
-        expression="Bw = 1 + 1.21e-4·ΔT + 1.0e-6·ΔT² − 3.33e-6·P",
+        # La expresión declarada era OTRA correlación —una forma lineal en ΔT
+        # con un solo término en P— y no la que ejecuta `pvt.water_bw()`, que
+        # es la ec. 2-125 de Ahmed: cuadrática en presión y con los tres
+        # coeficientes A dependientes de la temperatura. No era un redondeo.
+        expression="Bw = A₁ + A₂·P + A₃·P² ,  Aᵢ = a₁ᵢ + a₂ᵢ·T + a₃ᵢ·T²",
         units="bbl/STB",
         symbols={
-            "ΔT": "Temperatura menos 60 °F [°F]",
             "P": "Presión [psia]",
+            "T": "Temperatura [°F]",
+            "Aᵢ": "Coeficientes de presión, cada uno cuadrático en temperatura",
+            "a₁ᵢ": "Término independiente del coeficiente Aᵢ [tabulado]",
+            "a₂ᵢ": "Término lineal en temperatura del coeficiente Aᵢ [tabulado]",
+            "a₃ᵢ": "Término cuadrático en temperatura del coeficiente Aᵢ [tabulado]",
         },
-        reference="McCain, «The Properties of Petroleum Fluids»",
+        reference="McCain (1990), «The Properties of Petroleum Fluids», 2ª ed.; "
+                  "reproducida en Ahmed (2010), ec. 2-125",
         module="bes.core.pvt",
         note="El agua se expande con la temperatura y se comprime con la "
-             "presión; los dos efectos son chicos y se compensan en parte.",
+             "presión; los dos efectos son chicos y se compensan en parte. Los "
+             "coeficientes son los de agua **libre de gas**: el agua de "
+             "formación disuelve muy poco, y la corrección por salinidad no se "
+             "aplica porque el modelo de fluido no lleva composición del agua.",
     ),
     FormulaSpec(
         key="pvt_mu_muerta", topic="pvt", step="viscosidad_muerta",

@@ -16,7 +16,7 @@ Leé primero `.claude/rules/api-contract.md` y `.claude/rules/architecture.md`.
    - Request: `Reservoir(**schema.model_dump())` (+ lookup de enums string→enum).
    - Response: `Schema(**dataclasses.asdict(dr))` (+ enum→string).
 3. **Servicio**: la lógica va en `bes/services/` (o ya existe: `nodal_service`,
-   `sensitivity_service`, `recommendation_engine`). **No** poner lógica en el router.
+   `nodal_service`, `recommendation_engine`). **No** poner lógica en el router.
 4. **Router** (`bes/api/routers/`): endpoint delgado — valida entrada (Pydantic),
    llama al servicio, mapea la salida. `ValueError`→422 lo maneja el handler central.
 5. **Gráficos**: si el endpoint devuelve un gráfico, llamá al builder de

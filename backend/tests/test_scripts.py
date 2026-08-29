@@ -17,7 +17,11 @@ _SCRIPTS = _ROOT / "scripts"
 
 # Scripts retirados: se conservan como registro histórico pero abortan al
 # importarse, así que quedan fuera de los chequeos de import y de rutas.
-_RETIRED = {"generate_pump_curves"}
+#
+# ``ingest_championx`` se retiró en ago-2026: reintroduce equipos de ChampionX,
+# fabricante que la purga de proveedores eliminó del proyecto. Su último
+# reducto era el catálogo de manejadores de gas, ahora REDA.
+_RETIRED = {"generate_pump_curves", "ingest_championx"}
 
 SCRIPT_NAMES = sorted(
     p.stem for p in _SCRIPTS.glob("*.py")
@@ -46,9 +50,16 @@ def _load(name: str):
     return module
 
 
-def test_there_are_scripts_to_check() -> None:
-    """Si el glob no encuentra nada, los tests de abajo pasarían en vacío."""
-    assert SCRIPT_NAMES, f"no se encontraron scripts en {_SCRIPTS}"
+def test_el_glob_encuentra_la_carpeta() -> None:
+    """Si el glob no ve nada, los tests de abajo pasarían en vacío.
+
+    Se cuenta el total —vivos **más** retirados—, no sólo los vivos: hoy los dos
+    scripts que quedan están retirados, así que exigir vivos haría fallar la
+    suite por una condición que no es un error. Lo que se está protegiendo es
+    que la carpeta no se mueva sin que nadie se entere.
+    """
+    todos = [p.stem for p in _SCRIPTS.glob("*.py") if not p.stem.startswith("_")]
+    assert todos, f"no se encontraron scripts en {_SCRIPTS}"
 
 
 @pytest.mark.parametrize("name", SCRIPT_NAMES)

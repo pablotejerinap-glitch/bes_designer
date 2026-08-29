@@ -533,7 +533,15 @@ def generate_design_report(
     # Equipment summary table
     _cable_len = _num(getattr(dr, "pump_setting_depth", None), ",.0f")
     _seal = f"{dr.seal_manufacturer} {dr.seal_model}".strip() if dr.seal_model else "No seleccionado"
+    # El consumo del separador se publica al lado del equipo: el motor se
+    # dimensionó con esos hp adentro, así que el número tiene que estar a la
+    # vista para que la cuenta de potencia cierre.
+    # El consumo sale del catálogo por modelo (REDA lo publica a 60 Hz), y con
+    # dos equipos en el eje —tándem, o separador + manejador avanzado— es la
+    # suma de los dos. Por eso se publica la cantidad además del hp.
     _gh = (f"{dr.gas_handler_manufacturer} {dr.gas_handler_model}".strip()
+           + (f" ×{dr.gas_handler_count}" if dr.gas_handler_count > 1 else "")
+           + (f"  (+{dr.gas_handler_hp:.1f} hp)" if dr.gas_handler_hp else "")
            if dr.gas_handler_model else "No requerido")
     _sn = (f"{dr.sensor_manufacturer} {dr.sensor_model}".strip()
            if dr.sensor_model else "No incluido")
@@ -596,7 +604,9 @@ def generate_design_report(
             ["GOR", _num(fluid.gor, ".0f"), "scf/STB"],
             ["Gravedad específica del gas", _num(fluid.gas_sg, ".3f"), "—"],
             ["Gravedad específica del agua", _num(fluid.water_sg, ".3f"), "—"],
-            ["Viscosidad crudo muerto", _num(fluid.oil_viscosity_dead, ".2f"), "cp"],
+            ["Viscosidad crudo muerto",
+             _num(fluid.oil_viscosity_dead, ".2f",
+                  fallback="Sin ensayo — Fig. 4L(2)"), "cp"],
             ["H2S", _num(fluid.h2s_content, ".0f"), "ppm"],
             ["CO2", _num(fluid.co2_content, ".0f"), "ppm"],
             ["Producción de arena", "Sí" if fluid.sand_production else "No", "—"],

@@ -18,8 +18,6 @@ import type {
   NodalResponse,
   PlotlyFigure,
   ReservoirInput,
-  SensitivityRequest,
-  SensitivityResponse,
   TubularCatalog,
 } from "./types";
 
@@ -176,6 +174,12 @@ export const api = {
     stages: number;
     /** Frecuencia de operación [Hz]: reescala la curva de catálogo. */
     frequency?: number;
+    /** Sólo pozos con gas: dibuja la zona operativa del método de
+     *  incrementos (0.75 a 1.25 × el caudal representativo) con los caudales
+     *  de admisión y descarga marcados. */
+    q_representative?: number;
+    q_intake?: number;
+    q_discharge?: number;
   }) => {
     const q = new URLSearchParams({
       pump_model: p.pump_model,
@@ -183,6 +187,13 @@ export const api = {
       stages: String(p.stages),
     });
     if (p.frequency) q.set("frequency", String(p.frequency));
+    // Las tres van juntas o no va ninguna: sin el representativo no hay banda
+    // contra la cual leer los extremos.
+    if (p.q_representative) {
+      q.set("q_representative", String(p.q_representative));
+      if (p.q_intake) q.set("q_intake", String(p.q_intake));
+      if (p.q_discharge) q.set("q_discharge", String(p.q_discharge));
+    }
     return request<{ figure: PlotlyFigure }>(`/api/plots/pump-curve?${q}`);
   },
   // Curva IPR sin diseño previo: sólo necesita el reservorio.
@@ -238,8 +249,6 @@ export const api = {
     request<{ figure: PlotlyFigure }>(
       `/api/plots/pump-catalog-curve?${new URLSearchParams({ pump_model })}`
     ),
-  sensitivity: (req: SensitivityRequest) =>
-    request<SensitivityResponse>("/api/sensitivity", req),
   // Método de incrementos de presión para pozos con gas (Brown §4.53103):
   // resuelve la bomba tramo por tramo desde la admisión hasta la descarga.
   gasIncrementDesign: (req: GasIncrementRequest) =>

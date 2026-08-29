@@ -10,6 +10,8 @@ Numerical references
 - Bg at SC: 0.00504×1×520/14.7 = 0.1783 bbl/scf — used to validate gas_bg().
 """
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 
@@ -461,3 +463,57 @@ class TestMixtureSpecificGravity:
     def test_positive(self, base_fluid):
         sg = mixture_specific_gravity(base_fluid, p=1500, t=160)
         assert sg > 0.0
+
+
+# ---------------------------------------------------------------------------
+# La cadena que alimenta al factor z
+# ---------------------------------------------------------------------------
+
+class TestLaCadenaDelFactorZ:
+    """El z no aparece de la nada: se entra por P_pr y T_pr, y ésas por Standing.
+
+    La traza publicaba el z solo, con una densidad reducida que además estaba
+    mal calculada (usaba la presión absoluta en vez de la pseudo-reducida y se
+    olvidaba de T_pr), así que la correlación no se podía auditar.
+    """
+
+    def _paso(self, fluido: Fluid, clave: str, p=1200.0, t=180.0) -> dict:
+        from bes.core.pvt import pvt_trace
+        return next(f for f in pvt_trace(fluido, p, t) if f["key"] == clave)
+
+    def test_las_pseudo_criticas_salen_de_standing(self, base_fluid):
+        from bes.core.pvt import _pseudo_critical_standing
+        ppc, tpc = _pseudo_critical_standing(base_fluid.gas_sg)
+        assert self._paso(base_fluid, "pvt_ppc")["result"] == pytest.approx(ppc)
+        assert self._paso(base_fluid, "pvt_tpc")["result"] == pytest.approx(tpc)
+
+    def test_las_reducidas_dividen_por_las_criticas(self, base_fluid):
+        ppc = self._paso(base_fluid, "pvt_ppc")["result"]
+        tpc = self._paso(base_fluid, "pvt_tpc")["result"]
+        assert self._paso(base_fluid, "pvt_ppr")["result"] == pytest.approx(
+            1200.0 / ppc
+        )
+        assert self._paso(base_fluid, "pvt_tpr")["result"] == pytest.approx(
+            (180.0 + 460.0) / tpc
+        )
+
+    def test_la_temperatura_reducida_va_en_absoluta(self, base_fluid):
+        """Dividir °F por °R daría cualquier cosa: T_pr tiene que dar ~1.7."""
+        assert 1.05 <= self._paso(base_fluid, "pvt_tpr")["result"] <= 3.0
+
+    def test_la_densidad_reducida_es_la_de_dak(self, base_fluid):
+        """ρ_r = 0.27·P_pr/(z·T_pr), no 0.27·P/z."""
+        z = self._paso(base_fluid, "pvt_z")
+        ppr = self._paso(base_fluid, "pvt_ppr")["result"]
+        tpr = self._paso(base_fluid, "pvt_tpr")["result"]
+        assert z["inputs"]["ρ_r"] == pytest.approx(
+            0.27 * ppr / (z["result"] * tpr)
+        )
+        assert z["inputs"]["P_pr"] == pytest.approx(ppr)
+        assert z["inputs"]["T_pr"] == pytest.approx(tpr)
+
+    def test_fuera_del_rango_de_la_correlacion_se_avisa(self, base_fluid):
+        """γ_g = 0.95 está fuera del 0.55–0.75 de Standing: se usa igual, avisando."""
+        pesado = replace(base_fluid, gas_sg=0.95)
+        assert "fuera del rango" in self._paso(pesado, "pvt_ppc")["context"]
+        assert self._paso(base_fluid, "pvt_ppc")["context"] == ""

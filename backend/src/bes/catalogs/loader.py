@@ -440,27 +440,60 @@ class CatalogManager:
         flow_bpd: float,
         casing_id_in: float,
         prefer_type: str = "vortex",
+        require_separation: bool = True,
     ) -> Optional[dict]:
         """Elige un manejador de gas para el caudal, que entre en el casing.
 
         Filtra por rango de caudal (``min_flow_bpd <= caudal <= max_flow_bpd``) y
         por que entre en el casing (``od_inches < casing_id_in``), prefiere
-        ``prefer_type`` (los separadores de vórtice son los de mayor eficiencia) y
-        entre los que quedan toma el de mayor ``max_efficiency``.
+        ``prefer_type`` (el vórtice tiene, según REDA, un rango más amplio que el
+        rotativo) y entre los que quedan elige por eficiencia de separación.
+
+        **El caudal es un filtro obligatorio, no un criterio.** Un modelo sin
+        rango publicado —los rotativos ARS/CRS/DRS de REDA, que sólo figuran en
+        las tablas de armado— no se puede verificar contra el pozo, así que no
+        se ofrece. Suponerle un rango sería inventar el dato.
+
+        **El desempate NO es sólo la eficiencia.** REDA no publica la eficiencia
+        de separación de ninguno de sus equipos, así que con este catálogo el
+        criterio es constante y no ordena nada. Cuando todos empatan manda el de
+        **menor consumo**, que es potencia que el motor no tiene que dar: el
+        separador va en el mismo eje que la bomba.
+
+        Args:
+            flow_bpd: Caudal total (líquido + gas) en la admisión [bpd].
+            casing_id_in: Diámetro interno del casing [in].
+            prefer_type: Tipo preferido (``"vortex"`` / ``"rotary"`` / ``"agh"``).
+            require_separation: Si es ``True`` (default) descarta los equipos que
+                **no separan gas**. El AGH no es un separador: homogeneiza la
+                mezcla para que la bomba pueda bombearla (hasta 45 % de GVF),
+                pero el gas sigue entrando. Tratarlo como separador le
+                atribuiría una eficiencia de separación que no tiene.
 
         Returns:
             El manejador elegido, o ``None`` si ninguno califica.
         """
         candidates = [
             g for g in self._gas_handlers
-            if g["min_flow_bpd"] <= flow_bpd <= g["max_flow_bpd"]
+            if g.get("min_flow_bpd") is not None
+            and g.get("max_flow_bpd") is not None
+            and g["min_flow_bpd"] <= flow_bpd <= g["max_flow_bpd"]
             and g["od_inches"] < casing_id_in
+            and (not require_separation or g.get("separates_gas", True))
         ]
         if not candidates:
             return None
         preferred = [g for g in candidates if g.get("type") == prefer_type]
         pool = preferred if preferred else candidates
-        return max(pool, key=lambda g: g.get("max_efficiency") or 0.0)
+        # Eficiencia conocida y alta primero; a igualdad, el que menos consume.
+        return min(
+            pool,
+            key=lambda g: (
+                -(g.get("max_efficiency") or 0.0),
+                g.get("hp") if g.get("hp") is not None else float("inf"),
+                g.get("model", ""),
+            ),
+        )
 
     # ------------------------------------------------------------------
     # Sensor queries

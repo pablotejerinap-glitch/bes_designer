@@ -17,6 +17,20 @@ import { DesignCharts } from "./DesignCharts";
 import { ComparisonView } from "./ComparisonView";
 import { FormulaTraceSection } from "./FormulaTrace";
 
+/** Los cuatro escalones de la escalera de manejo de gas, en castellano.
+ *
+ * Los tres primeros RETIRAN gas; el cuarto no: el manejador avanzado
+ * acondiciona la mezcla para que la bomba la pueda impulsar con el gas
+ * adentro. Por eso lleva etiqueta propia y no se lo llama «separador».
+ */
+const ETIQUETA_GAS: Record<string, string> = {
+  ninguno: "sin separador",
+  simple: "separador simple",
+  tandem: "separador en tándem",
+  agh: "manejador avanzado (AGH)",
+  no_viable: "no viable — cambiar de método",
+};
+
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <Card padding="sm">
@@ -132,7 +146,26 @@ function RecPanel({
     ],
     ["Transformador", `${Math.round(d.transformer_kva)} kVA`],
     ["Sello / protector", d.seal_model ? `${d.seal_manufacturer} ${d.seal_model}` : "—"],
-    ["Manejo de gas", d.gas_handler_model ? `${d.gas_handler_manufacturer} ${d.gas_handler_model}` : "—"],
+    [
+      "Manejo de gas",
+      d.gas_handler_model
+        ? `${d.gas_handler_manufacturer} ${d.gas_handler_model}` +
+          // Cuántos equipos cuelgan del eje: separador simple, tándem, o
+          // separador + manejador avanzado. El consumo es la suma de todos.
+          (d.gas_handler_count > 1 ? ` ×${d.gas_handler_count}` : "") +
+          (d.gas_strategy ? ` · ${ETIQUETA_GAS[d.gas_strategy] ?? d.gas_strategy}` : "") +
+          (d.gas_handler_hp ? ` · +${d.gas_handler_hp.toFixed(1)} hp al motor` : "")
+        : "—",
+    ],
+    [
+      "Gas libre en la bomba",
+      d.gas_fraction_at_pump
+        ? `${(d.gas_fraction_at_pump * 100).toFixed(1)} %` +
+          (d.gas_strategy === "agh"
+            ? " (el manejador avanzado no lo retira: lo tolera)"
+            : "")
+        : "—",
+    ],
     ["Sensor", d.sensor_model ? `${d.sensor_manufacturer} ${d.sensor_model}` : "—"],
   ];
 

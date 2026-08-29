@@ -162,7 +162,10 @@ def _build_inputs(ws, well_data: dict) -> None:
             ("GOR",                 round(fluid.gor, 0),                               "scf/STB"),
             ("Gr. esp. gas",        round(fluid.gas_sg, 3),                           "—"),
             ("Gr. esp. agua",       round(fluid.water_sg, 3),                         "—"),
-            ("Viscosidad dead oil", round(fluid.oil_viscosity_dead, 2),               "cp"),
+            # Sin ensayo el valor no existe: se dice, no se inventa un cero.
+            ("Viscosidad dead oil", (round(fluid.oil_viscosity_dead, 2)
+                                     if fluid.oil_viscosity_dead is not None
+                                     else "Sin ensayo — Fig. 4L(2)"),           "cp"),
             ("H2S",                 round(fluid.h2s_content, 0),                      "ppm"),
             ("CO2",                 round(fluid.co2_content, 0),                      "ppm"),
             ("Producción de arena", "Sí" if fluid.sand_production else "No",          "—"),
@@ -388,9 +391,16 @@ def _build_electrico(ws, dr: DesignResult) -> None:
     _header_row(ws, row, ["Parámetro", "Valor", "Unidad"])
     row += 1
 
+    # La eficiencia de separación puede no estar publicada por el fabricante
+    # (REDA no la publica para ninguno de sus equipos). En ese caso NO se
+    # imprime un 0 %, que se leería como «no separa nada»: se dice que no está
+    # publicada y el veredicto aclara qué se supuso en su lugar.
+    _eta = (f"η {dr.gas_handler_efficiency:.0%}" if dr.gas_handler_efficiency
+            else "η no publicada")
     gh_val = (
-        f"{dr.gas_handler_manufacturer} {dr.gas_handler_model} "
-        f"({dr.gas_handler_type}, η {dr.gas_handler_efficiency:.0%})"
+        f"{dr.gas_handler_manufacturer} {dr.gas_handler_model}"
+        + (f" ×{dr.gas_handler_count}" if dr.gas_handler_count > 1 else "")
+        + f" ({dr.gas_handler_type}, {_eta}, +{dr.gas_handler_hp:.1f} hp)"
         if dr.gas_handler_model else "No requerido (GIP bajo)"
     )
     sn_val = (

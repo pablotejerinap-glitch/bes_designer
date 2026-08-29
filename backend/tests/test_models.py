@@ -232,6 +232,52 @@ class TestFluid:
             )
 
 
+class TestLaViscosidadMedidaEsOpcional:
+    """Sin ensayo de laboratorio el diseño tiene que poder correr igual.
+
+    El procedimiento de Riling lee la viscosidad de la **Fig. 4L(2)** con la
+    °API y la temperatura de admisión: el ensayo es un refinamiento, no un
+    requisito. Exigirlo obligaba a inventar un número, que es justo lo que no
+    se puede hacer en una tesis.
+
+    La distinción que fija esta clase es ``None`` (no hay dato) contra ``0``
+    (un dato falso): un crudo de viscosidad cero no existe.
+    """
+
+    def _fluido(self, **kw) -> Fluid:
+        base = dict(
+            oil_api=16.0, water_cut=0.7, gor=900.0, gas_sg=0.66, water_sg=1.02,
+            oil_viscosity_dead=None, viscosity_temp_ref=None,
+            bubble_point_pressure=2200.0, h2s_content=0.0, co2_content=0.0,
+            sand_production=False,
+        )
+        return Fluid(**{**base, **kw})
+
+    def test_sin_ensayo_el_fluido_se_construye(self):
+        f = self._fluido()
+        assert f.oil_viscosity_dead is None
+        assert f.viscosity_temp_ref is None
+
+    def test_con_ensayo_completo_sigue_valiendo(self):
+        f = self._fluido(oil_viscosity_dead=150.0, viscosity_temp_ref=120.0)
+        assert f.oil_viscosity_dead == 150.0
+
+    def test_cero_no_es_ausencia_de_dato(self):
+        """Cero es un valor, y es falso. Se rechaza y el mensaje dice qué hacer."""
+        with pytest.raises(ValueError, match="oil_viscosity_dead"):
+            self._fluido(oil_viscosity_dead=0.0, viscosity_temp_ref=120.0)
+
+    def test_un_ensayo_sin_su_temperatura_no_sirve(self):
+        """La viscosidad varía exponencialmente con T: el dato solo no se puede usar."""
+        with pytest.raises(ValueError, match="viscosity_temp_ref"):
+            self._fluido(oil_viscosity_dead=150.0, viscosity_temp_ref=None)
+
+    def test_la_temperatura_sola_es_inofensiva(self):
+        """Sobra, pero no miente: se ignora y la lámina resuelve igual."""
+        f = self._fluido(viscosity_temp_ref=120.0)
+        assert f.oil_viscosity_dead is None
+
+
 # ---------------------------------------------------------------------------
 # WellGeometry
 # ---------------------------------------------------------------------------

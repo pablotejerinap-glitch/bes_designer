@@ -296,20 +296,6 @@ def test_nodal_unknown_pump_422(client: TestClient) -> None:
     assert "NO-EXISTE" in r.json()["detail"]
 
 
-def test_sensitivity(client: TestClient) -> None:
-    p = _payload()
-    body = {"reservoir": p["reservoir"], "fluid": p["fluid"], "well": p["well"],
-            "surface": p["surface"], "objectives": p["objectives"],
-            "param": "water_cut", "pct_range_pct": 30, "n_points": 5}
-    r = client.post("/api/sensitivity", json=body)
-    assert r.status_code == 200, r.text
-    b = r.json()
-    assert b["param"] == "water_cut"
-    assert len(b["param_values"]) >= 1
-    assert set(b["metrics"]) == {"HP", "Etapas", "Eficiencia (%)", "TDH (ft)"}
-    _assert_figure(b["figure"])
-
-
 def test_report_pdf(client: TestClient) -> None:
     r = client.post("/api/reports/pdf", json=_payload())
     assert r.status_code == 200, r.text
@@ -588,13 +574,46 @@ def test_gas_design_una_sola_bomba(client: TestClient) -> None:
 
 
 def test_gas_design_reporta_la_viabilidad_por_gas(client: TestClient) -> None:
-    """El veredicto del separador viaja en la respuesta, con sus números."""
+    """El veredicto del manejo de gas viaja en la respuesta, con sus números.
+
+    El pozo del payload trae ``max_gip = 0.7``, un valor heredado con el que la
+    verificación no filtra nada: con 63 % de gas libre la escalera se queda en
+    el primer escalón y **no instala separador**. Eso es lo correcto —no se
+    pone equipo que no hace falta— y por eso ``separator_model`` es ``None``.
+    Lo que se verifica acá es que la escalera se publique entera.
+    """
     body = client.post("/api/gas/design", json=_gas_design_payload()).json()
     f = body["feasibility"]
     assert f["viable"] is True
-    assert f["f_intake"] > f["f_pump"], "el separador tiene que bajar el gas"
-    assert f["f_pump"] <= f["max_gip"]
-    assert f["separator_model"]
+    assert f["strategy"] == "ninguno"
+    assert f["n_separators"] == 0
+    assert f["separator_model"] is None
+    assert f["f_pump"] <= f["tolerance"] == f["max_gip"]
+    assert f["switch_lift_method"] is False
+    assert f["uses_agh"] is False
+
+
+def test_gas_design_con_max_gip_realista_instala_separador(
+    client: TestClient,
+) -> None:
+    """Con el límite del dominio (10 %), el mismo pozo sí necesita equipo.
+
+    63 % de gas libre en la admisión: el separador solo no basta y el pozo sube
+    hasta el manejador avanzado, que tolera 45 % de GVF. El equipo elegido y su
+    modelo tienen que viajar en la respuesta — es la trazabilidad de qué se
+    supuso.
+    """
+    payload = _gas_design_payload()
+    payload["objectives"]["max_gip"] = 0.10
+    f = client.post("/api/gas/design", json=payload).json()["feasibility"]
+    assert f["viable"] is True
+    assert f["strategy"] == "agh"
+    assert f["uses_agh"] is True
+    assert f["agh_model"]
+    assert f["separator_model"], "el separador que igual va en la sarta"
+    # El manejador NO retira gas: sube la tolerancia, no baja f_pump.
+    assert f["f_pump"] > f["max_gip"]
+    assert f["f_pump"] <= f["tolerance"] == f["agh_max_gvf"]
 
 
 def test_gas_design_gas_excesivo_422(client: TestClient) -> None:
@@ -726,6 +745,47 @@ class TestCatalogoDeFormulas:
         assert corridas <= declaradas, sorted(corridas - declaradas)
 
 
+class TestLaViscosidadMedidaNoEsObligatoriaEnLaAPI:
+    """Un pozo sin ensayo de viscosidad tiene que poder diseñarse por la API.
+
+    El campo era ``Field(..., gt=0)`` en los dos lados del contrato, así que
+    mandar 0 —o no mandar nada— rebotaba con 422 antes de llegar a calcular.
+    Como el motor lee la Fig. 4L(2) cuando no hay dato, el requisito era del
+    contrato, no de la física.
+    """
+
+    def test_omitir_el_campo_no_rompe_el_diseno(self, client: TestClient) -> None:
+        p = _payload("oil")
+        del p["fluid"]["oil_viscosity_dead"]
+        del p["fluid"]["viscosity_temp_ref"]
+        r = client.post("/api/design", json=p)
+        assert r.status_code == 200, r.text
+        assert r.json()["recommendations"]
+
+    def test_mandarlo_en_null_es_lo_mismo(self, client: TestClient) -> None:
+        p = _payload("oil")
+        p["fluid"]["oil_viscosity_dead"] = None
+        p["fluid"]["viscosity_temp_ref"] = None
+        r = client.post("/api/design", json=p)
+        assert r.status_code == 200, r.text
+
+    def test_cero_sigue_siendo_un_error(self, client: TestClient) -> None:
+        """Ausencia de dato es null, no cero: un crudo de 0 cp no existe."""
+        p = _payload("oil")
+        p["fluid"]["oil_viscosity_dead"] = 0.0
+        assert client.post("/api/design", json=p).status_code == 422
+
+    def test_una_medicion_sin_su_temperatura_se_rechaza(
+        self, client: TestClient
+    ) -> None:
+        p = _payload("oil")
+        p["fluid"]["oil_viscosity_dead"] = 150.0
+        p["fluid"]["viscosity_temp_ref"] = None
+        r = client.post("/api/design", json=p)
+        assert r.status_code == 422
+        assert "viscosity_temp_ref" in r.text
+
+
 class TestElContratoSigueAlDominio:
     """El esquema de la API no puede quedarse atrás de la dataclass del dominio.
 
@@ -793,3 +853,138 @@ class TestElContratoSigueAlDominio:
         assert [f for f in tramos if f["applies"] is False], (
             "el tramo que no gobierna se marca como tal, no se omite"
         )
+
+
+class TestElSelectorDePerdidaDeCargaEnLaAPI:
+    """El método de pérdida de carga viaja por el contrato; el umbral no.
+
+    Son dos cosas distintas y sólo una es del usuario: elegir la correlación,
+    sí; mover el corte de gas con que se la elige sola, no.
+    """
+
+    def _pedido(self, metodo, **pozo):
+        req = copy.deepcopy(_WELL_OIL)
+        req["objectives"].pop("gas_fraction_pc_threshold", None)
+        req["objectives"]["pressure_loss_method"] = metodo
+        req["well"].update(pozo)
+        req["n"] = 1
+        return req
+
+    def test_el_campo_es_opcional(self, client):
+        """Sin el campo el diseño corre igual: lo decide la física."""
+        req = self._pedido(None)
+        del req["objectives"]["pressure_loss_method"]
+        assert client.post("/api/design", json=req).status_code == 200
+
+    def test_se_puede_elegir_poettmann_carpenter(self, client):
+        r = client.post("/api/design", json=self._pedido("poettmann_carpenter"))
+        assert r.status_code == 200
+        diseno = r.json()["recommendations"][0]["design"]
+        assert diseno["friction_method"] == "poettmann_carpenter"
+
+    def test_pc_con_tuberia_fuera_de_rango_falla_con_422(self, client):
+        """La restricción del tubing es dura y el mensaje dice qué hacer."""
+        r = client.post(
+            "/api/design",
+            json=self._pedido("poettmann_carpenter", tubing_od=4.5, tubing_id=3.958),
+        )
+        assert r.status_code == 422
+        assert "2 3/8, 2 7/8, 3 1/2" in r.json()["detail"]
+
+    def test_forzar_monofasico_en_un_pozo_con_gas_avisa(self, client):
+        r = client.post("/api/design", json=self._pedido("hazen_williams"))
+        assert r.status_code == 200
+        diseno = r.json()["recommendations"][0]["design"]
+        assert diseno["friction_method"] == "hazen_williams"
+        assert any("SUBESTIMADA" in w for w in diseno["warnings"])
+
+    def test_un_metodo_que_no_existe_se_rechaza_en_el_schema(self, client):
+        r = client.post("/api/design", json=self._pedido("beggs_brill"))
+        assert r.status_code == 422
+
+    def test_el_umbral_de_gas_sigue_sin_exponerse(self, client):
+        """El selector agrega el método al contrato, NO el umbral."""
+        schema = client.get("/openapi.json").json()
+        objetivos = schema["components"]["schemas"]["ObjectivesSchema"]["properties"]
+        assert "pressure_loss_method" in objetivos
+        assert "gas_fraction_pc_threshold" not in objetivos
+
+
+class TestLaEscaleraDeGasLlegaPorLaApi:
+    """El contrato sigue al dominio: Pydantic descarta en silencio lo que no declara.
+
+    Los campos de la escalera de gas se agregaron a ``DesignResult`` y sin
+    declararlos en ``DesignResultSchema`` viajaban perdidos hasta la pantalla
+    sin que fallara nada. Es el mismo mecanismo que documenta
+    ``.claude/rules/api-contract.md``.
+    """
+
+    CAMPOS = (
+        "gas_handler_count", "gas_strategy", "gas_fraction_at_pump",
+        "switch_lift_method", "gas_verdict",
+    )
+
+    def test_el_schema_declara_los_campos_del_dominio(self):
+        import dataclasses
+        from bes.api.schemas.outputs import DesignResultSchema
+        from bes.core.models import DesignResult
+
+        del_dominio = {f.name for f in dataclasses.fields(DesignResult)}
+        del_schema = set(DesignResultSchema.model_fields)
+        for campo in self.CAMPOS:
+            assert campo in del_dominio, f"{campo} no está en DesignResult"
+            assert campo in del_schema, (
+                f"{campo} está en el dominio pero no en el schema: viajaría perdido"
+            )
+
+
+class TestLaZonaOperativaLlegaAlGrafico:
+    """Del diseño con gas a la figura, sin que el front calcule nada."""
+
+    def _design(self, client):
+        r = client.post("/api/gas/design", json=_gas_design_payload())
+        assert r.status_code == 200, r.text
+        return r.json()["design"]
+
+    def test_el_diseno_con_gas_publica_los_tres_caudales(self, client):
+        d = self._design(client)
+        assert d["gas_q_representative_bpd"] > 0
+        # Con gas el caudal CAE a lo largo de la bomba: el gas se comprime y
+        # parte pasa a solución. La admisión es el extremo alto.
+        assert d["gas_q_intake_bpd"] > d["gas_q_discharge_bpd"]
+
+    def test_el_diseno_convencional_no_los_trae(self, client):
+        r = client.post("/api/design", json={**copy.deepcopy(_WELL_HIGH_RATE),
+                                             "n": 1})
+        assert r.status_code == 200, r.text
+        d = r.json()["recommendations"][0]["design"]
+        assert d["gas_q_representative_bpd"] == 0.0
+
+    def test_la_figura_dibuja_la_zona_con_esos_caudales(self, client):
+        d = self._design(client)
+        fig = client.get("/api/plots/pump-curve", params={
+            "pump_model": d["pump_model"],
+            "operating_flow": d["flow_rate_achieved"],
+            "stages": d["num_stages"],
+            "q_representative": d["gas_q_representative_bpd"],
+            "q_intake": d["gas_q_intake_bpd"],
+            "q_discharge": d["gas_q_discharge_bpd"],
+        }).json()["figure"]
+        textos = " | ".join(a.get("text", "") for a in
+                            fig["layout"]["annotations"])
+        assert "Zona operativa del método de gas" in textos
+        assert "q admisión (entra)" in textos and "q descarga (sale)" in textos
+        # La banda del fabricante no se pierde.
+        assert "Rango operativo recomendado" in textos
+
+    def test_sin_las_cotas_la_curva_sale_como_siempre(self, client):
+        d = self._design(client)
+        fig = client.get("/api/plots/pump-curve", params={
+            "pump_model": d["pump_model"],
+            "operating_flow": d["flow_rate_achieved"],
+            "stages": d["num_stages"],
+        }).json()["figure"]
+        textos = " | ".join(a.get("text", "") for a in
+                            fig["layout"]["annotations"])
+        assert "Zona operativa" not in textos
+        assert "Rango operativo recomendado" in textos

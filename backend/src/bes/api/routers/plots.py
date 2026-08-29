@@ -1,6 +1,6 @@
 """GET /api/plots/* — figuras de Plotly en JSON, para gráficos sin cálculo extra.
 
-Los gráficos que acompañan un cálculo (nodal, sensibilidad, escalera de gas)
+Los gráficos que acompañan un cálculo (nodal, escalera de gas)
 viajan **dentro** de la respuesta de ese endpoint, porque dependen de él. Este
 router cubre los que el frontend pide por separado, como la curva de una bomba
 del catálogo, que no necesita resolver ningún pozo.
@@ -49,6 +49,22 @@ def get_pump_curve(
         description="Frecuencia de operación [Hz]. Reescala la curva de catálogo "
                     "con las leyes de afinidad. Omitir = curva tal como se publicó.",
     ),
+    q_representative: float | None = Query(
+        None, gt=0,
+        description="Sólo pozos con gas: caudal de mezcla representativo con "
+                    "el que se eligió la bomba [bpd]. Dibuja la zona operativa "
+                    "del método de incrementos (0.75 a 1.25 x este valor).",
+    ),
+    q_intake: float | None = Query(
+        None, gt=0,
+        description="Sólo pozos con gas: caudal de mezcla que ENTRA a la bomba "
+                    "[bpd]. Se marca sobre la zona operativa.",
+    ),
+    q_discharge: float | None = Query(
+        None, gt=0,
+        description="Sólo pozos con gas: caudal de mezcla que SALE de la bomba "
+                    "[bpd], ya comprimido. Se marca sobre la zona operativa.",
+    ),
     catalog=Depends(get_catalog),
 ) -> FigureResponse:
     """Curva head/eficiencia/HP de una bomba con el punto de operación marcado.
@@ -57,13 +73,28 @@ def get_pump_curve(
     punto de operación). Para ver una bomba del catálogo sin un diseño previo,
     usar ``/pump-catalog-curve``. Un ``pump_model`` inexistente sale como HTTP
     422 (handler central).
+
+    Con ``q_representative`` se agrega la **zona operativa del método de gas**:
+    la banda 0.75-1.25 x q_rep con los caudales de admisión y descarga
+    marcados. El rango operativo de catálogo —la banda de color del
+    fabricante— se dibuja siempre, con gas o sin gas: son dos cosas distintas.
     """
     pump = resolve_pump(catalog, pump_model)
     if frequency:
         # El catálogo publica a 60 Hz; a otra frecuencia la curva es otra.
         from bes.core.affinity import pump_at_frequency
         pump = pump_at_frequency(pump, frequency)
-    fig = plot_pump_curve(pump, operating_flow=operating_flow, stages=stages)
+    fig = plot_pump_curve(
+        pump, operating_flow=operating_flow, stages=stages,
+        gas_zone=(
+            {
+                "q_representative": q_representative,
+                "q_intake": q_intake,
+                "q_discharge": q_discharge,
+            }
+            if q_representative else None
+        ),
+    )
     return FigureResponse(figure=json.loads(fig.to_json()))
 
 

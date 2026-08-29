@@ -26,12 +26,56 @@ from dataclasses import dataclass
 
 import pdfplumber
 
-HEAD_COLOR = "(1.0, 0.68, 0.0, 0.3)"
-EFF_COLOR = "(0.0, 0.0, 0.0, 1.0)"
-POWER_COLOR = "(0.0, 1.0, 1.0, 0.0)"
+HEAD_COLOR = "head"
+EFF_COLOR = "efficiency"
+POWER_COLOR = "power"
 
+#: Tinte CMY de cada curva, **sin el negro**. El catálogo imprime la misma
+#: curva con distinto componente K según la página: la altura aparece como
+#: ``(1.0, 0.68, 0.0, 0.3)`` en unas y ``(1.0, 0.68, 0.0, 0.0)`` en otras. Es
+#: el mismo naranja con otra carga de negro, pero comparando el color como
+#: texto exacto son distintos, y así se perdían 12 bombas: el trazo de altura
+#: no se encontraba y la página se descartaba entera.
+_TINTE = {
+    (1.0, 0.68, 0.0): HEAD_COLOR,     # naranja — altura
+    (0.0, 1.0, 1.0): POWER_COLOR,     # rojo — potencia
+}
+
+#: El rendimiento es negro PURO. Acá el componente K **sí** distingue: el marco
+#: y las marcas de eje son grises ``(0, 0, 0, 0.5)``, y confundirlos con la
+#: curva metería las líneas de grilla adentro de los datos.
+_EFF_EXACTO = (0.0, 0.0, 0.0, 1.0)
+
+
+def curve_kind(stroking_color) -> str | None:
+    """Qué curva es este trazo, o ``None`` si no es ninguna de las tres."""
+    if not stroking_color:
+        return None
+    try:
+        comps = tuple(round(float(c), 2) for c in stroking_color)
+    except (TypeError, ValueError):
+        return None
+    if len(comps) != 4:
+        return None
+    if comps == _EFF_EXACTO:
+        return EFF_COLOR
+    return _TINTE.get(comps[:3])
+
+#: Título de la página de curva.
+#:
+#: El texto NO se puede comparar literalmente: el PDF arrastra artefactos de
+#: kerning que parten las palabras y a veces invierten el orden. Sobre las
+#: mismas páginas conviven las tres formas::
+#:
+#:     REDA* ESP DN1800 Pump Performance Curve 60 Hz, 3,500 rpm    ← limpio
+#:     REDA* ESP D4300N Pump Perfor mance Curve 60 Hz, 3,500 rpm   ← palabra partida
+#:     REDA* ESP S8900N Perform ance Pump Curve 60 Hz, 3,500 rpm   ← y además invertido
+#:
+#: Comparando literal se perdían seis bombas. El patrón se ancla sólo en lo que
+#: es estable —«REDA … ESP», el modelo, «Curve», los Hz y las rpm— y deja libre
+#: el tramo del medio, que es justamente el que el kerning rompe.
 TITLE = re.compile(
-    r"REDA\*? ESP ([A-Z0-9]+) Pump Performance Curve\s+(\d+)\s*Hz,\s*([\d,]+)\s*rpm"
+    r"REDA\*?\s*ESP\s+([A-Z0-9]+)\s+.*?Curve\s+(\d+)\s*Hz,\s*([\d,]+)\s*rpm"
 )
 NUMBER = re.compile(r"^\d{1,3}(?:,\d{3})*(?:\.\d+)?$")
 
@@ -160,8 +204,8 @@ def polylines(page, frame) -> dict[str, list[tuple[float, float]]]:
 
     found: dict[str, set] = {c: set() for c in (HEAD_COLOR, EFF_COLOR, POWER_COLOR)}
     for line in page.lines:
-        color = str(line.get("stroking_color"))
-        if color not in found:
+        kind = curve_kind(line.get("stroking_color"))
+        if kind is None:
             continue
         a = (line["x0"], line["top"])
         b = (line["x1"], line["bottom"])
@@ -172,13 +216,13 @@ def polylines(page, frame) -> dict[str, list[tuple[float, float]]]:
         vertical = abs(a[0] - b[0]) < 0.3 and abs(a[1] - b[1]) > 50
         if horizontal or vertical:
             continue
-        found[color].add(a)
-        found[color].add(b)
+        found[kind].add(a)
+        found[kind].add(b)
     for curve in page.curves:
-        color = str(curve.get("stroking_color"))
-        if color in found:
-            found[color].update(p for p in curve.get("pts", []) if inside(*p))
-    return {color: sorted(points) for color, points in found.items()}
+        kind = curve_kind(curve.get("stroking_color"))
+        if kind is not None:
+            found[kind].update(p for p in curve.get("pts", []) if inside(*p))
+    return {kind: sorted(points) for kind, points in found.items()}
 
 
 def assign_by_label(page, curves: dict) -> dict[str, str]:
@@ -255,6 +299,28 @@ def _interpolate(points: list[tuple[float, float]], x: float) -> float | None:
     return points[-1][1]
 
 
+#: Tolerancia para llevar a cero un valor apenas negativo del borde del trazo.
+#:
+#: En los extremos el trazo se interpola hasta el borde del marco y ahí la
+#: calibración deja restos de signo: el caudal del primer punto sale en −0.1 a
+#: −2.9 B/D y la altura del último en −0.25 a −0.83 ft. Son artefactos de borde,
+#: no datos: el punto de caudal cero y el de altura cero **son** los extremos
+#: físicos de la curva. Se llevan a cero y no se descartan, para no perder la
+#: altura de cierre, que es la que fija la presión de carcasa.
+#:
+#: El corte es deliberadamente chico. Un valor negativo más grande que esto no
+#: es un resto de redondeo sino una lectura mal calibrada, y ahí conviene que la
+#: curva falle el control de forma en vez de que alguien la maquille.
+_EDGE_TOLERANCE = 5.0
+
+
+def _clamp_edge_value(value: float, tolerance: float = _EDGE_TOLERANCE) -> float:
+    """Lleva a cero un negativo despreciable; deja pasar el resto tal cual."""
+    if -tolerance < value < 0.0:
+        return 0.0
+    return value
+
+
 def digitize_page(page, n_points: int = 21) -> dict | None:
     text = page.extract_text() or ""
     title = TITLE.search(text)
@@ -266,7 +332,17 @@ def digitize_page(page, n_points: int = 21) -> dict | None:
         return None
     curves = polylines(page, frame)
     labels = assign_by_label(page, curves)
-    if {"head", "power", "efficiency"} - set(labels):
+    # La potencia NO es obligatoria: se deriva de la altura y el rendimiento por
+    # la definición de rendimiento de bomba (ver add_derived_power). Su lectura
+    # del gráfico se conserva sólo como control de auditoría, así que una página
+    # sin trazo de potencia sigue dando una curva completa y correcta. Exigirla
+    # descartaba la AN1500 entera, que tiene altura y rendimiento perfectos.
+    #
+    # Altura y rendimiento SÍ son obligatorios, y eso también protege contra el
+    # otro modo de falla: cuando los rótulos quedan cruzados —el de «Power»
+    # apuntando a la curva de rendimiento— alguna de las dos claves falta y la
+    # página se descarta en vez de leer una magnitud sobre el eje de otra.
+    if {"head", "efficiency"} - set(labels):
         return None
 
     head_pts = curves[labels["head"]]
@@ -286,10 +362,14 @@ def digitize_page(page, n_points: int = 21) -> dict | None:
         if y_head is None or y_eff is None:
             continue
         # La potencia sólo se usa como control; si su trazo no cubre este
-        # caudal el punto igual sirve, porque la potencia se deriva.
-        y_power = _interpolate(curves[labels["power"]], x)
-        flow = axes["flow"].value(x)
-        head = axes["head"].value(y_head)
+        # caudal —o directamente no está en la página— el punto igual sirve,
+        # porque la potencia se deriva.
+        y_power = (
+            _interpolate(curves[labels["power"]], x)
+            if "power" in labels else None
+        )
+        flow = _clamp_edge_value(axes["flow"].value(x))
+        head = _clamp_edge_value(axes["head"].value(y_head))
         efficiency = max(axes["efficiency"].value(y_eff), 0.0) / 100
         points.append({
             "flow_rate": round(flow, 1),
@@ -396,8 +476,15 @@ def page_specs(text: str) -> dict:
 
 
 HOUSING_TITLE = re.compile(r"^([A-Z]{1,3}\d{3,5}[A-Z]?) Pump\b")
+#: Fila de la tabla de carcasas.
+#:
+#: El código NO siempre es numérico. Las series grandes (862 y 950: M520, M675,
+#: N1050, N1400) lo publican con sufijo — ``2M``, ``3M``, ``10M``— mientras que
+#: el resto usa ``10``, ``20``, ``30``. Exigiendo sólo dígitos se perdían las
+#: tablas de esas cuatro bombas y sus diez variantes de corte quedaban con
+#: ``max_stages = 0``, que el dominio rechaza al cargar el catálogo.
 HOUSING_ROW = re.compile(
-    r"^\s*(?P<code>\d{2,3})\s+"
+    r"^\s*(?P<code>\d{1,3}[A-Z]?)\s+"
     r"(?P<ft>\d+\.\d+)\s+\[[\d.]+\]\s+"
     r"(?P<lbs>[\d,]+)\s+\[[\d.,]+\]\s+"
     r"(?P<stages>\d{1,4})\b"
@@ -437,6 +524,24 @@ def housing_tables(pdf_path: str) -> dict[str, list[dict]]:
                 bucket = tables.setdefault(model, [])
                 if entry["code"] not in {h["code"] for h in bucket}:
                     bucket.append(entry)
+    return _share_with_cut_variants(tables)
+
+
+#: Sufijos de corte de impulsor. M520A, M520B y M520C son tres cortes de la
+#: misma bomba: cada uno tiene su curva propia —el corte cambia el diámetro del
+#: impulsor y por lo tanto la altura— pero **comparten la carcasa**. El catálogo
+#: lo publica así: una sola columna «Max. Stages» y una columna de número de
+#: parte por corte. Sin esto las diez variantes quedaban sin tabla.
+_CUT_SUFFIXES = ("A", "B", "C")
+
+
+def _share_with_cut_variants(tables: dict) -> dict:
+    """Da a cada variante de corte la tabla de carcasas de su modelo base."""
+    for base, rows in list(tables.items()):
+        for suffix in _CUT_SUFFIXES:
+            variant = f"{base}{suffix}"
+            if variant not in tables:
+                tables[variant] = [dict(r) for r in rows]
     return tables
 
 

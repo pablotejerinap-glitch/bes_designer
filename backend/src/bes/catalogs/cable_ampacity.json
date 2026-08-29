@@ -1,0 +1,4116 @@
+{
+  "_note": "Ampacidad máxima del conductor en función de la temperatura máxima de pozo, por familia de cable y calibre. Leída de la capa VECTORIAL del REDA ESP Catalog (sin OCR): las curvas están trazadas en blanco sobre el fondo del gráfico y los ejes se calibran por regresión sobre las líneas de grilla, apareadas con los rótulos de marca del propio gráfico. Generado por tools/catalog_pipeline/digitize_reda_cable_ampacity.py.",
+  "_no_extrapolar": "Cada curva vale sólo entre su primer y su último punto. Fuera de ese rango no hay dato: acotar al borde y avisar, nunca extender la recta.",
+  "_todavia_no_se_usa": "DATO CARGADO, MODELO SIN CAMBIAR. get_cable() sigue eligiendo con el max_amps PLANO de cables.json (Brown Tabla 4.52 / API RP 11S6 por calibre). Enganchar esta curva cambia el cable —y con él la caída de tensión y el transformador— de TODOS los pozos, así que no se hace en el mismo paso que la digitalización. Falta además resolver la ambigüedad de abajo.",
+  "_ambiguedad_pendiente": "Los DOS gráficos de la pág. 473 llevan impreso el mismo título, 'Redalene Flat Cable', y no son el mismo: el izquierdo llega a 250 A y el derecho a 350 A. Se verificó carácter por carácter en el PDF, no es un error de extracción. Sin saber qué distingue a uno del otro —clase de temperatura, tensión, armadura— no se puede decidir cuál corresponde a las entradas 'Redalene' de cables.json, y elegir a ojo sería peor que no usar el dato. PENDIENTE DE VERIFICACIÓN CONTRA EL IMPRESO.",
+  "_contraste_con_el_valor_plano": "El #1 AWG Redalene del catálogo actual publica 100 A planos. En la curva de REDA ese mismo conductor da 172 A a 0 °F y 74 A a 150 °F: el valor plano equivale a leer la curva cerca de 125 °F. Por encima de esa temperatura el valor plano es OPTIMISTA, que es el lado peligroso.",
+  "graficos": [
+    {
+      "pagina": 473,
+      "lado": "izq",
+      "familia": "Redalene Cable",
+      "calibres": [
+        "2/0",
+        "1/0",
+        "1",
+        "2",
+        "4",
+        "6"
+      ],
+      "titulo": "Redalene Flat Cable",
+      "series": {
+        "2/0": [
+          {
+            "temp_f": 0.2,
+            "amps": 233.2
+          },
+          {
+            "temp_f": 21.9,
+            "amps": 216.7
+          },
+          {
+            "temp_f": 42.1,
+            "amps": 200.8
+          },
+          {
+            "temp_f": 60.7,
+            "amps": 185.5
+          },
+          {
+            "temp_f": 77.9,
+            "amps": 170.8
+          },
+          {
+            "temp_f": 93.8,
+            "amps": 156.6
+          },
+          {
+            "temp_f": 108.3,
+            "amps": 142.9
+          },
+          {
+            "temp_f": 121.6,
+            "amps": 129.8
+          },
+          {
+            "temp_f": 133.7,
+            "amps": 117.1
+          },
+          {
+            "temp_f": 144.6,
+            "amps": 105.0
+          },
+          {
+            "temp_f": 154.4,
+            "amps": 93.4
+          },
+          {
+            "temp_f": 163.2,
+            "amps": 82.2
+          },
+          {
+            "temp_f": 171.0,
+            "amps": 71.5
+          },
+          {
+            "temp_f": 177.9,
+            "amps": 61.2
+          },
+          {
+            "temp_f": 183.9,
+            "amps": 51.3
+          },
+          {
+            "temp_f": 189.1,
+            "amps": 41.9
+          },
+          {
+            "temp_f": 193.6,
+            "amps": 32.8
+          },
+          {
+            "temp_f": 197.4,
+            "amps": 24.1
+          },
+          {
+            "temp_f": 200.5,
+            "amps": 15.8
+          },
+          {
+            "temp_f": 203.0,
+            "amps": 7.9
+          },
+          {
+            "temp_f": 205.1,
+            "amps": 0.2
+          }
+        ],
+        "1/0": [
+          {
+            "temp_f": 0.2,
+            "amps": 207.8
+          },
+          {
+            "temp_f": 21.9,
+            "amps": 193.1
+          },
+          {
+            "temp_f": 42.0,
+            "amps": 178.9
+          },
+          {
+            "temp_f": 60.7,
+            "amps": 165.2
+          },
+          {
+            "temp_f": 77.9,
+            "amps": 151.9
+          },
+          {
+            "temp_f": 93.8,
+            "amps": 139.2
+          },
+          {
+            "temp_f": 108.4,
+            "amps": 126.9
+          },
+          {
+            "temp_f": 121.7,
+            "amps": 115.1
+          },
+          {
+            "temp_f": 133.8,
+            "amps": 103.8
+          },
+          {
+            "temp_f": 144.8,
+            "amps": 92.9
+          },
+          {
+            "temp_f": 154.7,
+            "amps": 82.4
+          },
+          {
+            "temp_f": 163.5,
+            "amps": 72.4
+          },
+          {
+            "temp_f": 171.3,
+            "amps": 62.8
+          },
+          {
+            "temp_f": 178.3,
+            "amps": 53.5
+          },
+          {
+            "temp_f": 184.3,
+            "amps": 44.7
+          },
+          {
+            "temp_f": 189.5,
+            "amps": 36.3
+          },
+          {
+            "temp_f": 193.9,
+            "amps": 28.2
+          },
+          {
+            "temp_f": 197.7,
+            "amps": 20.6
+          },
+          {
+            "temp_f": 200.7,
+            "amps": 13.2
+          },
+          {
+            "temp_f": 203.2,
+            "amps": 6.3
+          },
+          {
+            "temp_f": 205.1,
+            "amps": -0.4
+          }
+        ],
+        "1": [
+          {
+            "temp_f": 0.6,
+            "amps": 172.0
+          },
+          {
+            "temp_f": 22.2,
+            "amps": 159.6
+          },
+          {
+            "temp_f": 42.4,
+            "amps": 147.7
+          },
+          {
+            "temp_f": 61.2,
+            "amps": 136.0
+          },
+          {
+            "temp_f": 78.6,
+            "amps": 124.7
+          },
+          {
+            "temp_f": 94.7,
+            "amps": 113.8
+          },
+          {
+            "temp_f": 109.6,
+            "amps": 103.3
+          },
+          {
+            "temp_f": 123.2,
+            "amps": 93.1
+          },
+          {
+            "temp_f": 135.5,
+            "amps": 83.3
+          },
+          {
+            "temp_f": 146.8,
+            "amps": 74.0
+          },
+          {
+            "temp_f": 156.8,
+            "amps": 65.0
+          },
+          {
+            "temp_f": 165.9,
+            "amps": 56.5
+          },
+          {
+            "temp_f": 173.8,
+            "amps": 48.3
+          },
+          {
+            "temp_f": 180.8,
+            "amps": 40.6
+          },
+          {
+            "temp_f": 186.8,
+            "amps": 33.4
+          },
+          {
+            "temp_f": 191.9,
+            "amps": 26.6
+          },
+          {
+            "temp_f": 196.2,
+            "amps": 20.2
+          },
+          {
+            "temp_f": 199.5,
+            "amps": 14.4
+          },
+          {
+            "temp_f": 202.1,
+            "amps": 9.0
+          },
+          {
+            "temp_f": 203.9,
+            "amps": 4.1
+          },
+          {
+            "temp_f": 205.1,
+            "amps": -0.4
+          }
+        ],
+        "2": [
+          {
+            "temp_f": 0.6,
+            "amps": 145.6
+          },
+          {
+            "temp_f": 22.2,
+            "amps": 135.3
+          },
+          {
+            "temp_f": 42.4,
+            "amps": 125.2
+          },
+          {
+            "temp_f": 61.2,
+            "amps": 115.4
+          },
+          {
+            "temp_f": 78.6,
+            "amps": 105.9
+          },
+          {
+            "temp_f": 94.7,
+            "amps": 96.7
+          },
+          {
+            "temp_f": 109.5,
+            "amps": 87.8
+          },
+          {
+            "temp_f": 123.1,
+            "amps": 79.2
+          },
+          {
+            "temp_f": 135.4,
+            "amps": 71.0
+          },
+          {
+            "temp_f": 146.6,
+            "amps": 63.0
+          },
+          {
+            "temp_f": 156.7,
+            "amps": 55.4
+          },
+          {
+            "temp_f": 165.7,
+            "amps": 48.2
+          },
+          {
+            "temp_f": 173.7,
+            "amps": 41.3
+          },
+          {
+            "temp_f": 180.7,
+            "amps": 34.7
+          },
+          {
+            "temp_f": 186.7,
+            "amps": 28.5
+          },
+          {
+            "temp_f": 191.8,
+            "amps": 22.7
+          },
+          {
+            "temp_f": 196.0,
+            "amps": 17.3
+          },
+          {
+            "temp_f": 199.4,
+            "amps": 12.3
+          },
+          {
+            "temp_f": 202.0,
+            "amps": 7.7
+          },
+          {
+            "temp_f": 203.9,
+            "amps": 3.4
+          },
+          {
+            "temp_f": 205.1,
+            "amps": -0.4
+          }
+        ],
+        "4": [
+          {
+            "temp_f": 0.6,
+            "amps": 108.3
+          },
+          {
+            "temp_f": 22.2,
+            "amps": 100.7
+          },
+          {
+            "temp_f": 42.2,
+            "amps": 93.3
+          },
+          {
+            "temp_f": 60.7,
+            "amps": 86.3
+          },
+          {
+            "temp_f": 77.8,
+            "amps": 79.5
+          },
+          {
+            "temp_f": 93.5,
+            "amps": 73.0
+          },
+          {
+            "temp_f": 107.8,
+            "amps": 66.8
+          },
+          {
+            "temp_f": 120.9,
+            "amps": 60.9
+          },
+          {
+            "temp_f": 132.8,
+            "amps": 55.1
+          },
+          {
+            "temp_f": 143.6,
+            "amps": 49.6
+          },
+          {
+            "temp_f": 153.3,
+            "amps": 44.3
+          },
+          {
+            "temp_f": 162.0,
+            "amps": 39.2
+          },
+          {
+            "temp_f": 169.7,
+            "amps": 34.3
+          },
+          {
+            "temp_f": 176.6,
+            "amps": 29.5
+          },
+          {
+            "temp_f": 182.6,
+            "amps": 24.9
+          },
+          {
+            "temp_f": 187.9,
+            "amps": 20.4
+          },
+          {
+            "temp_f": 192.5,
+            "amps": 16.1
+          },
+          {
+            "temp_f": 196.5,
+            "amps": 11.8
+          },
+          {
+            "temp_f": 199.9,
+            "amps": 7.7
+          },
+          {
+            "temp_f": 202.8,
+            "amps": 3.6
+          },
+          {
+            "temp_f": 205.3,
+            "amps": -0.4
+          }
+        ],
+        "6": [
+          {
+            "temp_f": 0.2,
+            "amps": 85.8
+          },
+          {
+            "temp_f": 21.9,
+            "amps": 79.7
+          },
+          {
+            "temp_f": 42.1,
+            "amps": 73.7
+          },
+          {
+            "temp_f": 60.9,
+            "amps": 68.0
+          },
+          {
+            "temp_f": 78.2,
+            "amps": 62.5
+          },
+          {
+            "temp_f": 94.2,
+            "amps": 57.1
+          },
+          {
+            "temp_f": 108.9,
+            "amps": 52.0
+          },
+          {
+            "temp_f": 122.3,
+            "amps": 47.0
+          },
+          {
+            "temp_f": 134.5,
+            "amps": 42.2
+          },
+          {
+            "temp_f": 145.5,
+            "amps": 37.7
+          },
+          {
+            "temp_f": 155.4,
+            "amps": 33.3
+          },
+          {
+            "temp_f": 164.3,
+            "amps": 29.1
+          },
+          {
+            "temp_f": 172.1,
+            "amps": 25.1
+          },
+          {
+            "temp_f": 179.0,
+            "amps": 21.3
+          },
+          {
+            "temp_f": 185.0,
+            "amps": 17.7
+          },
+          {
+            "temp_f": 190.1,
+            "amps": 14.3
+          },
+          {
+            "temp_f": 194.4,
+            "amps": 11.1
+          },
+          {
+            "temp_f": 197.9,
+            "amps": 8.0
+          },
+          {
+            "temp_f": 200.7,
+            "amps": 5.2
+          },
+          {
+            "temp_f": 202.9,
+            "amps": 2.5
+          },
+          {
+            "temp_f": 204.4,
+            "amps": 0.0
+          }
+        ]
+      },
+      "avisos": [
+        "R² eje X = 1.000000, eje Y = 1.000000"
+      ]
+    },
+    {
+      "pagina": 473,
+      "lado": "der",
+      "familia": "Redalene Cable",
+      "calibres": [
+        "2/0",
+        "1/0",
+        "1",
+        "2",
+        "4",
+        "6"
+      ],
+      "titulo": "Redalene Flat Cable",
+      "series": {
+        "2/0": [
+          {
+            "temp_f": 0.0,
+            "amps": 287.3
+          },
+          {
+            "temp_f": 21.7,
+            "amps": 266.7
+          },
+          {
+            "temp_f": 41.9,
+            "amps": 246.7
+          },
+          {
+            "temp_f": 60.7,
+            "amps": 227.3
+          },
+          {
+            "temp_f": 78.1,
+            "amps": 208.6
+          },
+          {
+            "temp_f": 94.1,
+            "amps": 190.6
+          },
+          {
+            "temp_f": 108.9,
+            "amps": 173.2
+          },
+          {
+            "temp_f": 122.3,
+            "amps": 156.5
+          },
+          {
+            "temp_f": 134.6,
+            "amps": 140.5
+          },
+          {
+            "temp_f": 145.7,
+            "amps": 125.1
+          },
+          {
+            "temp_f": 155.7,
+            "amps": 110.5
+          },
+          {
+            "temp_f": 164.6,
+            "amps": 96.4
+          },
+          {
+            "temp_f": 172.5,
+            "amps": 83.1
+          },
+          {
+            "temp_f": 179.4,
+            "amps": 70.4
+          },
+          {
+            "temp_f": 185.4,
+            "amps": 58.4
+          },
+          {
+            "temp_f": 190.5,
+            "amps": 47.1
+          },
+          {
+            "temp_f": 194.8,
+            "amps": 36.5
+          },
+          {
+            "temp_f": 198.3,
+            "amps": 26.5
+          },
+          {
+            "temp_f": 201.0,
+            "amps": 17.3
+          },
+          {
+            "temp_f": 203.1,
+            "amps": 8.7
+          },
+          {
+            "temp_f": 204.5,
+            "amps": 0.8
+          }
+        ],
+        "1/0": [
+          {
+            "temp_f": 0.3,
+            "amps": 257.2
+          },
+          {
+            "temp_f": 22.0,
+            "amps": 238.8
+          },
+          {
+            "temp_f": 42.3,
+            "amps": 220.8
+          },
+          {
+            "temp_f": 61.1,
+            "amps": 203.3
+          },
+          {
+            "temp_f": 78.5,
+            "amps": 186.3
+          },
+          {
+            "temp_f": 94.7,
+            "amps": 169.9
+          },
+          {
+            "temp_f": 109.5,
+            "amps": 154.0
+          },
+          {
+            "temp_f": 123.1,
+            "amps": 138.7
+          },
+          {
+            "temp_f": 135.5,
+            "amps": 124.0
+          },
+          {
+            "temp_f": 146.7,
+            "amps": 109.9
+          },
+          {
+            "temp_f": 156.8,
+            "amps": 96.4
+          },
+          {
+            "temp_f": 165.8,
+            "amps": 83.6
+          },
+          {
+            "temp_f": 173.7,
+            "amps": 71.4
+          },
+          {
+            "temp_f": 180.6,
+            "amps": 60.0
+          },
+          {
+            "temp_f": 186.6,
+            "amps": 49.2
+          },
+          {
+            "temp_f": 191.6,
+            "amps": 39.2
+          },
+          {
+            "temp_f": 195.7,
+            "amps": 29.9
+          },
+          {
+            "temp_f": 199.0,
+            "amps": 21.5
+          },
+          {
+            "temp_f": 201.5,
+            "amps": 13.8
+          },
+          {
+            "temp_f": 203.2,
+            "amps": 6.9
+          },
+          {
+            "temp_f": 204.2,
+            "amps": 0.8
+          }
+        ],
+        "1": [
+          {
+            "temp_f": 0.2,
+            "amps": 213.0
+          },
+          {
+            "temp_f": 22.0,
+            "amps": 197.8
+          },
+          {
+            "temp_f": 42.3,
+            "amps": 182.9
+          },
+          {
+            "temp_f": 61.1,
+            "amps": 168.5
+          },
+          {
+            "temp_f": 78.6,
+            "amps": 154.5
+          },
+          {
+            "temp_f": 94.7,
+            "amps": 141.0
+          },
+          {
+            "temp_f": 109.5,
+            "amps": 127.9
+          },
+          {
+            "temp_f": 123.1,
+            "amps": 115.4
+          },
+          {
+            "temp_f": 135.4,
+            "amps": 103.3
+          },
+          {
+            "temp_f": 146.6,
+            "amps": 91.7
+          },
+          {
+            "temp_f": 156.6,
+            "amps": 80.6
+          },
+          {
+            "temp_f": 165.6,
+            "amps": 70.0
+          },
+          {
+            "temp_f": 173.5,
+            "amps": 60.0
+          },
+          {
+            "temp_f": 180.4,
+            "amps": 50.6
+          },
+          {
+            "temp_f": 186.3,
+            "amps": 41.7
+          },
+          {
+            "temp_f": 191.4,
+            "amps": 33.3
+          },
+          {
+            "temp_f": 195.5,
+            "amps": 25.6
+          },
+          {
+            "temp_f": 198.8,
+            "amps": 18.5
+          },
+          {
+            "temp_f": 201.3,
+            "amps": 12.0
+          },
+          {
+            "temp_f": 203.1,
+            "amps": 6.1
+          },
+          {
+            "temp_f": 204.2,
+            "amps": 0.8
+          }
+        ],
+        "2": [
+          {
+            "temp_f": 0.2,
+            "amps": 182.2
+          },
+          {
+            "temp_f": 22.0,
+            "amps": 169.1
+          },
+          {
+            "temp_f": 42.2,
+            "amps": 156.3
+          },
+          {
+            "temp_f": 61.0,
+            "amps": 144.0
+          },
+          {
+            "temp_f": 78.4,
+            "amps": 132.0
+          },
+          {
+            "temp_f": 94.5,
+            "amps": 120.5
+          },
+          {
+            "temp_f": 109.3,
+            "amps": 109.4
+          },
+          {
+            "temp_f": 122.8,
+            "amps": 98.7
+          },
+          {
+            "temp_f": 135.1,
+            "amps": 88.4
+          },
+          {
+            "temp_f": 146.2,
+            "amps": 78.6
+          },
+          {
+            "temp_f": 156.2,
+            "amps": 69.2
+          },
+          {
+            "temp_f": 165.1,
+            "amps": 60.2
+          },
+          {
+            "temp_f": 173.0,
+            "amps": 51.7
+          },
+          {
+            "temp_f": 179.9,
+            "amps": 43.7
+          },
+          {
+            "temp_f": 185.9,
+            "amps": 36.1
+          },
+          {
+            "temp_f": 191.0,
+            "amps": 29.0
+          },
+          {
+            "temp_f": 195.2,
+            "amps": 22.3
+          },
+          {
+            "temp_f": 198.6,
+            "amps": 16.2
+          },
+          {
+            "temp_f": 201.3,
+            "amps": 10.5
+          },
+          {
+            "temp_f": 203.2,
+            "amps": 5.3
+          },
+          {
+            "temp_f": 204.5,
+            "amps": 0.6
+          }
+        ],
+        "4": [
+          {
+            "temp_f": 0.2,
+            "amps": 135.4
+          },
+          {
+            "temp_f": 25.0,
+            "amps": 123.0
+          },
+          {
+            "temp_f": 47.7,
+            "amps": 111.5
+          },
+          {
+            "temp_f": 68.4,
+            "amps": 100.7
+          },
+          {
+            "temp_f": 87.2,
+            "amps": 90.7
+          },
+          {
+            "temp_f": 104.1,
+            "amps": 81.4
+          },
+          {
+            "temp_f": 119.3,
+            "amps": 72.8
+          },
+          {
+            "temp_f": 132.9,
+            "amps": 64.8
+          },
+          {
+            "temp_f": 145.0,
+            "amps": 57.4
+          },
+          {
+            "temp_f": 155.6,
+            "amps": 50.5
+          },
+          {
+            "temp_f": 164.8,
+            "amps": 44.1
+          },
+          {
+            "temp_f": 172.9,
+            "amps": 38.3
+          },
+          {
+            "temp_f": 179.7,
+            "amps": 32.9
+          },
+          {
+            "temp_f": 185.5,
+            "amps": 27.8
+          },
+          {
+            "temp_f": 190.3,
+            "amps": 23.2
+          },
+          {
+            "temp_f": 194.3,
+            "amps": 18.8
+          },
+          {
+            "temp_f": 197.4,
+            "amps": 14.8
+          },
+          {
+            "temp_f": 199.9,
+            "amps": 10.9
+          },
+          {
+            "temp_f": 201.8,
+            "amps": 7.3
+          },
+          {
+            "temp_f": 203.2,
+            "amps": 3.9
+          },
+          {
+            "temp_f": 204.2,
+            "amps": 0.6
+          }
+        ],
+        "6": [
+          {
+            "temp_f": -0.1,
+            "amps": 101.9
+          },
+          {
+            "temp_f": 21.6,
+            "amps": 94.5
+          },
+          {
+            "temp_f": 41.8,
+            "amps": 87.4
+          },
+          {
+            "temp_f": 60.5,
+            "amps": 80.6
+          },
+          {
+            "temp_f": 77.8,
+            "amps": 74.1
+          },
+          {
+            "temp_f": 93.7,
+            "amps": 67.8
+          },
+          {
+            "temp_f": 108.3,
+            "amps": 61.7
+          },
+          {
+            "temp_f": 121.6,
+            "amps": 56.0
+          },
+          {
+            "temp_f": 133.7,
+            "amps": 50.5
+          },
+          {
+            "temp_f": 144.6,
+            "amps": 45.2
+          },
+          {
+            "temp_f": 154.5,
+            "amps": 40.1
+          },
+          {
+            "temp_f": 163.2,
+            "amps": 35.3
+          },
+          {
+            "temp_f": 171.0,
+            "amps": 30.7
+          },
+          {
+            "temp_f": 177.8,
+            "amps": 26.3
+          },
+          {
+            "temp_f": 183.8,
+            "amps": 22.1
+          },
+          {
+            "temp_f": 188.8,
+            "amps": 18.2
+          },
+          {
+            "temp_f": 193.1,
+            "amps": 14.4
+          },
+          {
+            "temp_f": 196.7,
+            "amps": 10.8
+          },
+          {
+            "temp_f": 199.5,
+            "amps": 7.4
+          },
+          {
+            "temp_f": 201.7,
+            "amps": 4.2
+          },
+          {
+            "temp_f": 203.4,
+            "amps": 1.1
+          }
+        ]
+      },
+      "avisos": [
+        "R² eje X = 1.000000, eje Y = 1.000000"
+      ]
+    },
+    {
+      "pagina": 475,
+      "lado": "unico",
+      "familia": "Redahot Cable",
+      "calibres": [
+        "2/0",
+        "1/0",
+        "1",
+        "2",
+        "4",
+        "6"
+      ],
+      "titulo": "",
+      "series": {
+        "2/0": [
+          {
+            "temp_f": -0.3,
+            "amps": 319.1
+          },
+          {
+            "temp_f": 22.9,
+            "amps": 299.5
+          },
+          {
+            "temp_f": 45.1,
+            "amps": 280.4
+          },
+          {
+            "temp_f": 66.3,
+            "amps": 261.6
+          },
+          {
+            "temp_f": 86.5,
+            "amps": 243.3
+          },
+          {
+            "temp_f": 105.7,
+            "amps": 225.3
+          },
+          {
+            "temp_f": 123.9,
+            "amps": 207.7
+          },
+          {
+            "temp_f": 141.2,
+            "amps": 190.5
+          },
+          {
+            "temp_f": 157.5,
+            "amps": 173.7
+          },
+          {
+            "temp_f": 172.7,
+            "amps": 157.2
+          },
+          {
+            "temp_f": 187.0,
+            "amps": 141.2
+          },
+          {
+            "temp_f": 200.3,
+            "amps": 125.5
+          },
+          {
+            "temp_f": 212.6,
+            "amps": 110.2
+          },
+          {
+            "temp_f": 223.9,
+            "amps": 95.3
+          },
+          {
+            "temp_f": 234.3,
+            "amps": 80.8
+          },
+          {
+            "temp_f": 243.6,
+            "amps": 66.7
+          },
+          {
+            "temp_f": 252.0,
+            "amps": 52.9
+          },
+          {
+            "temp_f": 259.3,
+            "amps": 39.6
+          },
+          {
+            "temp_f": 265.7,
+            "amps": 26.6
+          },
+          {
+            "temp_f": 271.1,
+            "amps": 14.0
+          },
+          {
+            "temp_f": 275.5,
+            "amps": 1.9
+          }
+        ],
+        "1/0": [
+          {
+            "temp_f": 0.4,
+            "amps": 284.5
+          },
+          {
+            "temp_f": 22.5,
+            "amps": 268.3
+          },
+          {
+            "temp_f": 43.7,
+            "amps": 252.4
+          },
+          {
+            "temp_f": 64.0,
+            "amps": 236.6
+          },
+          {
+            "temp_f": 83.4,
+            "amps": 221.1
+          },
+          {
+            "temp_f": 102.0,
+            "amps": 205.8
+          },
+          {
+            "temp_f": 119.7,
+            "amps": 190.7
+          },
+          {
+            "temp_f": 136.5,
+            "amps": 175.8
+          },
+          {
+            "temp_f": 152.5,
+            "amps": 161.1
+          },
+          {
+            "temp_f": 167.5,
+            "amps": 146.6
+          },
+          {
+            "temp_f": 181.7,
+            "amps": 132.3
+          },
+          {
+            "temp_f": 195.1,
+            "amps": 118.2
+          },
+          {
+            "temp_f": 207.5,
+            "amps": 104.4
+          },
+          {
+            "temp_f": 219.1,
+            "amps": 90.7
+          },
+          {
+            "temp_f": 229.8,
+            "amps": 77.3
+          },
+          {
+            "temp_f": 239.7,
+            "amps": 64.0
+          },
+          {
+            "temp_f": 248.7,
+            "amps": 51.0
+          },
+          {
+            "temp_f": 256.8,
+            "amps": 38.2
+          },
+          {
+            "temp_f": 264.0,
+            "amps": 25.6
+          },
+          {
+            "temp_f": 270.3,
+            "amps": 13.2
+          },
+          {
+            "temp_f": 275.8,
+            "amps": 1.0
+          }
+        ],
+        "1": [
+          {
+            "temp_f": 0.1,
+            "amps": 244.7
+          },
+          {
+            "temp_f": 23.9,
+            "amps": 229.0
+          },
+          {
+            "temp_f": 46.6,
+            "amps": 213.7
+          },
+          {
+            "temp_f": 68.3,
+            "amps": 198.7
+          },
+          {
+            "temp_f": 88.9,
+            "amps": 184.2
+          },
+          {
+            "temp_f": 108.5,
+            "amps": 170.0
+          },
+          {
+            "temp_f": 127.0,
+            "amps": 156.1
+          },
+          {
+            "temp_f": 144.4,
+            "amps": 142.6
+          },
+          {
+            "temp_f": 160.8,
+            "amps": 129.5
+          },
+          {
+            "temp_f": 176.2,
+            "amps": 116.8
+          },
+          {
+            "temp_f": 190.4,
+            "amps": 104.4
+          },
+          {
+            "temp_f": 203.7,
+            "amps": 92.4
+          },
+          {
+            "temp_f": 215.8,
+            "amps": 80.8
+          },
+          {
+            "temp_f": 226.9,
+            "amps": 69.5
+          },
+          {
+            "temp_f": 237.0,
+            "amps": 58.6
+          },
+          {
+            "temp_f": 246.0,
+            "amps": 48.1
+          },
+          {
+            "temp_f": 253.9,
+            "amps": 38.0
+          },
+          {
+            "temp_f": 260.8,
+            "amps": 28.2
+          },
+          {
+            "temp_f": 266.6,
+            "amps": 18.7
+          },
+          {
+            "temp_f": 271.4,
+            "amps": 9.7
+          },
+          {
+            "temp_f": 275.1,
+            "amps": 1.0
+          }
+        ],
+        "2": [
+          {
+            "temp_f": 0.1,
+            "amps": 210.8
+          },
+          {
+            "temp_f": 22.6,
+            "amps": 198.5
+          },
+          {
+            "temp_f": 44.1,
+            "amps": 186.3
+          },
+          {
+            "temp_f": 64.8,
+            "amps": 174.3
+          },
+          {
+            "temp_f": 84.5,
+            "amps": 162.5
+          },
+          {
+            "temp_f": 103.3,
+            "amps": 150.9
+          },
+          {
+            "temp_f": 121.2,
+            "amps": 139.5
+          },
+          {
+            "temp_f": 138.2,
+            "amps": 128.3
+          },
+          {
+            "temp_f": 154.3,
+            "amps": 117.3
+          },
+          {
+            "temp_f": 169.4,
+            "amps": 106.6
+          },
+          {
+            "temp_f": 183.7,
+            "amps": 96.0
+          },
+          {
+            "temp_f": 197.0,
+            "amps": 85.6
+          },
+          {
+            "temp_f": 209.4,
+            "amps": 75.4
+          },
+          {
+            "temp_f": 220.8,
+            "amps": 65.4
+          },
+          {
+            "temp_f": 231.4,
+            "amps": 55.6
+          },
+          {
+            "temp_f": 241.0,
+            "amps": 46.0
+          },
+          {
+            "temp_f": 249.7,
+            "amps": 36.6
+          },
+          {
+            "temp_f": 257.5,
+            "amps": 27.4
+          },
+          {
+            "temp_f": 264.4,
+            "amps": 18.4
+          },
+          {
+            "temp_f": 270.4,
+            "amps": 9.6
+          },
+          {
+            "temp_f": 275.4,
+            "amps": 1.0
+          }
+        ],
+        "4": [
+          {
+            "temp_f": 0.1,
+            "amps": 154.4
+          },
+          {
+            "temp_f": 24.1,
+            "amps": 144.1
+          },
+          {
+            "temp_f": 47.1,
+            "amps": 134.1
+          },
+          {
+            "temp_f": 69.0,
+            "amps": 124.4
+          },
+          {
+            "temp_f": 89.9,
+            "amps": 114.9
+          },
+          {
+            "temp_f": 109.6,
+            "amps": 105.7
+          },
+          {
+            "temp_f": 128.2,
+            "amps": 96.8
+          },
+          {
+            "temp_f": 145.7,
+            "amps": 88.2
+          },
+          {
+            "temp_f": 162.2,
+            "amps": 79.8
+          },
+          {
+            "temp_f": 177.5,
+            "amps": 71.7
+          },
+          {
+            "temp_f": 191.8,
+            "amps": 63.9
+          },
+          {
+            "temp_f": 205.0,
+            "amps": 56.4
+          },
+          {
+            "temp_f": 217.0,
+            "amps": 49.1
+          },
+          {
+            "temp_f": 228.0,
+            "amps": 42.2
+          },
+          {
+            "temp_f": 237.9,
+            "amps": 35.4
+          },
+          {
+            "temp_f": 246.7,
+            "amps": 29.0
+          },
+          {
+            "temp_f": 254.4,
+            "amps": 22.9
+          },
+          {
+            "temp_f": 261.0,
+            "amps": 17.0
+          },
+          {
+            "temp_f": 266.5,
+            "amps": 11.4
+          },
+          {
+            "temp_f": 271.0,
+            "amps": 6.1
+          },
+          {
+            "temp_f": 274.3,
+            "amps": 1.0
+          }
+        ],
+        "6": [
+          {
+            "temp_f": -0.3,
+            "amps": 117.2
+          },
+          {
+            "temp_f": 24.1,
+            "amps": 109.3
+          },
+          {
+            "temp_f": 47.4,
+            "amps": 101.6
+          },
+          {
+            "temp_f": 69.5,
+            "amps": 94.1
+          },
+          {
+            "temp_f": 90.6,
+            "amps": 86.9
+          },
+          {
+            "temp_f": 110.5,
+            "amps": 79.8
+          },
+          {
+            "temp_f": 129.3,
+            "amps": 73.1
+          },
+          {
+            "temp_f": 147.0,
+            "amps": 66.5
+          },
+          {
+            "temp_f": 163.5,
+            "amps": 60.1
+          },
+          {
+            "temp_f": 178.9,
+            "amps": 54.0
+          },
+          {
+            "temp_f": 193.2,
+            "amps": 48.1
+          },
+          {
+            "temp_f": 206.4,
+            "amps": 42.4
+          },
+          {
+            "temp_f": 218.4,
+            "amps": 37.0
+          },
+          {
+            "temp_f": 229.3,
+            "amps": 31.8
+          },
+          {
+            "temp_f": 239.1,
+            "amps": 26.8
+          },
+          {
+            "temp_f": 247.8,
+            "amps": 22.0
+          },
+          {
+            "temp_f": 255.4,
+            "amps": 17.5
+          },
+          {
+            "temp_f": 261.8,
+            "amps": 13.1
+          },
+          {
+            "temp_f": 267.1,
+            "amps": 9.0
+          },
+          {
+            "temp_f": 271.2,
+            "amps": 5.2
+          },
+          {
+            "temp_f": 274.3,
+            "amps": 1.5
+          }
+        ]
+      },
+      "avisos": [
+        "R² eje X = 1.000000, eje Y = 1.000000"
+      ]
+    },
+    {
+      "pagina": 477,
+      "lado": "izq",
+      "familia": "Redablack Cable",
+      "calibres": [
+        "2/0",
+        "1/0",
+        "1",
+        "2",
+        "4",
+        "6"
+      ],
+      "titulo": "Redablack 300 Round",
+      "series": {
+        "2/0": [
+          {
+            "temp_f": -0.6,
+            "amps": 346.0
+          },
+          {
+            "temp_f": 22.4,
+            "amps": 328.2
+          },
+          {
+            "temp_f": 44.6,
+            "amps": 310.5
+          },
+          {
+            "temp_f": 65.9,
+            "amps": 292.8
+          },
+          {
+            "temp_f": 86.4,
+            "amps": 275.2
+          },
+          {
+            "temp_f": 106.0,
+            "amps": 257.6
+          },
+          {
+            "temp_f": 124.8,
+            "amps": 240.1
+          },
+          {
+            "temp_f": 142.8,
+            "amps": 222.7
+          },
+          {
+            "temp_f": 159.9,
+            "amps": 205.3
+          },
+          {
+            "temp_f": 176.2,
+            "amps": 188.0
+          },
+          {
+            "temp_f": 191.6,
+            "amps": 170.7
+          },
+          {
+            "temp_f": 206.2,
+            "amps": 153.5
+          },
+          {
+            "temp_f": 220.0,
+            "amps": 136.4
+          },
+          {
+            "temp_f": 232.9,
+            "amps": 119.3
+          },
+          {
+            "temp_f": 245.0,
+            "amps": 102.3
+          },
+          {
+            "temp_f": 256.2,
+            "amps": 85.4
+          },
+          {
+            "temp_f": 266.6,
+            "amps": 68.5
+          },
+          {
+            "temp_f": 276.2,
+            "amps": 51.7
+          },
+          {
+            "temp_f": 284.9,
+            "amps": 34.9
+          },
+          {
+            "temp_f": 292.8,
+            "amps": 18.2
+          },
+          {
+            "temp_f": 299.8,
+            "amps": 1.6
+          }
+        ],
+        "1/0": [
+          {
+            "temp_f": 0.2,
+            "amps": 305.7
+          },
+          {
+            "temp_f": 27.1,
+            "amps": 288.7
+          },
+          {
+            "temp_f": 52.0,
+            "amps": 272.7
+          },
+          {
+            "temp_f": 75.2,
+            "amps": 257.5
+          },
+          {
+            "temp_f": 96.6,
+            "amps": 243.0
+          },
+          {
+            "temp_f": 116.5,
+            "amps": 229.1
+          },
+          {
+            "temp_f": 134.9,
+            "amps": 215.6
+          },
+          {
+            "temp_f": 151.9,
+            "amps": 202.5
+          },
+          {
+            "temp_f": 167.7,
+            "amps": 189.5
+          },
+          {
+            "temp_f": 182.3,
+            "amps": 176.6
+          },
+          {
+            "temp_f": 195.9,
+            "amps": 163.6
+          },
+          {
+            "temp_f": 208.6,
+            "amps": 150.3
+          },
+          {
+            "temp_f": 220.4,
+            "amps": 136.8
+          },
+          {
+            "temp_f": 231.6,
+            "amps": 122.8
+          },
+          {
+            "temp_f": 242.2,
+            "amps": 108.1
+          },
+          {
+            "temp_f": 252.3,
+            "amps": 92.8
+          },
+          {
+            "temp_f": 262.1,
+            "amps": 76.6
+          },
+          {
+            "temp_f": 271.6,
+            "amps": 59.3
+          },
+          {
+            "temp_f": 281.0,
+            "amps": 41.0
+          },
+          {
+            "temp_f": 290.4,
+            "amps": 21.4
+          },
+          {
+            "temp_f": 299.8,
+            "amps": 0.4
+          }
+        ],
+        "1": [
+          {
+            "temp_f": -0.5,
+            "amps": 264.1
+          },
+          {
+            "temp_f": 32.3,
+            "amps": 245.0
+          },
+          {
+            "temp_f": 62.2,
+            "amps": 227.3
+          },
+          {
+            "temp_f": 89.5,
+            "amps": 210.8
+          },
+          {
+            "temp_f": 114.2,
+            "amps": 195.4
+          },
+          {
+            "temp_f": 136.6,
+            "amps": 181.0
+          },
+          {
+            "temp_f": 156.8,
+            "amps": 167.5
+          },
+          {
+            "temp_f": 175.0,
+            "amps": 154.8
+          },
+          {
+            "temp_f": 191.3,
+            "amps": 142.6
+          },
+          {
+            "temp_f": 205.9,
+            "amps": 131.0
+          },
+          {
+            "temp_f": 218.9,
+            "amps": 119.7
+          },
+          {
+            "temp_f": 230.6,
+            "amps": 108.7
+          },
+          {
+            "temp_f": 241.0,
+            "amps": 97.8
+          },
+          {
+            "temp_f": 250.4,
+            "amps": 87.0
+          },
+          {
+            "temp_f": 258.8,
+            "amps": 75.9
+          },
+          {
+            "temp_f": 266.6,
+            "amps": 64.7
+          },
+          {
+            "temp_f": 273.7,
+            "amps": 53.1
+          },
+          {
+            "temp_f": 280.5,
+            "amps": 41.0
+          },
+          {
+            "temp_f": 287.0,
+            "amps": 28.2
+          },
+          {
+            "temp_f": 293.3,
+            "amps": 14.8
+          },
+          {
+            "temp_f": 299.8,
+            "amps": 0.4
+          }
+        ],
+        "2": [
+          {
+            "temp_f": -0.5,
+            "amps": 228.2
+          },
+          {
+            "temp_f": 22.7,
+            "amps": 216.4
+          },
+          {
+            "temp_f": 44.9,
+            "amps": 204.5
+          },
+          {
+            "temp_f": 66.3,
+            "amps": 192.8
+          },
+          {
+            "temp_f": 86.8,
+            "amps": 181.0
+          },
+          {
+            "temp_f": 106.5,
+            "amps": 169.4
+          },
+          {
+            "temp_f": 125.3,
+            "amps": 157.8
+          },
+          {
+            "temp_f": 143.3,
+            "amps": 146.2
+          },
+          {
+            "temp_f": 160.4,
+            "amps": 134.7
+          },
+          {
+            "temp_f": 176.6,
+            "amps": 123.2
+          },
+          {
+            "temp_f": 192.0,
+            "amps": 111.8
+          },
+          {
+            "temp_f": 206.5,
+            "amps": 100.4
+          },
+          {
+            "temp_f": 220.2,
+            "amps": 89.1
+          },
+          {
+            "temp_f": 233.0,
+            "amps": 77.9
+          },
+          {
+            "temp_f": 244.9,
+            "amps": 66.6
+          },
+          {
+            "temp_f": 256.0,
+            "amps": 55.5
+          },
+          {
+            "temp_f": 266.2,
+            "amps": 44.4
+          },
+          {
+            "temp_f": 275.6,
+            "amps": 33.3
+          },
+          {
+            "temp_f": 284.1,
+            "amps": 22.3
+          },
+          {
+            "temp_f": 291.7,
+            "amps": 11.3
+          },
+          {
+            "temp_f": 298.5,
+            "amps": 0.4
+          }
+        ],
+        "4": [
+          {
+            "temp_f": 0.2,
+            "amps": 162.0
+          },
+          {
+            "temp_f": 24.7,
+            "amps": 152.6
+          },
+          {
+            "temp_f": 48.2,
+            "amps": 143.2
+          },
+          {
+            "temp_f": 70.7,
+            "amps": 134.1
+          },
+          {
+            "temp_f": 92.2,
+            "amps": 125.0
+          },
+          {
+            "temp_f": 112.6,
+            "amps": 116.1
+          },
+          {
+            "temp_f": 132.1,
+            "amps": 107.4
+          },
+          {
+            "temp_f": 150.6,
+            "amps": 98.8
+          },
+          {
+            "temp_f": 168.0,
+            "amps": 90.4
+          },
+          {
+            "temp_f": 184.5,
+            "amps": 82.1
+          },
+          {
+            "temp_f": 199.9,
+            "amps": 73.9
+          },
+          {
+            "temp_f": 214.4,
+            "amps": 65.9
+          },
+          {
+            "temp_f": 227.8,
+            "amps": 58.1
+          },
+          {
+            "temp_f": 240.3,
+            "amps": 50.3
+          },
+          {
+            "temp_f": 251.7,
+            "amps": 42.8
+          },
+          {
+            "temp_f": 262.1,
+            "amps": 35.4
+          },
+          {
+            "temp_f": 271.5,
+            "amps": 28.1
+          },
+          {
+            "temp_f": 279.9,
+            "amps": 20.9
+          },
+          {
+            "temp_f": 287.3,
+            "amps": 14.0
+          },
+          {
+            "temp_f": 293.7,
+            "amps": 7.1
+          },
+          {
+            "temp_f": 299.1,
+            "amps": 0.4
+          }
+        ],
+        "6": [
+          {
+            "temp_f": -0.6,
+            "amps": 122.7
+          },
+          {
+            "temp_f": 24.0,
+            "amps": 115.5
+          },
+          {
+            "temp_f": 47.7,
+            "amps": 108.4
+          },
+          {
+            "temp_f": 70.3,
+            "amps": 101.4
+          },
+          {
+            "temp_f": 91.9,
+            "amps": 94.5
+          },
+          {
+            "temp_f": 112.4,
+            "amps": 87.7
+          },
+          {
+            "temp_f": 132.0,
+            "amps": 81.1
+          },
+          {
+            "temp_f": 150.5,
+            "amps": 74.6
+          },
+          {
+            "temp_f": 168.1,
+            "amps": 68.2
+          },
+          {
+            "temp_f": 184.6,
+            "amps": 61.9
+          },
+          {
+            "temp_f": 200.1,
+            "amps": 55.7
+          },
+          {
+            "temp_f": 214.5,
+            "amps": 49.6
+          },
+          {
+            "temp_f": 228.0,
+            "amps": 43.7
+          },
+          {
+            "temp_f": 240.5,
+            "amps": 37.9
+          },
+          {
+            "temp_f": 251.9,
+            "amps": 32.2
+          },
+          {
+            "temp_f": 262.3,
+            "amps": 26.6
+          },
+          {
+            "temp_f": 271.7,
+            "amps": 21.1
+          },
+          {
+            "temp_f": 280.1,
+            "amps": 15.8
+          },
+          {
+            "temp_f": 287.5,
+            "amps": 10.5
+          },
+          {
+            "temp_f": 293.8,
+            "amps": 5.4
+          },
+          {
+            "temp_f": 299.1,
+            "amps": 0.4
+          }
+        ]
+      },
+      "avisos": [
+        "R² eje X = 1.000000, eje Y = 1.000000"
+      ]
+    },
+    {
+      "pagina": 477,
+      "lado": "der",
+      "familia": "Redablack Cable",
+      "calibres": [
+        "2/0",
+        "1/0",
+        "1",
+        "2",
+        "4",
+        "6"
+      ],
+      "titulo": "Redablack 400 Round",
+      "series": {
+        "2/0": [
+          {
+            "temp_f": -0.4,
+            "amps": 400.6
+          },
+          {
+            "temp_f": 32.1,
+            "amps": 377.8
+          },
+          {
+            "temp_f": 63.2,
+            "amps": 355.2
+          },
+          {
+            "temp_f": 93.1,
+            "amps": 332.9
+          },
+          {
+            "temp_f": 121.6,
+            "amps": 310.9
+          },
+          {
+            "temp_f": 148.8,
+            "amps": 289.2
+          },
+          {
+            "temp_f": 174.7,
+            "amps": 267.8
+          },
+          {
+            "temp_f": 199.4,
+            "amps": 246.7
+          },
+          {
+            "temp_f": 222.7,
+            "amps": 225.9
+          },
+          {
+            "temp_f": 244.7,
+            "amps": 205.4
+          },
+          {
+            "temp_f": 265.4,
+            "amps": 185.2
+          },
+          {
+            "temp_f": 284.8,
+            "amps": 165.3
+          },
+          {
+            "temp_f": 302.9,
+            "amps": 145.7
+          },
+          {
+            "temp_f": 319.7,
+            "amps": 126.4
+          },
+          {
+            "temp_f": 335.2,
+            "amps": 107.4
+          },
+          {
+            "temp_f": 349.4,
+            "amps": 88.7
+          },
+          {
+            "temp_f": 362.2,
+            "amps": 70.3
+          },
+          {
+            "temp_f": 373.8,
+            "amps": 52.2
+          },
+          {
+            "temp_f": 384.1,
+            "amps": 34.4
+          },
+          {
+            "temp_f": 393.1,
+            "amps": 16.9
+          },
+          {
+            "temp_f": 400.7,
+            "amps": -0.3
+          }
+        ],
+        "1/0": [
+          {
+            "temp_f": -0.4,
+            "amps": 354.3
+          },
+          {
+            "temp_f": 38.8,
+            "amps": 332.2
+          },
+          {
+            "temp_f": 75.0,
+            "amps": 311.5
+          },
+          {
+            "temp_f": 108.2,
+            "amps": 292.1
+          },
+          {
+            "temp_f": 138.7,
+            "amps": 273.7
+          },
+          {
+            "temp_f": 166.7,
+            "amps": 256.3
+          },
+          {
+            "temp_f": 192.3,
+            "amps": 239.6
+          },
+          {
+            "temp_f": 215.7,
+            "amps": 223.6
+          },
+          {
+            "temp_f": 237.1,
+            "amps": 208.0
+          },
+          {
+            "temp_f": 256.6,
+            "amps": 192.7
+          },
+          {
+            "temp_f": 274.5,
+            "amps": 177.6
+          },
+          {
+            "temp_f": 290.9,
+            "amps": 162.5
+          },
+          {
+            "temp_f": 305.9,
+            "amps": 147.1
+          },
+          {
+            "temp_f": 319.8,
+            "amps": 131.5
+          },
+          {
+            "temp_f": 332.8,
+            "amps": 115.4
+          },
+          {
+            "temp_f": 345.0,
+            "amps": 98.7
+          },
+          {
+            "temp_f": 356.5,
+            "amps": 81.1
+          },
+          {
+            "temp_f": 367.6,
+            "amps": 62.6
+          },
+          {
+            "temp_f": 378.5,
+            "amps": 43.0
+          },
+          {
+            "temp_f": 389.3,
+            "amps": 22.2
+          },
+          {
+            "temp_f": 400.2,
+            "amps": -0.1
+          }
+        ],
+        "1": [
+          {
+            "temp_f": -0.4,
+            "amps": 302.7
+          },
+          {
+            "temp_f": 45.1,
+            "amps": 279.3
+          },
+          {
+            "temp_f": 86.7,
+            "amps": 257.6
+          },
+          {
+            "temp_f": 124.4,
+            "amps": 237.5
+          },
+          {
+            "temp_f": 158.6,
+            "amps": 218.8
+          },
+          {
+            "temp_f": 189.5,
+            "amps": 201.3
+          },
+          {
+            "temp_f": 217.3,
+            "amps": 185.0
+          },
+          {
+            "temp_f": 242.1,
+            "amps": 169.6
+          },
+          {
+            "temp_f": 264.3,
+            "amps": 155.2
+          },
+          {
+            "temp_f": 284.0,
+            "amps": 141.4
+          },
+          {
+            "temp_f": 301.4,
+            "amps": 128.3
+          },
+          {
+            "temp_f": 316.8,
+            "amps": 115.6
+          },
+          {
+            "temp_f": 330.4,
+            "amps": 103.2
+          },
+          {
+            "temp_f": 342.4,
+            "amps": 91.1
+          },
+          {
+            "temp_f": 353.0,
+            "amps": 78.9
+          },
+          {
+            "temp_f": 362.4,
+            "amps": 66.8
+          },
+          {
+            "temp_f": 370.9,
+            "amps": 54.3
+          },
+          {
+            "temp_f": 378.6,
+            "amps": 41.6
+          },
+          {
+            "temp_f": 385.9,
+            "amps": 28.4
+          },
+          {
+            "temp_f": 392.8,
+            "amps": 14.5
+          },
+          {
+            "temp_f": 399.6,
+            "amps": -0.1
+          }
+        ],
+        "2": [
+          {
+            "temp_f": -0.8,
+            "amps": 262.9
+          },
+          {
+            "temp_f": 32.2,
+            "amps": 247.4
+          },
+          {
+            "temp_f": 63.8,
+            "amps": 232.2
+          },
+          {
+            "temp_f": 94.0,
+            "amps": 217.2
+          },
+          {
+            "temp_f": 122.9,
+            "amps": 202.4
+          },
+          {
+            "temp_f": 150.4,
+            "amps": 187.9
+          },
+          {
+            "temp_f": 176.6,
+            "amps": 173.6
+          },
+          {
+            "temp_f": 201.4,
+            "amps": 159.6
+          },
+          {
+            "temp_f": 224.8,
+            "amps": 145.9
+          },
+          {
+            "temp_f": 246.9,
+            "amps": 132.3
+          },
+          {
+            "temp_f": 267.6,
+            "amps": 119.1
+          },
+          {
+            "temp_f": 286.9,
+            "amps": 106.0
+          },
+          {
+            "temp_f": 304.9,
+            "amps": 93.2
+          },
+          {
+            "temp_f": 321.5,
+            "amps": 80.7
+          },
+          {
+            "temp_f": 336.8,
+            "amps": 68.4
+          },
+          {
+            "temp_f": 350.6,
+            "amps": 56.4
+          },
+          {
+            "temp_f": 363.2,
+            "amps": 44.6
+          },
+          {
+            "temp_f": 374.3,
+            "amps": 33.0
+          },
+          {
+            "temp_f": 384.1,
+            "amps": 21.7
+          },
+          {
+            "temp_f": 392.5,
+            "amps": 10.7
+          },
+          {
+            "temp_f": 399.6,
+            "amps": -0.1
+          }
+        ],
+        "4": [
+          {
+            "temp_f": -0.8,
+            "amps": 187.5
+          },
+          {
+            "temp_f": 33.7,
+            "amps": 175.6
+          },
+          {
+            "temp_f": 66.6,
+            "amps": 163.9
+          },
+          {
+            "temp_f": 98.1,
+            "amps": 152.5
+          },
+          {
+            "temp_f": 128.0,
+            "amps": 141.4
+          },
+          {
+            "temp_f": 156.4,
+            "amps": 130.6
+          },
+          {
+            "temp_f": 183.3,
+            "amps": 120.0
+          },
+          {
+            "temp_f": 208.7,
+            "amps": 109.7
+          },
+          {
+            "temp_f": 232.5,
+            "amps": 99.6
+          },
+          {
+            "temp_f": 254.8,
+            "amps": 89.8
+          },
+          {
+            "temp_f": 275.6,
+            "amps": 80.3
+          },
+          {
+            "temp_f": 294.8,
+            "amps": 71.1
+          },
+          {
+            "temp_f": 312.6,
+            "amps": 62.1
+          },
+          {
+            "temp_f": 328.8,
+            "amps": 53.4
+          },
+          {
+            "temp_f": 343.5,
+            "amps": 44.9
+          },
+          {
+            "temp_f": 356.6,
+            "amps": 36.8
+          },
+          {
+            "temp_f": 368.3,
+            "amps": 28.9
+          },
+          {
+            "temp_f": 378.4,
+            "amps": 21.2
+          },
+          {
+            "temp_f": 387.0,
+            "amps": 13.8
+          },
+          {
+            "temp_f": 394.0,
+            "amps": 6.7
+          },
+          {
+            "temp_f": 399.6,
+            "amps": -0.1
+          }
+        ],
+        "6": [
+          {
+            "temp_f": -1.4,
+            "amps": 141.1
+          },
+          {
+            "temp_f": 33.4,
+            "amps": 132.0
+          },
+          {
+            "temp_f": 66.6,
+            "amps": 123.2
+          },
+          {
+            "temp_f": 98.2,
+            "amps": 114.5
+          },
+          {
+            "temp_f": 128.3,
+            "amps": 106.1
+          },
+          {
+            "temp_f": 156.9,
+            "amps": 97.8
+          },
+          {
+            "temp_f": 183.9,
+            "amps": 89.8
+          },
+          {
+            "temp_f": 209.4,
+            "amps": 82.0
+          },
+          {
+            "temp_f": 233.3,
+            "amps": 74.5
+          },
+          {
+            "temp_f": 255.6,
+            "amps": 67.1
+          },
+          {
+            "temp_f": 276.4,
+            "amps": 60.0
+          },
+          {
+            "temp_f": 295.7,
+            "amps": 53.1
+          },
+          {
+            "temp_f": 313.4,
+            "amps": 46.4
+          },
+          {
+            "temp_f": 329.5,
+            "amps": 39.9
+          },
+          {
+            "temp_f": 344.1,
+            "amps": 33.6
+          },
+          {
+            "temp_f": 357.1,
+            "amps": 27.6
+          },
+          {
+            "temp_f": 368.6,
+            "amps": 21.7
+          },
+          {
+            "temp_f": 378.5,
+            "amps": 16.1
+          },
+          {
+            "temp_f": 386.9,
+            "amps": 10.7
+          },
+          {
+            "temp_f": 393.7,
+            "amps": 5.5
+          },
+          {
+            "temp_f": 399.0,
+            "amps": 0.6
+          }
+        ]
+      },
+      "avisos": [
+        "R² eje X = 1.000000, eje Y = 1.000000"
+      ]
+    },
+    {
+      "pagina": 479,
+      "lado": "izq",
+      "familia": "Redalead Cable",
+      "calibres": [
+        "2/0",
+        "1/0",
+        "1",
+        "2",
+        "4",
+        "6"
+      ],
+      "titulo": "Redalead Flat",
+      "series": {
+        "2/0": [
+          {
+            "temp_f": -0.0,
+            "amps": 340.2
+          },
+          {
+            "temp_f": 39.8,
+            "amps": 316.6
+          },
+          {
+            "temp_f": 77.8,
+            "amps": 293.8
+          },
+          {
+            "temp_f": 114.0,
+            "amps": 271.6
+          },
+          {
+            "temp_f": 148.4,
+            "amps": 250.1
+          },
+          {
+            "temp_f": 180.9,
+            "amps": 229.3
+          },
+          {
+            "temp_f": 211.6,
+            "amps": 209.2
+          },
+          {
+            "temp_f": 240.5,
+            "amps": 189.8
+          },
+          {
+            "temp_f": 267.6,
+            "amps": 171.1
+          },
+          {
+            "temp_f": 292.8,
+            "amps": 153.1
+          },
+          {
+            "temp_f": 316.2,
+            "amps": 135.7
+          },
+          {
+            "temp_f": 337.8,
+            "amps": 119.1
+          },
+          {
+            "temp_f": 357.5,
+            "amps": 103.1
+          },
+          {
+            "temp_f": 375.5,
+            "amps": 87.9
+          },
+          {
+            "temp_f": 391.6,
+            "amps": 73.3
+          },
+          {
+            "temp_f": 405.8,
+            "amps": 59.4
+          },
+          {
+            "temp_f": 418.3,
+            "amps": 46.2
+          },
+          {
+            "temp_f": 428.9,
+            "amps": 33.7
+          },
+          {
+            "temp_f": 437.7,
+            "amps": 21.8
+          },
+          {
+            "temp_f": 444.7,
+            "amps": 10.7
+          },
+          {
+            "temp_f": 449.8,
+            "amps": 0.3
+          }
+        ],
+        "1/0": [
+          {
+            "temp_f": -0.6,
+            "amps": 300.2
+          },
+          {
+            "temp_f": 43.0,
+            "amps": 281.5
+          },
+          {
+            "temp_f": 83.7,
+            "amps": 263.4
+          },
+          {
+            "temp_f": 121.8,
+            "amps": 246.0
+          },
+          {
+            "temp_f": 157.2,
+            "amps": 229.1
+          },
+          {
+            "temp_f": 190.0,
+            "amps": 212.8
+          },
+          {
+            "temp_f": 220.5,
+            "amps": 196.9
+          },
+          {
+            "temp_f": 248.6,
+            "amps": 181.5
+          },
+          {
+            "temp_f": 274.5,
+            "amps": 166.5
+          },
+          {
+            "temp_f": 298.3,
+            "amps": 151.9
+          },
+          {
+            "temp_f": 320.1,
+            "amps": 137.5
+          },
+          {
+            "temp_f": 339.9,
+            "amps": 123.4
+          },
+          {
+            "temp_f": 358.0,
+            "amps": 109.5
+          },
+          {
+            "temp_f": 374.3,
+            "amps": 95.8
+          },
+          {
+            "temp_f": 389.0,
+            "amps": 82.2
+          },
+          {
+            "temp_f": 402.2,
+            "amps": 68.6
+          },
+          {
+            "temp_f": 414.0,
+            "amps": 55.1
+          },
+          {
+            "temp_f": 424.5,
+            "amps": 41.6
+          },
+          {
+            "temp_f": 433.8,
+            "amps": 27.9
+          },
+          {
+            "temp_f": 442.0,
+            "amps": 14.2
+          },
+          {
+            "temp_f": 449.2,
+            "amps": 0.3
+          }
+        ],
+        "1": [
+          {
+            "temp_f": -0.6,
+            "amps": 265.6
+          },
+          {
+            "temp_f": 49.8,
+            "amps": 244.9
+          },
+          {
+            "temp_f": 96.2,
+            "amps": 225.3
+          },
+          {
+            "temp_f": 138.8,
+            "amps": 206.5
+          },
+          {
+            "temp_f": 177.8,
+            "amps": 188.7
+          },
+          {
+            "temp_f": 213.3,
+            "amps": 171.8
+          },
+          {
+            "temp_f": 245.5,
+            "amps": 155.7
+          },
+          {
+            "temp_f": 274.7,
+            "amps": 140.4
+          },
+          {
+            "temp_f": 300.9,
+            "amps": 125.8
+          },
+          {
+            "temp_f": 324.3,
+            "amps": 112.1
+          },
+          {
+            "temp_f": 345.2,
+            "amps": 99.0
+          },
+          {
+            "temp_f": 363.6,
+            "amps": 86.6
+          },
+          {
+            "temp_f": 379.8,
+            "amps": 74.9
+          },
+          {
+            "temp_f": 394.0,
+            "amps": 63.7
+          },
+          {
+            "temp_f": 406.2,
+            "amps": 53.2
+          },
+          {
+            "temp_f": 416.8,
+            "amps": 43.2
+          },
+          {
+            "temp_f": 425.8,
+            "amps": 33.7
+          },
+          {
+            "temp_f": 433.4,
+            "amps": 24.7
+          },
+          {
+            "temp_f": 439.9,
+            "amps": 16.1
+          },
+          {
+            "temp_f": 445.3,
+            "amps": 8.0
+          },
+          {
+            "temp_f": 449.8,
+            "amps": 0.3
+          }
+        ],
+        "2": [
+          {
+            "temp_f": -0.0,
+            "amps": 228.6
+          },
+          {
+            "temp_f": 34.4,
+            "amps": 216.5
+          },
+          {
+            "temp_f": 67.6,
+            "amps": 204.5
+          },
+          {
+            "temp_f": 99.5,
+            "amps": 192.6
+          },
+          {
+            "temp_f": 130.2,
+            "amps": 180.7
+          },
+          {
+            "temp_f": 159.6,
+            "amps": 168.9
+          },
+          {
+            "temp_f": 187.7,
+            "amps": 157.1
+          },
+          {
+            "temp_f": 214.6,
+            "amps": 145.4
+          },
+          {
+            "temp_f": 240.1,
+            "amps": 133.8
+          },
+          {
+            "temp_f": 264.5,
+            "amps": 122.3
+          },
+          {
+            "temp_f": 287.5,
+            "amps": 110.9
+          },
+          {
+            "temp_f": 309.3,
+            "amps": 99.5
+          },
+          {
+            "temp_f": 329.9,
+            "amps": 88.2
+          },
+          {
+            "temp_f": 349.1,
+            "amps": 76.9
+          },
+          {
+            "temp_f": 367.1,
+            "amps": 65.8
+          },
+          {
+            "temp_f": 383.9,
+            "amps": 54.7
+          },
+          {
+            "temp_f": 399.4,
+            "amps": 43.6
+          },
+          {
+            "temp_f": 413.6,
+            "amps": 32.7
+          },
+          {
+            "temp_f": 426.5,
+            "amps": 21.8
+          },
+          {
+            "temp_f": 438.2,
+            "amps": 11.0
+          },
+          {
+            "temp_f": 448.6,
+            "amps": 0.3
+          }
+        ],
+        "4": [
+          {
+            "temp_f": -0.0,
+            "amps": 163.1
+          },
+          {
+            "temp_f": 39.8,
+            "amps": 151.8
+          },
+          {
+            "temp_f": 77.8,
+            "amps": 140.8
+          },
+          {
+            "temp_f": 114.0,
+            "amps": 130.2
+          },
+          {
+            "temp_f": 148.4,
+            "amps": 119.9
+          },
+          {
+            "temp_f": 180.9,
+            "amps": 110.0
+          },
+          {
+            "temp_f": 211.6,
+            "amps": 100.4
+          },
+          {
+            "temp_f": 240.4,
+            "amps": 91.1
+          },
+          {
+            "temp_f": 267.5,
+            "amps": 82.1
+          },
+          {
+            "temp_f": 292.7,
+            "amps": 73.5
+          },
+          {
+            "temp_f": 316.0,
+            "amps": 65.3
+          },
+          {
+            "temp_f": 337.6,
+            "amps": 57.3
+          },
+          {
+            "temp_f": 357.3,
+            "amps": 49.7
+          },
+          {
+            "temp_f": 375.2,
+            "amps": 42.5
+          },
+          {
+            "temp_f": 391.3,
+            "amps": 35.5
+          },
+          {
+            "temp_f": 405.5,
+            "amps": 28.9
+          },
+          {
+            "temp_f": 417.9,
+            "amps": 22.7
+          },
+          {
+            "temp_f": 428.5,
+            "amps": 16.8
+          },
+          {
+            "temp_f": 437.2,
+            "amps": 11.2
+          },
+          {
+            "temp_f": 444.1,
+            "amps": 5.9
+          },
+          {
+            "temp_f": 449.2,
+            "amps": 1.0
+          }
+        ],
+        "6": [
+          {
+            "temp_f": -0.0,
+            "amps": 125.4
+          },
+          {
+            "temp_f": 39.2,
+            "amps": 117.1
+          },
+          {
+            "temp_f": 76.7,
+            "amps": 109.1
+          },
+          {
+            "temp_f": 112.4,
+            "amps": 101.2
+          },
+          {
+            "temp_f": 146.4,
+            "amps": 93.6
+          },
+          {
+            "temp_f": 178.6,
+            "amps": 86.2
+          },
+          {
+            "temp_f": 209.0,
+            "amps": 79.0
+          },
+          {
+            "temp_f": 237.7,
+            "amps": 72.0
+          },
+          {
+            "temp_f": 264.6,
+            "amps": 65.2
+          },
+          {
+            "temp_f": 289.7,
+            "amps": 58.6
+          },
+          {
+            "temp_f": 313.1,
+            "amps": 52.3
+          },
+          {
+            "temp_f": 334.7,
+            "amps": 46.1
+          },
+          {
+            "temp_f": 354.5,
+            "amps": 40.2
+          },
+          {
+            "temp_f": 372.6,
+            "amps": 34.4
+          },
+          {
+            "temp_f": 388.9,
+            "amps": 28.9
+          },
+          {
+            "temp_f": 403.5,
+            "amps": 23.6
+          },
+          {
+            "temp_f": 416.3,
+            "amps": 18.5
+          },
+          {
+            "temp_f": 427.3,
+            "amps": 13.6
+          },
+          {
+            "temp_f": 436.6,
+            "amps": 9.0
+          },
+          {
+            "temp_f": 444.1,
+            "amps": 4.5
+          },
+          {
+            "temp_f": 449.8,
+            "amps": 0.3
+          }
+        ]
+      },
+      "avisos": [
+        "R² eje X = 1.000000, eje Y = 1.000000"
+      ]
+    },
+    {
+      "pagina": 479,
+      "lado": "der",
+      "familia": "Redalead Cable",
+      "calibres": [
+        "2/0",
+        "1/0",
+        "1",
+        "2",
+        "4",
+        "6"
+      ],
+      "titulo": "Redalead Round",
+      "series": {
+        "2/0": [
+          {
+            "temp_f": -2.3,
+            "amps": 401.5
+          },
+          {
+            "temp_f": 30.4,
+            "amps": 378.5
+          },
+          {
+            "temp_f": 61.7,
+            "amps": 355.8
+          },
+          {
+            "temp_f": 91.7,
+            "amps": 333.4
+          },
+          {
+            "temp_f": 120.4,
+            "amps": 311.3
+          },
+          {
+            "temp_f": 147.7,
+            "amps": 289.6
+          },
+          {
+            "temp_f": 173.8,
+            "amps": 268.1
+          },
+          {
+            "temp_f": 198.5,
+            "amps": 246.9
+          },
+          {
+            "temp_f": 221.9,
+            "amps": 226.1
+          },
+          {
+            "temp_f": 244.0,
+            "amps": 205.5
+          },
+          {
+            "temp_f": 264.8,
+            "amps": 185.2
+          },
+          {
+            "temp_f": 284.2,
+            "amps": 165.3
+          },
+          {
+            "temp_f": 302.3,
+            "amps": 145.6
+          },
+          {
+            "temp_f": 319.2,
+            "amps": 126.3
+          },
+          {
+            "temp_f": 334.6,
+            "amps": 107.2
+          },
+          {
+            "temp_f": 348.8,
+            "amps": 88.5
+          },
+          {
+            "temp_f": 361.7,
+            "amps": 70.1
+          },
+          {
+            "temp_f": 373.2,
+            "amps": 51.9
+          },
+          {
+            "temp_f": 383.4,
+            "amps": 34.1
+          },
+          {
+            "temp_f": 392.3,
+            "amps": 16.6
+          },
+          {
+            "temp_f": 399.9,
+            "amps": -0.7
+          }
+        ],
+        "1/0": [
+          {
+            "temp_f": -1.7,
+            "amps": 359.2
+          },
+          {
+            "temp_f": 37.6,
+            "amps": 336.6
+          },
+          {
+            "temp_f": 73.8,
+            "amps": 315.4
+          },
+          {
+            "temp_f": 107.1,
+            "amps": 295.6
+          },
+          {
+            "temp_f": 137.6,
+            "amps": 276.9
+          },
+          {
+            "temp_f": 165.6,
+            "amps": 259.2
+          },
+          {
+            "temp_f": 191.3,
+            "amps": 242.3
+          },
+          {
+            "temp_f": 214.7,
+            "amps": 226.1
+          },
+          {
+            "temp_f": 236.1,
+            "amps": 210.4
+          },
+          {
+            "temp_f": 255.7,
+            "amps": 195.0
+          },
+          {
+            "temp_f": 273.6,
+            "amps": 179.7
+          },
+          {
+            "temp_f": 289.9,
+            "amps": 164.4
+          },
+          {
+            "temp_f": 305.0,
+            "amps": 149.0
+          },
+          {
+            "temp_f": 319.0,
+            "amps": 133.2
+          },
+          {
+            "temp_f": 331.9,
+            "amps": 117.0
+          },
+          {
+            "temp_f": 344.1,
+            "amps": 100.0
+          },
+          {
+            "temp_f": 355.7,
+            "amps": 82.3
+          },
+          {
+            "temp_f": 366.8,
+            "amps": 63.5
+          },
+          {
+            "temp_f": 377.6,
+            "amps": 43.5
+          },
+          {
+            "temp_f": 388.4,
+            "amps": 22.3
+          },
+          {
+            "temp_f": 399.3,
+            "amps": -0.5
+          }
+        ],
+        "1": [
+          {
+            "temp_f": -1.7,
+            "amps": 307.7
+          },
+          {
+            "temp_f": 44.5,
+            "amps": 283.4
+          },
+          {
+            "temp_f": 86.5,
+            "amps": 260.9
+          },
+          {
+            "temp_f": 124.6,
+            "amps": 240.2
+          },
+          {
+            "temp_f": 159.0,
+            "amps": 221.1
+          },
+          {
+            "temp_f": 189.9,
+            "amps": 203.4
+          },
+          {
+            "temp_f": 217.7,
+            "amps": 187.0
+          },
+          {
+            "temp_f": 242.4,
+            "amps": 171.7
+          },
+          {
+            "temp_f": 264.4,
+            "amps": 157.3
+          },
+          {
+            "temp_f": 283.9,
+            "amps": 143.7
+          },
+          {
+            "temp_f": 301.1,
+            "amps": 130.8
+          },
+          {
+            "temp_f": 316.3,
+            "amps": 118.2
+          },
+          {
+            "temp_f": 329.6,
+            "amps": 106.0
+          },
+          {
+            "temp_f": 341.4,
+            "amps": 93.9
+          },
+          {
+            "temp_f": 351.7,
+            "amps": 81.8
+          },
+          {
+            "temp_f": 361.0,
+            "amps": 69.5
+          },
+          {
+            "temp_f": 369.4,
+            "amps": 56.9
+          },
+          {
+            "temp_f": 377.1,
+            "amps": 43.7
+          },
+          {
+            "temp_f": 384.4,
+            "amps": 29.9
+          },
+          {
+            "temp_f": 391.6,
+            "amps": 15.2
+          },
+          {
+            "temp_f": 398.7,
+            "amps": -0.5
+          }
+        ],
+        "2": [
+          {
+            "temp_f": -1.7,
+            "amps": 262.1
+          },
+          {
+            "temp_f": 27.9,
+            "amps": 249.0
+          },
+          {
+            "temp_f": 56.6,
+            "amps": 235.8
+          },
+          {
+            "temp_f": 84.2,
+            "amps": 222.6
+          },
+          {
+            "temp_f": 110.8,
+            "amps": 209.5
+          },
+          {
+            "temp_f": 136.3,
+            "amps": 196.3
+          },
+          {
+            "temp_f": 160.9,
+            "amps": 183.2
+          },
+          {
+            "temp_f": 184.5,
+            "amps": 170.0
+          },
+          {
+            "temp_f": 207.0,
+            "amps": 156.9
+          },
+          {
+            "temp_f": 228.5,
+            "amps": 143.8
+          },
+          {
+            "temp_f": 249.1,
+            "amps": 130.6
+          },
+          {
+            "temp_f": 268.6,
+            "amps": 117.5
+          },
+          {
+            "temp_f": 287.1,
+            "amps": 104.4
+          },
+          {
+            "temp_f": 304.6,
+            "amps": 91.2
+          },
+          {
+            "temp_f": 321.1,
+            "amps": 78.1
+          },
+          {
+            "temp_f": 336.5,
+            "amps": 65.0
+          },
+          {
+            "temp_f": 351.0,
+            "amps": 51.9
+          },
+          {
+            "temp_f": 364.4,
+            "amps": 38.8
+          },
+          {
+            "temp_f": 376.9,
+            "amps": 25.7
+          },
+          {
+            "temp_f": 388.3,
+            "amps": 12.6
+          },
+          {
+            "temp_f": 398.7,
+            "amps": -0.5
+          }
+        ],
+        "4": [
+          {
+            "temp_f": -1.7,
+            "amps": 185.3
+          },
+          {
+            "temp_f": 32.8,
+            "amps": 173.3
+          },
+          {
+            "temp_f": 65.8,
+            "amps": 161.5
+          },
+          {
+            "temp_f": 97.2,
+            "amps": 150.1
+          },
+          {
+            "temp_f": 127.2,
+            "amps": 139.0
+          },
+          {
+            "temp_f": 155.6,
+            "amps": 128.1
+          },
+          {
+            "temp_f": 182.4,
+            "amps": 117.5
+          },
+          {
+            "temp_f": 207.8,
+            "amps": 107.2
+          },
+          {
+            "temp_f": 231.6,
+            "amps": 97.2
+          },
+          {
+            "temp_f": 253.9,
+            "amps": 87.5
+          },
+          {
+            "temp_f": 274.7,
+            "amps": 78.1
+          },
+          {
+            "temp_f": 294.0,
+            "amps": 68.9
+          },
+          {
+            "temp_f": 311.7,
+            "amps": 60.1
+          },
+          {
+            "temp_f": 327.9,
+            "amps": 51.5
+          },
+          {
+            "temp_f": 342.6,
+            "amps": 43.2
+          },
+          {
+            "temp_f": 355.8,
+            "amps": 35.2
+          },
+          {
+            "temp_f": 367.4,
+            "amps": 27.5
+          },
+          {
+            "temp_f": 377.5,
+            "amps": 20.1
+          },
+          {
+            "temp_f": 386.1,
+            "amps": 12.9
+          },
+          {
+            "temp_f": 393.2,
+            "amps": 6.1
+          },
+          {
+            "temp_f": 398.7,
+            "amps": -0.5
+          }
+        ],
+        "6": [
+          {
+            "temp_f": -2.3,
+            "amps": 139.5
+          },
+          {
+            "temp_f": 32.5,
+            "amps": 130.3
+          },
+          {
+            "temp_f": 65.7,
+            "amps": 121.4
+          },
+          {
+            "temp_f": 97.4,
+            "amps": 112.7
+          },
+          {
+            "temp_f": 127.5,
+            "amps": 104.2
+          },
+          {
+            "temp_f": 156.0,
+            "amps": 96.0
+          },
+          {
+            "temp_f": 183.1,
+            "amps": 88.0
+          },
+          {
+            "temp_f": 208.5,
+            "amps": 80.2
+          },
+          {
+            "temp_f": 232.4,
+            "amps": 72.6
+          },
+          {
+            "temp_f": 254.8,
+            "amps": 65.3
+          },
+          {
+            "temp_f": 275.6,
+            "amps": 58.2
+          },
+          {
+            "temp_f": 294.8,
+            "amps": 51.4
+          },
+          {
+            "temp_f": 312.5,
+            "amps": 44.8
+          },
+          {
+            "temp_f": 328.6,
+            "amps": 38.4
+          },
+          {
+            "temp_f": 343.2,
+            "amps": 32.2
+          },
+          {
+            "temp_f": 356.2,
+            "amps": 26.3
+          },
+          {
+            "temp_f": 367.7,
+            "amps": 20.6
+          },
+          {
+            "temp_f": 377.7,
+            "amps": 15.2
+          },
+          {
+            "temp_f": 386.0,
+            "amps": 9.9
+          },
+          {
+            "temp_f": 392.9,
+            "amps": 4.9
+          },
+          {
+            "temp_f": 398.1,
+            "amps": 0.2
+          }
+        ]
+      },
+      "avisos": [
+        "R² eje X = 1.000000, eje Y = 1.000000"
+      ]
+    },
+    {
+      "pagina": 488,
+      "lado": "unico",
+      "familia": "Motorlead Extensions",
+      "calibres": [
+        "1",
+        "2",
+        "4",
+        "6"
+      ],
+      "titulo": "",
+      "series": {
+        "1": [
+          {
+            "temp_f": 2.0,
+            "amps": 260.5
+          },
+          {
+            "temp_f": 40.1,
+            "amps": 244.1
+          },
+          {
+            "temp_f": 76.4,
+            "amps": 228.0
+          },
+          {
+            "temp_f": 111.2,
+            "amps": 212.2
+          },
+          {
+            "temp_f": 144.3,
+            "amps": 196.7
+          },
+          {
+            "temp_f": 175.7,
+            "amps": 181.6
+          },
+          {
+            "temp_f": 205.5,
+            "amps": 166.8
+          },
+          {
+            "temp_f": 233.7,
+            "amps": 152.3
+          },
+          {
+            "temp_f": 260.2,
+            "amps": 138.1
+          },
+          {
+            "temp_f": 285.1,
+            "amps": 124.3
+          },
+          {
+            "temp_f": 308.3,
+            "amps": 110.8
+          },
+          {
+            "temp_f": 329.9,
+            "amps": 97.6
+          },
+          {
+            "temp_f": 349.8,
+            "amps": 84.7
+          },
+          {
+            "temp_f": 368.1,
+            "amps": 72.2
+          },
+          {
+            "temp_f": 384.8,
+            "amps": 60.0
+          },
+          {
+            "temp_f": 399.8,
+            "amps": 48.1
+          },
+          {
+            "temp_f": 413.2,
+            "amps": 36.6
+          },
+          {
+            "temp_f": 425.0,
+            "amps": 25.4
+          },
+          {
+            "temp_f": 435.1,
+            "amps": 14.5
+          },
+          {
+            "temp_f": 443.5,
+            "amps": 3.9
+          },
+          {
+            "temp_f": 450.3,
+            "amps": -6.3
+          }
+        ],
+        "2": [
+          {
+            "temp_f": 2.0,
+            "amps": 224.2
+          },
+          {
+            "temp_f": 37.7,
+            "amps": 211.3
+          },
+          {
+            "temp_f": 72.0,
+            "amps": 198.5
+          },
+          {
+            "temp_f": 104.9,
+            "amps": 185.9
+          },
+          {
+            "temp_f": 136.3,
+            "amps": 173.5
+          },
+          {
+            "temp_f": 166.4,
+            "amps": 161.1
+          },
+          {
+            "temp_f": 195.1,
+            "amps": 149.0
+          },
+          {
+            "temp_f": 222.4,
+            "amps": 136.9
+          },
+          {
+            "temp_f": 248.3,
+            "amps": 125.0
+          },
+          {
+            "temp_f": 272.8,
+            "amps": 113.3
+          },
+          {
+            "temp_f": 295.9,
+            "amps": 101.7
+          },
+          {
+            "temp_f": 317.7,
+            "amps": 90.2
+          },
+          {
+            "temp_f": 338.0,
+            "amps": 78.9
+          },
+          {
+            "temp_f": 356.9,
+            "amps": 67.8
+          },
+          {
+            "temp_f": 374.4,
+            "amps": 56.7
+          },
+          {
+            "temp_f": 390.6,
+            "amps": 45.9
+          },
+          {
+            "temp_f": 405.3,
+            "amps": 35.1
+          },
+          {
+            "temp_f": 418.7,
+            "amps": 24.6
+          },
+          {
+            "temp_f": 430.6,
+            "amps": 14.1
+          },
+          {
+            "temp_f": 441.2,
+            "amps": 3.8
+          },
+          {
+            "temp_f": 450.3,
+            "amps": -6.3
+          }
+        ],
+        "4": [
+          {
+            "temp_f": 2.0,
+            "amps": 157.6
+          },
+          {
+            "temp_f": 41.0,
+            "amps": 147.0
+          },
+          {
+            "temp_f": 78.3,
+            "amps": 136.7
+          },
+          {
+            "temp_f": 113.8,
+            "amps": 126.6
+          },
+          {
+            "temp_f": 147.6,
+            "amps": 116.7
+          },
+          {
+            "temp_f": 179.6,
+            "amps": 107.1
+          },
+          {
+            "temp_f": 209.9,
+            "amps": 97.8
+          },
+          {
+            "temp_f": 238.4,
+            "amps": 88.7
+          },
+          {
+            "temp_f": 265.2,
+            "amps": 79.9
+          },
+          {
+            "temp_f": 290.2,
+            "amps": 71.3
+          },
+          {
+            "temp_f": 313.5,
+            "amps": 63.0
+          },
+          {
+            "temp_f": 335.1,
+            "amps": 54.9
+          },
+          {
+            "temp_f": 354.9,
+            "amps": 47.1
+          },
+          {
+            "temp_f": 372.9,
+            "amps": 39.5
+          },
+          {
+            "temp_f": 389.2,
+            "amps": 32.2
+          },
+          {
+            "temp_f": 403.8,
+            "amps": 25.2
+          },
+          {
+            "temp_f": 416.6,
+            "amps": 18.4
+          },
+          {
+            "temp_f": 427.6,
+            "amps": 11.8
+          },
+          {
+            "temp_f": 436.9,
+            "amps": 5.5
+          },
+          {
+            "temp_f": 444.5,
+            "amps": -0.5
+          },
+          {
+            "temp_f": 450.3,
+            "amps": -6.3
+          }
+        ],
+        "6": [
+          {
+            "temp_f": 1.4,
+            "amps": 121.3
+          },
+          {
+            "temp_f": 38.5,
+            "amps": 113.7
+          },
+          {
+            "temp_f": 74.0,
+            "amps": 106.3
+          },
+          {
+            "temp_f": 108.0,
+            "amps": 99.0
+          },
+          {
+            "temp_f": 140.4,
+            "amps": 91.8
+          },
+          {
+            "temp_f": 171.3,
+            "amps": 84.8
+          },
+          {
+            "temp_f": 200.6,
+            "amps": 77.8
+          },
+          {
+            "temp_f": 228.4,
+            "amps": 71.1
+          },
+          {
+            "temp_f": 254.6,
+            "amps": 64.4
+          },
+          {
+            "temp_f": 279.3,
+            "amps": 57.8
+          },
+          {
+            "temp_f": 302.4,
+            "amps": 51.4
+          },
+          {
+            "temp_f": 324.0,
+            "amps": 45.1
+          },
+          {
+            "temp_f": 344.0,
+            "amps": 38.9
+          },
+          {
+            "temp_f": 362.5,
+            "amps": 32.9
+          },
+          {
+            "temp_f": 379.4,
+            "amps": 27.0
+          },
+          {
+            "temp_f": 394.8,
+            "amps": 21.2
+          },
+          {
+            "temp_f": 408.6,
+            "amps": 15.5
+          },
+          {
+            "temp_f": 420.9,
+            "amps": 10.0
+          },
+          {
+            "temp_f": 431.6,
+            "amps": 4.6
+          },
+          {
+            "temp_f": 440.8,
+            "amps": -0.7
+          },
+          {
+            "temp_f": 448.4,
+            "amps": -5.9
+          }
+        ]
+      },
+      "avisos": [
+        "R² eje X = 0.999985, eje Y = 1.000000"
+      ]
+    }
+  ],
+  "problemas": []
+}

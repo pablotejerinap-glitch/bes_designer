@@ -25,6 +25,7 @@ from bes.core.models import (
     SurfaceConditions,
     WellGeometry,
 )
+from bes.core.gas_handling import SEPARATOR_DEFAULT_EFFICIENCY
 from bes.services.gas_service import gas_method_applies, run_gas_design_complete
 
 
@@ -342,16 +343,32 @@ class TestCompuertaDeGas:
     """Si el gas que queda tras el separador supera ``max_gip``, el diseño
     **falla**. No entrega un aparejo marcado como dudoso: no converge."""
 
-    def test_el_pozo_de_prueba_pasa_con_el_separador_del_catalogo(
+    def test_el_pozo_de_prueba_pasa_con_el_equipo_del_catalogo(
         self, con_gas, reservoir, well, surface, objectives, catalog
     ):
-        """64.9 % de gas libre, pero el vórtex del catálogo retira 97 %."""
+        """63 % de gas libre: el separador no basta, el manejador avanzado sí.
+
+        Con el catálogo REDA la eficiencia de separación **no está publicada**,
+        así que se supone la conservadora del dominio (75 %) y queda declarada.
+        Con eso el gas en la bomba baja a ~30 %, todavía por encima del 10 %
+        que tolera una bomba convencional pero dentro del 45 % de GVF del AGH.
+
+        Antes acá se afirmaba ``separator_efficiency == 0.97``: era la del
+        vórtex de ChampionX, fabricante que la purga de catálogos retiró del
+        proyecto. Ese 97 % ya no está disponible y no se trasladó a REDA.
+        """
         r = _correr(con_gas, reservoir, well, surface, objectives, catalog)
         f = r["feasibility"]
         assert f["viable"] is True
         assert f["f_intake"] > 0.60
-        assert f["f_pump"] < objectives.max_gip
-        assert f["separator_efficiency"] == pytest.approx(0.97)
+        assert f["strategy"] == "agh"
+        assert f["uses_agh"] is True
+        # No retira gas: sube la tolerancia. f_pump sigue arriba de max_gip.
+        assert f["f_pump"] > objectives.max_gip
+        assert f["f_pump"] <= f["agh_max_gvf"]
+        assert f["separator_efficiency"] == pytest.approx(
+            SEPARATOR_DEFAULT_EFFICIENCY
+        )
 
     def test_un_max_gip_exigente_rechaza_el_pozo(
         self, con_gas, reservoir, well, surface, catalog
@@ -379,7 +396,7 @@ class TestCompuertaDeGas:
             allow_gas_venting=False, design_life_years=5.0, use_vsd=False,
             max_gip=0.005,
         )
-        with pytest.raises(ValueError, match="separador de"):
+        with pytest.raises(ValueError, match="eficiencia de separación de"):
             _correr(con_gas, reservoir, well, surface, exigente, catalog)
 
     def test_la_compuerta_corre_antes_de_disenar(
@@ -407,6 +424,10 @@ class TestCompuertaDeGas:
         f = r["feasibility"]
         assert f["separator_model"]
         assert 0.0 < f["separator_efficiency"] <= 1.0
+        # Y si el aparejo subió al cuarto escalón, también qué manejador.
+        if f["uses_agh"]:
+            assert f["agh_model"]
+            assert 0.0 < f["agh_max_gvf"] <= 1.0
 
 
 # ===========================================================================

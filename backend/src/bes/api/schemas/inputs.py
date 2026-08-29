@@ -12,6 +12,7 @@ documentación OpenAPI.
 from __future__ import annotations
 
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -79,8 +80,19 @@ class FluidSchema(BaseModel):
     gor: float = Field(..., ge=0, description="GOR [scf/STB]")
     gas_sg: float = Field(..., gt=0, description="SG del gas (aire=1)")
     water_sg: float = Field(..., gt=0, description="SG de la salmuera")
-    oil_viscosity_dead: float = Field(..., gt=0, description="Viscosidad dead-oil [cp]")
-    viscosity_temp_ref: float = Field(..., gt=0, description="Temp. de referencia de viscosidad [°F]")
+    # Opcionales a propósito: sin ensayo de laboratorio la viscosidad se lee de
+    # la Fig. 4L(2) del libro con la °API y la temperatura de admisión. `null`
+    # dice «no hay dato»; 0 sería un dato falso y se rechaza.
+    oil_viscosity_dead: float | None = Field(
+        None, gt=0,
+        description="Viscosidad dead-oil medida [cp]. Omitir o null si no hay "
+                    "ensayo: se lee la Fig. 4L(2) del libro.",
+    )
+    viscosity_temp_ref: float | None = Field(
+        None, gt=0,
+        description="Temp. a la que se midió esa viscosidad [°F]. Obligatoria "
+                    "sólo si se manda oil_viscosity_dead.",
+    )
     bubble_point_pressure: float = Field(..., ge=0, description="Pb del fluido [psia]")
     h2s_content: float = Field(..., ge=0, description="H2S [ppm]")
     co2_content: float = Field(..., ge=0, description="CO2 [ppm]")
@@ -129,6 +141,16 @@ class ObjectivesSchema(BaseModel):
     )
     design_life_years: float = Field(..., gt=0, description="Vida de diseño [años]")
     use_vsd: bool
+    pressure_loss_method: Literal["poettmann_carpenter", "hazen_williams"] | None = Field(
+        None,
+        description="Correlación con la que se calcula la pérdida de carga por "
+                    "fricción en el tubing. Vacío = la decide la fracción de gas "
+                    "libre en la admisión. 'poettmann_carpenter' sólo es "
+                    "aplicable a tubing de 2, 2½ y 3 pulg (OD 2 3/8, 2 7/8 y "
+                    "3 1/2 in): con otra cañería el diseño falla. Los otros "
+                    "tres límites del método —menos de 5 cp, RGL menor a "
+                    "1500 scf/bbl y más de 400 bbl/d— avisan sin frenar.",
+    )
     design_frequency_hz: float | None = Field(
         None, ge=20, le=90,
         description="Frecuencia de operación de la bomba [Hz]. Vacío = la frecuencia "

@@ -17,6 +17,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+import bes.core.multiphase as mp
 from bes.core.models import DriveMechanism, Fluid, IPRMethod, Reservoir, WellGeometry
 from bes.core.multiphase import (
     calculate_discharge_pressure,
@@ -435,3 +436,122 @@ class TestCalculatePIP:
         pip = calculate_pip(reservoir, base_fluid, well,
                             pump_setting_depth=8400, target_rate=1000.0)
         assert pip < reservoir.static_pressure
+
+
+# ---------------------------------------------------------------------------
+# 5. Envelope de aplicabilidad de Poettmann & Carpenter
+# ---------------------------------------------------------------------------
+#
+# Los cuatro límites del método, aportados por Pablo de los apuntes de cátedra:
+# tubing de 2, 2½ y 3 pulg · μo < 5 cp · RGL < 1500 scf/bbl · q > 400 bbl/d.
+
+class TestRelacionGasLiquido:
+    """RGL = GOR/(1 + WOR). No es lo mismo que el GOR en cuanto hay agua."""
+
+    def test_sin_agua_la_rgl_es_el_gor(self):
+        assert mp.gas_liquid_ratio(500.0, 0.0) == pytest.approx(500.0)
+
+    def test_con_agua_la_rgl_baja(self):
+        """40 % de agua: el mismo gas repartido en más barriles de líquido."""
+        assert mp.gas_liquid_ratio(500.0, 0.40) == pytest.approx(300.0)
+
+    def test_es_la_forma_de_la_catedra_despejada(self):
+        """RGL = GOR/(1+WOR) y GOR·(1−Wc) son la misma cuenta."""
+        for wc in (0.0, 0.15, 0.5, 0.9):
+            wor = wc / (1 - wc)
+            assert mp.gas_liquid_ratio(800.0, wc) == pytest.approx(
+                800.0 / (1 + wor)
+            ) == pytest.approx(800.0 * (1 - wc))
+
+    def test_un_pozo_de_puro_agua_no_tiene_rgl(self):
+        with pytest.raises(ValueError, match="water_cut"):
+            mp.gas_liquid_ratio(500.0, 1.0)
+
+
+class TestTuberiasParaLasQueValeElMetodo:
+    def test_las_tres_nominales(self):
+        """2, 2½ y 3 pulg son estos OD en la tabla API."""
+        assert all(mp.tubing_od_is_pc_range(od) for od in (2.375, 2.875, 3.5))
+
+    def test_las_mas_grandes_quedan_afuera(self):
+        assert not mp.tubing_od_is_pc_range(4.0)
+        assert not mp.tubing_od_is_pc_range(4.5)
+
+
+class TestEnvelopeCompleto:
+    def _fluido(self, **cambios) -> Fluid:
+        base = dict(
+            oil_api=35.0, water_cut=0.0, gor=500.0, gas_sg=0.65, water_sg=1.08,
+            oil_viscosity_dead=2.0, viscosity_temp_ref=160.0,
+            bubble_point_pressure=2000.0, h2s_content=0.0, co2_content=0.0,
+            sand_production=False,
+        )
+        return Fluid(**{**base, **cambios})
+
+    def test_un_pozo_adentro_del_envelope_no_avisa_nada(self, well):
+        v = mp.poettmann_carpenter_applicability(
+            self._fluido(), well, q_liq=1500.0, temp_f=160.0
+        )
+        assert v["applicable"] is True
+        assert v["warnings"] == []
+
+    def test_el_crudo_viscoso_avisa(self, well):
+        v = mp.poettmann_carpenter_applicability(
+            self._fluido(oil_viscosity_dead=20.0), well, q_liq=1500.0,
+            temp_f=160.0,
+        )
+        assert v["applicable"] is False
+        assert any("livianos" in w for w in v["warnings"])
+
+    def test_el_limite_de_viscosidad_es_estricto(self, well):
+        """«Menores a 5 cp»: 5.0 exactos ya no cumple."""
+        v = mp.poettmann_carpenter_applicability(
+            self._fluido(oil_viscosity_dead=5.0), well, q_liq=1500.0,
+            temp_f=160.0,
+        )
+        assert not next(c for c in v["checks"] if c["item"] == "viscosidad")["ok"]
+
+    def test_mucho_gas_avisa(self, well):
+        v = mp.poettmann_carpenter_applicability(
+            self._fluido(gor=2000.0), well, q_liq=1500.0, temp_f=160.0
+        )
+        assert any("gas-líquido" in w for w in v["warnings"])
+
+    def test_el_limite_de_gas_se_mide_en_rgl_no_en_gor(self, well):
+        """Un GOR de 2000 con 50 % de agua da RGL 1000: adentro del rango.
+
+        Comparar el GOR pelado contra el límite daría un aviso equivocado.
+        """
+        v = mp.poettmann_carpenter_applicability(
+            self._fluido(gor=2000.0, water_cut=0.50), well, q_liq=1500.0,
+            temp_f=160.0,
+        )
+        assert v["glr_scf_bbl"] == pytest.approx(1000.0)
+        assert not any("gas-líquido" in w for w in v["warnings"])
+
+    def test_caudal_bajo_avisa(self, well):
+        v = mp.poettmann_carpenter_applicability(
+            self._fluido(), well, q_liq=300.0, temp_f=160.0
+        )
+        assert any("caudal" in w for w in v["warnings"])
+
+    def test_la_tuberia_grande_avisa(self, base_fluid):
+        grande = WellGeometry(
+            total_depth=9000.0, casing_od=7.0, casing_weight=23.0,
+            casing_id=6.366, tubing_od=4.5, tubing_id=3.958,
+            perforations_top=8700.0, perforations_bottom=8900.0,
+            deviation_max=5.0, wellhead_temp=80.0,
+        )
+        v = mp.poettmann_carpenter_applicability(
+            self._fluido(), grande, q_liq=1500.0, temp_f=160.0
+        )
+        assert any("fuera del rango" in w for w in v["warnings"])
+
+    def test_sin_ensayo_la_viscosidad_sale_de_la_lamina(self, well):
+        """El envelope no exige ensayo de laboratorio: se lee la Fig. 4L(2)."""
+        v = mp.poettmann_carpenter_applicability(
+            self._fluido(oil_viscosity_dead=None, viscosity_temp_ref=None),
+            well, q_liq=1500.0, temp_f=160.0,
+        )
+        assert "4L(2)" in v["viscosity_source"]
+        assert v["viscosity_cp"] > 0

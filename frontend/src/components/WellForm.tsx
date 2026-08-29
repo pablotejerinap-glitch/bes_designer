@@ -16,6 +16,7 @@ import type {
   IPRFromTestResponse,
   IPRMethod,
   ObjectivesInput,
+  PressureLossMethod,
   ReservoirInput,
   SurfaceInput,
   TubularCatalog,
@@ -56,8 +57,24 @@ const FLUID_NUM: NumField[] = [
   { key: "gor", label: "GOR", unit: "scf/STB" },
   { key: "gas_sg", label: "SG del gas", unit: "aire=1", step: 0.01 },
   { key: "water_sg", label: "SG de la salmuera", step: 0.01 },
-  { key: "oil_viscosity_dead", label: "Viscosidad del petróleo", unit: "cp", step: 0.1 },
-  { key: "viscosity_temp_ref", label: "Temp. de la viscosidad", unit: "°F" },
+  // Opcionales: sin ensayo de laboratorio el backend lee la Fig. 4L(2) del
+  // libro con la °API y la temperatura de admisión, que es el paso 2 de
+  // Riling. Vacío viaja como null; un 0 sería un dato falso y da 422.
+  {
+    key: "oil_viscosity_dead",
+    label: "Viscosidad del petróleo",
+    unit: "cp",
+    step: 0.1,
+    description: "opcional · vacío = Fig. 4L(2)",
+    optional: true,
+  },
+  {
+    key: "viscosity_temp_ref",
+    label: "Temp. de la viscosidad",
+    unit: "°F",
+    description: "sólo si cargaste la viscosidad",
+    optional: true,
+  },
   // Pb del fluido no se pide acá: es el mismo punto de burbuja del reservorio
   // ("Presión de burbuja"). App sincroniza fluid.bubble_point_pressure =
   // reservoir.bubble_point para que IPR y PVT usen un único valor.
@@ -106,6 +123,17 @@ const IPR_OPTIONS: { value: IPRMethod; label: string }[] = [
   { value: "linear", label: "Linear (Darcy)" },
   { value: "vogel", label: "Vogel" },
   { value: "fetkovich", label: "Fetkovich" },
+];
+
+/** Los tres OD de tubing para los que se levantó Poettmann-Carpenter: los
+ *  nominales de 2, 2½ y 3 pulg. Es el mismo `PC_TUBING_OD_IN` del dominio
+ *  (`core/multiphase.py`); acá sólo se usa para no ofrecer una cañería que el
+ *  backend va a rechazar con 422. */
+const PC_TUBING_OD = [2.375, 2.875, 3.5];
+
+const PRESSURE_LOSS_OPTIONS: { value: PressureLossMethod; label: string }[] = [
+  { value: "poettmann_carpenter", label: "Poettmann & Carpenter (multifásico)" },
+  { value: "hazen_williams", label: "Hazen-Williams (monofásico)" },
 ];
 
 const DRIVE_OPTIONS: { value: DriveMechanism; label: string }[] = [
@@ -251,11 +279,18 @@ export function WellForm({ value, onChange }: Props) {
     onOd: (od: number, first: TubularDim | null) => void;
     onWeight: (row: TubularDim) => void;
     onId: (v: number) => void;
+    /** Si viene, el desplegable de OD ofrece SÓLO estos diámetros. Lo usa el
+     *  tubing cuando se eligió P&C, que no es aplicable a otras cañerías. */
+    onlyOds?: number[];
   }) {
-    const { title, rows, od, weight, id, driftIn } = opts;
-    const ods = uniqueOds(rows);
+    const { title, rows, od, weight, id, driftIn, onlyOds } = opts;
+    const todos = uniqueOds(rows);
+    const ods = onlyOds
+      ? todos.filter((o) => onlyOds.some((allowed) => near(o.od_in, allowed)))
+      : todos;
+    const odFuera = onlyOds ? !onlyOds.some((allowed) => near(od, allowed)) : false;
     let odData = ods.map((o) => ({ value: String(o.od_in), label: `${o.od_label}"  ·  ${o.od_in} in` }));
-    if (od && !ods.some((o) => near(o.od_in, od))) {
+    if (od && !odFuera && !ods.some((o) => near(o.od_in, od))) {
       odData = [{ value: String(od), label: `${od} in (manual)` }, ...odData];
     }
     const wr = weightRows(rows, od);
@@ -271,9 +306,15 @@ export function WellForm({ value, onChange }: Props) {
             <Select
               label="OD"
               data={odData}
-              value={od ? String(od) : null}
+              value={od && !odFuera ? String(od) : null}
               searchable
               allowDeselect={false}
+              error={
+                odFuera
+                  ? `Poettmann-Carpenter no es aplicable a ${od} in: elegí 2 3/8, 2 7/8 o 3 1/2`
+                  : undefined
+              }
+              placeholder={odFuera ? `${od} in — fuera del método` : undefined}
               onChange={(v) => {
                 if (!v) return;
                 const newOd = parseFloat(v);
@@ -492,6 +533,10 @@ export function WellForm({ value, onChange }: Props) {
                   setWell({ tubing_od: od, tubing_id: first?.id_in ?? well.tubing_id }),
                 onWeight: (row) => setWell({ tubing_id: row.id_in }),
                 onId: (v) => setWell({ tubing_id: Number.isFinite(v) ? v : well.tubing_id }),
+                onlyOds:
+                  objectives.pressure_loss_method === "poettmann_carpenter"
+                    ? PC_TUBING_OD
+                    : undefined,
               })}
               <Divider my="xs" />
             </>
@@ -506,17 +551,36 @@ export function WellForm({ value, onChange }: Props) {
         <Accordion.Control>4 · Superficie</Accordion.Control>
         <Accordion.Panel>
           {numGrid("surface", SURFACE_NUM)}
+          {/* La red es 50 o 60 Hz y nada más: el dominio rechaza cualquier
+              otro valor. Un caso cargado con, por ejemplo, 51 Hz —que es una
+              frecuencia de VARIADOR, no de red— tiene que verse acá y no
+              descubrirse recién en el 422, así que el valor fuera de lista se
+              muestra como opción propia y el campo queda en error. */}
           <Select
             mt="xs"
             label="Frecuencia de red"
+            description="La de la línea. Para operar a otra frecuencia, usar el variador en Objetivos."
             data={[
               { value: "60", label: "60 Hz" },
               { value: "50", label: "50 Hz" },
+              ...(surface.frequency === 50 || surface.frequency === 60
+                ? []
+                : [
+                    {
+                      value: String(surface.frequency),
+                      label: `${surface.frequency} Hz (no válida)`,
+                    },
+                  ]),
             ]}
             value={String(surface.frequency)}
+            error={
+              surface.frequency === 50 || surface.frequency === 60
+                ? undefined
+                : `La frecuencia de red sólo puede ser 50 o 60 Hz. ${surface.frequency} Hz parece una frecuencia de operación: cargala en "Frecuencia de diseño" (Objetivos) con el variador activado.`
+            }
             onChange={(v) => v && setRaw("surface", "frequency", parseFloat(v))}
             allowDeselect={false}
-            w={160}
+            w={260}
           />
         </Accordion.Panel>
       </Accordion.Item>
@@ -530,6 +594,26 @@ export function WellForm({ value, onChange }: Props) {
             label="Permite venteo de gas"
             checked={objectives.allow_gas_venting}
             onChange={(e) => setRaw("objectives", "allow_gas_venting", e.currentTarget.checked)}
+          />
+          {/* La correlación de pérdida de carga. Vacío = la decide la fracción
+              de gas libre en la admisión, que es lo que hacía el programa
+              antes de que esto se pudiera elegir. El umbral de gas sigue sin
+              exponerse: se elige el método, no el corte. */}
+          <Select
+            mt="sm"
+            label="Cálculo de pérdidas de carga en tubería"
+            description={
+              objectives.pressure_loss_method === "poettmann_carpenter"
+                ? "Aplicable a tubing de 2, 2½ y 3 pulg · μo < 5 cp · RGL < 1500 scf/bbl · q > 400 bbl/d"
+                : "Vacío: la elige la fracción de gas libre en la admisión"
+            }
+            data={PRESSURE_LOSS_OPTIONS}
+            value={objectives.pressure_loss_method ?? null}
+            placeholder="Automático (según gas libre)"
+            clearable
+            onChange={(v) =>
+              setRaw("objectives", "pressure_loss_method", v as PressureLossMethod | null)
+            }
           />
           <Switch
             mt="xs"

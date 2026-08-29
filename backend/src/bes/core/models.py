@@ -16,6 +16,19 @@ class IPRMethod(Enum):
     FETKOVICH = auto()    # Fetkovich empirical IPR
 
 
+#: Correlaciones de pérdida de carga por fricción en el tubing que el usuario
+#: puede elegir. Son strings y no un Enum a propósito: es el mismo vocabulario
+#: que ya publica DesignResult.friction_method, así que lo elegido y lo
+#: reportado se comparan sin traducir.
+#:
+#: Son TRES: una multifásica y dos monofásicas. Entre las dos monofásicas la
+#: diferencia es la viscosidad — Hazen-Williams no la contempla y
+#: Darcy-Weisbach sí—, y por debajo de 5 cp coinciden dentro del 2 %.
+PRESSURE_LOSS_METHODS: frozenset[str] = frozenset(
+    {"poettmann_carpenter", "hazen_williams", "darcy_weisbach"}
+)
+
+
 class DriveMechanism(Enum):
     """Primary reservoir energy source."""
     SOLUTION_GAS = auto()
@@ -183,10 +196,19 @@ class Fluid:
         water_sg: Gravedad específica del agua de formación (agua pura = 1.0).
             Mayor a 1 porque trae sales disueltas.
         oil_viscosity_dead: Viscosidad del crudo sin gas, medida a
-            ``viscosity_temp_ref`` [cp].
+            ``viscosity_temp_ref`` [cp]. **Opcional**: ``None`` significa «no
+            hay ensayo», y entonces la viscosidad se lee de la **Fig. 4L(2)**
+            del libro con la °API y la temperatura de admisión
+            (:func:`bes.core.viscosity.dead_oil_viscosity_chart`). Es el camino
+            normal, no una excepción — de hecho un dato medido a otra
+            temperatura se descarta y termina en la misma lámina.
+            **``None``, no cero**: cero es un valor, y un crudo de viscosidad
+            cero no existe.
         viscosity_temp_ref: Temperatura a la que se midió esa viscosidad [°F].
             Importa mucho: la viscosidad varía exponencialmente con la
             temperatura, así que un dato medido a otra temperatura no sirve.
+            Obligatoria **si** hay viscosidad medida: un ensayo sin la
+            temperatura a la que se hizo no se puede usar.
         bubble_point_pressure: Presión de burbuja del fluido, para el PVT [psi].
         h2s_content: Concentración de sulfuro de hidrógeno [ppm]. Afecta la
             elección de materiales — es corrosivo y tóxico.
@@ -200,8 +222,8 @@ class Fluid:
     gor: float
     gas_sg: float
     water_sg: float
-    oil_viscosity_dead: float
-    viscosity_temp_ref: float
+    oil_viscosity_dead: float | None
+    viscosity_temp_ref: float | None
     bubble_point_pressure: float
     h2s_content: float
     co2_content: float
@@ -218,10 +240,27 @@ class Fluid:
             raise ValueError(f"gas_sg must be > 0, got {self.gas_sg}")
         if self.water_sg <= 0:
             raise ValueError(f"water_sg must be > 0, got {self.water_sg}")
-        if self.oil_viscosity_dead <= 0:
-            raise ValueError(f"oil_viscosity_dead must be > 0, got {self.oil_viscosity_dead}")
-        if self.viscosity_temp_ref <= 0:
-            raise ValueError(f"viscosity_temp_ref must be > 0 °F, got {self.viscosity_temp_ref}")
+        # La viscosidad medida es OPCIONAL: sin ensayo se lee la Fig. 4L(2).
+        # Lo que no se acepta es un cero disfrazado de dato —un crudo de
+        # viscosidad cero no existe— ni un ensayo sin la temperatura a la que
+        # se hizo, que no se puede usar para nada.
+        if self.oil_viscosity_dead is not None:
+            if self.oil_viscosity_dead <= 0:
+                raise ValueError(
+                    f"oil_viscosity_dead must be > 0 or None (sin ensayo: se lee "
+                    f"la Fig. 4L(2) del libro), got {self.oil_viscosity_dead}"
+                )
+            if self.viscosity_temp_ref is None:
+                raise ValueError(
+                    "viscosity_temp_ref es obligatoria cuando hay viscosidad "
+                    "medida: sin la temperatura del ensayo el dato no se puede "
+                    "usar, porque la viscosidad varía exponencialmente con ella."
+                )
+        if self.viscosity_temp_ref is not None and self.viscosity_temp_ref <= 0:
+            raise ValueError(
+                f"viscosity_temp_ref must be > 0 °F or None, got "
+                f"{self.viscosity_temp_ref}"
+            )
         if self.bubble_point_pressure < 0:
             raise ValueError(f"bubble_point_pressure must be >= 0, got {self.bubble_point_pressure}")
         if self.h2s_content < 0:
@@ -439,6 +478,25 @@ class DesignObjectives:
             ``bes.core.gas_handling.GAS_FRACTION_NEGLIGIBLE``; no se importa de
             ahí porque ``gas_handling`` importa este módulo y sería circular.
             ``tests/test_gas_handling.py`` verifica que no se desincronicen.
+        pressure_loss_method: Con qué correlación se calcula la **pérdida de
+            carga por fricción en el tubing**. ``"poettmann_carpenter"`` o
+            ``"hazen_williams"``; ``None`` —el default— deja que decida la
+            física, que es el comportamiento histórico.
+
+            Es lo ÚNICO que el usuario elige de esta cuenta. El umbral de gas
+            (``gas_fraction_pc_threshold``) sigue sin exponerse: una cosa es
+            elegir el método y otra mover el corte con que se lo elige solo.
+
+            Con ``None`` manda la fracción de gas libre en la admisión, igual
+            que siempre. Con un método elegido a mano, ese método se usa, y si
+            la física no coincide con la elección el diseño **avisa** en vez de
+            corregir en silencio: el usuario manda, pero enterado.
+
+            Elegir ``"poettmann_carpenter"`` además activa la verificación del
+            envelope declarado del método —tubing de 2, 2½ o 3 pulg, menos de
+            5 cp, RGL menor a 1500 scf/bbl y más de 400 bbl/d—, que vive en
+            :func:`bes.core.multiphase.poettmann_carpenter_applicability`. El
+            límite del tubing es duro; los otros tres avisan.
         design_frequency_hz: Frecuencia a la que va a girar realmente la bomba
             [Hz]. ``None`` = la frecuencia de red de
             ``SurfaceConditions.frequency``. Sólo tiene sentido con ``use_vsd``:
@@ -457,9 +515,17 @@ class DesignObjectives:
     # no rompe llamadas posicionales.
     max_gip: float = 0.10
     gas_fraction_pc_threshold: float = 0.01
+    pressure_loss_method: Optional[str] = None
     design_frequency_hz: Optional[float] = None
 
     def __post_init__(self) -> None:
+        if self.pressure_loss_method is not None:
+            if self.pressure_loss_method not in PRESSURE_LOSS_METHODS:
+                raise ValueError(
+                    "pressure_loss_method must be one of "
+                    f"{sorted(PRESSURE_LOSS_METHODS)} or None, got "
+                    f"{self.pressure_loss_method!r}"
+                )
         if not (0.0 <= self.gas_fraction_pc_threshold <= 1.0):
             raise ValueError(
                 "gas_fraction_pc_threshold must be in [0, 1], got "
@@ -775,6 +841,33 @@ class DesignResult:
     gas_handler_model: str = ""
     gas_handler_type: str = ""
     gas_handler_efficiency: float = 0.0
+    # Potencia que consumen los manejadores de gas y que el motor tiene que
+    # mover ADEMÁS de la bomba. 0.0 cuando el aparejo no lleva ninguno. Se
+    # publica aparte para que se pueda auditar, en vez de quedar escondida
+    # dentro del HP con que se eligió el motor.
+    gas_handler_hp: float = 0.0
+    # Zona operativa del método de incrementos (pozos con gas). Los tres valen
+    # 0.0 en el camino convencional, donde el caudal es uno solo y la pregunta
+    # no existe. Ver bes.plotting.plots._draw_gas_zone.
+    gas_q_representative_bpd: float = 0.0
+    gas_q_intake_bpd: float = 0.0
+    gas_q_discharge_bpd: float = 0.0
+    # Cuántos separadores lleva el aparejo. 2 = TÁNDEM, la mayor capacidad de
+    # manejo de gas de la tecnología BES (Takács, Fig. 4.25), armado con dos
+    # tipos distintos de separador.
+    gas_handler_count: int = 0
+    # Escalón de la escalera de manejo de gas que resolvió el pozo:
+    # "ninguno" / "simple" / "tandem" / "no_viable".
+    gas_strategy: str = ""
+    # Fracción de gas libre que efectivamente le llega a la bomba, DESPUÉS de
+    # ventear y separar. Es la que se compara contra ``max_gip``; distinta de
+    # ``gip_fraction``, que es la de la admisión antes de separar.
+    gas_fraction_at_pump: float = 0.0
+    # ``True`` cuando ni el tándem alcanza: no hay equipo BES que resuelva este
+    # pozo y corresponde evaluar otro método de levantamiento artificial.
+    switch_lift_method: bool = False
+    # El texto del veredicto de gas, para mostrar y para el reporte.
+    gas_verdict: str = ""
     # Downhole sensor (optional; recommended for monitoring)
     sensor_manufacturer: str = ""
     sensor_model: str = ""

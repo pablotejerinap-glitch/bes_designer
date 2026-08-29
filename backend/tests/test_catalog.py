@@ -9,6 +9,7 @@ from pathlib import Path
 
 from bes.catalogs.loader import CatalogManager
 from bes.core.models import PumpCurve
+from tests.brown_pumps import catalogo_con_bombas_del_libro
 
 
 
@@ -26,10 +27,16 @@ def d40(manager: CatalogManager) -> PumpCurve:
 
 
 @pytest.fixture(scope="module")
-def i300(manager: CatalogManager) -> PumpCurve:
-    pumps = manager.get_all_pumps()
+def i300() -> PumpCurve:
+    """La I-300 del Ejemplo #1A del libro.
+
+    **No está en el catálogo de la aplicación**: se retiró en ago-2026 porque
+    no sale de un catálogo de fabricante. Los datos impresos viven en
+    ``tests/data/brown_pumps.json`` — ver :mod:`tests.brown_pumps`.
+    """
+    pumps = catalogo_con_bombas_del_libro().get_all_pumps()
     match = [p for p in pumps if p.model == "I-300"]
-    assert match, "I-300 not found in catalog"
+    assert match, "I-300 no está en tests/data/brown_pumps.json"
     return match[0]
 
 
@@ -65,11 +72,7 @@ class TestCatalogLoading:
         assert len(manager.get_all_sensors()) >= 4
 
     def test_solo_los_tres_proveedores(self, manager):
-        """El catálogo trabaja con REDA, Centrilift y Wood Group ESP y nadie más.
-
-        «Brown (libro)» no es un proveedor: son los ejemplos numerados de Kermit
-        Brown que anclan la validación, y por eso se admite entre las bombas.
-        """
+        """El catálogo trabaja con REDA, Centrilift y Wood Group ESP y nadie más."""
         proveedores = {"REDA", "Centrilift", "Wood Group ESP"}
         for nombre, items in (("motores", manager._motors),
                               ("sellos", manager._seals),
@@ -77,7 +80,33 @@ class TestCatalogLoading:
             fabricantes = {x.get("manufacturer") for x in items}
             assert fabricantes <= proveedores, f"{nombre}: sobra {fabricantes - proveedores}"
         fab_bombas = {p.manufacturer for p in manager.get_all_pumps()}
-        assert fab_bombas <= proveedores | {"Brown (libro)"}
+        assert fab_bombas <= proveedores
+
+    def test_la_app_solo_ofrece_bombas_de_catalogo_real(self, manager):
+        """Ninguna bomba del libro puede volver al catálogo de la aplicación.
+
+        Las tres de los ejemplos de Kermit Brown —I-300, I-42B, M-34— se
+        retiraron en ago-2026: no salen de un catálogo de fabricante, y la app
+        publica únicamente curvas digitalizadas de catálogos reales. Los datos
+        impresos se conservan en ``tests/data/brown_pumps.json`` y sólo los ven
+        los tests de validación contra el libro (:mod:`tests.brown_pumps`).
+
+        Si alguna vuelve al catálogo, este test falla: no es una omisión, es
+        una decisión.
+        """
+        modelos = {p.model for p in manager.get_all_pumps()}
+        del_libro = modelos & {"I-300", "I-42B", "M-34"}
+        assert not del_libro, (
+            f"volvieron al catálogo de la app bombas del libro: {del_libro}. "
+            f"Van en tests/data/brown_pumps.json, no en bes/catalogs/pumps.json"
+        )
+        assert not [p for p in manager.get_all_pumps()
+                    if "Brown" in p.manufacturer]
+
+    def test_las_bombas_del_libro_siguen_disponibles_para_validar(self):
+        """Y la regla de oro sigue en pie: los ejemplos se pueden reproducir."""
+        from tests.brown_pumps import bombas_del_libro
+        assert {p.model for p in bombas_del_libro()} == {"I-300", "I-42B", "M-34"}
 
     def test_aparejo_propio_por_proveedor(self, manager):
         """Qué proveedores pueden armar un aparejo completo, y cuáles no.
@@ -202,10 +231,29 @@ class TestGasHandlerSelection:
 
 
 class TestSensorSelection:
-    def test_hot_well_picks_xtreme(self, manager):
-        s = manager.select_sensor(intake_pressure_psi=3000, bottom_temp_f=340, motor_voltage=1000)
+    def test_pozo_caliente_toma_el_de_mayor_temperatura(self, manager):
+        """A más temperatura, el sensor elegido tiene que cubrirla."""
+        s = manager.select_sensor(
+            intake_pressure_psi=3000, bottom_temp_f=290, motor_voltage=1000,
+        )
         assert s is not None
-        assert s["intake_temp_max_f"] >= 340
+        assert s["intake_temp_max_f"] >= 290
+
+    def test_por_encima_de_302F_el_catalogo_REDA_no_llega(self, manager):
+        """No hay gauge REDA para más de 302 °F, y no se inventa uno.
+
+        El Phoenix Select llega a 302 °F [150 °C] y el MultiSensor XT a 257 °F;
+        no hay nada por encima en el REDA ESP Catalog. El sensor «ACE Xtreme
+        Temperature» de 350 °F que cubría este caso era de ACE Downhole, que
+        entró con la ingesta de ChampionX y se fue con la purga de proveedores.
+
+        Devolver ``None`` es lo correcto: el monitoreo no participa del
+        dimensionamiento, así que el diseño sale igual y sólo queda sin sensor
+        recomendado. Recomendar uno fuera de rango sería peor.
+        """
+        assert manager.select_sensor(
+            intake_pressure_psi=3000, bottom_temp_f=340, motor_voltage=1000,
+        ) is None
 
     def test_dual_when_discharge_needed(self, manager):
         s = manager.select_sensor(
@@ -332,7 +380,7 @@ class TestCasingFilter:
 
     def test_513_series_excluded(self, manager):
         result = manager.get_pumps_by_casing(self.CASING_ID_5_5)
-        excluded_models = {"I-42B", "Y-62B", "N-80", "Z-69"}
+        excluded_models = {"Y-62B", "N-80", "Z-69"}
         found_excluded = {p.model for p in result} & excluded_models
         assert not found_excluded, (
             f"513-series pumps should not fit in 5.5\" casing, but found: {found_excluded}"
@@ -340,8 +388,7 @@ class TestCasingFilter:
 
     def test_large_pumps_excluded(self, manager):
         result = manager.get_pumps_by_casing(self.CASING_ID_5_5)
-        excluded = {p.model for p in result} & {"I-300", "G-52E"}
-        assert not excluded
+        assert all(p.od < self.CASING_ID_5_5 for p in result)
 
     def test_filter_returns_list(self, manager):
         result = manager.get_pumps_by_casing(self.CASING_ID_5_5)
@@ -364,16 +411,22 @@ class TestFlowRangeFilter:
         models = {p.model for p in result}
         assert "D-40" in models
 
-    def test_10000_bpd_matches_i300(self, manager):
+    def test_10000_bpd_devuelve_bombas_de_alto_caudal(self, manager):
+        """El filtro se verifica contra el catálogo REAL de la app.
+
+        Antes esto se probaba con la I-300 del libro, que ya no está en el
+        catálogo. Las de alto caudal que quedan son todas REDA digitalizadas.
+        """
         result = manager.get_pumps_by_flow_range(10000)
         models = {p.model for p in result}
-        assert "I-300" in models
+        assert models, "ninguna bomba del catálogo cubre 10 000 bpd"
+        assert all(p.min_flow <= 10000 <= p.max_flow for p in result)
+        assert "GN10000" in models
 
     def test_10000_bpd_excludes_small_pumps(self, manager):
         result = manager.get_pumps_by_flow_range(10000)
         models = {p.model for p in result}
         assert "D-40" not in models
-        assert "M-34" not in models
 
     def test_very_high_flow_returns_empty_or_only_large(self, manager):
         # 50 000 bpd solo puede cubrirlo una bomba de muy alto caudal (serie
