@@ -88,8 +88,10 @@ Takács, G. "Electrical Submersible Pumps Manual".
 """
 from __future__ import annotations
 
+import json
 import math
 from collections.abc import Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from bes.core.formulas import FormulaTrace
@@ -109,6 +111,10 @@ if TYPE_CHECKING:
 _BBL_TO_FT3 = 5.615
 _RHO_WATER_SC = 62.4   # lb/ft³
 _RHO_AIR_SC = 0.0764   # lb/scf
+
+#: Digitalización del Apéndice 4K del libro (ver el ``_source`` del archivo).
+_4K_PATH = Path(__file__).parent.parent / "catalogs" / "gas_thru_pump_4K.json"
+_4K: dict | None = None
 
 
 def _oil_sg(api: float) -> float:
@@ -179,10 +185,52 @@ GAS_RATIO_GAS_LOCK = 1.00
 #: configurable por pozo.
 GAS_FRACTION_PUMP_LIMIT = 0.10
 
+#: Fracción de vacío máxima en la ADMISIÓN que admite cada configuración de
+#: aparejo, según la comparación de capacidades de manejo de gas que publica
+#: Takács (2018), Fig. 4.25, pág. 195.
+#:
+#: Son **lecturas de las barras de esa figura**, no valores tabulados en el
+#: texto: la página consigna en forma expresa únicamente el 50 % de la bomba
+#: GasMaster. Se los usa como órdenes de magnitud, y así se declaran.
+#:
+#: A diferencia de ``GAS_FRACTION_PUMP_LIMIT`` —que es un criterio propio de
+#: esta herramienta— estos valores sí tienen fuente, y son la **capacidad de
+#: la tecnología**. Por eso la escalera compara cada escalón contra el menor
+#: de los dos: el usuario puede pedir algo más estricto que el equipo, pero no
+#: más laxo.
+#:
+#: El valor sin separador depende del tipo de etapa, que el catálogo no
+#: publica: se adopta el de flujo radial, que es el conservador.
+GAS_VOID_LIMIT_RADIAL = 0.20
+GAS_VOID_LIMIT_MIXED_FLOW = 0.40
+GAS_VOID_LIMIT_GASMASTER = 0.50
+GAS_VOID_LIMIT_WITH_SEPARATOR = 0.80
+GAS_VOID_LIMIT_TANDEM = 0.95
+
+#: Techo de la tecnología: por encima de esto no hay configuración de bombeo
+#: electrosumergible que lo resuelva (Takács, 2018, Fig. 4.25, pág. 195).
+GAS_VOID_LIMIT_ESP = GAS_VOID_LIMIT_TANDEM
+
+#: Capacidad de cada escalón de la escalera, en el mismo orden que
+#: :data:`GAS_STRATEGY_LADDER`. El escalón del AGH no figura acá porque su
+#: límite lo publica el propio equipo (``max_gvf`` del catálogo).
+GAS_VOID_LIMIT_POR_ESCALON = {
+    "ninguno": GAS_VOID_LIMIT_RADIAL,
+    "simple": GAS_VOID_LIMIT_WITH_SEPARATOR,
+    "tandem": GAS_VOID_LIMIT_TANDEM,
+}
+
 #: Eficiencia de separación que se supone cuando el modelo elegido no la
-#: publica en el catálogo (los manejadores ``gkx`` tienen ``max_efficiency``
-#: en ``null``). Es un supuesto conservador y se reporta como tal: los rotary
-#: publican 90 % y los vórtex 97 %.
+#: publica en el catálogo. **Hoy es siempre**: REDA no declara la eficiencia de
+#: separación de ninguno de sus doce equipos (se revisaron las págs. 390-399
+#: completas), y Centrilift y Wood Group tampoco. Por eso ``max_efficiency``
+#: está en ``null`` en todas las entradas.
+#:
+#: Es un supuesto propio de esta herramienta —no sale de ninguna hoja de datos—
+#: y por eso se declara en el veredicto de viabilidad en vez de aplicarse en
+#: silencio. Los 0.90 / 0.97 que figuraban acá eran del catálogo ChampionX que
+#: se retiró del proyecto: NO volver a ponerlos, eran de otro fabricante y de
+#: otro diseño de equipo.
 SEPARATOR_DEFAULT_EFFICIENCY = 0.75
 
 
@@ -453,6 +501,170 @@ def tandem_separation_efficiency(efficiencies: "Sequence[float]") -> float:
     return 1.0 - pasa
 
 
+def _tablas_4K() -> dict:
+    """Carga perezosa de la digitalización del Apéndice 4K."""
+    global _4K
+    if _4K is None:
+        _4K = json.loads(_4K_PATH.read_text(encoding="utf-8"))
+    return _4K
+
+
+def _interp_1d(xs: Sequence[float], ys: Sequence[float], x: float) -> float:
+    """Interpolación lineal con acote en los bordes. No extrapola."""
+    if x <= xs[0]:
+        return float(ys[0])
+    if x >= xs[-1]:
+        return float(ys[-1])
+    for i in range(len(xs) - 1):
+        if xs[i] <= x <= xs[i + 1]:
+            t = (x - xs[i]) / (xs[i + 1] - xs[i])
+            return float(ys[i] + t * (ys[i + 1] - ys[i]))
+    return float(ys[-1])
+
+
+def _interp_tabla_4K(filas: Sequence[float], valores: Sequence[Sequence[float]],
+                     fila: float, water_cut_pct: float) -> float:
+    """Interpola una tabla del 4K en su índice de fila y en el corte de agua."""
+    cols = _tablas_4K()["water_cut_pct"]
+    por_fila = [_interp_1d(cols, v, water_cut_pct) for v in valores]
+    # Las filas de la Tabla 2/3 vienen descendentes (1.0 → 0.0); _interp_1d las
+    # necesita ascendentes.
+    if filas[0] > filas[-1]:
+        return _interp_1d(list(reversed(filas)), list(reversed(por_fila)), fila)
+    return _interp_1d(filas, por_fila, fila)
+
+
+def approach_velocity(intake_flow_bpd: float, casing_id_in: float,
+                      seal_od_in: float) -> float:
+    """Velocidad de aproximación del fluido a la bomba — Va del Apéndice 4K.
+
+    Es el caudal de admisión dividido por el área anular que queda entre el
+    diámetro exterior del sello y el diámetro interior del casing::
+
+        A  = (π/4) · (ID_casing² − OD_sello²) / 144        [ft²]
+        Va = q · 5.615 / 86400 / A                          [ft/s]
+
+    La Tabla 1 del apéndice tabula esta misma magnitud por caudal, serie de
+    bomba y sello y tamaño de casing; su propia nota declara que está basada en
+    «the area between the O.D. of the Seal Section and the I.D. of casings», que
+    es lo que se calcula acá. Se prefiere la geometría a la tabla porque cubre
+    cualquier combinación y no sólo las tabuladas.
+
+    Args:
+        intake_flow_bpd: Caudal total (líquido más gas) en la admisión [bbl/d].
+        casing_id_in: Diámetro interior del casing [in].
+        seal_od_in: Diámetro exterior del sello [in].
+
+    Returns:
+        Velocidad de aproximación [ft/s].
+
+    Raises:
+        ValueError: Si el área anular no resulta positiva.
+
+    Referencia:
+        Brown Vol. 2b, Apéndice 4K (Rhoads), Tabla 1, pág. 345.
+    """
+    area_ft2 = math.pi / 4.0 * (casing_id_in ** 2 - seal_od_in ** 2) / 144.0
+    if area_ft2 <= 0.0:
+        raise ValueError(
+            f"El sello (OD {seal_od_in} in) no deja área anular dentro del "
+            f"casing (ID {casing_id_in} in)."
+        )
+    return intake_flow_bpd * _BBL_TO_FT3 / 86400.0 / area_ft2
+
+
+def free_gas_thru_pump(
+    approach_velocity_ft_s: float,
+    has_separator: bool,
+    pi_over_pbb: float | None = None,
+    liquid_viscosity_cp: float | None = None,
+    water_cut: float = 0.0,
+) -> dict:
+    """Porcentaje del gas libre que atraviesa la bomba — método de Rhoads.
+
+    Es el procedimiento del Apéndice 4K, y responde la pregunta que el resto
+    del módulo venía resolviendo con criterios propios: de todo el gas libre
+    que llega a la admisión, **cuánto entra a la bomba y cuánto sube por el
+    anular**. Parte de la velocidad de aproximación y corrige por dos efectos
+    de segundo orden::
+
+        sin separador:  pct = 90.5 − ((16 − Va)/16)² · 90
+        con separador:  pct = 45.5 − ((16 − Va)/16)² · 45
+
+        pct_neto = pct − efecto_burbuja + efecto_viscosidad
+
+    El separador no entra como una eficiencia que se compone: **entra cambiando
+    la curva**. A velocidad máxima el gas pasante cae del 90 % al 45 %, que es
+    la única cuantificación del efecto de un separador que publica el libro.
+
+    Los dos efectos de segundo orden se leen de las Tablas 3 y 4 del apéndice.
+    El de tamaño de burbuja se **resta** —son los porcentajes del gas que *no*
+    pasa— y el de viscosidad se **suma**. Ambos se acotan a los bordes de sus
+    tablas y ninguno extrapola.
+
+    Args:
+        approach_velocity_ft_s: Velocidad de aproximación Va [ft/s], de
+            :func:`approach_velocity`.
+        has_separator: Si el aparejo lleva separador de gas.
+        pi_over_pbb: Relación entre la presión de admisión y la de burbuja
+            [-]. ``None`` omite la corrección por tamaño de burbuja.
+        liquid_viscosity_cp: Viscosidad del petróleo muerto a temperatura de
+            admisión [cp]. ``None`` omite la corrección por viscosidad. La
+            tabla cubre de 0.7 a 16 cp.
+        water_cut: Corte de agua [0–1].
+
+    Returns:
+        dict con ``pct_base``, ``pct_bubble``, ``pct_viscosity``, ``pct_net``
+        y ``fraction`` (el neto como fracción [0–1]).
+
+    Raises:
+        ValueError: Si *water_cut* cae fuera de [0, 1].
+
+    Referencia:
+        Brown Vol. 2b, Apéndice 4K — «Method for estimating the percent of free
+        gas that will go thru a pump», by Don Rhoads, págs. 345-347.
+    """
+    if not (0.0 <= water_cut <= 1.0):
+        raise ValueError(f"water_cut must be in [0, 1], got {water_cut}")
+
+    t = _tablas_4K()
+    vel = t["velocidad"]
+    va_max = float(vel["_va_max_ft_s"])
+    base = float(vel["_base_con_separador" if has_separator
+                     else "_base_sin_separador"])
+    ajuste = float(vel["_ajuste"])
+
+    va = min(max(0.0, approach_velocity_ft_s), va_max)
+    pct_base = base + ajuste - ((va_max - va) / va_max) ** 2 * base
+
+    wc_pct = water_cut * 100.0
+
+    pct_bubble = 0.0
+    if pi_over_pbb is not None:
+        t3 = t["tabla_3_efecto_burbuja"]
+        pct_bubble = _interp_tabla_4K(
+            t3["pi_over_pbb"], t3["valores"], float(pi_over_pbb), wc_pct
+        )
+
+    pct_visc = 0.0
+    if liquid_viscosity_cp is not None:
+        t4 = t["tabla_4_efecto_viscosidad"]
+        pct_visc = _interp_tabla_4K(
+            t4["viscosidad_cp"], t4["valores"], float(liquid_viscosity_cp), wc_pct
+        )
+
+    pct_net = min(max(0.0, pct_base - pct_bubble + pct_visc), 100.0)
+    return {
+        "pct_base": pct_base,
+        "pct_bubble": pct_bubble,
+        "pct_viscosity": pct_visc,
+        "pct_net": pct_net,
+        "fraction": pct_net / 100.0,
+        "approach_velocity_ft_s": approach_velocity_ft_s,
+        "has_separator": has_separator,
+    }
+
+
 def separator_outlet_fraction(free_gas_fraction: float, efficiency: float) -> float:
     """Fracción de gas que QUEDA tras separar *efficiency* del gas libre.
 
@@ -638,12 +850,34 @@ def select_gas_handling_strategy(
          separator_outlet_fraction(f_vent, eta_tandem)
          if eta_tandem is not None else None),
     ]
-    ladder = [
-        {"strategy": nombre, "n_separators": n, "efficiency": eta,
-         "f_pump": f, "tolerancia": max_gip,
-         "alcanza": (f is not None and f <= max_gip)}
-        for nombre, n, eta, f in escalones
-    ]
+    # Cada escalón responde DOS preguntas distintas, y tienen que dar bien las
+    # dos. Se miden en puntos distintos del aparejo y no se pueden mezclar:
+    #
+    #   1. ¿La configuración soporta este pozo?
+    #      Compara el gas que LLEGA a la admisión contra la capacidad de la
+    #      configuración — 20 % sin separador, 80 % con uno, 95 % en tándem
+    #      (Takács, Fig. 4.25, pág. 195). Es la tecnología.
+    #
+    #   2. ¿El gas que entra a la bomba cumple el criterio de diseño?
+    #      Compara el gas que queda DESPUÉS de separar contra ``max_gip``. Es
+    #      la decisión del usuario.
+    #
+    # Confundirlas fue un error real: los porcentajes de la Fig. 4.25 están
+    # medidos en la admisión, no aguas abajo del separador.
+    ladder = []
+    for nombre, n, eta, f in escalones:
+        capacidad = GAS_VOID_LIMIT_POR_ESCALON[nombre]
+        cumple_capacidad = f_vent <= capacidad
+        cumple_criterio = f is not None and f <= max_gip
+        ladder.append({
+            "strategy": nombre, "n_separators": n, "efficiency": eta,
+            "f_pump": f,
+            "capacidad": capacidad,
+            "tolerancia": max_gip,
+            "cumple_capacidad": cumple_capacidad,
+            "cumple_criterio": cumple_criterio,
+            "alcanza": cumple_capacidad and cumple_criterio,
+        })
 
     # Cuarto escalón: el manejador avanzado. NO baja f_pump — lo deja donde lo
     # dejó la mejor separación conseguida— y en cambio sube la tolerancia de
@@ -663,17 +897,28 @@ def select_gas_handling_strategy(
     # de la bomba convencional —una instalación particular, un criterio de
     # operación—, y un equipo de catálogo no puede pasarle por encima. Al revés
     # sí: con la tolerancia estándar, el AGH la extiende hasta su GVF publicado.
+    # El manejador avanzado **sustituye** la capacidad de la configuración por
+    # la suya: no separa nada, acondiciona la mezcla para que la bomba pueda
+    # impulsarla con el gas adentro hasta la fracción de vacío que publica el
+    # fabricante (REDA declara 45 % de GVF). No hereda el 20 % de la bomba
+    # desnuda ni el 80 % del separador — ése es justamente el límite que viene
+    # a levantar. Las dos preguntas se responden por lo tanto con el mismo
+    # valor, y se miden sobre el gas que efectivamente llega a la bomba.
     agh_aplicable = (
         agh_max_gvf is not None
         and max_gip >= GAS_FRACTION_PUMP_LIMIT
         and float(agh_max_gvf) > max_gip
     )
     if agh_aplicable:
+        cumple_agh = f_mejor <= float(agh_max_gvf)
         ladder.append({
             "strategy": "agh", "n_separators": n_sep_mejor,
             "efficiency": eta_mejor, "f_pump": f_mejor,
+            "capacidad": float(agh_max_gvf),
             "tolerancia": float(agh_max_gvf),
-            "alcanza": f_mejor <= float(agh_max_gvf),
+            "cumple_capacidad": cumple_agh,
+            "cumple_criterio": cumple_agh,
+            "alcanza": cumple_agh,
             "agh_model": agh_model,
         })
 
@@ -684,18 +929,23 @@ def select_gas_handling_strategy(
         f_pump = elegido["f_pump"]
         eta_aplicada = elegido["efficiency"]
         n_sep = elegido["n_separators"]
+        tol = elegido["tolerancia"]
+        cap = elegido["capacidad"]
         if estrategia == "ninguno":
             veredicto = (
-                f"Viable sin separador: el gas libre en la admisión "
-                f"({f_intake:.1%}) ya está por debajo del máximo admisible "
-                f"({max_gip:.1%})."
+                f"Viable sin separador. El gas libre en la admisión "
+                f"({f_intake:.1%}) está dentro de lo que admite una bomba sin "
+                f"separador ({cap:.0%}, Takács Fig. 4.25) y por debajo del "
+                f"máximo de diseño ({tol:.1%})."
             )
         elif estrategia == "simple":
             equipo = f" ({single_model})" if single_model else ""
             veredicto = (
-                f"Viable con UN separador{equipo}: el gas libre baja de "
-                f"{f_intake:.1%} en la admisión a {f_pump:.1%} en la bomba, "
-                f"por debajo del máximo admisible ({max_gip:.1%})."
+                f"Viable con UN separador{equipo}. El gas en la admisión "
+                f"({f_intake:.1%}) está dentro de lo que admite esa "
+                f"configuración ({cap:.0%}, Takács Fig. 4.25), y el separador "
+                f"lo baja a {f_pump:.1%} en la bomba, por debajo del máximo de "
+                f"diseño ({tol:.1%})."
             )
         elif estrategia == "agh":
             equipo = f" ({agh_model})" if agh_model else ""
@@ -720,7 +970,8 @@ def select_gas_handling_strategy(
             veredicto = (
                 f"Viable sólo con separador en TÁNDEM{equipo}: un separador "
                 f"solo deja {ladder[1]['f_pump']:.1%} de gas en la bomba, por "
-                f"encima del límite ({max_gip:.1%}). Los dos en serie retiran "
+                f"encima del límite ({ladder[1]['tolerancia']:.1%}). Los dos en "
+                f"serie retiran "
                 f"{eta_aplicada:.1%} del gas libre y lo bajan a {f_pump:.1%}. "
                 f"El tándem se arma con separadores de tipos distintos y suma "
                 f"su consumo al motor y su longitud a la sarta."
@@ -734,7 +985,8 @@ def select_gas_handling_strategy(
             (e["f_pump"] for e in reversed(ladder) if e["f_pump"] is not None),
             f_vent,
         )
-        eta_necesaria = required_separator_efficiency(f_vent, max_gip)
+        tol_tandem = min(max_gip, GAS_VOID_LIMIT_TANDEM)
+        eta_necesaria = required_separator_efficiency(f_vent, tol_tandem)
         if eta_necesaria is None or eta_necesaria >= 1.0:
             detalle = (
                 "Aun retirando el 100 % del gas libre el remanente seguiría por "
@@ -755,11 +1007,30 @@ def select_gas_handling_strategy(
             if agh_aplicable
             else "y el catálogo no tiene manejador avanzado que entre en este pozo"
         )
+        # Qué falló, escalón por escalón: es lo que el usuario necesita para
+        # decidir. Un escalón puede caer por capacidad de la configuración
+        # (pregunta 1) o por el criterio de diseño (pregunta 2), y el remedio
+        # de cada caso es distinto.
+        motivos = []
+        for e in ladder:
+            if e["f_pump"] is None:
+                motivos.append(f"{e['strategy']}: no disponible en el catálogo")
+            elif not e["cumple_capacidad"]:
+                motivos.append(
+                    f"{e['strategy']}: la admisión ({f_vent:.1%}) supera la "
+                    f"capacidad de la configuración ({e['capacidad']:.0%})"
+                )
+            elif not e["cumple_criterio"]:
+                motivos.append(
+                    f"{e['strategy']}: deja {e['f_pump']:.1%} en la bomba, por "
+                    f"encima del máximo de diseño ({e['tolerancia']:.1%})"
+                )
         veredicto = (
             f"DISEÑO BES NO VIABLE — CAMBIAR DE MÉTODO DE LEVANTAMIENTO. "
             f"El gas libre en la admisión ({f_intake:.1%}) queda en "
-            f"{f_pump:.1%} en la bomba incluso con separador en tándem, {techo}; "
-            f"por encima del máximo que tolera ({max_gip:.1%}). {detalle} "
+            f"{f_pump:.1%} en la bomba incluso con separador en tándem, {techo}. "
+            f"Ningún escalón cumple las dos condiciones — "
+            f"{'; '.join(motivos)}. {detalle} "
             f"El tándem es la mayor capacidad de manejo de gas de la "
             f"tecnología BES (Takács, Fig. 4.25): si no alcanza, no hay equipo "
             f"que lo resuelva y corresponde evaluar otro método de "
@@ -785,6 +1056,17 @@ def select_gas_handling_strategy(
             "homogeneizada y la bomba la puede impulsar. La curva de la bomba "
             "se sigue leyendo con el caudal de mezcla, así que el deterioro de "
             "altura por gas NO desaparece — sólo desaparece el bloqueo."
+        )
+    if max_gip > GAS_FRACTION_PUMP_LIMIT:
+        warnings.append(
+            f"MODO EJEMPLO — el máximo de gas admisible está cargado en "
+            f"{max_gip:.0%}, muy por encima del {GAS_FRACTION_PUMP_LIMIT:.0%} "
+            f"que la herramienta adopta como criterio de diseño. Es el valor "
+            f"con que se reproducen los enunciados del libro que bombean todo "
+            f"el gas, y desactiva la verificación de viabilidad por gas. Los "
+            f"escalones siguen acotados por la capacidad de cada configuración "
+            f"(Takács, Fig. 4.25), pero el resultado NO representa el criterio "
+            f"con que la herramienta diseñaría este pozo."
         )
     if fraction_to_ratio(f_vent) > RGS_DOCUMENTED_RATIO_LIMIT and n_sep > 0:
         warnings.append(
@@ -828,6 +1110,13 @@ def select_gas_handling_strategy(
         "tolerance": (
             float(agh_max_gvf) if estrategia == "agh" and agh_max_gvf is not None
             else max_gip
+        ),
+        # La capacidad de la configuración elegida — la pregunta 1. Va aparte
+        # de ``tolerance``, que es la pregunta 2: son dos condiciones distintas
+        # medidas en dos puntos distintos del aparejo.
+        "capacity": (
+            float(elegido["capacidad"]) if elegido is not None
+            else GAS_VOID_LIMIT_POR_ESCALON["tandem"]
         ),
     }
 

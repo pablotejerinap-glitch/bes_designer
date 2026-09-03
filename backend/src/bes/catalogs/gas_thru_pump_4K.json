@@ -1,0 +1,107 @@
+{
+  "_source": "Brown, K.E., «The Technology of Artificial Lift Methods», Vol. 2b, Apéndice 4K — «Method for estimating the percent of free gas that will go thru a pump», by Don Rhoads, pp. 345-347. Tablas transcritas del impreso; las páginas las aportó Pablo Tejerina y las verificó contra el original (ago-2026).",
+
+  "_columnas": "Las Tablas 2 y 3 se publican sin rótulo de columna en el impreso. El ejemplo resuelto de la pág. 347 las indexa por CORTE DE AGUA: con 40 % de agua y Pi/Pbb = 0.95 lee −1.0 % en la Tabla 3, que es exactamente el valor de la columna 40 interpolado entre las filas 0.9 y 1.0. La Tabla 4 sí rotula sus columnas como corte de agua («All Oil 0» a «100»), y tiene la misma grilla. Se adopta por lo tanto corte de agua 0-100 % para las tres.",
+
+  "_errata": "El resumen de la pág. 346 escribe «40.5 − ((16−Va)/16)² · 45» para el caso CON separador, pero el desarrollo de esa misma página y el ejemplo resuelto de la pág. 347 usan «45.5». El ejemplo cierra numéricamente con 45.5: 45.5 − (10.5/16)² · 45 = 26.1 %, que es el valor impreso. Se adopta 45.5 y se documenta la errata.",
+
+  "water_cut_pct": [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+
+  "velocidad": {
+    "_label": "Efecto de la velocidad de aproximación (pág. 345-346)",
+    "_formula_sin_separador": "pct = 90.5 - ((16 - Va)/16)^2 * 90",
+    "_formula_con_separador": "pct = 45.5 - ((16 - Va)/16)^2 * 45",
+    "_va_max_ft_s": 16.0,
+    "_base_sin_separador": 90.0,
+    "_base_con_separador": 45.0,
+    "_ajuste": 0.5,
+    "_nota": "El 0.5 que se suma a 90 y a 45 es el ajuste con que Brown neutraliza los efectos de tamaño de burbuja y viscosidad del pozo de referencia (−1.0 % + 0.5 % = −0.5 %), de modo que esas dos correcciones puedan aplicarse después de forma independiente. La Va se toma de la Tabla 1 del impreso, tabulada por caudal de admisión, serie de bomba y sello y diámetro de casing; se calcula aquí por geometría sobre el área anular entre el OD del sello y el ID del casing, que es la base declarada de esa tabla."
+  },
+
+  "tabla_2_tamano_burbuja_relativo": {
+    "_label": "Tabla 2 — Relative bubble size (pág. 346)",
+    "_indice_filas": "Pi / Pbb",
+    "_nota": "Supone burbujas de tamaños variados a cualquier profundidad, desde infinitamente pequeñas (recién salidas de solución) hasta las que salieron cerca de Pbb y crecieron al reducirse la presión. Escala arbitraria de 0 a 5.",
+    "pi_over_pbb": [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0],
+    "valores": [
+      [0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.0],
+      [0.50, 0.45, 0.40, 0.35, 0.30, 0.25, 0.20, 0.15, 0.10, 0.05, 0.0],
+      [1.00, 0.90, 0.80, 0.70, 0.60, 0.50, 0.40, 0.30, 0.20, 0.10, 0.0],
+      [1.50, 1.35, 1.20, 1.05, 0.90, 0.75, 0.60, 0.45, 0.30, 0.15, 0.0],
+      [2.00, 1.80, 1.60, 1.40, 1.20, 1.00, 0.80, 0.60, 0.40, 0.20, 0.0],
+      [2.50, 2.25, 2.00, 1.75, 1.50, 1.25, 1.00, 0.75, 0.50, 0.25, 0.0],
+      [3.00, 2.70, 2.40, 2.10, 1.80, 1.50, 1.20, 0.90, 0.60, 0.30, 0.0],
+      [3.50, 3.15, 2.80, 2.45, 2.10, 1.75, 1.40, 1.05, 0.70, 0.35, 0.0],
+      [4.00, 3.60, 3.20, 2.80, 2.40, 2.00, 1.60, 1.20, 0.80, 0.40, 0.0],
+      [4.50, 4.05, 3.60, 3.15, 2.70, 2.25, 1.80, 1.35, 0.90, 0.45, 0.0],
+      [5.00, 4.50, 4.00, 3.50, 3.00, 2.50, 2.00, 1.50, 1.00, 0.50, 0.0]
+    ]
+  },
+
+  "tabla_3_efecto_burbuja": {
+    "_label": "Tabla 3 — Effect of bubble size (pág. 346)",
+    "_indice_filas": "Pi / Pbb",
+    "_signo": "Son los porcentajes del gas libre que NO pasa por la bomba: se RESTAN del porcentaje base.",
+    "_derivacion": "Raíz cúbica de la Tabla 2, multiplicada por el factor que lleva el efecto máximo a 5.0 % (≈ 2.924).",
+    "pi_over_pbb": [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0],
+    "valores": [
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      [2.3, 2.2, 2.2, 2.1, 2.0, 1.8, 1.7, 1.6, 1.4, 1.1, 0.0],
+      [2.9, 2.8, 2.7, 2.6, 2.5, 2.3, 2.2, 2.0, 1.7, 1.4, 0.0],
+      [3.3, 3.2, 3.1, 3.0, 2.8, 2.7, 2.5, 2.2, 2.0, 1.6, 0.0],
+      [3.7, 3.6, 3.4, 3.3, 3.1, 2.9, 2.7, 2.5, 2.2, 1.7, 0.0],
+      [4.0, 3.8, 3.7, 3.5, 3.3, 3.2, 2.9, 2.7, 2.3, 1.8, 0.0],
+      [4.2, 4.1, 3.9, 3.7, 3.6, 3.3, 3.1, 2.8, 2.5, 2.0, 0.0],
+      [4.4, 4.3, 4.1, 3.9, 3.7, 3.5, 3.3, 3.0, 2.6, 2.1, 0.0],
+      [4.6, 4.5, 4.3, 4.1, 3.9, 3.7, 3.4, 3.1, 2.7, 2.2, 0.0],
+      [4.8, 4.7, 4.5, 4.3, 4.1, 3.8, 3.6, 3.2, 2.8, 2.2, 0.0],
+      [5.0, 4.8, 4.6, 4.4, 4.2, 4.0, 3.7, 3.3, 2.9, 2.3, 0.0]
+    ]
+  },
+
+  "tabla_4_efecto_viscosidad": {
+    "_label": "Tabla 4 — Effect of viscosity (pág. 346)",
+    "_indice_filas": "Viscosidad del petróleo muerto a temperatura de admisión [cp]",
+    "_signo": "Son los porcentajes del gas libre que SÍ pasa por la bomba: se SUMAN al porcentaje base.",
+    "_rango": "0.7 a 16 cp (aprox. 30 a 100 SSU). La viscosidad puede explicar hasta un 10 % de variación en el porcentaje pasante.",
+    "_mezcla": "«The viscosity of oil and water in combination is the average of the oil viscosity and the water viscosity weighted according to their volumes» (pág. 346, nota 3).",
+    "viscosidad_cp": [0.7, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+    "valores": [
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      [0.2, 0.2, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.0, 0.0, 0.0],
+      [0.8, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.3, 0.2, 0.1, 0.0],
+      [1.5, 1.4, 1.2, 1.1, 0.9, 0.8, 0.6, 0.5, 0.3, 0.1, 0.0],
+      [2.2, 1.9, 1.7, 1.5, 1.3, 1.1, 0.9, 0.6, 0.4, 0.2, 0.0],
+      [2.8, 2.5, 2.2, 2.0, 1.7, 1.4, 1.1, 0.8, 0.6, 0.3, 0.0],
+      [3.5, 3.1, 2.8, 2.4, 2.1, 1.7, 1.4, 1.0, 0.7, 0.3, 0.0],
+      [4.1, 3.7, 3.3, 2.9, 2.5, 2.1, 1.6, 1.2, 0.8, 0.4, 0.0],
+      [4.8, 4.3, 3.8, 3.3, 2.9, 2.4, 1.9, 1.4, 1.0, 0.5, 0.0],
+      [5.4, 4.9, 4.3, 3.8, 3.3, 2.7, 2.2, 1.6, 1.1, 0.5, 0.0],
+      [6.1, 5.5, 4.9, 4.3, 3.6, 3.0, 2.4, 1.8, 1.2, 0.6, 0.0],
+      [6.7, 6.1, 5.4, 4.7, 4.0, 3.4, 2.7, 2.0, 1.3, 0.7, 0.0],
+      [7.4, 6.6, 5.9, 5.2, 4.4, 3.7, 3.0, 2.2, 1.5, 0.7, 0.0],
+      [8.0, 7.2, 6.4, 5.6, 4.8, 4.0, 3.2, 2.4, 1.6, 0.8, 0.0],
+      [8.7, 7.8, 7.0, 6.1, 5.2, 4.3, 3.5, 2.6, 1.7, 0.9, 0.0],
+      [9.3, 8.4, 7.5, 6.5, 5.6, 4.7, 3.7, 2.8, 1.9, 0.9, 0.0],
+      [10.0, 9.0, 8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0, 0.0]
+    ]
+  },
+
+  "_ejemplo_impreso": {
+    "_label": "Ejemplo resuelto, pág. 347 — es el test de aceptación de esta digitalización",
+    "pbb_psig": 2800.0,
+    "pi_psig": 2660.0,
+    "oil_viscosity_cp": 2.0,
+    "water_cut": 0.40,
+    "pump_series": 513,
+    "seal_series": 513,
+    "casing_od_in": 7.0,
+    "intake_flow_bpd": 6000.0,
+    "gas_separator": true,
+    "va_ft_s_tabla_1": 5.5,
+    "pct_base": 26.1,
+    "pct_burbuja": -1.0,
+    "pct_viscosidad": 0.5,
+    "pct_neto": 25.6
+  }
+}

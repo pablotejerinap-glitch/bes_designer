@@ -540,3 +540,67 @@ class TestElRangoDelSeparadorEsDeMEZCLA:
         elegido = cm.select_gas_handler(q_mezcla, 4.892)
         assert elegido is not None
         assert elegido["model"] == "VGSA D20-60"
+
+
+class TestLasDosPreguntasDeCadaEscalon:
+    """Cada escalón responde dos preguntas, medidas en puntos distintos.
+
+    1. ¿La configuración soporta este pozo? — el gas que LLEGA a la admisión
+       contra la capacidad de la configuración (Takács, Fig. 4.25, pág. 195:
+       20 % sin separador, 80 % con uno, 95 % en tándem).
+    2. ¿El gas que entra a la bomba cumple el criterio? — el gas que queda
+       DESPUÉS de separar contra ``max_gip``.
+
+    Confundirlas es el error que este test previene: los porcentajes de la
+    Fig. 4.25 están medidos en la admisión, no aguas abajo del separador.
+    """
+
+    def test_un_escalon_cae_por_capacidad_aunque_el_criterio_no_aplique(self):
+        """Sin separador, 79 % de gas supera el 20 % que admite la bomba sola.
+
+        No importa lo que diga ``max_gip``: la configuración no soporta ese
+        pozo, y ésa es la pregunta 1.
+        """
+        r = select_gas_handling_strategy(
+            0.79, single_efficiency=0.75, max_gip=1.0,
+        )
+        ninguno = r["ladder"][0]
+        assert ninguno["strategy"] == "ninguno"
+        assert ninguno["capacidad"] == pytest.approx(0.20)
+        assert ninguno["cumple_capacidad"] is False
+        assert ninguno["alcanza"] is False
+
+    def test_un_escalon_cae_por_criterio_aunque_la_capacidad_alcance(self):
+        """Con separador, 79 % entra en el 80 % de la configuración.
+
+        Pero el separador deja 48.8 % en la bomba, muy por encima del 10 % de
+        diseño: cae por la pregunta 2.
+        """
+        r = select_gas_handling_strategy(
+            0.79, single_efficiency=0.75, max_gip=0.10,
+        )
+        simple = r["ladder"][1]
+        assert simple["strategy"] == "simple"
+        assert simple["cumple_capacidad"] is True, "79 % entra en el 80 %"
+        assert simple["cumple_criterio"] is False
+        assert simple["alcanza"] is False
+
+    def test_hacen_falta_las_dos_para_que_el_escalon_alcance(self):
+        r = select_gas_handling_strategy(
+            0.30, single_efficiency=0.75, max_gip=0.10,
+        )
+        simple = r["ladder"][1]
+        assert simple["cumple_capacidad"] is True
+        assert simple["cumple_criterio"] is True
+        assert simple["alcanza"] is True
+        assert r["strategy"] == "simple"
+
+    def test_el_veredicto_dice_cual_de_las_dos_fallo(self):
+        """Sin eso el usuario no sabe qué remediar: el remedio de cada una es
+        distinto —cambiar de configuración o revisar el criterio—."""
+        r = select_gas_handling_strategy(
+            0.79, single_efficiency=0.75, max_gip=0.10,
+        )
+        assert r["switch_lift_method"] is True
+        assert "capacidad de la configuración" in r["verdict"]
+        assert "máximo de diseño" in r["verdict"]

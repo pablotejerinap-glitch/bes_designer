@@ -868,6 +868,19 @@ class DesignResult:
     switch_lift_method: bool = False
     # El texto del veredicto de gas, para mostrar y para el reporte.
     gas_verdict: str = ""
+    # La escalera de manejo de gas **entera**, tal como la devolvió
+    # ``_estrategia_de_gas``. Los cuatro campos de arriba son el resumen que ya
+    # se publicaba, pero no alcanzan para explicar el veredicto: falta contra
+    # qué se comparó (``capacity``, ``tolerance``), qué se separó
+    # (``f_intake`` → ``f_pump``, con qué eficiencia y qué equipo) y cómo se
+    # armó el tándem. Sin eso el camino convencional no puede mostrar el mismo
+    # panel de gas que el de incrementos, y era la única razón por la que ese
+    # panel vivía sólo en la pestaña de gas.
+    #
+    # Es un dict y no una dataclase propia a propósito: el productor
+    # (``select_gas_handling_strategy``) ya devuelve un dict, y la capa API lo
+    # valida con el esquema ``GasFeasibility`` que ya existía.
+    gas_feasibility: dict = field(default_factory=dict)
     # Downhole sensor (optional; recommended for monitoring)
     sensor_manufacturer: str = ""
     sensor_model: str = ""

@@ -346,12 +346,18 @@ class TestCompuertaDeGas:
     def test_el_pozo_de_prueba_pasa_con_el_equipo_del_catalogo(
         self, con_gas, reservoir, well, surface, objectives, catalog
     ):
-        """63 % de gas libre: el separador no basta, el manejador avanzado sí.
+        """63 % de gas libre: un separador no basta, el TÁNDEM sí.
 
         Con el catálogo REDA la eficiencia de separación **no está publicada**,
         así que se supone la conservadora del dominio (75 %) y queda declarada.
-        Con eso el gas en la bomba baja a ~30 %, todavía por encima del 10 %
-        que tolera una bomba convencional pero dentro del 45 % de GVF del AGH.
+        Un separador solo deja ~30 % en la bomba, por encima del 10 % de
+        diseño; dos en serie retiran el 93.75 % y lo bajan por debajo.
+
+        Antes este pozo terminaba en el manejador avanzado, pero sólo porque el
+        escalón de tándem era inalcanzable: el catálogo no publica el rango de
+        caudal de los separadores rotativos y no había con qué armarlo.
+        Desbloqueado ese escalón, la escalera se detiene antes y no instala un
+        AGH que no hace falta.
 
         Antes acá se afirmaba ``separator_efficiency == 0.97``: era la del
         vórtex de ChampionX, fabricante que la purga de catálogos retiró del
@@ -361,14 +367,16 @@ class TestCompuertaDeGas:
         f = r["feasibility"]
         assert f["viable"] is True
         assert f["f_intake"] > 0.60
-        assert f["strategy"] == "agh"
-        assert f["uses_agh"] is True
-        # No retira gas: sube la tolerancia. f_pump sigue arriba de max_gip.
-        assert f["f_pump"] > objectives.max_gip
-        assert f["f_pump"] <= f["agh_max_gvf"]
-        assert f["separator_efficiency"] == pytest.approx(
-            SEPARATOR_DEFAULT_EFFICIENCY
-        )
+        assert f["strategy"] == "tandem"
+        assert f["uses_agh"] is False, "el tándem alcanza: no hace falta el AGH"
+        assert f["n_separators"] == 2
+        # Ahora sí cumple el criterio de diseño, no sólo la tolerancia del equipo.
+        assert f["f_pump"] <= objectives.max_gip
+        # La eficiencia que se publica es la COMBINADA del tándem, no la de un
+        # equipo: dos del 75 % en serie dejan pasar 0.25 × 0.25, o sea que
+        # retiran 1 − 0.0625 = 93.75 %.
+        eta_tandem = 1.0 - (1.0 - SEPARATOR_DEFAULT_EFFICIENCY) ** 2
+        assert f["separator_efficiency"] == pytest.approx(eta_tandem)
 
     def test_un_max_gip_exigente_rechaza_el_pozo(
         self, con_gas, reservoir, well, surface, catalog
@@ -464,3 +472,89 @@ class TestEscalonConfigurable:
         r = _correr(con_gas, reservoir, well, surface, objectives, catalog)
         inc = r["increment"]
         assert inc["total_stages_longhand"] >= inc["total_stages"]
+
+
+class TestElModeloForzadoLlegaAlCaminoDeGas:
+    """`fixed_pump_model` manda, y sin fallback.
+
+    El front no lo estaba enviando desde el selector "Bomba manual": el usuario
+    elegía una D-40 y la pestaña de gas resolvía con otra bomba sin avisar. El
+    backend siempre lo aceptó, así que este test fija el contrato del que ahora
+    depende la pantalla.
+    """
+
+    @staticmethod
+    def _caso() -> dict:
+        """§4.53104 #3B — 500 STB/d con 500 scf/bbl, casing 5½", 7000 ft."""
+        return {
+            "reservoir": {
+                "static_pressure": 1000.0, "bubble_point": 2000.0,
+                "test_pwf": 500.0, "test_rate": 500.0, "ipr_method": "vogel",
+                "reservoir_temp": 160.0, "drive_mechanism": "solution_gas",
+            },
+            "fluid": {
+                "oil_api": 35.0, "water_cut": 0.0, "gor": 500.0, "gas_sg": 0.65,
+                "water_sg": 1.07, "oil_viscosity_dead": 5.0,
+                "viscosity_temp_ref": 100.0, "bubble_point_pressure": 2000.0,
+                "h2s_content": 0.0, "co2_content": 0.0, "sand_production": False,
+            },
+            "well": {
+                "total_depth": 7000.0, "casing_od": 5.5, "casing_weight": 17.0,
+                "casing_id": 4.892, "tubing_od": 2.375, "tubing_id": 1.995,
+                "perforations_top": 6950.0, "perforations_bottom": 7000.0,
+                "deviation_max": 0.0, "wellhead_temp": 120.0,
+            },
+            "surface": {
+                "wellhead_pressure_required": 200.0, "flowline_length": 1000.0,
+                "flowline_id": 3.0, "flowline_elevation_change": 0.0,
+                "separator_pressure": 100.0, "power_supply_voltage": 4160.0,
+                "frequency": 60.0,
+            },
+            "objectives": {
+                "target_flow_rate": 500.0, "safety_margin_depth": 50.0,
+                "allow_gas_venting": False, "max_gip": 1.0,
+                "design_life_years": 5.0, "use_vsd": False,
+            },
+            "increment_psi": 200.0,
+            "p_intake": 500.0,
+            "p_discharge": 1300.0,
+        }
+
+    def test_sin_forzar_el_metodo_elige_otra_bomba(self):
+        """Contexto del defecto: por eso el usuario veía una AN1200."""
+        from fastapi.testclient import TestClient
+        from bes.api.main import app
+
+        r = TestClient(app).post("/api/gas/increment-design", json=self._caso())
+        assert r.status_code == 200, r.text
+        assert r.json()["summary"]["pump_model"] != "D-40"
+
+    def test_con_el_modelo_forzado_resuelve_con_esa_bomba(self):
+        from fastapi.testclient import TestClient
+        from bes.api.main import app
+
+        r = TestClient(app).post(
+            "/api/gas/increment-design",
+            json={**self._caso(), "fixed_pump_model": "D-40"},
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["summary"]["pump_model"] == "D-40"
+
+    def test_reproduce_el_ejemplo_3B_impreso(self):
+        """El libro da 209 etapas y 27 hp con la D-40 (Brown §4.53104-07).
+
+        Las presiones se le pasan impresas (500 y 1300 psi) porque el paso 1 del
+        enunciado lo resuelve Hagedorn-Brown, que el proyecto no implementa: el
+        desvío del recorrido no puede contaminar la validación del método de
+        incrementos, que es lo que este test verifica. Ver
+        ``docs/EJEMPLO_3B_BROWN.md``.
+        """
+        from fastapi.testclient import TestClient
+        from bes.api.main import app
+
+        resumen = TestClient(app).post(
+            "/api/gas/increment-design",
+            json={**self._caso(), "fixed_pump_model": "D-40"},
+        ).json()["summary"]
+        assert resumen["total_stages"] == pytest.approx(209, abs=5)
+        assert resumen["total_hp"] == pytest.approx(27.0, abs=2.0)

@@ -33,6 +33,23 @@ from bes.core.models import (
 from bes.core.tdh import _sg_liquid, _sg_max
 
 
+def _unir_avisos(*listas) -> list[str]:
+    """Junta listas de advertencias sin repetir y conservando el orden.
+
+    Se repiten a propósito de un lado y del otro —la escalera de gas emite las
+    suyas y el candidato hidráulico arrastra algunas de las mismas—, y mostrar
+    dos veces el mismo aviso le resta peso a todos.
+    """
+    vistas: set[str] = set()
+    salida: list[str] = []
+    for lista in listas:
+        for aviso in lista or []:
+            if aviso not in vistas:
+                vistas.add(aviso)
+                salida.append(aviso)
+    return salida
+
+
 def _temp_at_depth(well: WellGeometry, depth: float, bottom_temp_f: float) -> float:
     """Temperatura del perfil geotérmico lineal a una profundidad [°F]."""
     if well.total_depth <= 0:
@@ -447,7 +464,14 @@ def run_gas_design_complete(
             "pump_intake_temp_f": t_pump,
             "tdh_conventional_ft": tdh_info["tdh_ft"],
             "tdh_increment_ft": inc["tdh_equivalent_ft"],
-            "warnings": cand["warnings"],
+            # Las del cálculo hidráulico MÁS las de la escalera de manejo de
+            # gas. Iban sólo las primeras, y por eso la advertencia de MODO
+            # EJEMPLO —la que avisa que ``max_gip`` está en 100 % y que el
+            # resultado NO es el criterio con que la herramienta diseñaría el
+            # pozo— nunca llegaba a la pantalla: vive en la escalera. Es
+            # justamente la que no puede faltar, porque sin ella un resultado
+            # de modo ejemplo se lee como un diseño real.
+            "warnings": _unir_avisos(cand["warnings"], factibilidad.get("warnings")),
             "rejected": motivos,
         }
 

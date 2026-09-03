@@ -690,14 +690,14 @@ class TestElSeparadorDeGasSumaSuPotencia:
 class TestLaEscaleraDeGasYLaFrecuenciaLleganAlAparejo:
     """La escalera de gas y la ley de afinidad, vistas desde el DesignResult.
 
-    **Con el catálogo REDA el escalón de TÁNDEM es inalcanzable, y está bien
-    que lo sea.** El tándem se arma con separadores de tipos distintos (Takács
-    pág. 195), y los únicos separadores REDA seleccionables son de vórtice: los
-    rotativos ARS / CRS-ES / DRS-ES aparecen sólo en las tablas de armado, que
-    no publican rango de caudal, así que no se pueden verificar contra un pozo
-    y no se ofrecen. La lógica del tándem se verifica por unidad en
-    ``test_gas_separator.py``, contra eficiencias dadas; acá se verifica lo que
-    el catálogo real sí puede armar.
+    **El tándem se arma aunque el catálogo no permita dos tipos distintos.**
+    Takács (pág. 195) documenta la mayor capacidad para un tándem de tipos
+    distintos, pero los rotativos REDA (ARS / CRS-ES / DRS-ES) aparecen sólo en
+    las tablas de armado, sin rango de caudal, y no se pueden verificar contra
+    un pozo. Dejar el escalón inalcanzable dejaba sin diseño posible a los
+    pozos de 30 a 55 % de gas en la admisión, que son justamente los que lo
+    necesitan, así que el segundo equipo cae a otro modelo del mismo tipo —o al
+    mismo repetido— y el diseño lo declara como extrapolación.
     """
 
     def _pozo(self, gor, pb, freq, q=1200.0):
@@ -752,13 +752,22 @@ class TestLaEscaleraDeGasYLaFrecuenciaLleganAlAparejo:
         assert not d.switch_lift_method
         assert 0.10 < d.gas_fraction_at_pump <= 0.45
         assert d.gas_fraction_at_pump < d.gip_fraction   # el separador algo hizo
-        # Separador + manejador: dos equipos en el eje, y los dos consumen.
-        assert d.gas_handler_count == 2
+        # Tándem + manejador: tres equipos en el eje, y los tres consumen. El
+        # AGH se apila sobre la mejor separación conseguida, que ahora es el
+        # tándem — antes era un solo separador porque el escalón no se podía
+        # armar.
+        assert d.gas_handler_count == 3
         assert d.gas_handler_hp > 0.0
 
     def test_gas_por_encima_del_techo_manda_cambiar_de_metodo(self, manager):
-        """88 % de gas: ni el AGH lo tolera. No se entrega un aparejo dudoso."""
-        d = self._diseno(manager, gor=1200.0, pb=2500.0, freq=60.0)
+        """95 % de gas: ni el AGH sobre el tándem lo tolera.
+
+        El techo subió al desbloquearse el tándem: con 88 % el pozo ahora es
+        viable con tándem más manejador. Hace falta llegar al 95 % para que
+        ningún escalón cumpla las dos condiciones. No se entrega un aparejo
+        dudoso: se manda a cambiar de método.
+        """
+        d = self._diseno(manager, gor=3000.0, pb=2500.0, freq=60.0)
         assert d.gas_strategy == "no_viable"
         assert d.switch_lift_method
         assert d.gas_fraction_at_pump > 0.45

@@ -78,5 +78,13 @@ def to_domain_inputs(req: DesignRequest):
 
 
 def from_design_result(dr: DesignResult) -> DesignResultSchema:
-    """DesignResult -> DesignResultSchema. Field names match; no enums involved."""
-    return DesignResultSchema(**asdict(dr))
+    """DesignResult -> DesignResultSchema. Field names match; no enums involved.
+
+    Única salvedad: ``gas_feasibility`` es un dict en el dominio y llega vacío
+    cuando el diseño no corrió la escalera de manejo de gas. Un ``{}`` no es una
+    factibilidad con todo en cero —es la ausencia del dato—, así que se traduce
+    a ``None`` en vez de dejar que Pydantic falle por campos faltantes.
+    """
+    datos = asdict(dr)
+    datos["gas_feasibility"] = datos.get("gas_feasibility") or None
+    return DesignResultSchema(**datos)

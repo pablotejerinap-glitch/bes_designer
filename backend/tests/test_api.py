@@ -576,19 +576,29 @@ def test_gas_design_una_sola_bomba(client: TestClient) -> None:
 def test_gas_design_reporta_la_viabilidad_por_gas(client: TestClient) -> None:
     """El veredicto del manejo de gas viaja en la respuesta, con sus números.
 
-    El pozo del payload trae ``max_gip = 0.7``, un valor heredado con el que la
-    verificación no filtra nada: con 63 % de gas libre la escalera se queda en
-    el primer escalón y **no instala separador**. Eso es lo correcto —no se
-    pone equipo que no hace falta— y por eso ``separator_model`` es ``None``.
-    Lo que se verifica acá es que la escalera se publique entera.
+    El pozo del payload trae ``max_gip = 0.7``, un valor heredado y muy laxo.
+    Antes eso alcanzaba para que la escalera se quedara en el primer escalón
+    con 63 % de gas libre en la admisión, lo que no es físico: una bomba sin
+    separador no admite semejante fracción de vacío.
+
+    Cada escalón se compara ahora contra el **menor** entre el criterio del
+    usuario y lo que la configuración puede manejar (Takács, Fig. 4.25), de
+    modo que el escalón sin separador queda acotado al 20 % y la escalera sube
+    a instalar uno. Es el comportamiento correcto: el usuario puede pedir algo
+    más estricto que el equipo, pero no más laxo.
     """
     body = client.post("/api/gas/design", json=_gas_design_payload()).json()
     f = body["feasibility"]
     assert f["viable"] is True
-    assert f["strategy"] == "ninguno"
-    assert f["n_separators"] == 0
-    assert f["separator_model"] is None
-    assert f["f_pump"] <= f["tolerance"] == f["max_gip"]
+    assert f["strategy"] == "simple", (
+        "con 63 % de gas la bomba necesita separador, por más que el usuario "
+        "haya declarado un max_gip laxo"
+    )
+    assert f["n_separators"] == 1
+    assert f["separator_model"] is not None
+    # La tolerancia efectiva ya no es el max_gip pelado: la acota la capacidad
+    # del equipo.
+    assert f["f_pump"] <= f["tolerance"] <= f["max_gip"]
     assert f["switch_lift_method"] is False
     assert f["uses_agh"] is False
 
@@ -598,22 +608,25 @@ def test_gas_design_con_max_gip_realista_instala_separador(
 ) -> None:
     """Con el límite del dominio (10 %), el mismo pozo sí necesita equipo.
 
-    63 % de gas libre en la admisión: el separador solo no basta y el pozo sube
-    hasta el manejador avanzado, que tolera 45 % de GVF. El equipo elegido y su
-    modelo tienen que viajar en la respuesta — es la trazabilidad de qué se
-    supuso.
+    63 % de gas libre en la admisión: un separador solo deja 30 % en la bomba,
+    por encima del criterio, así que la escalera sube al TÁNDEM, que lo baja
+    por debajo del 10 % y no necesita manejador avanzado.
+
+    Antes este pozo terminaba en el AGH, pero sólo porque el tándem era
+    inalcanzable: el catálogo no publica el rango de caudal de los separadores
+    rotativos y no había con qué armarlo. Desbloqueado el escalón, la escalera
+    se detiene antes — que es su regla: no instalar equipo de más.
     """
     payload = _gas_design_payload()
     payload["objectives"]["max_gip"] = 0.10
     f = client.post("/api/gas/design", json=payload).json()["feasibility"]
     assert f["viable"] is True
-    assert f["strategy"] == "agh"
-    assert f["uses_agh"] is True
-    assert f["agh_model"]
-    assert f["separator_model"], "el separador que igual va en la sarta"
-    # El manejador NO retira gas: sube la tolerancia, no baja f_pump.
-    assert f["f_pump"] > f["max_gip"]
-    assert f["f_pump"] <= f["tolerance"] == f["agh_max_gvf"]
+    assert f["strategy"] == "tandem"
+    assert f["n_separators"] == 2
+    assert f["uses_agh"] is False, "el tándem alcanza: no hace falta el AGH"
+    assert f["separator_model"]
+    # Ahora sí cumple el criterio de diseño, no sólo la tolerancia del equipo.
+    assert f["f_pump"] <= f["max_gip"]
 
 
 def test_gas_design_gas_excesivo_422(client: TestClient) -> None:

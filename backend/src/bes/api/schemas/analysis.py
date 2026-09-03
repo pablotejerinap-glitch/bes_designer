@@ -8,7 +8,12 @@ from pydantic import BaseModel, Field
 from bes.api.schemas.inputs import (
     FluidSchema, ObjectivesSchema, ReservoirSchema, SurfaceSchema, WellSchema,
 )
-from bes.api.schemas.outputs import DesignResultSchema, FormulaSchema
+# GasMethodDecision y GasFeasibility viven en outputs.py porque
+# DesignResponse los declara: el camino convencional publica el mismo
+# veredicto de gas que el de incrementos, con el MISMO esquema.
+from bes.api.schemas.outputs import (
+    DesignResultSchema, FormulaSchema, GasFeasibility, GasMethodDecision,
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -266,19 +271,6 @@ class GasIncrementResponse(BaseModel):
     )
 
 
-class GasMethodDecision(BaseModel):
-    """Por qué se usó (o no) el método por incrementos.
-
-    El criterio no es nuevo: es el mismo umbral de gas libre despreciable que
-    el proyecto ya usaba para elegir la correlación de fricción.
-    """
-    applies: bool
-    free_gas_fraction: float
-    threshold: float
-    negligible_reference: float
-    reason: str
-
-
 class GasCompleteDesignRequest(BaseModel):
     reservoir: ReservoirSchema
     fluid: FluidSchema
@@ -292,53 +284,6 @@ class GasCompleteDesignRequest(BaseModel):
     apply_viscosity: bool = True
     fixed_pump_model: str | None = None
     pvt_table: PVTTableSchema | None = None
-
-
-class GasFeasibility(BaseModel):
-    """Cuánto gas llega realmente a la bomba, y si eso la deja funcionar.
-
-    Las reducciones se aplican sobre la **relación** gas/líquido, no sobre la
-    fracción: el separador saca gas y deja el líquido, así que la fracción no
-    escala linealmente.
-    """
-    viable: bool
-    f_intake: float = Field(..., description="Gas libre en la admisión [0-1]")
-    f_after_vent: float = Field(..., description="Tras ventear por el anular")
-    f_pump: float = Field(..., description="El que efectivamente entra a la bomba")
-    max_gip: float = Field(..., description="Máximo admisible (objectives.max_gip)")
-    vent_fraction: float
-    separator_efficiency: float | None
-    separator_model: str | None
-    required_efficiency: float | None = Field(
-        None, description="Eficiencia que haría falta; None si ya cumple",
-    )
-    verdict: str
-    # --- Escalera de manejo de gas (bes.core.gas_handling) -----------------
-    # Estos campos vienen del dominio y Pydantic los DESCARTA EN SILENCIO si no
-    # están declarados acá: sin ellos la pantalla no puede decir en qué escalón
-    # quedó el pozo. Ver DesignResultSchema y test_api::TestElContratoSigueAlDominio.
-    strategy: str = Field(
-        "", description="'ninguno' | 'simple' | 'tandem' | 'agh' | 'no_viable'",
-    )
-    n_separators: int = Field(0, description="Separadores en serie")
-    switch_lift_method: bool = Field(
-        False, description="True = ni el techo de la tecnología BES alcanza",
-    )
-    uses_agh: bool = Field(
-        False,
-        description="El aparejo lleva manejador avanzado de gas. NO retira gas: "
-                    "acondiciona la mezcla y sube la tolerancia de max_gip al "
-                    "GVF que publica el equipo.",
-    )
-    agh_model: str | None = None
-    agh_max_gvf: float | None = Field(
-        None, description="Fracción de vacío máxima del manejador [0-1]",
-    )
-    tolerance: float = Field(
-        0.0,
-        description="Contra qué se comparó el gas en la bomba: max_gip en los "
-                    "tres primeros escalones, el GVF del manejador en el cuarto",
-    )
 
 
 class GasCompleteDesignResponse(BaseModel):

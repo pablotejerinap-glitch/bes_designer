@@ -102,6 +102,85 @@ class FormulaSchema(BaseModel):
     )
 
 
+class GasMethodDecision(BaseModel):
+    """Por qué se usó (o no) el método por incrementos.
+
+    El criterio no es nuevo: es el mismo umbral de gas libre despreciable que
+    el proyecto ya usaba para elegir la correlación de fricción.
+    """
+    applies: bool
+    free_gas_fraction: float
+    threshold: float
+    negligible_reference: float
+    reason: str
+
+
+class GasFeasibility(BaseModel):
+    """Cuánto gas llega realmente a la bomba, y si eso la deja funcionar.
+
+    Las reducciones se aplican sobre la **relación** gas/líquido, no sobre la
+    fracción: el separador saca gas y deja el líquido, así que la fracción no
+    escala linealmente.
+    """
+    viable: bool
+    f_intake: float = Field(..., description="Gas libre en la admisión [0-1]")
+    f_after_vent: float = Field(..., description="Tras ventear por el anular")
+    f_pump: float = Field(..., description="El que efectivamente entra a la bomba")
+    max_gip: float = Field(..., description="Máximo admisible (objectives.max_gip)")
+    vent_fraction: float
+    separator_efficiency: float | None
+    separator_model: str | None
+    required_efficiency: float | None = Field(
+        None, description="Eficiencia que haría falta; None si ya cumple",
+    )
+    verdict: str
+    # --- Escalera de manejo de gas (bes.core.gas_handling) -----------------
+    # Estos campos vienen del dominio y Pydantic los DESCARTA EN SILENCIO si no
+    # están declarados acá: sin ellos la pantalla no puede decir en qué escalón
+    # quedó el pozo. Ver DesignResultSchema y test_api::TestElContratoSigueAlDominio.
+    strategy: str = Field(
+        "", description="'ninguno' | 'simple' | 'tandem' | 'agh' | 'no_viable'",
+    )
+    n_separators: int = Field(0, description="Separadores en serie")
+    switch_lift_method: bool = Field(
+        False, description="True = ni el techo de la tecnología BES alcanza",
+    )
+    uses_agh: bool = Field(
+        False,
+        description="El aparejo lleva manejador avanzado de gas. NO retira gas: "
+                    "acondiciona la mezcla y sube la tolerancia de max_gip al "
+                    "GVF que publica el equipo.",
+    )
+    agh_model: str | None = None
+    agh_max_gvf: float | None = Field(
+        None, description="Fracción de vacío máxima del manejador [0-1]",
+    )
+    tolerance: float = Field(
+        0.0,
+        description="Contra qué se comparó el gas en la bomba: max_gip en los "
+                    "tres primeros escalones, el GVF del manejador en el cuarto",
+    )
+    # --- Las dos condiciones de cada escalón --------------------------------
+    # Cada escalón responde dos preguntas medidas en puntos distintos, y las
+    # dos tienen que dar bien:
+    #   1. ¿la configuración soporta este pozo?  gas en la ADMISIÓN vs capacidad
+    #   2. ¿el gas que entra a la bomba cumple?  gas DESPUÉS de separar vs max_gip
+    # Publicarlas por separado es lo que permite decir cuál falló, y el remedio
+    # de cada una es distinto.
+    capacity: float = Field(
+        0.0,
+        description="Fracción de vacío en la admisión que admite la "
+                    "configuración elegida (Takács, Fig. 4.25, pág. 195): "
+                    "0.20 sin separador, 0.80 con uno, 0.95 en tándem",
+    )
+    tandem_arrangement: str | None = Field(
+        None,
+        description="Cómo se armó el tándem: 'tipos distintos' es lo que "
+                    "documenta la bibliografía; cualquier otro valor es una "
+                    "extrapolación y viaja además como advertencia",
+    )
+
+
 class DesignResultSchema(BaseModel):
     # Pump
     pump_manufacturer: str
@@ -211,6 +290,12 @@ class DesignResultSchema(BaseModel):
     gas_fraction_at_pump: float = 0.0
     switch_lift_method: bool = False
     gas_verdict: str = ""
+    # La escalera entera. Los cuatro campos de arriba son su resumen y se
+    # conservan (los lee la vista de resultados y los reportes); esto es lo que
+    # falta para poder explicar el veredicto —contra qué se comparó, cuánto se
+    # separó y con qué equipo— también por el camino convencional.
+    # ``None`` cuando el diseño no corrió la escalera.
+    gas_feasibility: GasFeasibility | None = None
     # Downhole sensor (optional)
     sensor_manufacturer: str = ""
     sensor_model: str = ""

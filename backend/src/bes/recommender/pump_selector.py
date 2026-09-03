@@ -33,6 +33,7 @@ from bes.core.electrical import electrical_design_complete
 from bes.core.gas_handling import (
     GAS_SEPARATOR_BASE_FREQUENCY_HZ,
     GAS_SEPARATOR_HP,
+    GAS_VOID_LIMIT_RADIAL,
     SEPARATOR_DEFAULT_EFFICIENCY,
     gas_handler_hp,
     total_intake_rate,
@@ -220,6 +221,11 @@ def _build_design_result(
         gas_fraction_at_pump=float((gas_strategy or {}).get("f_pump", 0.0)),
         switch_lift_method=bool((gas_strategy or {}).get("switch_lift_method", False)),
         gas_verdict=str((gas_strategy or {}).get("verdict", "")),
+        # La escalera entera, no sólo su resumen: es lo que permite mostrar el
+        # panel de manejo de gas también por el camino convencional, con los
+        # mismos números y sin recalcular nada. Se copia para que el diseño no
+        # comparta estado mutable con el selector.
+        gas_feasibility=dict(gas_strategy or {}),
         sensor_manufacturer=(sensor["manufacturer"] if sensor else ""),
         sensor_model=(sensor["model"] if sensor else ""),
     )
@@ -382,7 +388,11 @@ def _select_gas_handler(
         El manejador elegido, o ``None`` si el pozo no lo necesita o el
         catálogo no tiene uno que entre.
     """
-    if gip <= _GIP_PARA_SEPARADOR:
+    # Se ofrece un candidato en cuanto el gas pueda llegar a exigirlo: contra el
+    # menor entre el criterio del usuario y lo que admite una bomba sin
+    # separador (Takács, Fig. 4.25). Quien decide si se instala es la escalera,
+    # no esta función — acá sólo se busca en el catálogo.
+    if gip <= min(objectives.max_gip, GAS_VOID_LIMIT_RADIAL):
         return None
     # El catálogo declara el rango del separador en caudal TOTAL de mezcla
     # (líquido + gas), no en líquido: por el equipo pasa todo. Ver
@@ -437,23 +447,60 @@ def _estrategia_de_gas(
 
     eta_simple = gas_handler.get("max_efficiency") or SEPARATOR_DEFAULT_EFFICIENCY
 
-    # El segundo del tándem: el otro tipo, para no repetir el mismo principio.
+    # --- El segundo equipo del tándem ---------------------------------------
+    #
+    # Takács (pág. 195) documenta la mayor capacidad de manejo de gas para un
+    # tándem de **tipos distintos**, así que ése es el primer intento. Pero el
+    # catálogo no publica el rango de caudal de ningún separador rotativo —REDA
+    # los lista sólo en las tablas de armado, con longitud, peso y número de
+    # parte—, de modo que ``select_gas_handler`` nunca los puede ofrecer y el
+    # escalón de tándem quedaba **inalcanzable**: los pozos de entre 30 y 55 %
+    # de gas en la admisión, que son justamente los que lo necesitan, se
+    # quedaban sin diseño posible.
+    #
+    # Por eso el segundo equipo se busca en tres pasos, y el arreglo obtenido
+    # se declara en las advertencias del diseño:
+    #
+    #   1. otro tipo                  -> es lo que documenta la bibliografía
+    #   2. mismo tipo, otro modelo    -> extrapolación de la composición
+    #   3. el mismo modelo repetido   -> último recurso
+    #
+    # El día que aparezca una hoja de datos de un rotativo con su rango, el
+    # paso 1 resuelve solo y los otros dos dejan de usarse.
     otro_tipo = "rotary" if gas_handler.get("type") == "vortex" else "vortex"
     segundo = catalog.select_gas_handler(
         flow_bpd=q_mezcla,
         casing_id_in=well.casing_id,
         prefer_type=otro_tipo,
     )
-    tandem_etas = None
-    tandem_modelos = None
-    equipos = [gas_handler]
-    if segundo is not None and segundo.get("model") != gas_handler.get("model"):
-        tandem_etas = [
-            eta_simple,
-            segundo.get("max_efficiency") or SEPARATOR_DEFAULT_EFFICIENCY,
+    arreglo_tandem = "tipos distintos"
+    if segundo is None or segundo.get("model") == gas_handler.get("model"):
+        otros = [
+            g for g in catalog.get_all_gas_handlers()
+            if g.get("type") != "agh"
+            and g.get("model") != gas_handler.get("model")
+            and g.get("min_flow_bpd") is not None
+            and g.get("max_flow_bpd") is not None
+            and float(g["min_flow_bpd"]) <= q_mezcla <= float(g["max_flow_bpd"])
+            and float(g.get("od_inches") or 0.0) < well.casing_id
         ]
-        tandem_modelos = [gas_handler.get("model", "?"), segundo.get("model", "?")]
-        equipos.append(segundo)
+        if otros:
+            segundo = otros[0]
+            arreglo_tandem = (
+                "tipos distintos"
+                if segundo.get("type") != gas_handler.get("type")
+                else "mismo tipo, modelos distintos"
+            )
+        else:
+            segundo = gas_handler
+            arreglo_tandem = "el mismo modelo repetido"
+
+    tandem_etas = [
+        eta_simple,
+        segundo.get("max_efficiency") or SEPARATOR_DEFAULT_EFFICIENCY,
+    ]
+    tandem_modelos = [gas_handler.get("model", "?"), segundo.get("model", "?")]
+    equipos = [gas_handler, segundo]
 
     estrategia = select_gas_handling_strategy(
         gip,
@@ -475,6 +522,30 @@ def _estrategia_de_gas(
     # separators» (pág. 393). Se recorta después a n_separators + el AGH.
     if estrategia.get("uses_agh") and agh is not None:
         equipos = equipos[: max(0, int(estrategia.get("n_separators", 0)))] + [agh]
+    # El arreglo del tándem se declara: la composición de eficiencias en serie
+    # está documentada para tipos distintos, y cualquier otro arreglo es una
+    # extrapolación que el usuario tiene que poder ver.
+    if estrategia.get("strategy") == "tandem" and arreglo_tandem != "tipos distintos":
+        estrategia.setdefault("warnings", []).append(
+            f"El tándem se armó con {arreglo_tandem} "
+            f"({' + '.join(tandem_modelos)}). Takács (Fig. 4.25, pág. 195) "
+            f"documenta la mayor capacidad de manejo de gas para un tándem de "
+            f"TIPOS DISTINTOS; el catálogo no publica el rango de caudal de "
+            f"ningún separador rotativo, así que no hay con qué armarlo. La "
+            f"eficiencia compuesta de este arreglo es por lo tanto una "
+            f"extrapolación y probablemente optimista: dos equipos que separan "
+            f"por el mismo principio no se complementan como dos de principios "
+            f"distintos."
+        )
+    # Sólo se declara si el diseño REALMENTE apila dos equipos: publicar cómo
+    # se habría armado un tándem que no se usó hace leer "el mismo modelo
+    # repetido" en un pozo que lleva un solo separador.
+    # Se mide por CANTIDAD de separadores, no por el nombre del escalón: el
+    # escalón "agh" apila el manejador ARRIBA del tándem, así que también lo
+    # lleva y también hay que declarar cómo se armó.
+    es_tandem = int(estrategia.get("n_separators") or 0) >= 2
+    estrategia["arreglo_tandem"] = arreglo_tandem if es_tandem else None
+    estrategia["tandem_arrangement"] = arreglo_tandem if es_tandem else None
     estrategia["equipos"] = equipos
     return estrategia
 
@@ -527,16 +598,17 @@ def _assemble_design(
     # cambiar de método de levantamiento.
     estrategia_gas = _estrategia_de_gas(catalog, well, objectives, gip, gas_handler)
 
-    # Cuántos separadores consumen potencia. Ojo con las dos decisiones, que
-    # NO usan el mismo corte y no se pueden mezclar:
-    #   - si se INSTALA uno lo decide _select_gas_handler (gip > 10 %, corte
-    #     heredado y documentado en .claude/rules/domain.md);
-    #   - si hace falta un SEGUNDO lo decide la escalera contra objectives.max_gip.
-    # Un separador instalado consume aunque la escalera diga que no hacía falta:
-    # está en el eje igual. Por eso el piso es 1 cuando hay equipo.
-    n_separadores = (
-        max(1, estrategia_gas["n_separators"]) if gas_handler else 0
-    )
+    # Cuántos separadores lleva el aparejo. **Lo decide la escalera y sólo la
+    # escalera.**
+    #
+    # Antes acá había un piso de 1 cuando ``_select_gas_handler`` devolvía un
+    # equipo, con lo que el aparejo podía traer un separador instalado —y
+    # consumiendo potencia— mientras el veredicto decía «viable sin separador».
+    # Eran dos decisiones con cortes distintos (10 % el armado, ``max_gip`` la
+    # escalera) y en pantalla se leían como una contradicción. Ahora
+    # ``_select_gas_handler`` sólo **ofrece** un candidato y la escalera decide
+    # si se usa, cuántos y de qué tipo.
+    n_separadores = int(estrategia_gas.get("n_separators") or 0)
 
     # Lo que efectivamente cuelga del eje: los separadores recortados a esa
     # cuenta, más el manejador avanzado si la escalera llegó hasta ahí. El AGH
@@ -613,7 +685,11 @@ def _assemble_design(
         gip=gip,
         # Si no hubo separador pero sí manejador avanzado, el equipo que se
         # reporta es el AGH: es lo que efectivamente va en la sarta.
-        gas_handler=(gas_handler or (equipos_gas[0] if equipos_gas else None)),
+        # Sólo se reporta el equipo si el aparejo efectivamente lo lleva. El
+        # candidato que devolvió _select_gas_handler no basta: la escalera pudo
+        # haber decidido no instalarlo, y publicar su modelo con cero potencia
+        # hacía aparecer en la ficha un separador que no está montado.
+        gas_handler=(equipos_gas[0] if equipos_gas else None),
         gas_handler_hp_total=separator_hp,
         gas_handler_count=len(equipos_gas),
         gas_strategy=estrategia_gas,
