@@ -1,0 +1,39 @@
+# Despliegue del frontend en Netlify.
+#
+# Netlify sirve SOLO el estático. El backend FastAPI vive en otro origen y el
+# front lo alcanza por VITE_API_BASE (ver frontend/src/api/client.ts). Ésa es
+# la diferencia con el despliegue de docker-compose, donde nginx proxya /api/
+# en el mismo origen y por lo tanto no hay CORS: acá sí lo hay, y el dominio
+# de este sitio tiene que estar en BES_CORS_ORIGINS del backend.
+#
+# El repositorio tiene dos carpetas de primer nivel y sólo se publica una, por
+# eso `base`: Netlify entra a frontend/, instala con el package-lock que hay
+# ahí y publica frontend/dist.
+
+[build]
+  base    = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # El Dockerfile del front usa node:20-alpine; se declara la misma mayor acá
+  # para que el build de Netlify no sea el de otra versión de Node.
+  NODE_VERSION = "20"
+
+# VITE_API_BASE **no** se fija acá a propósito: es la URL pública del backend,
+# cambia por entorno (deploy preview vs. producción) y no es parte del código.
+# Se carga en el panel de Netlify, en Site configuration > Environment
+# variables. Sin ella el front pide rutas relativas a su propio dominio, que
+# no tiene backend: los pedidos devuelven el index.html y fallan al parsear
+# JSON. El aviso de conexión del cliente lo dice con todas las letras.
+
+# Fallback de SPA: cualquier ruta que no sea un archivo existente devuelve el
+# index.html con estado 200 y la app resuelve del lado del browser. Es el
+# equivalente del `try_files $uri $uri/ /index.html` de frontend/nginx.conf.
+#
+# Va acá y NO en un archivo `_redirects`: los dos mecanismos hacen exactamente
+# lo mismo, y tener los dos obliga a recordar cuál gana cuando difieren.
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200

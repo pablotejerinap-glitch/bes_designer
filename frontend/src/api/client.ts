@@ -21,7 +21,17 @@ import type {
   TubularCatalog,
 } from "./types";
 
-const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? "";
+// Origen del backend. Vacío = mismo origen, que es lo que vale en dev (Vite
+// proxya /api al :8000) y detrás de nginx en docker-compose. En Netlify el
+// estático y la API viven en dominios distintos y hay que declararlo.
+//
+// Se le saca la barra final: los `path` de este archivo empiezan con "/api",
+// así que una base terminada en "/" armaría "https://host//api/design". La
+// mayoría de los servidores lo toleran, pero no todos, y el que no lo tolera
+// devuelve 404 sin explicar por qué.
+//
+// El cast quedó de más: VITE_API_BASE ahora está declarada en vite-env.d.ts.
+const BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
 export class ApiError extends Error {
   status: number;
@@ -121,8 +131,15 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch (e) {
+    // El motivo depende de dónde está el backend, y confundirlos hace perder
+    // tiempo: en dev casi siempre es que uvicorn no está levantado; con una
+    // base configurada, que ese origen no responde o que rechazó el CORS.
     throw new ApiError(
-      `No se pudo conectar al backend. ¿Está corriendo uvicorn en :8000? (${String(e)})`,
+      BASE
+        ? `No se pudo conectar al backend en ${BASE}. Puede estar caído, o no ` +
+          `tener este dominio en BES_CORS_ORIGINS. (${String(e)})`
+        : `No se pudo conectar al backend. ¿Está corriendo uvicorn en :8000? ` +
+          `(${String(e)})`,
       0
     );
   }
