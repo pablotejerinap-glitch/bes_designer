@@ -5,8 +5,10 @@
 import { useEffect, useState } from "react";
 import {
   ActionIcon,
+  Alert,
   Button,
   Card,
+  Checkbox,
   Divider,
   Group,
   Loader,
@@ -142,6 +144,20 @@ export function App() {
   const [manualPumpModel, setManualPumpModel] = useState<string | null>(null);
   const [manualCalculating, setManualCalculating] = useState(false);
   const [tab, setTab] = useState<string | null>("design");
+  // Detección automática de gas. Por defecto ACTIVADA: si el pozo tiene gas
+  // libre por encima del umbral, el método convencional subestima las etapas,
+  // así que lo correcto es llevar al usuario al camino que corresponde en vez
+  // de dejarlo leyendo un resultado que no aplica. Se puede apagar para
+  // comparar las dos rutas a mano, que es un resultado del trabajo.
+  const [autoDetectarGas, setAutoDetectarGas] = useState(true);
+  // Token que dispara el diseño por incrementos en la pestaña de gas. Se
+  // incrementa en vez de ser un booleano: dos corridas seguidas del mismo pozo
+  // tienen que disparar dos veces.
+  const [gasAutoRun, setGasAutoRun] = useState(0);
+  // El motivo por el que no se pudo diseñar, para mostrarlo EN la pestaña.
+  // Antes vivía sólo en una notificación que se va sola a los pocos segundos:
+  // el usuario quedaba con la pantalla vacía y sin manera de releer por qué.
+  const [designError, setDesignError] = useState<string | null>(null);
   const [caseName, setCaseName] = useState("");
   const [savedCases, setSavedCases] = useState<SavedCases>(readCases);
   const [exporting, setExporting] = useState<"pdf" | "xlsx" | null>(null);
@@ -180,20 +196,44 @@ export function App() {
     if (!inputs) return;
     setCalculating(true);
     setResult(null);
+    setDesignError(null);
     const snapshot = structuredClone(inputs);
     try {
       const res = await api.design({ ...snapshot, n: 3 });
       setResult({ response: res, inputs: snapshot });
-      setTab("design");
-      notifications.show({
-        color: "teal",
-        message: `Diseño listo: ${res.recommendations.length} opción(es) de ${res.n_candidates_evaluated} candidatos.`,
-      });
+
+      // El backend ya respondió si este pozo pedía el método por incrementos
+      // (misma fracción de gas libre que usó para diseñar, no una segunda
+      // cuenta). El resultado convencional NO se descarta: queda en su pestaña
+      // para poder comparar las dos rutas al TDH.
+      const conGas = res.gas_method?.applies === true;
+      if (conGas && autoDetectarGas) {
+        setTab("gas");
+        setGasAutoRun((k) => k + 1);
+        notifications.show({
+          color: "orange",
+          title: "Pozo con gas libre",
+          message: `Gas libre en la admisión ${(
+            (res.gas_method?.free_gas_fraction ?? 0) * 100
+          ).toFixed(1)} %: se pasa al método de incrementos. El diseño convencional queda en la pestaña "Diseño".`,
+        });
+      } else {
+        setTab("design");
+        notifications.show({
+          color: conGas ? "orange" : "teal",
+          message: conGas
+            ? `Diseño listo, pero el pozo tiene gas libre: el método de incrementos es el que corresponde.`
+            : `Diseño listo: ${res.recommendations.length} opción(es) de ${res.n_candidates_evaluated} candidatos.`,
+        });
+      }
     } catch (e) {
+      const motivo = e instanceof ApiError ? e.message : String(e);
+      setDesignError(motivo);
+      setTab("design");
       notifications.show({
         color: "red",
         title: "No se pudo calcular",
-        message: e instanceof ApiError ? e.message : String(e),
+        message: "El motivo queda en la pestaña Diseño.",
       });
     } finally {
       setCalculating(false);
@@ -431,6 +471,20 @@ export function App() {
             >
               Calcular diseño BES
             </Button>
+            {/*
+              Va acá, pegado al botón, porque describe qué pasa al apretarlo.
+              El umbral con que se decide NO se expone: es el corte con que el
+              programa elige solo (.claude/rules/domain.md). Lo que se elige es
+              si la app actúa sobre esa detección o sólo la informa.
+            */}
+            <Checkbox
+              mt="sm"
+              size="sm"
+              label="Detectar gas automáticamente"
+              description="Con gas libre por encima del umbral, pasa sola al método de incrementos. El diseño convencional queda igual en su pestaña."
+              checked={autoDetectarGas}
+              onChange={(e) => setAutoDetectarGas(e.currentTarget.checked)}
+            />
           </div>
         </aside>
 
@@ -447,7 +501,30 @@ export function App() {
 
             <Tabs.Panel value="design">
               <Stack gap="md">
-                {!result && !manualResult && (
+                {designError && (
+                  <Alert color="red" variant="light" title="No se pudo armar ningún aparejo">
+                    <Text size="sm">{designError}</Text>
+                    <Text size="sm" mt="xs" c="dimmed">
+                      El diseño hidráulico puede haber salido bien y aun así no
+                      haber aparejo: bomba, motor y sello tienen que ser del
+                      mismo proveedor, y el motor tiene que dejar luz para el
+                      cable dentro del casing.
+                    </Text>
+                    <Button
+                      size="xs"
+                      mt="sm"
+                      variant="light"
+                      color="orange"
+                      onClick={() => {
+                        setTab("gas");
+                        setGasAutoRun((k) => k + 1);
+                      }}
+                    >
+                      Probar el método de incrementos
+                    </Button>
+                  </Alert>
+                )}
+                {!result && !manualResult && !designError && (
                   <Card>
                     <Title order={3}>Sin diseño calculado</Title>
                     <Text c="dimmed" size="sm" mt={4}>
@@ -456,7 +533,16 @@ export function App() {
                     </Text>
                   </Card>
                 )}
-                {result && <ResultsView response={result.response} inputs={result.inputs} />}
+                {result && (
+                  <ResultsView
+                    response={result.response}
+                    inputs={result.inputs}
+                    onGoToGas={() => {
+                      setTab("gas");
+                      setGasAutoRun((k) => k + 1);
+                    }}
+                  />
+                )}
                 {manualResult && (
                   <ResultsView
                     response={manualResult.response}
@@ -473,7 +559,11 @@ export function App() {
             </Tabs.Panel>
 
             <Tabs.Panel value="gas">
-              <GasIncrementView inputs={inputs} />
+              <GasIncrementView
+                inputs={inputs}
+                autoRunToken={gasAutoRun}
+                fixedPumpModel={manualPumpModel}
+              />
             </Tabs.Panel>
 
             <Tabs.Panel value="affinity">

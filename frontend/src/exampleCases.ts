@@ -231,102 +231,93 @@ const BROWN_1A: DesignInputs = {
 };
 
 // ===========================================================================
-// c) Brown #2B — "Class problem 2-B"
+// c) Brown #2B — §4.539 "Example problem #2B, oil well producing no gas"
 // ===========================================================================
 
 /**
- * Pozo de 10 000 ft que produce 25 % petróleo y 75 % agua, con el gas libre
- * venteado por el anular.
+ * Pozo de 11 000 ft con 30 % de agua y crudo de 40 °API, **sin gas**.
  *
- * Del enunciado impreso: tubing 3", casing 7", profundidad 10 000 ft, 25 %
- * petróleo / 75 % agua, Pr = 2 800 psi, PI = 10 b/d/psi, °API = 36, γw = 1.07,
- * GOR = 100 scf/B (el gas libre se ventea), presión de separador 100 psi, línea
- * de 3 000 ft de 4" con 200 ft de subida.
+ * Del enunciado impreso (§4.539, pág. 72): casing 7" O.D. 23 lb/ft, tubing
+ * 2⅞" EUE 8rd, profundidad al fondo del casing 11 000 ft, punzados
+ * 10 600-10 650 ft, presión estática 2 900 psig a 10 000 ft, presión fluyente
+ * 2 540 psig a 10 000 ft para 1 000 STB/d totales, corte de agua 30 %,
+ * 40 °API, γw = 1.05, viscosidad muerta 3.6 cp a 100 °F y 1.6 cp a 200 °F,
+ * temperatura de pozo 225 °F a 10 000 ft y 160 °F en boca, presión requerida
+ * en cabeza 200 psig, 60 Hz, caudal buscado 1 600 STB/d totales.
  *
- * El ensayo se carga como Pwf = 2 600 psi con 2 000 b/d, que es exactamente el
- * PI = 10 b/d/psi del enunciado (2 000 / 200 psi de abatimiento). El modelo
- * pide un punto medido, no el índice ya procesado.
+ * El ensayo se carga como Pwf = 2 540 psi con 1 000 STB/d, que da el
+ * PI = 2.78 b/d/psi del enunciado (1 000 / 360 psi de abatimiento).
  *
- * SUPUESTOS (el enunciado no los da): temperatura de reservorio 180 °F y de
- * boca 100 °F; γg = 0.65; viscosidad muerta 2 cp a 100 °F; peso de casing
- * 26 lb/ft para fijar el ID; punzados 9 900-10 000 ft (sólo se da la
- * profundidad); tensión 4 160 V; "tubing 3 in" se interpreta como el nominal de
- * 3½" O.D. (ID 2.992"), que es la designación API — cuando Brown quiere decir
- * diámetro exterior lo escribe "O.D.", como en el #1A y el #3A.
+ * **GOR = 0**: el título del ejemplo es «oil well producing NO gas» y el texto
+ * aclara que la cantidad de gas es tan chica que puede ignorarse. Sin gas
+ * libre la pérdida de carga va por Hazen-Williams, que es lo que hace el libro.
  *
- * La presión de cabeza se carga con los 100 psi del separador: el motor no
- * convierte la línea de conducción en Pwh, así que las pérdidas de los 3 000 ft
- * de 4" y los 200 ft de subida **no** entran al TDH.
+ * **La profundidad de asentamiento se fija a mano en 4 000 ft**, que es donde
+ * el libro pone la bomba («set pump at 4000 ft from surface»). El enunciado
+ * dice «as deep as necessary» y el autor la elige por el criterio de
+ * sumergencia; no se deduce de los punzados, así que se carga explícita.
  *
- * Pb = 590 psia (Standing para 100 scf/STB, 36 °API, 180 °F) queda muy por
- * debajo de la admisión, así que no hay gas libre en la bomba — coherente con
- * la premisa "assume free gas is vented" y con el método IPR lineal.
+ * SUPUESTOS (el enunciado no los da): γg = 0.65; tensión de red 4 160 V; línea
+ * de conducción irrelevante para este cálculo —el TDH del libro usa la presión
+ * de cabeza de 200 psig y no las pérdidas de la línea—.
  *
- * Referencia impresa: TDH ≈ 4 258 ft, 112 etapas, ≈65 hp, Centrilift I-42B, a
- * unos 2 080 b/d.
+ * Referencia impresa: TDH = 4 258 ft, Centrilift I-42B (serie 513), 112 etapas,
+ * ≈65 hp al eje, motor 75 hp (serie 544, 1 350 V, 35 A), cable #4 CU de
+ * 4 100 ft, tensión de superficie 1 422 V, 86 kVA → 3 × 37.5 kVA.
  *
- * **La app no elige la I-42B, y no es un error.** Ya no puede: las bombas del
- * libro se retiraron del catálogo en ago-2026 (la app publica sólo curvas de
- * catálogos reales). Pero tampoco la elegía antes: con 2 080 b/d el orden es
- * por distancia al BEP, la REDA DN2150 tiene su BEP justo en 2 080
- * (distancia 0 %) y la I-42B quedaba séptima, a 22,4 %. El libro eligió dentro
- * de la línea Centrilift de 1980; el catálogo de hoy tiene bombas mucho mejor
- * centradas.
- *
- * Con la I-42B forzada —hoy sólo desde los tests, con
- * `tests.brown_pumps`— el head por etapa da **38,10 ft, exactamente el del
- * libro**, y salen 117 etapas contra 112: la diferencia es el +4,7 % del TDH,
- * no la hidráulica.
- *
- * La potencia sí se aparta: 84 hp al eje contra los ≈65 impresos. El desvío es
- * la densidad de la mezcla — con 75 % de agua a γw = 1.07 el SG da 1.014, y los
- * 65 hp del libro salen de un SG cercano a 0.82. Vale la pena contrastarlo
- * contra la página impresa antes de citarlo.
+ * **La app no elige la I-42B**: esa bomba se retiró del catálogo en ago-2026
+ * junto con las otras dos del libro, porque la aplicación publica sólo curvas
+ * de catálogos comerciales vigentes. La validación del conteo de etapas sobre
+ * la curva impresa se hace desde los tests, inyectándola con
+ * `tests.brown_pumps`.
  */
 const BROWN_2B: DesignInputs = {
   reservoir: {
-    static_pressure: 2800.0,
-    bubble_point: 590.0,
-    test_pwf: 2600.0,
-    test_rate: 2000.0,
+    static_pressure: 2900.0,
+    bubble_point: 0.0,
+    test_pwf: 2540.0,
+    test_rate: 1000.0,
     ipr_method: "linear",
-    reservoir_temp: 180.0,
+    reservoir_temp: 225.0,
     drive_mechanism: "water_drive",
     fetkovich_n: null,
   },
   fluid: {
-    oil_api: 36.0,
-    water_cut: 0.75,
-    gor: 100.0,
+    oil_api: 40.0,
+    water_cut: 0.30,
+    gor: 0.0,
     gas_sg: 0.65,
-    water_sg: 1.07,
-    oil_viscosity_dead: 2.0,
-    viscosity_temp_ref: 100.0,
-    bubble_point_pressure: 590.0,
+    water_sg: 1.05,
+    oil_viscosity_dead: 1.6,
+    viscosity_temp_ref: 200.0,
+    bubble_point_pressure: 0.0,
     ...SIN_ACIDOS,
   },
   well: {
-    total_depth: 10000.0,
-    ...CASING_7,
-    ...TUBING_3,
-    perforations_top: 9900.0,
-    perforations_bottom: 10000.0,
+    total_depth: 11000.0,
+    casing_od: 7.0,
+    casing_weight: 23.0,
+    casing_id: 6.366,
+    ...TUBING_2_875,
+    perforations_top: 10600.0,
+    perforations_bottom: 10650.0,
     deviation_max: 0.0,
-    wellhead_temp: 100.0,
+    wellhead_temp: 160.0,
+    pump_setting_depth: 4000.0,
   },
   surface: {
-    wellhead_pressure_required: 100.0,
-    flowline_length: 3000.0,
+    wellhead_pressure_required: 200.0,
+    flowline_length: 1000.0,
     flowline_id: 4.0,
-    flowline_elevation_change: 200.0,
+    flowline_elevation_change: 0.0,
     separator_pressure: 100.0,
     power_supply_voltage: 4160.0,
     frequency: 60.0,
   },
   objectives: {
-    target_flow_rate: 2080.0,
-    safety_margin_depth: 100.0,
-    allow_gas_venting: true,
+    target_flow_rate: 1600.0,
+    safety_margin_depth: 0.0,
+    allow_gas_venting: false,
     max_gip: 0.1,
     design_life_years: 5.0,
     use_vsd: false,
@@ -994,7 +985,7 @@ const MA_102: DesignInputs = {
 export const EXAMPLE_CASES: Record<string, DesignInputs> = {
   "Genérico · Vaca Muerta (inventado)": VACA_MUERTA,
   "Brown #1A · Pozo de agua, sin gas": BROWN_1A,
-  "Brown #2B · 25 % petróleo / 75 % agua": BROWN_2B,
+  "Brown #2B · Pozo de petróleo sin gas": BROWN_2B,
   "Brown #3A · Con gas — incrementos": BROWN_3A,
   "Brown #3B · Con gas — diseño completo": BROWN_3B,
   "Brown #4A · Crudo viscoso 14 °API": BROWN_4A,

@@ -15,6 +15,7 @@ import { api, ApiError, downloadBlob } from "../api/client";
 import type { DesignInputs, DesignResponse, Recommendation } from "../api/types";
 import { DesignCharts } from "./DesignCharts";
 import { ComparisonView } from "./ComparisonView";
+import { GasHandlingPanel } from "./GasHandlingPanel";
 import { FormulaTraceSection } from "./FormulaTrace";
 
 /** Los cuatro escalones de la escalera de manejo de gas, en castellano.
@@ -48,10 +49,12 @@ function RecPanel({
   rec,
   inputs,
   manual = false,
+  showGas = true,
 }: {
   rec: Recommendation;
   inputs: DesignInputs;
   manual?: boolean;
+  showGas?: boolean;
 }) {
   const [busy, setBusy] = useState<"pdf" | "xlsx" | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -126,8 +129,8 @@ function RecPanel({
     [
       "Pérdida de carga en tubing",
       d.friction_method === "poettmann_carpenter"
-        ? `Poettmann-Carpenter (gas en admisión ${(d.gip_fraction * 100).toFixed(0)} % > umbral ${(d.gas_fraction_threshold * 100).toFixed(0)} %)`
-        : `Hazen-Williams (gas en admisión ${(d.gip_fraction * 100).toFixed(0)} % ≤ umbral ${(d.gas_fraction_threshold * 100).toFixed(0)} %)`,
+        ? `Poettmann-Carpenter — multifásica, porque el gas en la admisión (${(d.gip_fraction * 100).toFixed(0)} %) supera el ${(d.gas_fraction_threshold * 100).toFixed(0)} % a partir del cual la corriente deja de ser prácticamente líquida. Este umbral sólo elige la correlación de fricción; no dice nada sobre si el pozo es viable.`
+        : `Hazen-Williams — monofásica, porque el gas en la admisión (${(d.gip_fraction * 100).toFixed(0)} %) no llega al ${(d.gas_fraction_threshold * 100).toFixed(0)} % a partir del cual haría falta un modelo multifásico. Este umbral sólo elige la correlación de fricción; no dice nada sobre si el pozo es viable.`,
     ],
     ["Profundidad de asentamiento", `${Math.round(d.pump_setting_depth)} ft`],
     ["Presión de admisión (PIP)", `${Math.round(d.intake_pressure)} psi`],
@@ -179,7 +182,17 @@ function RecPanel({
         <Metric label="Eficiencia bomba" value={`${(d.pump_efficiency * 100).toFixed(1)} %`} />
         <Metric label="Etapas" value={`${d.num_stages}`} />
         <Metric label="Potencia" value={`${Math.round(d.motor_hp)} hp`} />
-        <Metric label="Gas en bomba" value={`${(d.gip_fraction * 100).toFixed(0)} %`} />
+        {/*
+          `gip_fraction` es el gas libre en la ADMISIÓN, antes de ventear y
+          separar. Decía "Gas en bomba", que es otro punto del aparejo —el de
+          después del separador— y tiene su propia fila en la tabla de abajo
+          (`gas_fraction_at_pump`). Con un separador del 75 % la diferencia era
+          79 % contra 49 %: dos números para lo que parecía la misma magnitud.
+        */}
+        <Metric
+          label="Gas en admisión"
+          value={`${(d.gip_fraction * 100).toFixed(0)} %`}
+        />
       </SimpleGrid>
 
       <Text mt="md" c="dimmed" size="sm">
@@ -263,6 +276,17 @@ function RecPanel({
         </>
       )}
 
+      {/*
+        El veredicto de gas va acá, con la bomba a la que corresponde: la
+        fracción en la admisión depende de la PIP, que depende de la bomba, así
+        que el panel de la opción 1 no describe a la opción 2.
+      */}
+      {showGas && d.gas_feasibility && (
+        <div style={{ marginTop: "var(--mantine-spacing-md)" }}>
+          <GasHandlingPanel feasibility={d.gas_feasibility} />
+        </div>
+      )}
+
       <DesignCharts design={d} inputs={inputs} />
 
       <FormulaTraceSection formulas={d.formulas} />
@@ -289,16 +313,32 @@ export function ResultsView({
   inputs,
   title = "Recomendaciones",
   manual = false,
+  onGoToGas,
+  showGas = true,
 }: {
   response: DesignResponse;
   inputs: DesignInputs;
   title?: string;
   manual?: boolean;
+  /** Lleva a la pestaña "Pozo con gas". Sin esto el aviso no tiene salida. */
+  onGoToGas?: () => void;
+  /**
+   * La pestaña de gas reusa esta vista para mostrar su propio diseño, y ahí el
+   * panel de manejo de gas ya está arriba: mostrarlo otra vez sería el mismo
+   * dato dos veces en la misma pantalla.
+   */
+  showGas?: boolean;
 }) {
   const recs = response.recommendations;
   if (recs.length === 0) {
     return <Text c="dimmed">Sin recomendaciones.</Text>;
   }
+
+  // El veredicto de gas es del pozo, no de cada bomba: la escalera se corre
+  // sobre la fracción en la admisión, que es la misma para todas las
+  // candidatas. Se toma el de la mejor rankeada y se muestra una sola vez,
+  // arriba, en vez de repetirlo en cada pestaña de opción.
+  const gasMethod = showGas ? response.gas_method : null;
 
   return (
     <Card withBorder radius="md" padding="lg">
@@ -306,6 +346,29 @@ export function ResultsView({
         <Title order={4}>{title}</Title>
         <Badge variant="light">{response.n_candidates_evaluated} candidatos evaluados</Badge>
       </Group>
+
+      {/*
+        El pozo tiene gas libre por encima del umbral, así que el resultado de
+        esta pestaña —un caudal único para toda la bomba— no es el que
+        corresponde. No se lo esconde ni se lo reemplaza en silencio: se avisa
+        con todas las letras, se explica en qué sentido está mal y se ofrece la
+        salida. Las dos rutas al TDH son un resultado del trabajo y tienen que
+        poder compararse.
+      */}
+      {gasMethod?.applies && (
+        <Alert color="orange" mt="sm" variant="light" title="Este pozo tiene gas libre">
+          <Text size="sm">{gasMethod.reason}</Text>
+          <Text size="sm" mt="xs" fw={600}>
+            El resultado de esta pestaña usa un caudal único y por lo tanto
+            subestima las etapas. El método de incrementos es el que corresponde.
+          </Text>
+          {onGoToGas && (
+            <Button size="xs" mt="sm" variant="filled" color="orange" onClick={onGoToGas}>
+              Ir al método de incrementos
+            </Button>
+          )}
+        </Alert>
+      )}
 
       {response.warnings.length > 0 && (
         <Alert color="blue" mt="sm" variant="light">
@@ -324,7 +387,7 @@ export function ResultsView({
         </Tabs.List>
         {recs.map((r, i) => (
           <Tabs.Panel key={r.rank} value={String(i)}>
-            <RecPanel rec={r} inputs={inputs} manual={manual} />
+            <RecPanel rec={r} inputs={inputs} manual={manual} showGas={showGas} />
           </Tabs.Panel>
         ))}
         {recs.length > 1 && (

@@ -9,7 +9,7 @@
 // Todo el cálculo vive en POST /api/gas/increment-design
 // (bes.services.gas_service → bes.core.gas_handling); acá sólo se arman los
 // controles y se renderiza la tabla.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Badge,
@@ -36,6 +36,7 @@ import type {
   PlotlyFigure,
 } from "../api/types";
 import { FormulaTraceSection } from "./FormulaTrace";
+import { GasHandlingPanel } from "./GasHandlingPanel";
 import { PlotFigure } from "./PlotFigure";
 import { ResultsView } from "./ResultsView";
 
@@ -89,6 +90,11 @@ function asDesignResponse(r: GasCompleteDesignResponse): DesignResponse {
     ],
     n_candidates_evaluated: r.rejected.length + 1,
     warnings: r.warnings,
+    // Ya estamos en el camino de incrementos: el aviso de "este pozo pedía el
+    // método de incrementos" no tiene sentido acá, y su botón llevaría a la
+    // pestaña en la que ya se está. La decisión del método se muestra igual,
+    // en el bloque "Método aplicado" de más abajo.
+    gas_method: null,
   };
 }
 
@@ -146,7 +152,33 @@ function Escalera({ figure }: { figure: PlotlyFigure | Record<string, never> }) 
   );
 }
 
-export function GasIncrementView({ inputs }: { inputs: DesignInputs | null }) {
+export function GasIncrementView({
+  inputs,
+  autoRunToken = 0,
+  fixedPumpModel = null,
+}: {
+  inputs: DesignInputs | null;
+  /**
+   * El modelo elegido en "Bomba manual (opcional)" del panel izquierdo.
+   *
+   * El backend acepta `fixed_pump_model` en los dos endpoints de gas desde
+   * siempre, pero esta vista no lo mandaba: el usuario elegía una D-40 y la
+   * pestaña resolvía igual con otra bomba, sin decir nada. Con el modelo
+   * puesto **no hay fallback**: si con esa bomba no cierra, se informa el
+   * motivo en vez de bajar a la siguiente candidata.
+   */
+  fixedPumpModel?: string | null;
+  /**
+   * Cambia de valor cuando la pestaña de diseño detectó gas libre y el usuario
+   * dejó activada la detección automática. Es un token y no un booleano a
+   * propósito: dos corridas seguidas del mismo pozo tienen que disparar dos
+   * veces, y un `true` que ya estaba en `true` no vuelve a disparar nada.
+   *
+   * El disparo corre el diseño COMPLETO, no sólo la hidráulica: el usuario
+   * venía de pedir un diseño BES entero y eso es lo que tiene que encontrar.
+   */
+  autoRunToken?: number;
+}) {
   const [incrementPsi, setIncrementPsi] = useState<number>(200);
   const [pIntake, setPIntake] = useState<number | string>("");
   const [pDischarge, setPDischarge] = useState<number | string>("");
@@ -159,6 +191,20 @@ export function GasIncrementView({ inputs }: { inputs: DesignInputs | null }) {
   const [result, setResult] = useState<GasIncrementResponse | null>(null);
   const [completo, setCompleto] = useState<GasCompleteDesignResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // El disparo automático. Se omite la primera vez (token 0) para que abrir
+  // la pestaña a mano no calcule nada sin que el usuario lo pida.
+  const yaDisparado = useRef(0);
+  useEffect(() => {
+    if (autoRunToken > 0 && autoRunToken !== yaDisparado.current && inputs) {
+      yaDisparado.current = autoRunToken;
+      void runCompleto();
+    }
+    // runCompleto depende del estado del formulario de esta pestaña (paso,
+    // venteo, viscosidad), que el usuario puede haber cambiado; se lee al
+    // momento de disparar y por eso no entra en las dependencias.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRunToken]);
 
   async function run() {
     if (!inputs) return;
@@ -175,6 +221,7 @@ export function GasIncrementView({ inputs }: { inputs: DesignInputs | null }) {
         vent_gas_pct: Number(ventGasPct) / 100,
         apply_viscosity: aplicarViscosidad,
         apply_deterioration: aplicarDeterioro,
+        fixed_pump_model: fixedPumpModel,
       });
       setResult(res);
     } catch (e) {
@@ -201,6 +248,7 @@ export function GasIncrementView({ inputs }: { inputs: DesignInputs | null }) {
         vent_gas_pct: Number(ventGasPct) / 100,
         apply_viscosity: aplicarViscosidad,
         apply_deterioration: aplicarDeterioro,
+        fixed_pump_model: fixedPumpModel,
       });
       setCompleto(res);
       // La tabla por intervalo es la misma; se reusa el render de abajo.
@@ -331,33 +379,7 @@ export function GasIncrementView({ inputs }: { inputs: DesignInputs | null }) {
 
       {completo && (
         <>
-          <Alert color="teal" variant="light" title="Manejo del gas">
-            <Text size="sm">{completo.feasibility.verdict}</Text>
-            <SimpleGrid cols={{ base: 2, sm: 4 }} mt="sm" spacing="xs">
-              <Metric
-                label="Gas libre en admisión"
-                value={`${n(completo.feasibility.f_intake * 100, 1)} %`}
-              />
-              <Metric
-                label="Separador"
-                value={
-                  completo.feasibility.separator_efficiency != null
-                    ? `${n(completo.feasibility.separator_efficiency * 100, 0)} %`
-                    : "sin separador"
-                }
-                hint={completo.feasibility.separator_model ?? undefined}
-              />
-              <Metric
-                label="Gas que entra a la bomba"
-                value={`${n(completo.feasibility.f_pump * 100, 1)} %`}
-              />
-              <Metric
-                label="Máximo admisible"
-                value={`${n(completo.feasibility.max_gip * 100, 1)} %`}
-                hint="objectives.max_gip — por encima, la BES no converge"
-              />
-            </SimpleGrid>
-          </Alert>
+          <GasHandlingPanel feasibility={completo.feasibility} />
 
           <Alert
             color={completo.method.applies ? "teal" : "blue"}
@@ -395,6 +417,7 @@ export function GasIncrementView({ inputs }: { inputs: DesignInputs | null }) {
             response={asDesignResponse(completo)}
             inputs={inputs}
             title="Diseño BES — método por incrementos de presión"
+            showGas={false}
           />
         </>
       )}
