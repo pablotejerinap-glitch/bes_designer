@@ -311,8 +311,11 @@ def vogel_j_from_test(
         ValueError: Si el punto de ensayo no es físicamente válido.
 
     Referencia:
-        Beggs, *Production Optimization*, §2, Ejemplo 2-5B (Caso 2) y
-        procedimiento «Case 1 Procedure».
+        Beggs, *Production Optimization Using NODAL Analysis*, 2ª ed. (2003),
+        cap. 2, «Undersaturated Reservoirs», págs. 24-26: ec. 2-22 (Caso 1),
+        ec. 2-40 (Caso 2), Fig. 2-27 y los procedimientos «Case 1 Procedure» /
+        «Case 2 Procedure». Ejemplos resueltos: 2-3 (Caso 1, pág. 25) y 2-4
+        (Caso 2, pág. 26).
     """
     if q_test <= 0:
         raise ValueError(f"q_test must be > 0, got {q_test}")
