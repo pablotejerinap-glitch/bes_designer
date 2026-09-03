@@ -228,6 +228,7 @@ def gas_method_applies(
     pip: float,
     temp_f: float,
     threshold: float,
+    free_gas_fraction: float | None = None,
 ) -> dict:
     """¿Corresponde el método por incrementos, o alcanza el convencional?
 
@@ -246,20 +247,33 @@ def gas_method_applies(
         temp_f: Temperatura en la admisión [°F].
         threshold: Fracción de gas libre por encima de la cual el volumen deja
             de poder tratarse como constante.
+        free_gas_fraction: La fracción, si el llamador ya la tiene. El camino
+            convencional la calcula una sola vez —antes del TDH, porque es la
+            que elige la correlación de fricción— y la arrastra en el
+            candidato; volver a calcularla acá abriría la puerta a que la
+            decisión del método se tome sobre un número distinto del que se
+            usó para diseñar. Si es ``None`` se calcula.
 
     Returns:
         dict con ``applies`` (bool), ``free_gas_fraction``, ``threshold`` y
         ``reason`` (texto citable).
     """
-    f_g = free_gas_fraction_at_intake(fluid, pip, temp_f)
+    f_g = (
+        free_gas_fraction_at_intake(fluid, pip, temp_f)
+        if free_gas_fraction is None
+        else float(free_gas_fraction)
+    )
     aplica = f_g > threshold
 
     if aplica:
         motivo = (
             f"Gas libre en la admisión {f_g:.2%}, por encima del umbral "
-            f"{threshold:.2%}: el volumen de mezcla cambia con la presión a lo "
-            f"largo de la bomba, así que se diseña por incrementos de presión "
-            f"(Brown Vol. 2b §4.53103) en vez de con un caudal único."
+            f"{threshold:.2%} de gas despreciable: el volumen de mezcla cambia "
+            f"con la presión a lo largo de la bomba, así que se diseña por "
+            f"incrementos de presión (Brown Vol. 2b §4.53103) en vez de con un "
+            f"caudal único. Este umbral decide únicamente el MÉTODO de cálculo; "
+            f"si el pozo es viable con bombeo electrosumergible lo resuelve la "
+            f"escalera de manejo de gas, que es otra verificación."
         )
     else:
         motivo = (

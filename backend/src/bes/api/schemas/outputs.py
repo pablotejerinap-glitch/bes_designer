@@ -334,3 +334,11 @@ class DesignResponse(BaseModel):
     )
     n_candidates_evaluated: int
     warnings: list[str] = Field(default_factory=list, description="Warnings del run (p.ej. reservorio depletado)")
+    gas_method: GasMethodDecision | None = Field(
+        None,
+        description="¿Este pozo pedía el método por incrementos? Es INFORMATIVO: "
+                    "la respuesta sigue siendo el diseño convencional, calculado "
+                    "exactamente igual que antes. Se evalúa sobre la PIP de la "
+                    "recomendación mejor rankeada, con la fracción de gas libre "
+                    "que esa misma corrida ya calculó. None si no hubo diseño.",
+    )

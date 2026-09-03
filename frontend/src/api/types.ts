@@ -399,6 +399,14 @@ export interface DesignResult {
   /** true = ni el techo de la tecnología BES alcanza para este gas. */
   switch_lift_method: boolean;
   gas_verdict: string;
+  /**
+   * La escalera de manejo de gas entera. Los cuatro campos de arriba son su
+   * resumen; esto es lo que hace falta para explicar el veredicto —contra qué
+   * se comparó, cuánto se separó y con qué equipo— y es lo que permite mostrar
+   * el mismo panel por el camino convencional y por el de incrementos.
+   * null cuando el diseño no corrió la escalera.
+   */
+  gas_feasibility: GasFeasibility | null;
   sensor_manufacturer: string;
   sensor_model: string;
 }
@@ -435,6 +443,14 @@ export interface DesignResponse {
   ordering_criteria: string[];
   n_candidates_evaluated: number;
   warnings: string[];
+  /**
+   * ¿Este pozo pedía el método por incrementos? Es INFORMATIVO: el diseño que
+   * viene en `recommendations` es el convencional, calculado igual que siempre.
+   * La pantalla lo usa para avisar —y, si el usuario dejó activada la
+   * detección automática, para pasar sola a la pestaña de gas—.
+   * null cuando no hubo diseño.
+   */
+  gas_method: GasMethodDecision | null;
 }
 
 export interface PumpSummary {
@@ -660,6 +676,33 @@ export interface GasFeasibility {
   /** Eficiencia que haría falta; null si ya cumple. */
   required_efficiency: number | null;
   verdict: string;
+  /** Escalón de la escalera de manejo de gas que resolvió el pozo. */
+  /**
+   * El escalón en el que quedó el pozo. `"no_viable"` faltaba en esta unión y
+   * el backend lo emite (`gas_handling.py`: ningún escalón alcanza), así que
+   * el caso que más importa mostrar era el único que el tipo declaraba
+   * imposible.
+   */
+  strategy: "ninguno" | "simple" | "tandem" | "agh" | "no_viable";
+  n_separators: number;
+  /** Hay que cambiar de método de levantamiento: ningún escalón alcanza. */
+  switch_lift_method: boolean;
+  uses_agh: boolean;
+  agh_model: string | null;
+  agh_max_gvf: number | null;
+  /** Contra qué se comparó el gas que entra a la bomba (2.ª pregunta). */
+  tolerance: number;
+  /**
+   * Fracción de vacío en la ADMISIÓN que admite la configuración elegida
+   * (Takács, Fig. 4.25, pág. 195) — es la 1.ª pregunta de la escalera.
+   */
+  capacity: number;
+  /**
+   * Cómo se armó el tándem. "tipos distintos" es lo que documenta la
+   * bibliografía; cualquier otro valor es una extrapolación declarada.
+   * null cuando el diseño no apila dos separadores.
+   */
+  tandem_arrangement: string | null;
 }
 
 export interface GasCompleteDesignResponse {

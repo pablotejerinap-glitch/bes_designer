@@ -10,9 +10,11 @@ from bes.api.mappers import from_design_result, to_domain_inputs
 from bes.api.schemas import (
     CriteriaSchema, DesignRequest, DesignResponse, RecommendationSchema,
 )
+from bes.api.schemas.outputs import GasMethodDecision
 from bes.recommender.recommendation_engine import (
     generate_recommendation_for_pump, generate_recommendations,
 )
+from bes.services.gas_service import gas_method_applies
 
 router = APIRouter(prefix="/api", tags=["design"])
 
@@ -56,10 +58,33 @@ def post_design(req: DesignRequest, catalog=Depends(get_catalog)) -> DesignRespo
         for r in result["recommendations"]
     ]
 
+    # ¿Este pozo pedía el método por incrementos?
+    #
+    # Es un dato INFORMATIVO que se agrega a la respuesta: el diseño que se
+    # devuelve es el convencional, calculado exactamente igual que siempre. La
+    # pantalla lo usa para avisar —y, si el usuario lo dejó activado, para
+    # pasar sola al camino de gas—, pero acá no se cambia ningún número.
+    #
+    # La fracción de gas libre NO se recalcula: se toma la que la propia
+    # corrida ya publicó en ``gip_fraction``. Recalcularla abriría la puerta a
+    # que la decisión del método se tome sobre un número distinto del que se
+    # usó para diseñar.
+    gas_method = None
+    if result["recommendations"]:
+        elegido = result["recommendations"][0]["design"]
+        gas_method = GasMethodDecision(**gas_method_applies(
+            fluid=fluid,
+            pip=elegido.intake_pressure,
+            temp_f=reservoir.reservoir_temp,
+            threshold=objectives.gas_fraction_pc_threshold,
+            free_gas_fraction=elegido.gip_fraction,
+        ))
+
     return DesignResponse(
         recommendations=recommendations,
         design_basis=result["design_basis"],
         ordering_criteria=result["ordering_criteria"],
         n_candidates_evaluated=result["n_candidates_evaluated"],
         warnings=[str(w.message) for w in caught],
+        gas_method=gas_method,
     )

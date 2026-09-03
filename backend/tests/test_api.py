@@ -1001,3 +1001,278 @@ class TestLaZonaOperativaLlegaAlGrafico:
                             fig["layout"]["annotations"])
         assert "Zona operativa" not in textos
         assert "Rango operativo recomendado" in textos
+
+
+class TestElDisenoConvencionalAvisaQueElPozoTieneGas:
+    """La app detecta sola el gas libre; el usuario no tiene que ir a buscarlo.
+
+    ``/api/design`` publica el veredicto del método (``gas_method``) y el de la
+    escalera de manejo de gas (``design.gas_feasibility``). Los dos son
+    **informativos**: la respuesta sigue siendo el diseño convencional,
+    calculado exactamente igual que antes. Lo que cambia es que la pantalla
+    puede avisar —y, si el usuario lo dejó activado, pasar sola al método de
+    incrementos— en vez de exigir que alguien sospeche que hacía falta.
+    """
+
+    def test_con_gas_libre_el_metodo_por_incrementos_aplica(self, client):
+        body = client.post("/api/design", json=_payload("oil")).json()
+        gm = body["gas_method"]
+        assert gm is not None
+        assert gm["applies"] is True
+        assert gm["free_gas_fraction"] > gm["threshold"]
+        assert "incrementos de presión" in gm["reason"]
+
+    def test_sin_gas_libre_no_aplica_y_nada_cambia(self, client):
+        """Pozo de agua pura, GOR 0: el convencional es el que corresponde."""
+        body = client.post("/api/design", json=_payload("high_rate")).json()
+        gm = body["gas_method"]
+        assert gm is not None
+        assert gm["applies"] is False
+        assert gm["free_gas_fraction"] <= gm["threshold"]
+
+    def test_la_fraccion_publicada_es_LA_MISMA_con_que_se_diseno(self, client):
+        """No se recalcula: sería otra cuenta y podría dar otro número.
+
+        Si la decisión del método se tomara sobre una fracción distinta de la
+        que eligió la correlación de fricción, la app podría avisar que hay gas
+        y haber diseñado como si no lo hubiera (o al revés).
+        """
+        body = client.post("/api/design", json=_payload("oil")).json()
+        diseño = body["recommendations"][0]["design"]
+        assert body["gas_method"]["free_gas_fraction"] == diseño["gip_fraction"]
+
+    def test_el_umbral_sigue_sin_poder_elegirse_por_la_API(self, client):
+        """Se publica cuál fue, pero no se acepta uno distinto.
+
+        Está prohibido exponerlo (``.claude/rules/domain.md``): lo que el
+        usuario elige es el MÉTODO de pérdidas de carga, no el corte con que el
+        programa decide solo.
+        """
+        payload = _payload("oil")
+        payload["objectives"]["gas_fraction_pc_threshold"] = 0.99
+        body = client.post("/api/design", json=payload).json()
+        # El valor mandado se ignora: manda el default del dominio.
+        assert body["gas_method"]["threshold"] == 0.01
+        assert body["gas_method"]["applies"] is True
+
+    def test_el_veredicto_de_la_escalera_viaja_por_el_camino_convencional(self, client):
+        """Antes vivía sólo en /api/gas/design y la pestaña Diseño no lo tenía.
+
+        La escalera se corre igual en los dos caminos —``_estrategia_de_gas``
+        la llama el mismo ``_assemble_design``—, así que esconderla en uno de
+        los dos era una asimetría de la pantalla, no del cálculo.
+        """
+        diseño = client.post(
+            "/api/design", json=_payload("oil")
+        ).json()["recommendations"][0]["design"]
+        gf = diseño["gas_feasibility"]
+        assert gf is not None
+        # Las dos preguntas de cada escalón, cada una con su referencia.
+        assert 0.0 < gf["capacity"] <= 1.0
+        assert gf["tolerance"] > 0.0
+        assert gf["strategy"] in ("ninguno", "simple", "tandem", "agh", "no_viable")
+        assert gf["verdict"]
+        # Y el resumen que ya se publicaba sigue coincidiendo con la escalera.
+        assert diseño["gas_strategy"] == gf["strategy"]
+        assert diseño["switch_lift_method"] == gf["switch_lift_method"]
+
+    def test_el_mismo_esquema_que_usa_el_camino_de_gas(self):
+        """Un esquema, no dos que se parecen.
+
+        Si se hubiera creado un ``GasFeasibility`` paralelo para este camino,
+        los dos podrían divergir campo a campo sin que nada falle.
+        """
+        from bes.api.schemas.analysis import GasCompleteDesignResponse
+        from bes.api.schemas.outputs import DesignResultSchema
+
+        del_gas = GasCompleteDesignResponse.model_fields["feasibility"].annotation
+        del_convencional = DesignResultSchema.model_fields["gas_feasibility"].annotation
+        assert del_gas.__name__ == "GasFeasibility"
+        assert del_gas in getattr(del_convencional, "__args__", (del_convencional,))
+
+    def test_un_diseno_sin_escalera_declara_ausencia_y_no_ceros(self, client):
+        """``{}`` viaja como ``null``: la ausencia del dato no es "todo en cero".
+
+        Un ``capacity`` en 0 se leería como "esta configuración no admite nada",
+        que es una afirmación, no la falta de una.
+        """
+        import dataclasses
+
+        from bes.api.deps import get_catalog
+        from bes.api.mappers import from_design_result, to_domain_inputs
+        from bes.api.schemas import DesignRequest
+        from bes.core.models import DesignResult
+        from bes.recommender.pump_selector import select_top_n_pumps
+
+        # El dominio arranca en {}: la ausencia se representa vacía, no en cero.
+        campo = next(
+            f for f in dataclasses.fields(DesignResult) if f.name == "gas_feasibility"
+        )
+        assert campo.default_factory is dict
+
+        req = DesignRequest(**_payload("oil"))
+        dr = select_top_n_pumps(*to_domain_inputs(req), get_catalog(), n=1)[0]
+        assert dr.gas_feasibility, "la escalera corrió: el dict no puede venir vacío"
+
+        # Y un diseño sin escalera cruza el mapper como None, no como ceros.
+        sin_escalera = dataclasses.replace(dr, gas_feasibility={})
+        assert from_design_result(sin_escalera).gas_feasibility is None
+
+
+class TestElModoEjemploSeAvisaEnLaPantalla:
+    """Con ``max_gip`` en 100 % el resultado NO es un diseño real.
+
+    Es el valor con que se reproducen los enunciados del libro que bombean todo
+    el gas, y desactiva la verificación de viabilidad. La advertencia vivía en
+    la escalera y la respuesta de ``/api/gas/design`` publicaba sólo las del
+    cálculo hidráulico, así que nunca llegaba a la pantalla — justo la que no
+    puede faltar, porque sin ella un modo ejemplo se lee como un diseño.
+    """
+
+    @staticmethod
+    def _pozo_modo_ejemplo() -> dict:
+        payload = copy.deepcopy(_WELLS["oil"])
+        payload["objectives"]["max_gip"] = 1.0
+        payload["increment_psi"] = 200.0
+        return payload
+
+    def test_la_advertencia_llega_en_la_respuesta_del_endpoint(self, client):
+        r = client.post("/api/gas/design", json=self._pozo_modo_ejemplo())
+        assert r.status_code == 200, r.text
+        avisos = r.json()["warnings"]
+        assert any("MODO EJEMPLO" in w for w in avisos), avisos
+
+    def test_no_se_repite_el_mismo_aviso_dos_veces(self, client):
+        """Las dos listas que se unen comparten avisos; duplicarlos les resta peso."""
+        avisos = client.post(
+            "/api/gas/design", json=self._pozo_modo_ejemplo()
+        ).json()["warnings"]
+        assert len(avisos) == len(set(avisos))
+
+    def test_con_max_gip_normal_no_se_avisa_modo_ejemplo(self, client):
+        payload = copy.deepcopy(_WELLS["oil"])
+        payload["objectives"]["max_gip"] = 0.10
+        payload["increment_psi"] = 200.0
+        r = client.post("/api/gas/design", json=payload)
+        if r.status_code == 200:
+            assert not any("MODO EJEMPLO" in w for w in r.json()["warnings"])
+        else:
+            # Con el criterio real el pozo puede quedar inviable; lo que no
+            # puede es pasar como diseño válido sin decir que es modo ejemplo.
+            assert r.status_code == 422
+
+
+class TestLaCapacidadDeLaConfiguracionEsUnNumero:
+    """"Capacidad de esa configuración: NaN %" — el dato tiene que llegar.
+
+    ``capacity`` responde la 1.ª pregunta de cada escalón (¿la configuración
+    admite el gas que hay en la admisión?) y sale de Takács Fig. 4.25. Si no
+    llega, la pantalla no puede decir por qué un pozo pasó o no pasó.
+    """
+
+    def test_llega_por_el_camino_de_gas(self, client):
+        payload = copy.deepcopy(_WELLS["oil"])
+        payload["objectives"]["max_gip"] = 1.0
+        payload["increment_psi"] = 200.0
+        cap = client.post("/api/gas/design", json=payload).json()["feasibility"]["capacity"]
+        assert isinstance(cap, (int, float)) and 0.0 < cap <= 1.0
+
+    def test_llega_tambien_por_el_camino_convencional(self, client):
+        gf = client.post(
+            "/api/design", json=_payload("oil")
+        ).json()["recommendations"][0]["design"]["gas_feasibility"]
+        assert gf is not None
+        assert isinstance(gf["capacity"], (int, float)) and 0.0 < gf["capacity"] <= 1.0
+
+    def test_el_contrato_publicado_lo_declara(self):
+        """El front lo lee del contrato generado; si no está, llega undefined."""
+        import json
+        from pathlib import Path
+
+        contrato = Path(__file__).resolve().parents[2] / "frontend" / "openapi.json"
+        esquemas = json.loads(contrato.read_text(encoding="utf-8"))["components"]["schemas"]
+        assert "capacity" in esquemas["GasFeasibility"]["properties"]
+
+
+class TestCuandoNoHayAparejoElErrorDicePorQue:
+    """Un 422 sin motivo no le sirve a nadie.
+
+    El caso real es el Brown #3A: nueve bombas entran en el casing de 5½", el
+    diseño hidráulico sale bien en las nueve, y ninguna completa el aparejo
+    —REDA se queda sin motor porque el 456 no deja luz para el cable, y Wood
+    Group no tiene motores cargados—. El usuario recibía «No complete ESP
+    design could be assembled for the given conditions», en inglés y sin una
+    sola pista de si el remedio era bajar el caudal, cambiar el casing o
+    cambiar de proveedor.
+
+    Los motivos ya se conocían: ``select_top_n_pumps`` los descartaba con un
+    ``except ... continue``. Ahora se juntan y se publican, que es lo que el
+    camino de gas ya hacía.
+    """
+
+    @staticmethod
+    def _brown_3a() -> dict:
+        """§4.53103 — casing 5½", 500 b/d de líquido con 50 % de agua, 7000 ft."""
+        return {
+            "reservoir": {
+                "static_pressure": 1000.0, "bubble_point": 2000.0,
+                "test_pwf": 800.0, "test_rate": 273.3333, "ipr_method": "vogel",
+                "reservoir_temp": 160.0, "drive_mechanism": "solution_gas",
+            },
+            "fluid": {
+                "oil_api": 35.0, "water_cut": 0.5, "gor": 500.0, "gas_sg": 0.65,
+                "water_sg": 1.07, "oil_viscosity_dead": 5.0,
+                "viscosity_temp_ref": 100.0, "bubble_point_pressure": 2000.0,
+                "h2s_content": 0.0, "co2_content": 0.0, "sand_production": False,
+            },
+            "well": {
+                "total_depth": 7000.0, "casing_od": 5.5, "casing_weight": 17.0,
+                "casing_id": 4.892, "tubing_od": 2.375, "tubing_id": 1.995,
+                "perforations_top": 6950.0, "perforations_bottom": 7000.0,
+                "deviation_max": 0.0, "wellhead_temp": 120.0,
+            },
+            "surface": {
+                "wellhead_pressure_required": 200.0, "flowline_length": 1000.0,
+                "flowline_id": 3.0, "flowline_elevation_change": 0.0,
+                "separator_pressure": 100.0, "power_supply_voltage": 4160.0,
+                "frequency": 60.0,
+            },
+            "objectives": {
+                "target_flow_rate": 500.0, "safety_margin_depth": 50.0,
+                "allow_gas_venting": False, "max_gip": 1.0,
+                "design_life_years": 5.0, "use_vsd": False,
+            },
+            "n": 3,
+        }
+
+    def test_el_422_explica_la_causa_y_no_solo_el_sintoma(self, client):
+        r = client.post("/api/design", json=self._brown_3a())
+        assert r.status_code == 422
+        detalle = r.json()["detail"]
+        # Cuántas bombas se intentaron, y por qué falló cada grupo.
+        assert "completa el aparejo" in detalle
+        assert "Motivos:" in detalle
+        # La causa concreta: el motor que entra no da la potencia.
+        assert "hp" in detalle and "casing" in detalle
+
+    def test_el_mensaje_esta_en_castellano(self, client):
+        """El tutor de la tesis lee la pantalla, no el código."""
+        detalle = client.post("/api/design", json=self._brown_3a()).json()["detail"]
+        assert "No complete ESP design" not in detalle
+        assert "No motor found" not in detalle
+
+    def test_la_misma_causa_no_se_repite_una_vez_por_bomba(self, client):
+        """Cinco líneas iguales esconden que el motivo es uno solo."""
+        detalle = client.post("/api/design", json=self._brown_3a()).json()["detail"]
+        assert detalle.count("El motor más potente") == 1
+
+    def test_un_proveedor_sin_motores_lo_dice_con_todas_las_letras(self, client):
+        """Wood Group tiene bombas y ningún motor: es un estado conocido."""
+        detalle = client.post("/api/design", json=self._brown_3a()).json()["detail"]
+        assert "No hay motores de Wood Group ESP" in detalle
+
+    def test_un_pozo_que_si_disena_sigue_diseñando(self, client):
+        """El mensaje nuevo no puede haber convertido un éxito en un error."""
+        r = client.post("/api/design", json=_payload("high_rate"))
+        assert r.status_code == 200
+        assert r.json()["recommendations"]
