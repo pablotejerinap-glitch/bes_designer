@@ -18,4 +18,17 @@ COPY . .
 RUN pip install -e . --no-deps
 
 EXPOSE 8000
-CMD ["uvicorn", "bes.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# El puerto lo impone el entorno: Render asigna el suyo por la variable PORT
+# (10000 por defecto) y el servicio tiene que escuchar ahí. Sin la variable
+# cae en 8000, que es lo que mapea docker-compose.yml, así que el
+# `docker compose up` local se comporta exactamente igual que antes.
+#
+# Va en forma shell —y no en la forma exec de lista— porque la exec NO invoca
+# un shell: escrito como ["--port", "${PORT:-8000}"] el texto llegaría literal
+# y uvicorn fallaría al parsearlo como entero.
+#
+# El `exec` no es decorativo: sin él, sh queda como PID 1 y no reenvía el
+# SIGTERM del apagado, así que uvicorn no se entera y el contenedor muere
+# recién por timeout. Con exec, uvicorn ES el PID 1 y cierra limpio.
+CMD ["sh", "-c", "exec uvicorn bes.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
