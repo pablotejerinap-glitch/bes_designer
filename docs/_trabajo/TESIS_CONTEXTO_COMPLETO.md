@@ -53,7 +53,7 @@ Necesito que retomes el contexto completo del proyecto desde donde lo dejé en u
 | 9 | Reportes PDF/Excel | ✅ `bes/reports/` |
 | 10 | Validación contra Brown | ⚠️ Parcial — #1A, #2A, #2B sí; #3A/3B/3C/4 faltan |
 | 11 | Aplicación a pozo real Neuquino | ❌ Pendiente (depende de datos de operadora) |
-| 12 | Análisis de sensibilidad | ✅ UI existe; falta documentar |
+| 12 | Análisis de sensibilidad | ⛔ Retirado (ago-2026) — no hacía falta |
 | 13 | Redacción del informe final | ❌ Pendiente |
 | 14 | Defensa | ❌ Pendiente |
 
@@ -207,7 +207,7 @@ Los detalles completos están en `docs/BROWN_VOL4_NODAL_ANALYSIS.md`.
 ### Pendientes según el plan + libro
 
 17. **Caso real Neuquino** (actividad #11 del PIP) — pendiente de datos de operadora.
-18. **Análisis de sensibilidad documentado** — la UI existe (`frontend/src/components/SensitivityView.tsx` sobre `bes/services/sensitivity_service.py`), falta correr y guardar en `docs/SENSITIVITY_ANALYSIS.md`.
+18. **Análisis de sensibilidad — RETIRADO (ago-2026).** No hacía falta en el proyecto: se eliminaron `SensitivityView.tsx` y `sensitivity_service.py`. La regla vigente es no volver a agregarlo sin que Pablo lo pida (ver `.claude/rules/frontend.md`). Ya no es un pendiente.
 
 ### Mejoras del libro Brown Vol. 4 que valdría implementar
 
