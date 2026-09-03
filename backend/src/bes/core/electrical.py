@@ -554,6 +554,107 @@ def select_transformer(kva_required: float, n_phases: int = 3) -> dict:
     }
 
 
+def _motivo_sin_motor(
+    catalog_manager: "CatalogManager",
+    manufacturer: str | None,
+    hp_required: float,
+    hp_min: float,
+    pump_od: float,
+    max_od: float,
+    casing_id: float | None,
+    min_cable_thk: float,
+    min_temp: float,
+) -> str:
+    """Por qué no hay motor, en castellano y con el número que lo explica.
+
+    El mensaje anterior —«No motor found for 47.7 hp, pump_od=4.0 in»— decía
+    que no había, pero no por qué, así que el usuario no podía saber si el
+    remedio era bajar el caudal, cambiar el casing o que el catálogo de ese
+    proveedor no tiene motores. Los cuatro filtros de :func:`select_motor` se
+    vuelven a aplicar de a uno para ver **cuál** vació la lista, y el que la
+    vació se informa con su magnitud.
+
+    No cambia ninguna decisión: se llama sólo cuando ya se decidió que no hay
+    motor, y su única salida es el texto de la excepción.
+
+    Args:
+        catalog_manager: Catálogo de equipos cargado.
+        manufacturer: Proveedor exigido, o ``None`` si no se exige ninguno.
+        hp_required: Potencia al eje pedida [hp].
+        hp_min: La misma con el 10 % de margen [hp].
+        pump_od: OD de la bomba [in].
+        max_od: OD máximo admisible del motor [in].
+        casing_id: ID del casing [in], o ``None`` si no se verifica el claro.
+        min_cable_thk: Espesor del cable plano más fino del catálogo [in].
+        min_temp: Temperatura mínima de bobinado exigida [°F].
+
+    Returns:
+        El texto de la excepción.
+    """
+    de_quien = f" de {manufacturer}" if manufacturer else ""
+    del_prov = f" de {manufacturer}" if manufacturer else " del catálogo"
+
+    motores = [
+        m for m in catalog_manager._motors
+        if manufacturer is None or (m.get("manufacturer") or "") == manufacturer
+    ]
+    if not motores:
+        return (
+            f"No hay motores{del_prov} en el catálogo. La regla de aparejo único "
+            f"exige que bomba, motor y sello sean del mismo proveedor, así que "
+            f"esta bomba no se puede completar."
+        )
+
+    # Los que entran físicamente: OD contra la bomba y claro para el cable.
+    entran = [m for m in motores if m["od_inches"] <= max_od]
+    if casing_id is not None:
+        entran = [
+            m for m in entran
+            if m["od_inches"] + 2.0 * min_cable_thk <= casing_id
+        ]
+
+    if not entran:
+        od_min = min(m["od_inches"] for m in motores)
+        detalle = (
+            f"OD del motor + 2 × {min_cable_thk:.2f} in de cable plano "
+            f"≤ {casing_id:.3f} in de ID de casing, o sea OD ≤ "
+            f"{casing_id - 2.0 * min_cable_thk:.3f} in"
+            if casing_id is not None
+            else f"OD ≤ {max_od:.2f} in (1.20 × el OD de la bomba)"
+        )
+        return (
+            f"Ningún motor{de_quien} entra en este pozo: hace falta {detalle}, y "
+            f"el más fino{del_prov} tiene {od_min:.2f} in. Con la bomba de "
+            f"{pump_od:.2f} in no queda luz para pasar el cable."
+        )
+
+    # Entran, pero no dan la potencia.
+    hp_techo = max(m["hp_rating"] for m in entran)
+    if hp_techo < hp_min:
+        od_techo = min(
+            m["od_inches"] for m in entran if m["hp_rating"] == hp_techo
+        )
+        motivo = (
+            f"El motor más potente{de_quien} que entra en este pozo da "
+            f"{hp_techo:.0f} hp (OD {od_techo:.2f} in) y hacen falta "
+            f"{hp_min:.1f} hp — {hp_required:.1f} hp al eje más el 10 % de "
+            f"margen."
+        )
+        if casing_id is not None:
+            motivo += (
+                f" Los motores más grandes{del_prov} no pasan el claro de cable "
+                f"de un casing de {casing_id:.3f} in de ID."
+            )
+        return motivo
+
+    # Entran y dan la potencia: el que sobra es el filtro de temperatura.
+    return (
+        f"Ningún motor{de_quien} de {hp_min:.1f} hp o más que entre en este "
+        f"pozo está calificado para {min_temp:.0f} °F (temperatura de fondo "
+        f"más 25 °F de margen)."
+    )
+
+
 def select_motor(
     hp_required: float,
     catalog_manager: "CatalogManager",
@@ -633,11 +734,10 @@ def select_motor(
     ]
 
     if not candidates:
-        de_quien = f" de {manufacturer}" if manufacturer else ""
-        raise ValueError(
-            f"No motor found{de_quien} for {hp_required} hp, pump_od={pump_od} in, "
-            f"bottom_temp={bottom_temp} °F"
-        )
+        raise ValueError(_motivo_sin_motor(
+            catalog_manager, manufacturer, hp_required, hp_min,
+            pump_od, max_od, casing_id, min_cable_thk, min_temp,
+        ))
 
     # Un motor cuya corriente ningún cable del catálogo puede llevar no es un
     # motor seleccionable: el remedio de campo es subir la tensión de placa,

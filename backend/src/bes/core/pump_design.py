@@ -248,6 +248,73 @@ def _interp_curve(pump: PumpCurve, flow_bpd: float, attr: str) -> float:
     return float(interp1d(flows, values, kind="linear", bounds_error=True)(flow_bpd))
 
 
+def flujo_para_leer_la_curva(
+    pump: PumpCurve,
+    q_liquido: float,
+    free_gas_fraction: float,
+) -> tuple[float, dict | None]:
+    """Con qué caudal se consulta la curva de esta bomba.
+
+    Por el impulsor no pasa petróleo de tanque: pasa la **mezcla** a condiciones
+    de admisión. Con gas libre las dos magnitudes no son la misma::
+
+        q_mezcla = q_líquido / (1 − f_gas)
+
+    Es exactamente la corrección que ya estaba resuelta y documentada para el
+    rango de los separadores (``gas_handling.total_intake_rate``, donde 1227 b/d
+    de líquido con 63 % de gas son 3316 b/d de mezcla). Para la bomba nadie la
+    había aplicado, y el efecto era el contrario: una REDA D-40 —datos de curva
+    de 800 a 1700 b/d— se rechazaba por «caudal fuera de rango» ante 500 STB/d
+    de líquido que en la admisión son 1679 b/d, o sea de lleno adentro.
+
+    **El caudal de líquido tiene prioridad, y eso es deliberado.** El diseño
+    convencional es el método de caudal único de Brown, y es con el caudal de
+    líquido que se reproducen los ejemplos impresos del libro; cambiar el punto
+    de lectura de todos los pozos con algo de gas movería resultados ya
+    validados. La mezcla entra sólo donde el caudal de líquido **no tiene
+    lectura posible** —cae fuera de los datos publicados de la curva—, que es
+    justamente el caso en el que el método de caudal único no puede responder
+    nada y hoy rechazaba la bomba por la magnitud equivocada.
+
+    Cuando la bomba queda leída en la mezcla, el resultado lo declara
+    (``leido_en_mezcla``) para que la pantalla y los reportes lo digan: es una
+    bomba dimensionada en un punto distinto del resto. El tratamiento
+    consistente de un pozo así es el método por incrementos de presión, que
+    resuelve la bomba tramo por tramo y lee la curva con la mezcla de cada uno.
+
+    Sin gas libre las dos magnitudes coinciden exactamente y esta función
+    devuelve el caudal de líquido sin tocar.
+
+    Args:
+        pump: Bomba del catálogo, ya escalada a la frecuencia de operación.
+        q_liquido: Caudal de líquido de superficie [STB/d].
+        free_gas_fraction: Fracción volumétrica de gas libre en la admisión.
+
+    Returns:
+        ``(caudal, detalle)``. ``detalle`` es ``None`` cuando se leyó con el
+        caudal de líquido; si no, trae la fracción de gas y los dos caudales.
+    """
+    from bes.core.gas_handling import total_intake_rate
+
+    q_mezcla = total_intake_rate(q_liquido, free_gas_fraction)
+    if q_mezcla <= q_liquido:
+        return q_liquido, None       # sin gas libre: son el mismo número
+
+    flujos = [p.flow_rate for p in pump.points]
+    q_min, q_max = min(flujos), max(flujos)
+    if q_min <= q_liquido <= q_max:
+        # El caudal de líquido se puede leer: manda el método de caudal único.
+        return q_liquido, None
+
+    return q_mezcla, {
+        "free_gas_fraction": free_gas_fraction,
+        "q_liquid_bpd": q_liquido,
+        "q_mixture_bpd": q_mezcla,
+        "curve_data_min_bpd": q_min,
+        "curve_data_max_bpd": q_max,
+    }
+
+
 def calculate_stages(tdh_ft: float, pump: PumpCurve, flow_bpd: float) -> int:
     """Cantidad de etapas necesarias para dar el TDH pedido a ese caudal.
 
@@ -638,6 +705,13 @@ def _design_candidate(
     h_design = tdh_ft
     visc_detail: dict | None = None
 
+    # Por el impulsor pasa la MEZCLA, no el líquido de tanque. Ver
+    # `flujo_para_leer_la_curva`: sin gas libre no cambia nada, y con gas sólo
+    # interviene donde el caudal de líquido no tiene lectura posible en la curva.
+    q_design, gas_detail = flujo_para_leer_la_curva(
+        pump, q_design, float(tdh_info.get("free_gas_fraction", 0.0) or 0.0)
+    )
+
     if viscosity is not None and viscosity.get("is_viscous"):
         from bes.core.viscosity import viscosity_factors, water_equivalent_duty
 
@@ -690,6 +764,17 @@ def _design_candidate(
                 f"{objectives.target_flow_rate:.0f} STB/d con crudo viscoso)"
                 if visc_detail else ""
             )
+            # Con gas libre el número que se compara ya es el de mezcla, así
+            # que el mensaje tiene que decir de dónde sale: si no, el usuario
+            # ve un caudal que no cargó en ningún lado.
+            if gas_detail is not None:
+                detalle += (
+                    f" — caudal de MEZCLA en la admisión: "
+                    f"{gas_detail['q_liquid_bpd']:.0f} STB/d de líquido con "
+                    f"{gas_detail['free_gas_fraction']:.1%} de gas libre. Por "
+                    f"el impulsor no pasa líquido de tanque, así que el rango "
+                    f"se verifica contra la mezcla"
+                )
             raise ValueError(
                 f"El caudal de diseño ({q_design:.0f} STB/d){detalle} está "
                 f"fuera del rango de curva de la bomba {pump.model}"
@@ -790,6 +875,22 @@ def _design_candidate(
         warnings = [*extra_warnings, *warnings]
     if not op_check["in_range"]:
         warnings.append("Flow rate outside pump operating range")
+    if gas_detail is not None:
+        # La bomba quedó dimensionada en un punto distinto del que usa el resto
+        # del camino convencional. Se declara: el número no se puede comparar
+        # de igual a igual con el de un pozo sin gas.
+        warnings.append(
+            f"La curva de la {pump.model} se leyó con el caudal de MEZCLA en la "
+            f"admisión ({gas_detail['q_mixture_bpd']:,.0f} b/d) y no con el de "
+            f"líquido ({gas_detail['q_liquid_bpd']:,.0f} STB/d): con "
+            f"{gas_detail['free_gas_fraction']:.1%} de gas libre el líquido cae "
+            f"fuera de los datos publicados de la curva "
+            f"({gas_detail['curve_data_min_bpd']:,.0f}–"
+            f"{gas_detail['curve_data_max_bpd']:,.0f} b/d) y por el impulsor "
+            f"pasa la mezcla. El tratamiento consistente de un pozo así es el "
+            f"método por incrementos de presión, que lee la curva con la mezcla "
+            f"de cada tramo."
+        )
 
     # Carcasas + verificación mecánica. Es la MISMA función que usa el camino
     # por incrementos de presión: una vez conocidas la bomba y las etapas, esta
@@ -843,6 +944,10 @@ def _design_candidate(
         # equivalentes en agua, que son mayores.
         "design_flow_rate": q_design,
         "design_head_ft": h_design,
+        # ``None`` salvo que la curva se haya leído con el caudal de MEZCLA en
+        # vez del de líquido. No se esconde: es una bomba dimensionada en un
+        # punto distinto del que usa el resto del camino convencional.
+        "gas_mixture_reading": gas_detail,
         "warnings": warnings,
     }
 

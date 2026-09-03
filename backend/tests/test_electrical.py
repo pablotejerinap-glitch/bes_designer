@@ -530,9 +530,15 @@ class TestSelectMotor:
                        if m["od_inches"] <= round(pump_od * 1.20, 6)]
         imposible = max(alcanzables) * 2.0
 
-        with pytest.raises(ValueError, match="No motor found"):
+        # El mensaje dice POR QUÉ, no sólo que no hay. «No motor found for
+        # 2178 hp» no le permitía al usuario saber si el remedio era bajar el
+        # caudal, cambiar el casing o que ese proveedor no tiene motores; con
+        # el techo del catálogo y la potencia pedida, sí.
+        with pytest.raises(ValueError, match=r"da \d+ hp") as exc:
             select_motor(imposible, manager, pump_od=pump_od,
                          bottom_temp=200.0, depth_ft=6000.0)
+        assert f"{max(alcanzables):.0f} hp" in str(exc.value)
+        assert f"{round(imposible * 1.10, 6):.1f} hp" in str(exc.value)
 
     def test_returns_dict_with_standard_keys(self, manager):
         motor = select_motor(79.0, manager, pump_od=4.0, bottom_temp=170.0, depth_ft=5000.0)

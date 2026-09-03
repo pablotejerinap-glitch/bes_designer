@@ -1363,3 +1363,150 @@ class TestElSelectorDePerdidaDeCarga:
                  if f["key"] == "pc_rgl")
         assert f["expression"] == "RGL = GOR / (1 + WOR)"
         assert f["result"] == pytest.approx(350.0 * 0.85)
+
+
+class TestLaCurvaSeVerificaContraElCaudalDeMezcla:
+    """Por el impulsor no pasa petróleo de tanque: pasa la mezcla.
+
+    Con gas libre en la admisión el volumen que atraviesa la bomba es mayor que
+    el caudal de líquido de superficie::
+
+        q_mezcla = q_líquido / (1 − f_gas)
+
+    Es la misma corrección que ya estaba resuelta para el rango de los
+    separadores (``gas_handling.total_intake_rate``). Para la bomba no estaba
+    aplicada, y el efecto era el contrario: el caso #3B de Brown pide 500 STB/d
+    de líquido que en la admisión son ~1679 b/d, y la REDA D-40 —datos de curva
+    de 800 a 1700 b/d— se rechazaba con «caudal de diseño fuera del rango de
+    curva» comparando contra los 500.
+    """
+
+    @staticmethod
+    def _pozo_3b():
+        """§4.53104 — 500 STB/d de crudo con 500 scf/bbl, casing 5½", 7000 ft."""
+        reservoir = Reservoir(
+            static_pressure=1000.0, bubble_point=2000.0,
+            ipr_method=IPRMethod.VOGEL, reservoir_temp=160.0,
+            drive_mechanism=DriveMechanism.SOLUTION_GAS,
+            test_pwf=500.0, test_rate=500.0,
+        )
+        fluid = Fluid(
+            oil_api=35.0, water_cut=0.0, gor=500.0, gas_sg=0.65, water_sg=1.07,
+            oil_viscosity_dead=5.0, viscosity_temp_ref=100.0,
+            bubble_point_pressure=2000.0, h2s_content=0.0, co2_content=0.0,
+            sand_production=False,
+        )
+        well = WellGeometry(
+            total_depth=7000.0, casing_od=5.5, casing_weight=17.0,
+            casing_id=4.892, tubing_od=2.375, tubing_id=1.995,
+            perforations_top=6950.0, perforations_bottom=7000.0,
+            deviation_max=0.0, wellhead_temp=120.0,
+        )
+        surface = SurfaceConditions(
+            wellhead_pressure_required=200.0, flowline_length=1000.0,
+            flowline_id=3.0, flowline_elevation_change=0.0,
+            separator_pressure=100.0, power_supply_voltage=4160.0,
+            frequency=60.0,
+        )
+        objectives = DesignObjectives(
+            target_flow_rate=500.0, safety_margin_depth=50.0,
+            allow_gas_venting=False, max_gip=1.0,
+            design_life_years=5.0, use_vsd=False,
+        )
+        return reservoir, fluid, well, surface, objectives
+
+    def test_una_bomba_fuera_del_liquido_pero_dentro_de_la_mezcla_se_acepta(self):
+        """El caso reportado: la D-40 con 500 STB/d de líquido y 70 % de gas."""
+        from bes.core.pump_design import design_pump_by_model
+
+        catalog = CatalogManager()
+        d40 = next(p for p in catalog.get_all_pumps() if p.model == "D-40")
+        flujos = [pt.flow_rate for pt in d40.points]
+
+        reservoir, fluid, well, surface, objectives = self._pozo_3b()
+        cand = design_pump_by_model(
+            reservoir, fluid, well, surface, objectives,
+            6900.0, catalog, "D-40",
+        )
+
+        # El caudal de líquido está FUERA de los datos de la curva...
+        assert objectives.target_flow_rate < min(flujos)
+        # ...y sin embargo la bomba se acepta, porque la mezcla entra.
+        lectura = cand["gas_mixture_reading"]
+        assert lectura is not None
+        assert lectura["q_liquid_bpd"] == pytest.approx(500.0)
+        assert min(flujos) <= lectura["q_mixture_bpd"] <= max(flujos)
+        assert cand["design_flow_rate"] == pytest.approx(lectura["q_mixture_bpd"])
+
+    def test_la_mezcla_es_el_liquido_dividido_por_uno_menos_el_gas(self):
+        from bes.core.pump_design import design_pump_by_model
+
+        catalog = CatalogManager()
+        reservoir, fluid, well, surface, objectives = self._pozo_3b()
+        cand = design_pump_by_model(
+            reservoir, fluid, well, surface, objectives,
+            6900.0, catalog, "D-40",
+        )
+        lec = cand["gas_mixture_reading"]
+        assert lec["q_mixture_bpd"] == pytest.approx(
+            lec["q_liquid_bpd"] / (1.0 - lec["free_gas_fraction"]), rel=1e-9
+        )
+
+    def test_la_lectura_en_mezcla_se_declara_en_las_advertencias(self):
+        """No se dimensiona en otro punto sin decirlo."""
+        from bes.core.pump_design import design_pump_by_model
+
+        catalog = CatalogManager()
+        reservoir, fluid, well, surface, objectives = self._pozo_3b()
+        cand = design_pump_by_model(
+            reservoir, fluid, well, surface, objectives,
+            6900.0, catalog, "D-40",
+        )
+        assert any("caudal de MEZCLA" in w for w in cand["warnings"])
+
+    def test_sin_gas_libre_no_cambia_absolutamente_nada(self):
+        """La corrección tiene que ser invisible en un pozo de agua."""
+        from bes.core.pump_design import flujo_para_leer_la_curva
+
+        catalog = CatalogManager()
+        d40 = next(p for p in catalog.get_all_pumps() if p.model == "D-40")
+        q, detalle = flujo_para_leer_la_curva(d40, 1227.0, 0.0)
+        assert q == 1227.0
+        assert detalle is None
+
+    def test_con_gas_pero_el_liquido_legible_manda_el_liquido(self):
+        """El método de caudal único es el que reproduce los ejemplos del libro.
+
+        Cambiar el punto de lectura de todos los pozos con algo de gas movería
+        resultados ya validados, así que la mezcla entra sólo donde el caudal de
+        líquido no tiene lectura posible.
+        """
+        from bes.core.pump_design import flujo_para_leer_la_curva
+
+        catalog = CatalogManager()
+        d40 = next(p for p in catalog.get_all_pumps() if p.model == "D-40")
+        # 1227 b/d cae de lleno en la curva (800–1700): manda el líquido aunque
+        # haya 30 % de gas.
+        q, detalle = flujo_para_leer_la_curva(d40, 1227.0, 0.30)
+        assert q == 1227.0
+        assert detalle is None
+
+    def test_fuera_de_rango_tambien_en_la_mezcla_sigue_siendo_error(self):
+        """No se relajó la verificación: se la comparó contra la magnitud correcta."""
+        from bes.core.pump_design import design_pump_by_model
+
+        catalog = CatalogManager()
+        reservoir, fluid, well, surface, objectives = self._pozo_3b()
+        # Una bomba de alto caudal: ni el líquido ni la mezcla entran en su curva.
+        grandes = [
+            p for p in catalog.get_all_pumps()
+            if p.od < well.casing_id
+            and min(pt.flow_rate for pt in p.points) > 3000.0
+        ]
+        if not grandes:
+            pytest.skip("el catálogo no tiene una bomba así en este casing")
+        with pytest.raises(ValueError, match="fuera del rango de curva"):
+            design_pump_by_model(
+                reservoir, fluid, well, surface, objectives,
+                6900.0, catalog, grandes[0].model,
+            )

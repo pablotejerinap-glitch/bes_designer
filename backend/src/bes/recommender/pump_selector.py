@@ -313,6 +313,13 @@ def select_top_n_pumps(
     # devolver menos diseños (o ninguno).
     bottom_temp = reservoir.reservoir_temp
     results: list[DesignResult] = []
+    # Por qué se cayó cada candidata. Antes el `except` las descartaba en
+    # silencio y, si no quedaba ninguna, el usuario recibía «No complete ESP
+    # design could be assembled» — que dice que no hay diseño pero no por qué,
+    # así que no se puede saber si el remedio es bajar el caudal, cambiar el
+    # casing o que ese proveedor no tiene motores. Es el mismo criterio que ya
+    # aplicaba el camino de gas, que sí publica sus motivos.
+    motivos: list[str] = []
 
     for _key, cand, pump_obj in ranked:
         if len(results) >= n:
@@ -322,11 +329,68 @@ def select_top_n_pumps(
                 cand, pump_obj, well, surface, fluid, objectives, catalog,
                 pump_setting_depth, bottom_temp,
             )
-        except (ValueError, KeyError, StopIteration, TypeError):
+        except (ValueError, KeyError, StopIteration, TypeError) as exc:
+            motivos.append(f"{pump_obj.manufacturer} {pump_obj.model}: {exc}")
             continue
         results.append(dr)
 
+    if not results:
+        raise ValueError(_motivo_sin_aparejo(motivos))
+
     return results
+
+
+def _motivo_sin_aparejo(motivos: list[str]) -> str:
+    """Arma el mensaje de «ninguna bomba completó el aparejo».
+
+    Agrupa las candidatas por motivo en vez de listarlas una por una: con nueve
+    bombas que fallan todas por lo mismo —no hay motor de ese proveedor que
+    entre en el casing— nueve líneas iguales esconden que el motivo es uno solo.
+
+    Args:
+        motivos: Un ``"Fabricante Modelo: causa"`` por candidata descartada.
+
+    Returns:
+        El texto de la excepción, que la API devuelve como HTTP 422.
+    """
+    if not motivos:
+        return (
+            "Ninguna bomba del catálogo completa el aparejo para este pozo, y "
+            "ninguna llegó siquiera a intentarlo."
+        )
+
+    # Misma causa → una sola línea. Se agrupa por la causa con los NÚMEROS
+    # borrados: cinco bombas que se quedan sin motor por el claro de cable del
+    # casing dicen lo mismo con hp distintos, y listarlas por separado repite
+    # cinco veces la única frase que importa. Se muestra la causa de la mejor
+    # rankeada del grupo, que es la que el usuario iba a leer primero.
+    import re
+
+    por_causa: dict[str, tuple[str, list[str], bool]] = {}
+    for entrada in motivos:
+        bomba, _, causa = entrada.partition(": ")
+        clave = re.sub(r"[\d.,]+", "#", causa)
+        if clave in por_causa:
+            primera, bombas, variaban = por_causa[clave]
+            por_causa[clave] = (
+                primera, bombas + [bomba], variaban or causa != primera,
+            )
+        else:
+            por_causa[clave] = (causa, [bomba], False)
+
+    lineas = []
+    for causa, bombas, cifras_distintas in por_causa.values():
+        cuales = ", ".join(bombas[:3])
+        if len(bombas) > 3:
+            cuales += f" y {len(bombas) - 3} más"
+        if cifras_distintas:
+            causa += " (las demás fallan igual, con su propia potencia)"
+        lineas.append(f"{cuales} — {causa}")
+
+    return (
+        f"Ninguna de las {len(motivos)} bombas que entran en este pozo completa "
+        f"el aparejo. Motivos: " + " · ".join(lineas)
+    )
 
 
 def assemble_design(
