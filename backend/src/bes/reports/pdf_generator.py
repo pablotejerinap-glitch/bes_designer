@@ -67,6 +67,16 @@ def _header_footer(canvas, doc):
 # Small helpers
 # ===========================================================================
 
+# Un dato opcional que el usuario no cargó se declara vacío: no es cero.
+_SIN = "No ingresado"
+
+# Etiquetas del selector de pérdidas de carga (DesignObjectives.pressure_loss_method).
+_METODO_PERDIDAS = {
+    "poettmann_carpenter": "Poettmann-Carpenter (elegido)",
+    "hazen_williams": "Hazen-Williams (elegido)",
+}
+
+
 def _num(value, fmt: str, fallback: str = "No calculado") -> str:
     """Format a numeric value, returning *fallback* on any failure/None."""
     try:
@@ -77,15 +87,16 @@ def _num(value, fmt: str, fallback: str = "No calculado") -> str:
         return fallback
 
 
-def _make_table(data, col_widths=None, header=True, extra_styles=None) -> Table:
+def _make_table(data, col_widths=None, header=True, extra_styles=None,
+                font_size: float = 9, padding: float = 4) -> Table:
     style_cmds = [
         ("FONTNAME",       (0, 0), (-1, -1), "Helvetica"),
-        ("FONTSIZE",       (0, 0), (-1, -1), 9),
+        ("FONTSIZE",       (0, 0), (-1, -1), font_size),
         ("GRID",           (0, 0), (-1, -1), 0.4, _GRAY),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, _LT_GRAY]),
         ("VALIGN",         (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING",     (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING",  (0, 0), (-1, -1), 4),
+        ("TOPPADDING",     (0, 0), (-1, -1), padding),
+        ("BOTTOMPADDING",  (0, 0), (-1, -1), padding),
         ("LEFTPADDING",    (0, 0), (-1, -1), 6),
     ]
     if header:
@@ -99,6 +110,55 @@ def _make_table(data, col_widths=None, header=True, extra_styles=None) -> Table:
     tbl = Table(data, colWidths=col_widths, repeatRows=1 if header else 0)
     tbl.setStyle(TableStyle(style_cmds))
     return tbl
+
+
+def _ficha_de_entrada(bloques, sub_style) -> list:
+    """Maqueta los bloques de entrada en dos columnas, para que entren en una hoja.
+
+    Reparte los bloques entre dos columnas equilibrando la cantidad de filas y
+    los devuelve dentro de una tabla sin bordes, que es el recurso de ReportLab
+    para poner dos flujos verticales lado a lado.
+
+    Args:
+        bloques: lista de ``(titulo, filas)``; la primera fila es el encabezado.
+        sub_style: estilo de párrafo de los subtítulos.
+
+    Returns:
+        Lista de flowables lista para agregar al ``story``.
+    """
+    if not bloques:
+        return []
+
+    # Reparto: se prueban todos los cortes y gana el que deja más baja a la
+    # columna más alta. Es esa altura la que decide si la ficha entra en la
+    # hoja, así que equilibrar por "mitad de las filas" no alcanza: con cinco
+    # bloques de tamaño desparejo el corte por la mitad deja una columna de 36
+    # filas contra otra de 17, y la ficha se pasa de página.
+    altos = [len(filas) for _, filas in bloques]
+    corte = min(range(1, len(bloques) + 1),
+                key=lambda k: max(sum(altos[:k]), sum(altos[k:])))
+    izq, der = bloques[:corte], bloques[corte:]
+
+    col_w = [1.78 * inch, 0.95 * inch, 0.60 * inch]
+
+    def _columna(items) -> list:
+        flow: list = []
+        for titulo, filas in items:
+            flow.append(Paragraph(titulo, sub_style))
+            flow.append(_make_table(filas, col_widths=col_w,
+                                    font_size=7.0, padding=1.5))
+        return flow
+
+    marco = Table([[_columna(izq), _columna(der)]],
+                  colWidths=[3.4 * inch, 3.4 * inch])
+    marco.setStyle(TableStyle([
+        ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING",   (0, 0), (0, 0), 0),
+        ("RIGHTPADDING",  (-1, 0), (-1, 0), 0),
+        ("TOPPADDING",    (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    return [marco]
 
 
 # ---------------------------------------------------------------------------
@@ -479,30 +539,131 @@ def generate_design_report(
         return KeepTogether(flow)
 
     # ------------------------------------------------------------------
-    # COVER
+    # ENCABEZADO — va en la misma hoja que los datos de entrada, para que la
+    # primera hoja del informe sea la ficha completa de lo que cargó el usuario.
     # ------------------------------------------------------------------
-    story.append(Spacer(1, 1.6 * inch))
+    # El cuerpo del encabezado es chico a propósito: cada punto que ocupa acá
+    # se lo saca a la ficha de entrada, que tiene que entrar entera abajo.
+    head_s = ParagraphStyle("head", parent=title_s, fontSize=15, leading=17,
+                            spaceAfter=3)
+    head_sub_s = ParagraphStyle("headsub", parent=cover_sub_s, fontSize=9.5,
+                                leading=12, spaceAfter=1)
     story.append(Paragraph(
-        "Informe de Diseño — Sistema de Bombeo Electrosumergible", title_s))
-    story.append(Spacer(1, 0.15 * inch))
-    story.append(HRFlowable(width="70%", thickness=1.4, color=_DARK_BLUE))
-    story.append(Spacer(1, 0.3 * inch))
-    story.append(Paragraph(well_name, cover_sub_s))
-    story.append(Paragraph(
-        f"Bomba seleccionada: {dr.pump_manufacturer} {dr.pump_model}", cover_sub_s))
+        "Informe de Diseño — Sistema de Bombeo Electrosumergible", head_s))
+    story.append(HRFlowable(width="100%", thickness=1.4, color=_DARK_BLUE))
+    story.append(Spacer(1, 4))
     tgt = _num(getattr(objectives, "target_flow_rate", None), ",.0f")
-    story.append(Paragraph(f"Tasa de diseño: {tgt} STB/d", cover_sub_s))
-    story.append(Spacer(1, 0.25 * inch))
-    story.append(Paragraph(f"Fecha de generación: {date.today().strftime('%d/%m/%Y')}",
-                          cover_sub_s))
-    story.append(Spacer(1, 1.4 * inch))
-    story.append(Paragraph(f"Generado con BES Designer {_VERSION}", caption_s))
+    story.append(Paragraph(
+        f"{well_name} &nbsp;&#183;&nbsp; Bomba seleccionada: {dr.pump_manufacturer} "
+        f"{dr.pump_model} &nbsp;&#183;&nbsp; Tasa de diseño: {tgt} STB/d",
+        head_sub_s))
+    story.append(Paragraph(
+        f"Fecha de generación: {date.today().strftime('%d/%m/%Y')} "
+        f"&nbsp;&#183;&nbsp; BES Designer {_VERSION}", caption_s))
+    story.append(Spacer(1, 4))
+
+    # ------------------------------------------------------------------
+    # SECTION 1 — INPUT DATA
+    #
+    # Los cinco bloques de entrada van completos y en la PRIMERA hoja: es la
+    # ficha de lo que cargó el usuario, y partirla en dos páginas obliga a ir
+    # y venir para leer un solo dato. Por eso se maquetan en dos columnas con
+    # cuerpo reducido, en vez de una sola columna que desborda la hoja.
+    # ------------------------------------------------------------------
+    story.append(Paragraph("1. Datos de Entrada", section_s))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=_GRAY, spaceAfter=6))
+
+    _ENC = ["Parámetro", "Valor", "Unidad"]
+    bloques: list[tuple[str, list]] = []
+
+    if reservoir:
+        bloques.append(("Reservorio", [
+            _ENC,
+            ["Presión estática", _num(reservoir.static_pressure, ",.0f"), "psi"],
+            ["Presión de burbuja", _num(reservoir.bubble_point, ",.0f"), "psi"],
+            ["Índice de productividad", _num(reservoir.productivity_index, ".2f"), "STB/d/psi"],
+            ["Método IPR", reservoir.ipr_method.name, "—"],
+            ["Temperatura", _num(reservoir.reservoir_temp, ".0f"), "°F"],
+            ["Mecanismo de empuje", reservoir.drive_mechanism.name, "—"],
+            ["Ensayo — Pwf", _num(reservoir.test_pwf, ",.0f", fallback=_SIN), "psi"],
+            ["Ensayo — caudal", _num(reservoir.test_rate, ",.0f", fallback=_SIN), "STB/d"],
+            ["Fetkovich C", _num(reservoir.fetkovich_c, ".4g", fallback=_SIN), "—"],
+            ["Fetkovich n", _num(reservoir.fetkovich_n, ".2f", fallback=_SIN), "—"],
+        ]))
+
+    if fluid:
+        bloques.append(("Fluido", [
+            _ENC,
+            ["API del crudo", _num(fluid.oil_api, ".1f"), "°API"],
+            ["Corte de agua", _num(fluid.water_cut, ".1%"), "fracción"],
+            ["GOR", _num(fluid.gor, ".0f"), "scf/STB"],
+            ["Gravedad específica del gas", _num(fluid.gas_sg, ".3f"), "—"],
+            ["Gravedad específica del agua", _num(fluid.water_sg, ".3f"), "—"],
+            ["Presión de burbuja (fluido)", _num(fluid.bubble_point_pressure, ",.0f"), "psi"],
+            ["Viscosidad crudo muerto",
+             _num(fluid.oil_viscosity_dead, ".2f",
+                  fallback="Sin ensayo — Fig. 4L(2)"), "cp"],
+            ["Temp. del ensayo de viscosidad",
+             _num(fluid.viscosity_temp_ref, ".0f", fallback=_SIN), "°F"],
+            ["H2S", _num(fluid.h2s_content, ".0f"), "ppm"],
+            ["CO2", _num(fluid.co2_content, ".0f"), "ppm"],
+            ["Producción de arena", "Sí" if fluid.sand_production else "No", "—"],
+        ]))
+
+    if well:
+        bloques.append(("Geometría del Pozo", [
+            _ENC,
+            ["Profundidad total", _num(well.total_depth, ",.0f"), "ft"],
+            ["OD casing", _num(well.casing_od, ".3f"), "in"],
+            ["Peso casing", _num(well.casing_weight, ".1f"), "lb/ft"],
+            ["ID casing", _num(well.casing_id, ".3f"), "in"],
+            ["OD tubing", _num(well.tubing_od, ".3f"), "in"],
+            ["ID tubing", _num(well.tubing_id, ".3f"), "in"],
+            ["Perforaciones techo", _num(well.perforations_top, ",.0f"), "ft"],
+            ["Perforaciones base", _num(well.perforations_bottom, ",.0f"), "ft"],
+            ["Desviación máxima", _num(well.deviation_max, ".1f"), "°"],
+            ["Temperatura cabezal", _num(well.wellhead_temp, ".0f"), "°F"],
+            ["Temperatura de fondo (BHT)",
+             _num(getattr(reservoir, "reservoir_temp", None), ".0f"), "°F"],
+            ["Asentamiento impuesto",
+             _num(well.pump_setting_depth, ",.0f", fallback="Automático"), "ft"],
+        ]))
+
+    if surface:
+        bloques.append(("Superficie", [
+            _ENC,
+            ["Presión de cabezal requerida", _num(surface.wellhead_pressure_required, ".0f"), "psi"],
+            ["Longitud de flowline", _num(surface.flowline_length, ".0f"), "ft"],
+            ["ID de flowline", _num(surface.flowline_id, ".2f"), "in"],
+            ["Cambio de elevación flowline", _num(surface.flowline_elevation_change, ".0f"), "ft"],
+            ["Presión de separador", _num(surface.separator_pressure, ".0f"), "psi"],
+            ["Voltaje disponible", _num(surface.power_supply_voltage, ",.0f"), "V"],
+            ["Frecuencia", _num(surface.frequency, ".0f"), "Hz"],
+        ]))
+
+    if objectives:
+        bloques.append(("Objetivos de Diseño", [
+            _ENC,
+            ["Tasa objetivo", _num(objectives.target_flow_rate, ",.0f"), "STB/d"],
+            ["Margen de seguridad (profundidad)", _num(objectives.safety_margin_depth, ".0f"), "ft"],
+            ["Venteo de gas", "Sí" if objectives.allow_gas_venting else "No", "—"],
+            ["GIP máximo en admisión", _num(objectives.max_gip, ".1%"), "fracción"],
+            ["Vida útil de diseño", _num(objectives.design_life_years, ".1f"), "años"],
+            ["Variador de velocidad (VSD)", "Sí" if objectives.use_vsd else "No", "—"],
+            ["Frecuencia de diseño (VSD)",
+             _num(objectives.design_frequency_hz, ".1f", fallback="La de red"), "Hz"],
+            ["Pérdidas de carga",
+             _METODO_PERDIDAS.get(objectives.pressure_loss_method,
+                                  "Automático"), "—"],
+        ]))
+
+    story.extend(_ficha_de_entrada(bloques, sub_s))
     story.append(PageBreak())
 
     # ------------------------------------------------------------------
-    # SECTION 1 — EXECUTIVE SUMMARY
+    # SECTION 2 — EXECUTIVE SUMMARY
     # ------------------------------------------------------------------
-    story.append(Paragraph("1. Resumen Ejecutivo", section_s))
+    story.append(Paragraph("2. Resumen Ejecutivo", section_s))
     story.append(HRFlowable(width="100%", thickness=0.5, color=_GRAY, spaceAfter=6))
 
     # Dynamic intro paragraph
@@ -573,89 +734,6 @@ def generate_design_report(
         story.append(Paragraph(
             "No se registraron advertencias críticas para las condiciones ingresadas.",
             body_s))
-
-    story.append(PageBreak())
-
-    # ------------------------------------------------------------------
-    # SECTION 2 — INPUT DATA
-    # ------------------------------------------------------------------
-    story.append(Paragraph("2. Datos de Entrada", section_s))
-    story.append(HRFlowable(width="100%", thickness=0.5, color=_GRAY, spaceAfter=6))
-
-    if reservoir:
-        story.append(Paragraph("Reservorio", sub_s))
-        story.append(_make_table([
-            ["Parámetro", "Valor", "Unidad"],
-            ["Presión estática", _num(reservoir.static_pressure, ",.0f"), "psi"],
-            ["Presión de burbuja", _num(reservoir.bubble_point, ",.0f"), "psi"],
-            ["Índice de productividad", _num(reservoir.productivity_index, ".2f"), "STB/d/psi"],
-            ["Método IPR", reservoir.ipr_method.name, "—"],
-            ["Temperatura", _num(reservoir.reservoir_temp, ".0f"), "°F"],
-            ["Mecanismo de empuje", reservoir.drive_mechanism.name, "—"],
-        ], col_widths=col_w))
-        story.append(Spacer(1, 6))
-
-    if fluid:
-        story.append(Paragraph("Fluido", sub_s))
-        story.append(_make_table([
-            ["Parámetro", "Valor", "Unidad"],
-            ["API del crudo", _num(fluid.oil_api, ".1f"), "°API"],
-            ["Corte de agua", _num(fluid.water_cut, ".1%"), "fracción"],
-            ["GOR", _num(fluid.gor, ".0f"), "scf/STB"],
-            ["Gravedad específica del gas", _num(fluid.gas_sg, ".3f"), "—"],
-            ["Gravedad específica del agua", _num(fluid.water_sg, ".3f"), "—"],
-            ["Viscosidad crudo muerto",
-             _num(fluid.oil_viscosity_dead, ".2f",
-                  fallback="Sin ensayo — Fig. 4L(2)"), "cp"],
-            ["H2S", _num(fluid.h2s_content, ".0f"), "ppm"],
-            ["CO2", _num(fluid.co2_content, ".0f"), "ppm"],
-            ["Producción de arena", "Sí" if fluid.sand_production else "No", "—"],
-        ], col_widths=col_w))
-        story.append(Spacer(1, 6))
-
-    if well:
-        story.append(Paragraph("Geometría del Pozo", sub_s))
-        story.append(_make_table([
-            ["Parámetro", "Valor", "Unidad"],
-            ["Profundidad total", _num(well.total_depth, ",.0f"), "ft"],
-            ["OD casing", _num(well.casing_od, ".3f"), "in"],
-            ["Peso casing", _num(well.casing_weight, ".1f"), "lb/ft"],
-            ["ID casing", _num(well.casing_id, ".3f"), "in"],
-            ["OD tubing", _num(well.tubing_od, ".3f"), "in"],
-            ["ID tubing", _num(well.tubing_id, ".3f"), "in"],
-            ["Perforaciones techo", _num(well.perforations_top, ",.0f"), "ft"],
-            ["Perforaciones base", _num(well.perforations_bottom, ",.0f"), "ft"],
-            ["Desviación máxima", _num(well.deviation_max, ".1f"), "°"],
-            ["Temperatura cabezal", _num(well.wellhead_temp, ".0f"), "°F"],
-            ["Temperatura de fondo (BHT)", _num(reservoir.reservoir_temp, ".0f"), "°F"],
-        ], col_widths=col_w))
-        story.append(Spacer(1, 6))
-
-    if surface:
-        story.append(Paragraph("Superficie", sub_s))
-        story.append(_make_table([
-            ["Parámetro", "Valor", "Unidad"],
-            ["Presión de cabezal requerida", _num(surface.wellhead_pressure_required, ".0f"), "psi"],
-            ["Longitud de flowline", _num(surface.flowline_length, ".0f"), "ft"],
-            ["ID de flowline", _num(surface.flowline_id, ".2f"), "in"],
-            ["Cambio de elevación flowline", _num(surface.flowline_elevation_change, ".0f"), "ft"],
-            ["Presión de separador", _num(surface.separator_pressure, ".0f"), "psi"],
-            ["Voltaje disponible", _num(surface.power_supply_voltage, ",.0f"), "V"],
-            ["Frecuencia", _num(surface.frequency, ".0f"), "Hz"],
-        ], col_widths=col_w))
-        story.append(Spacer(1, 6))
-
-    if objectives:
-        story.append(Paragraph("Objetivos de Diseño", sub_s))
-        story.append(_make_table([
-            ["Parámetro", "Valor", "Unidad"],
-            ["Tasa objetivo", _num(objectives.target_flow_rate, ",.0f"), "STB/d"],
-            ["Margen de seguridad (profundidad)", _num(objectives.safety_margin_depth, ".0f"), "ft"],
-            ["Venteo de gas", "Sí" if objectives.allow_gas_venting else "No", "—"],
-            ["GIP máximo en admisión", _num(objectives.max_gip, ".1%"), "fracción"],
-            ["Vida útil de diseño", _num(objectives.design_life_years, ".1f"), "años"],
-            ["Variador de velocidad (VSD)", "Sí" if objectives.use_vsd else "No", "—"],
-        ], col_widths=col_w))
 
     story.append(PageBreak())
 
