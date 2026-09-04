@@ -584,6 +584,70 @@ def _friction_loss_poettmann_carpenter(
     }
 
 
+def _traza_gas_libre(trace, gas: dict, fluid: Fluid, pip: float,
+                     temp_f: float) -> None:
+    """Publica el balance de gas libre en la admisión, término por término.
+
+    Cinco pasos: los tres volúmenes sobre la base de un STB de líquido de
+    superficie, la fracción que resulta de dividirlos, y la misma cantidad
+    expresada como relación gas/líquido — que hace falta porque los criterios
+    de la bibliografía están declarados en una u otra magnitud y no son
+    intercambiables.
+
+    Sin gas —crudo muerto, 100 % de agua, o todo el gas en solución— no se
+    publica nada: cinco fórmulas que dan cero no informan, molestan.
+
+    Args:
+        trace: La traza en curso.
+        gas: Lo que devuelve
+            :func:`bes.core.gas_handling.free_gas_fraction_detail`.
+        fluid: El fluido, para el GOR y el corte de agua.
+        pip: Presión de admisión [psia].
+        temp_f: Temperatura de evaluación [°F].
+    """
+    if gas["v_gas"] <= 0.0:
+        return
+
+    wc = fluid.water_cut
+    libre = gas["free_gas_scf"]
+
+    trace.add(
+        "gas_volumen_petroleo", {"WC": wc, "Bo": gas["bo"]}, gas["v_oil"],
+        context=f"A {pip:,.0f} psia y {temp_f:.0f} °F el petróleo lleva "
+                f"{gas['rs']:.1f} scf/STB disueltos, y por eso se dilata un "
+                f"{(gas['bo'] - 1) * 100:.1f} % respecto del tanque.",
+    )
+    trace.add("gas_volumen_agua", {"WC": wc, "Bw": gas["bw"]}, gas["v_water"])
+    trace.add(
+        "gas_volumen_libre",
+        {"WC": wc, "GOR": fluid.gor, "Rs": gas["rs"], "Bg": gas["bg"]},
+        gas["v_gas"],
+        context=f"De los {fluid.gor:,.1f} scf/STB que produce el pozo, "
+                f"{gas['rs']:.1f} siguen disueltos y {libre:,.1f} están libres. "
+                f"Con Bg = {gas['bg']:.7f} bbl/scf —el gas ocupa "
+                f"{1 / gas['bg']:,.0f} veces menos volumen que en superficie— "
+                f"eso da {gas['v_gas']:.4f} bbl.",
+    )
+    trace.add(
+        "gas_fraccion_libre",
+        {"V_o": gas["v_oil"], "V_w": gas["v_water"], "V_g": gas["v_gas"]},
+        gas["fraction"],
+        context=f"De cada 100 barriles que atraviesan la admisión, "
+                f"{gas['fraction'] * 100:.2f} son gas libre.",
+    )
+    trace.add(
+        "gas_relacion_gas_liquido", {"f": gas["fraction"]}, gas["ratio"],
+        context=f"Por cada 100 barriles de líquido hay {gas['ratio'] * 100:.2f} "
+                f"de gas. " + (
+                    f"Supera el 0.1 a partir del cual Brown (pág. 59) señala "
+                    f"que la bomba entrega menos altura que su curva de agua."
+                    if gas["ratio"] > 0.10 else
+                    f"Queda por debajo del 0.1 de Brown (pág. 59), a partir del "
+                    f"cual la bomba empieza a perder altura."
+                ),
+    )
+
+
 def _traza_pip(
     trace,
     reservoir: Reservoir,
@@ -807,11 +871,18 @@ def calculate_tdh(
         wellhead_pressure_head,
     )
 
+    # El balance de gas libre, término por término. Se recalcula acá aunque
+    # quien llama ya traiga la fracción: la cuenta es barata y el reporte
+    # necesita los intermedios —Rs, Bg, Bo, Bw y los tres volúmenes— para que
+    # el porcentaje no aparezca como un número sin origen. Es la magnitud que
+    # gobierna la correlación de fricción, la escalera de manejo de gas y el
+    # método por incrementos, así que es la que más falta hace poder auditar.
+    from bes.core.gas_handling import free_gas_fraction_detail
+    _gas = free_gas_fraction_detail(fluid, pip, reservoir.reservoir_temp)
     if free_gas_fraction is None:
-        from bes.core.gas_handling import free_gas_fraction_at_intake
-        free_gas_fraction = free_gas_fraction_at_intake(
-            fluid, pip, reservoir.reservoir_temp
-        )
+        free_gas_fraction = _gas["fraction"]
+
+    _traza_gas_libre(trace, _gas, fluid, pip, reservoir.reservoir_temp)
 
     threshold = objectives.gas_fraction_pc_threshold
     # Qué correlación corresponde POR LA FÍSICA, y qué eligió el usuario. Si no

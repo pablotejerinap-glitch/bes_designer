@@ -246,6 +246,75 @@ def fraction_to_ratio(f: float) -> float:
     return float("inf") if f >= 1.0 else f / (1.0 - f)
 
 
+def free_gas_fraction_detail(
+    fluid: "Fluid",
+    pressure: float,
+    temp_f: float,
+) -> dict:
+    """El balance de gas libre **con todos sus intermedios**, para poder mostrarlo.
+
+    Es la misma cuenta que :func:`free_gas_fraction_at_intake` —de hecho aquélla
+    llama a ésta y se queda con un solo número—, pero devolviendo cada término
+    por separado. Existe porque el reporte tiene que poder mostrar de dónde sale
+    la fracción de gas: con el número solo, el lector no puede verificar nada.
+
+    Los intermedios son los que el propio balance necesita:
+
+        Rs      gas que sigue disuelto        [scf/STB]   Standing, acotado al GOR
+        GOR−Rs  gas libre                     [scf/STB]
+        z       factor de compresibilidad     [-]         Dranchuk & Abou-Kassem
+        Bg      factor volumétrico del gas    [bbl/scf]
+        Bo, Bw  factores volumétricos         [bbl/STB]
+
+    y de ellos los tres volúmenes sobre la base de un STB de líquido de
+    superficie, cuya suma es el denominador de la fracción.
+
+    Args:
+        fluid: PVT y composición del fluido.
+        pressure: Presión en el punto de evaluación [psia]. Debe ser > 0.
+        temp_f: Temperatura en el punto de evaluación [°F].
+
+    Returns:
+        dict con ``rs``, ``free_gas_scf``, ``z``, ``bg``, ``bo``, ``bw``,
+        ``v_oil``, ``v_water``, ``v_gas``, ``v_total``, ``fraction`` y
+        ``ratio``.
+
+    Raises:
+        ValueError: Si la presión es <= 0.
+    """
+    if pressure <= 0:
+        raise ValueError(f"pressure must be > 0, got {pressure}")
+
+    pb = fluid.bubble_point_pressure
+    gor = fluid.gor
+    wc = fluid.water_cut
+
+    rs = min(
+        standing_rs(pressure, temp_f, fluid.oil_api, fluid.gas_sg, pb) if pb > 0 else gor,
+        gor,
+    )
+    free_gas = max(gor - rs, 0.0)
+
+    z = gas_z_factor(pressure, temp_f, fluid.gas_sg)
+    bg = gas_bg(pressure, temp_f, z)
+    bo = standing_bo(rs, temp_f, fluid.oil_api, fluid.gas_sg)
+    bw = water_bw(pressure, temp_f)
+
+    v_oil = (1.0 - wc) * bo
+    v_water = wc * bw
+    v_gas = (1.0 - wc) * free_gas * bg
+    v_total = v_oil + v_water + v_gas
+    fraction = v_gas / v_total if v_total > 0.0 else 0.0
+
+    return {
+        "rs": rs, "free_gas_scf": free_gas, "z": z, "bg": bg, "bo": bo, "bw": bw,
+        "v_oil": v_oil, "v_water": v_water, "v_gas": v_gas, "v_total": v_total,
+        "fraction": fraction, "ratio": fraction_to_ratio(fraction),
+        "pressure": pressure, "temp_f": temp_f,
+        "gor": gor, "water_cut": wc,
+    }
+
+
 def free_gas_fraction_at_intake(
     fluid: "Fluid",
     pressure: float,
@@ -282,30 +351,7 @@ def free_gas_fraction_at_intake(
     Raises:
         ValueError: Si la presión es <= 0.
     """
-    if pressure <= 0:
-        raise ValueError(f"pressure must be > 0, got {pressure}")
-
-    pb = fluid.bubble_point_pressure
-    gor = fluid.gor
-    wc = fluid.water_cut
-
-    rs = min(
-        standing_rs(pressure, temp_f, fluid.oil_api, fluid.gas_sg, pb) if pb > 0 else gor,
-        gor,
-    )
-    free_gas = max(gor - rs, 0.0)
-
-    z = gas_z_factor(pressure, temp_f, fluid.gas_sg)
-    bg = gas_bg(pressure, temp_f, z)
-    bo = standing_bo(rs, temp_f, fluid.oil_api, fluid.gas_sg)
-    bw = water_bw(pressure, temp_f)
-
-    v_oil = (1.0 - wc) * bo
-    v_water = wc * bw
-    v_gas = (1.0 - wc) * free_gas * bg
-    v_total = v_oil + v_water + v_gas
-
-    return v_gas / v_total if v_total > 0.0 else 0.0
+    return free_gas_fraction_detail(fluid, pressure, temp_f)["fraction"]
 
 
 def gas_ingestion_percentage(
@@ -747,6 +793,108 @@ GAS_STRATEGY_LADDER = ("ninguno", "simple", "tandem", "agh")
 RGS_DOCUMENTED_RATIO_LIMIT = 0.6
 
 
+#: Cómo se llama cada escalón en el reporte. La clave interna es corta porque
+#: viaja por la API; el rótulo es el que lee una persona.
+_ESCALON_ROTULO = {
+    "ninguno": "sin separador",
+    "simple": "un separador",
+    "tandem": "separador en tándem",
+    "agh": "manejador avanzado de gas",
+}
+
+
+def _traza_escalera(ladder: list[dict], f_vent: float,
+                    elegido: dict | None) -> list[dict]:
+    """La escalera escrita como fórmulas, para el reporte.
+
+    Por cada escalón evaluado emite sus **dos condiciones**, que es lo que hay
+    que poder auditar: cuál se cumplió, cuál no, y contra qué valor se comparó
+    cada una. Un escalón sirve sólo si pasa las dos, y el remedio de cada falla
+    es distinto —si falla la capacidad, ninguna mejora de eficiencia de
+    separación lo resuelve—, así que mostrarlas juntas como un único «no
+    alcanza» perdería la información útil.
+
+    Se corta en el escalón elegido: los que están por encima no se evaluaron
+    para decidir, y publicarlos sugeriría que el aparejo los consideró.
+
+    Args:
+        ladder: Los escalones evaluados, tal como los arma
+            :func:`select_gas_handling_strategy`.
+        f_vent: Gas libre que llega a la admisión, ya descontado el venteo.
+        elegido: El escalón que resolvió el pozo, o ``None`` si ninguno.
+
+    Returns:
+        Lista de dicts de :class:`bes.core.formulas.Formula`.
+    """
+    from bes.core.formulas import FormulaTrace
+
+    trace = FormulaTrace()
+    for e in ladder:
+        rotulo = _ESCALON_ROTULO.get(e["strategy"], e["strategy"])
+        cap_ok = e["cumple_capacidad"]
+        trace.add(
+            "gas_capacidad_configuracion",
+            {"f_admisión": f_vent, "capacidad": e["capacidad"]},
+            e["capacidad"],
+            substitute=False,
+            label=f"Escalón «{rotulo}» — condición 1: capacidad",
+            context=f"{f_vent:.2%} de gas en la admisión contra "
+                    f"{e['capacidad']:.0%} que admite esta configuración: "
+                    + ("CUMPLE." if cap_ok else
+                       "NO CUMPLE. El gas que llega supera lo que la "
+                       "configuración soporta, y ningún separador más eficiente "
+                       "lo arregla — hay que subir de configuración."),
+        )
+        if e["f_pump"] is None:
+            trace.add(
+                "gas_criterio_bomba",
+                {"f_bomba": 0.0, "max_gip": e["tolerancia"]}, e["tolerancia"],
+                substitute=False,
+                label=f"Escalón «{rotulo}» — condición 2: no evaluable",
+                context="El catálogo no ofrece equipo que entre en este pozo "
+                        "para esta configuración, así que la condición no se "
+                        "puede evaluar.",
+            )
+        else:
+            # Cuánto gas saca el separador, si hay separador. Va entre las dos
+            # condiciones porque es lo que las conecta: la 1 mira el gas que
+            # llega y la 2 el que queda, y esta cuenta es el paso del uno al
+            # otro. El escalón del manejador avanzado NO separa, así que ahí no
+            # hay reducción que mostrar.
+            eta = e.get("efficiency")
+            if eta and e["strategy"] != "agh":
+                r_in = fraction_to_ratio(f_vent)
+                trace.add(
+                    "gas_separador_salida",
+                    {"r": r_in, "η": eta, "r'": r_in * (1.0 - eta)},
+                    e["f_pump"],
+                    label=f"Escalón «{rotulo}» — gas remanente tras separar",
+                    context=f"El separador retira el {eta:.1%} del gas libre. "
+                            f"La relación cae de {r_in:.4f} a "
+                            f"{r_in * (1 - eta):.4f}, y la fracción de "
+                            f"{f_vent:.2%} a {e['f_pump']:.2%}. Aplicar el "
+                            f"factor sobre la FRACCIÓN daría "
+                            f"{f_vent * (1 - eta):.2%}, que es el error más "
+                            f"común del procedimiento.",
+                )
+            crit_ok = e["cumple_criterio"]
+            trace.add(
+                "gas_criterio_bomba",
+                {"f_bomba": e["f_pump"], "max_gip": e["tolerancia"]},
+                e["f_pump"],
+                label=f"Escalón «{rotulo}» — condición 2: máximo admisible",
+                context=f"{e['f_pump']:.2%} de gas entra a la bomba contra "
+                        f"{e['tolerancia']:.1%} admisible: "
+                        + ("CUMPLE." if crit_ok else "NO CUMPLE.")
+                        + (f" El escalón resuelve el pozo."
+                           if e.get("alcanza") else ""),
+                applies=bool(e.get("alcanza")),
+            )
+        if e.get("alcanza"):
+            break
+    return trace.as_list()
+
+
 def select_gas_handling_strategy(
     free_gas_fraction_intake: float,
     single_efficiency: float | None = None,
@@ -1083,6 +1231,11 @@ def select_gas_handling_strategy(
         "n_separators": n_sep,
         "efficiency": eta_aplicada,
         "warnings": warnings,
+        # La escalera como traza de fórmulas, para el reporte. El dict
+        # ``ladder`` de arriba es el dato crudo que consume la pantalla; esto
+        # es la MISMA decisión escrita como cuenta, con su cita, para que se
+        # pueda auditar por qué se eligió el escalón que se eligió.
+        "formulas": _traza_escalera(ladder, f_vent, elegido),
         "f_intake": f_intake,
         "f_after_vent": f_vent,
         "f_pump": f_pump,
@@ -2313,7 +2466,18 @@ def increment_result_to_candidate(
         # se ejecutó, no una reescritura. Así el aparejo completo muestra las
         # fórmulas del método por el mismo camino que el diseño convencional
         # (ResultsView las lee de DesignResult.formulas).
-        "formulas": inc.get("formulas", []),
+        #
+        # Delante van las del balance de gas libre, que ``calculate_tdh`` ya
+        # calculó: son las que explican de dónde sale la fracción con que este
+        # camino decide TODO —la correlación de fricción, la escalera de manejo
+        # de gas y la propia aplicación del método—. Sin ellas el reporte del
+        # pozo con gas arranca por el salto de presión y el porcentaje de gas
+        # aparece sin origen.
+        "formulas": [
+            *[f for f in tdh_info.get("formulas", [])
+              if f.get("step") == "balance_gas_libre"],
+            *inc.get("formulas", []),
+        ],
         "pump_model": pump.model,
         "pump_manufacturer": pump.manufacturer,
         "pump_od": pump.od,

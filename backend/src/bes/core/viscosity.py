@@ -477,6 +477,11 @@ def crude_viscosity_ssu(
         "ssu": ssu,
         "sg_oil": sg_oil,
         "dead_oil_source": origen,
+        # El gas disuelto con que se entró al paso 3. Viaja para que el reporte
+        # pueda mostrarlo: es el dato que distingue este paso de usar el GOR
+        # total, y esa confusión ya costó un 8 % de potencia una vez.
+        "rs_scf_bbl": rs_scf_bbl,
+        "temp_f": temp_f,
         "warnings": warnings,
     }
 

@@ -520,6 +520,72 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
     ),
 
     # -------------------------------------------------------- VISCOSIDAD --
+    #
+    # Los pasos 2, 3 y 4 del procedimiento de Riling, que hasta ahora entraban
+    # al reporte ya resueltos: el SSU aparecía sin decir de dónde salía.
+    FormulaSpec(
+        key="visc_mu_muerta", topic="viscosidad", step="viscosidad_muerta",
+        label="Paso 2 — viscosidad del crudo sin gas",
+        expression="μ_od = f(°API, T)   —  Fig. 4L(2)", units="cp",
+        symbols={
+            "°API": "Gravedad del petróleo [°API]",
+            "T": "Temperatura de evaluación [°F]",
+            "μ_od": "Viscosidad del crudo muerto [cp]",
+        },
+        reference="Brown Vol. 2b, Apéndice 4L, Fig. 4L(2)",
+        module="bes.core.viscosity",
+        note="Riling dice «de ensayos o de la Fig. 4L», y ése es el orden: un "
+             "dato medido a la temperatura correcta manda sobre la lámina. "
+             "Beggs-Robinson NO interviene acá: en crudos pesados quedaba muy "
+             "corta —59 cp contra 151.9 de la figura para 16 °API a 130 °F— y "
+             "arrastraba el error por todo el procedimiento.",
+    ),
+    FormulaSpec(
+        key="visc_mu_viva", topic="viscosidad", step="viscosidad_viva",
+        label="Paso 3 — corrección por gas disuelto",
+        expression="μ_ob = f(μ_od, Rs)   —  Fig. 4L(1)", units="cp",
+        symbols={
+            "μ_od": "Viscosidad del crudo muerto [cp]",
+            "Rs": "Gas DISUELTO en la admisión [scf/STB]",
+            "μ_ob": "Viscosidad del crudo saturado de gas [cp]",
+        },
+        reference="Brown Vol. 2b, Apéndice 4L, Fig. 4L(1)",
+        module="bes.core.viscosity",
+        note="Entra el gas DISUELTO, no el GOR total: el gas ya liberado está "
+             "al lado, libre, y no adelgaza al petróleo. La lámina se titula "
+             "«Viscosity of gas SATURATED crude oil».",
+    ),
+    FormulaSpec(
+        key="visc_cinematica", topic="viscosidad", step="viscosidad_cinematica",
+        label="Paso 4a — viscosidad cinemática",
+        expression="ν = μ_ob / γ_o", units="cSt",
+        symbols={
+            "μ_ob": "Viscosidad dinámica del crudo saturado [cp]",
+            "γ_o": "Densidad relativa del petróleo [-]",
+        },
+        reference="Brown Vol. 2b §4.53112", module="bes.core.viscosity",
+        note="La conversión a SSU se indexa por viscosidad CINEMÁTICA, así que "
+             "hay que dividir por la densidad relativa antes de convertir.",
+    ),
+    FormulaSpec(
+        key="visc_factores", topic="viscosidad", step="factores_correccion",
+        label="Paso 6 — factores de corrección de la curva",
+        expression="(C_Q, C_H, C_HP, η_visc) = Tabla 4.520 / 4.521 (SSU)",
+        units="%",
+        symbols={
+            "SSU": "Viscosidad de la mezcla a temperatura de bombeo [SSU]",
+            "C_Q": "Factor de caudal [%]",
+            "C_H": "Factor de altura [%]",
+            "C_HP": "Factor de potencia [%]",
+            "η_visc": "Rendimiento degradado [%]",
+        },
+        reference="Brown Vol. 2b §4.53112, Tablas 4.520 y 4.521 (Riling)",
+        module="bes.core.viscosity",
+        note="Dos tablas según el rendimiento máximo de la bomba —4.520 para "
+             "60 % y 4.521 para 70 %—, interpoladas entre ambas. Fuera del "
+             "rango de la tabla se acota al extremo y se avisa: no se "
+             "extrapola.",
+    ),
     FormulaSpec(
         key="visc_ssu", topic="viscosidad", step="conversion_ssu",
         label="Viscosidad en Segundos Saybolt Universal",
@@ -577,6 +643,127 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
     ),
 
     # --------------------------------------------------------------- GAS --
+    #
+    # 0) De dónde sale la fracción de gas libre. Es el número que gobierna TODO
+    #    lo que viene después —la correlación de fricción, la escalera de
+    #    manejo de gas y el método de incrementos—, así que el reporte tiene que
+    #    poder mostrar su balance término por término. Con el porcentaje solo,
+    #    el lector no puede verificar nada.
+    FormulaSpec(
+        key="gas_volumen_petroleo", topic="gas", step="balance_gas_libre",
+        label="Volumen de petróleo en la admisión",
+        expression="V_o = (1 − WC) · Bo", units="bbl",
+        symbols={
+            "WC": "Corte de agua [fracción 0–1]",
+            "Bo": "Factor volumétrico del petróleo a P y T de admisión [bbl/STB]",
+        },
+        reference="Brown Vol. 2b §4.532", module="bes.core.gas_handling",
+        note="Sobre la base de UN barril de líquido de superficie. El petróleo "
+             "se dilata al bajar la presión y al tomar gas en solución, y por "
+             "eso Bo es mayor que 1.",
+    ),
+    FormulaSpec(
+        key="gas_volumen_agua", topic="gas", step="balance_gas_libre",
+        label="Volumen de agua en la admisión",
+        expression="V_w = WC · Bw", units="bbl",
+        symbols={
+            "WC": "Corte de agua [fracción 0–1]",
+            "Bw": "Factor volumétrico del agua a P y T de admisión [bbl/STB]",
+        },
+        reference="Brown Vol. 2b §4.532", module="bes.core.gas_handling",
+    ),
+    FormulaSpec(
+        key="gas_volumen_libre", topic="gas", step="balance_gas_libre",
+        label="Volumen de gas libre en la admisión",
+        expression="V_g = (1 − WC) · (GOR − Rs) · Bg", units="bbl",
+        symbols={
+            "WC": "Corte de agua [fracción 0–1]",
+            "GOR": "Relación gas-petróleo producida [scf/STB]",
+            "Rs": "Gas que sigue DISUELTO a P y T de admisión [scf/STB]",
+            "Bg": "Factor volumétrico del gas [bbl/scf]",
+        },
+        reference="Brown Vol. 2b §4.532", module="bes.core.gas_handling",
+        note="El gas libre es la diferencia entre el que el pozo produce y el "
+             "que sigue disuelto. Rs se acota al GOR: no puede liberarse más "
+             "gas del que el pozo produce. Multiplica por (1 − WC) porque el "
+             "gas viene con el petróleo, no con el agua.",
+    ),
+    FormulaSpec(
+        key="gas_fraccion_libre", topic="gas", step="balance_gas_libre",
+        label="Fracción de gas libre en la admisión",
+        expression="f = V_g / (V_o + V_w + V_g)", units="fracción",
+        symbols={
+            "V_o": "Volumen de petróleo [bbl]",
+            "V_w": "Volumen de agua [bbl]",
+            "V_g": "Volumen de gas libre [bbl]",
+        },
+        reference="Brown Vol. 2b §4.532; Takács (2018) §4.4.3",
+        module="bes.core.gas_handling",
+        note="Es una FRACCIÓN sobre el volumen total, no una relación "
+             "gas/líquido. Gobierna la correlación de fricción, la escalera de "
+             "manejo de gas y el método por incrementos.",
+    ),
+    FormulaSpec(
+        key="gas_relacion_gas_liquido", topic="gas", step="balance_gas_libre",
+        label="Relación gas/líquido en la admisión",
+        expression="r = f / (1 − f)", units="bbl gas / bbl líquido",
+        symbols={"f": "Fracción volumétrica de gas libre [0–1]"},
+        reference="Brown Vol. 2b §4.523, pág. 59",
+        module="bes.core.gas_handling",
+        note="La misma cantidad de gas, expresada de la otra manera. Hace falta "
+             "porque el criterio de Brown —la bomba pierde altura por encima de "
+             "0.1— está declarado en RELACIÓN, mientras que las capacidades de "
+             "Takács y los catálogos están en fracción. Confundirlas mueve los "
+             "umbrales a la mitad de su valor.",
+    ),
+
+    # 0b) La escalera de manejo de gas: las dos condiciones que decide cada
+    #     escalón, y la reducción que produce un separador.
+    FormulaSpec(
+        key="gas_capacidad_configuracion", topic="gas", step="escalera_gas",
+        label="Condición 1 — capacidad de la configuración",
+        expression="f_admisión ≤ capacidad", units="fracción",
+        symbols={
+            "f_admisión": "Gas libre que LLEGA a la admisión [0–1]",
+            "capacidad": "Fracción de vacío que admite esa configuración de "
+                         "aparejo [0–1]",
+        },
+        reference="Takács (2018), Fig. 4.25, pág. 195",
+        module="bes.core.gas_handling",
+        note="Es una propiedad de la TECNOLOGÍA: 20 % sin separador, 80 % con "
+             "uno, 95 % en tándem. Se mide en la admisión —la figura dice «at "
+             "pump suction conditions»— y no aguas abajo del separador.",
+    ),
+    FormulaSpec(
+        key="gas_criterio_bomba", topic="gas", step="escalera_gas",
+        label="Condición 2 — máximo de gas admisible en la bomba",
+        expression="f_bomba ≤ max_gip", units="fracción",
+        symbols={
+            "f_bomba": "Gas libre que ENTRA a la bomba, ya separado [0–1]",
+            "max_gip": "Máximo de gas admisible, criterio de diseño [0–1]",
+        },
+        reference="Criterio propio del proyecto; contrastar con Takács (2018), "
+                  "pág. 10, que exige separador por encima del 5 %",
+        module="bes.core.gas_handling",
+        note="Se mide DESPUÉS de separar, a diferencia de la condición 1. Un "
+             "escalón de la escalera sirve sólo si cumple las dos.",
+    ),
+    FormulaSpec(
+        key="gas_separador_salida", topic="gas", step="escalera_gas",
+        label="Gas remanente después del separador",
+        expression="r' = r · (1 − η)   →   f' = r' / (1 + r')",
+        units="fracción",
+        symbols={
+            "r": "Relación gas/líquido antes del separador [-]",
+            "η": "Eficiencia de separación [0–1]",
+            "r'": "Relación gas/líquido después del separador [-]",
+        },
+        reference="Brown Vol. 2b §4.524", module="bes.core.gas_handling",
+        note="La reducción se aplica sobre la RELACIÓN, no sobre la fracción: "
+             "el separador saca gas y deja el líquido. Un separador del 75 % NO "
+             "deja f × 0.25; con f = 65 % deja 31.6 % y no 16.2 %.",
+    ),
+
     FormulaSpec(
         key="gas_delta_p", topic="gas", step="salto_presion",
         label="Salto de presión que debe dar la bomba",

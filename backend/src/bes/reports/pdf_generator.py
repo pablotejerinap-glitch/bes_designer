@@ -455,6 +455,131 @@ def _methodology(dr, reservoir, fluid, well, surface, objectives) -> dict:
     return M
 
 
+# ---------------------------------------------------------------------------
+# Memoria de cálculo
+# ---------------------------------------------------------------------------
+
+def _escapar(texto: str) -> str:
+    """Escapa lo que ReportLab interpretaría como marcado."""
+    return (str(texto).replace("&", "&amp;")
+                      .replace("<", "&lt;").replace(">", "&gt;"))
+
+
+def _fmt_resultado(valor, unidades: str) -> str:
+    """El resultado de una fórmula, legible y con su unidad."""
+    if not isinstance(valor, (int, float)) or isinstance(valor, bool):
+        return f"{_escapar(valor)} {_escapar(unidades)}".strip()
+    a = abs(valor)
+    if a and (a < 1e-4 or a >= 1e7):
+        txt = f"{valor:.4g}"
+    elif a < 1:
+        txt = f"{valor:.6f}".rstrip("0").rstrip(".")
+    elif a < 1000:
+        txt = f"{valor:,.4f}".rstrip("0").rstrip(".")
+    else:
+        txt = f"{valor:,.1f}".rstrip("0").rstrip(".")
+    return f"{txt} {_escapar(unidades)}".strip()
+
+
+def _seccion_memoria_de_calculo(story, dr, section_s, sub_s, body_s,
+                                eq_style) -> None:
+    """Agrega al informe la cadena completa de cuentas que produjo el diseño.
+
+    Cada paso se publica con cuatro cosas: qué se calcula, la fórmula en
+    símbolos, la misma fórmula con los números reemplazados y el resultado con
+    su unidad, más la cita del libro y —cuando la hay— la aclaración propia de
+    este pozo.
+
+    Es la sección que hace auditable el informe. Sin ella el PDF entrega
+    números que hay que creer; con ella, un revisor puede tomar el libro y
+    seguir la cuenta sin abrir la aplicación ni el código.
+
+    Los pasos se agrupan por tema en el orden en que corre el diseño, que es el
+    mismo en que la aplicación los emitió: no se reordena nada.
+
+    Args:
+        story: El flujo del documento, al que se le agregan los elementos.
+        dr: El ``DesignResult``, de donde salen las fórmulas.
+        section_s, sub_s, body_s, eq_style: Estilos del informe.
+    """
+    from bes.core.formula_catalog import TOPICS_BY_KEY, TOPIC_ORDER
+
+    formulas = list(getattr(dr, "formulas", None) or [])
+    story.append(Paragraph("6. Memoria de cálculo", section_s))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=_GRAY,
+                            spaceAfter=6))
+
+    if not formulas:
+        story.append(Paragraph(
+            "Este diseño no publicó traza de fórmulas.", body_s))
+        story.append(PageBreak())
+        return
+
+    story.append(Paragraph(
+        f"Las {len(formulas)} cuentas que produjeron el resultado, en el orden "
+        f"en que se ejecutaron. Cada una muestra la fórmula, los valores "
+        f"reemplazados y la fuente. Se generan desde el mismo código que hace "
+        f"el cálculo, de modo que la fórmula publicada es necesariamente la "
+        f"que se aplicó.", body_s))
+    story.append(Spacer(1, 6))
+
+    paso_s = ParagraphStyle("paso", fontName="Times-Bold", fontSize=10,
+                            leading=13, spaceBefore=7, spaceAfter=2)
+    dato_s = ParagraphStyle("dato", fontName="Times-Roman", fontSize=9.5,
+                            leading=12, leftIndent=12, spaceAfter=1)
+    cita_s = ParagraphStyle("cita", fontName="Times-Italic", fontSize=8.5,
+                            leading=11, leftIndent=12, textColor=_GRAY,
+                            spaceAfter=4)
+
+    # Agrupado por tema, en el orden del diseño. Un tema que este pozo no
+    # ejecutó simplemente no aparece.
+    orden = {k: i for i, k in enumerate(TOPIC_ORDER)}
+    temas: dict[str, list] = {}
+    for f in formulas:
+        temas.setdefault(f.get("topic", ""), []).append(f)
+
+    n = 0
+    for clave in sorted(temas, key=lambda k: orden.get(k, 99)):
+        tema = TOPICS_BY_KEY.get(clave)
+        story.append(Paragraph(
+            _escapar(tema.label if tema else clave), sub_s))
+        for f in temas[clave]:
+            n += 1
+            bloque = [
+                Paragraph(f"{n}. {_escapar(f.get('label', ''))}", paso_s),
+                _equation_box(_escapar(f.get("expression", "")), eq_style),
+            ]
+            sust = f.get("substitution", "")
+            if sust and sust != f.get("expression"):
+                bloque.append(Paragraph(
+                    f"<font face='Courier'>{_escapar(sust)}</font>", dato_s))
+            bloque.append(Paragraph(
+                f"<b>= {_fmt_resultado(f.get('result'), f.get('units', ''))}</b>",
+                dato_s))
+            if f.get("context"):
+                bloque.append(Paragraph(_escapar(f["context"]), dato_s))
+            if f.get("reference"):
+                bloque.append(Paragraph(
+                    f"Fuente: {_escapar(f['reference'])}", cita_s))
+            story.append(KeepTogether(bloque))
+
+    story.append(PageBreak())
+
+
+def _equation_box(texto: str, eq_style):
+    """La fórmula en símbolos, en su recuadro."""
+    t = Table([[Paragraph(texto, eq_style)]], colWidths=[5.4 * inch])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), _LIGHT_BLUE),
+        ("BOX", (0, 0), (-1, -1), 0.4, _GRAY),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+    ]))
+    return t
+
+
 # ===========================================================================
 # Main entry point
 # ===========================================================================
@@ -990,9 +1115,17 @@ def generate_design_report(
     story.append(PageBreak())
 
     # ------------------------------------------------------------------
-    # SECTION 6 — REFERENCES
+    # SECCIÓN 6 — MEMORIA DE CÁLCULO
     # ------------------------------------------------------------------
-    story.append(Paragraph("6. Referencias", section_s))
+    # Cada cuenta del diseño con su fórmula, los números reemplazados y la
+    # cita. Es la sección que permite auditar el informe sin abrir la
+    # aplicación: sin ella, el PDF entrega resultados que hay que creer.
+    _seccion_memoria_de_calculo(story, dr, section_s, sub_s, body_s, eq_style)
+
+    # ------------------------------------------------------------------
+    # SECTION 7 — REFERENCES
+    # ------------------------------------------------------------------
+    story.append(Paragraph("7. Referencias", section_s))
     story.append(HRFlowable(width="100%", thickness=0.5, color=_GRAY, spaceAfter=6))
     refs = [
         "Brown, K.E. (1980). <i>The Technology of Artificial Lift Methods, Vol. 2b</i>. "

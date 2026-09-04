@@ -472,6 +472,93 @@ def select_housing(
     }
 
 
+def _traza_cadena_viscosidad(trace, visc: dict, viscosity: dict | None) -> None:
+    """Publica los pasos 2, 3, 4a y 6 del procedimiento de Riling.
+
+    El reporte arrancaba en el SSU, que aparecía como un número sin origen: no
+    se veía de dónde salía la viscosidad del crudo muerto, ni cuánto la
+    adelgazaba el gas disuelto, ni por qué se dividía por la densidad relativa
+    antes de convertir. Los cuatro pasos que faltaban son justamente los que un
+    revisor querría verificar contra las láminas del libro.
+
+    Los pasos 2, 3 y 4a se publican sólo si hubo cadena que recorrer: cuando el
+    SSU de diseño viene medido de laboratorio (paso 5), no hubo lectura de
+    lámina ni conversión, y fabricarlas sería mentir sobre la cuenta.
+
+    Args:
+        trace: La traza en curso.
+        visc: El ``visc_detail`` del candidato.
+        viscosity: El diagnóstico de viscosidad del pozo, para el °API.
+    """
+    cadena = visc.get("viscosity_chain") or {}
+    t_eval = visc.get("viscosity_temp_f")
+    api = (viscosity or {}).get("oil_api")
+
+    if cadena.get("mu_dead_cp") and api and t_eval:
+        medido = cadena.get("dead_oil_source") == "medido"
+        trace.add(
+            "visc_mu_muerta",
+            {"°API": api, "T": t_eval}, cadena["mu_dead_cp"],
+            substitute=False,
+            context=(
+                f"Dato de ensayo de laboratorio, referido a {t_eval:.0f} °F."
+                if medido else
+                f"Leída de la lámina a {api:.1f} °API y {t_eval:.0f} °F: no se "
+                f"cargó viscosidad de ensayo. Es la fuente que indica Riling, "
+                f"pero un PVT medido sigue siendo mejor dato."
+            ),
+        )
+    if cadena.get("mu_live_cp") and cadena.get("mu_dead_cp"):
+        rs = cadena.get("rs_scf_bbl")
+        trace.add(
+            "visc_mu_viva",
+            {"μ_od": cadena["mu_dead_cp"], "Rs": rs if rs is not None else 0.0},
+            cadena["mu_live_cp"],
+            substitute=rs is not None,
+            context=f"El gas disuelto adelgaza el crudo de "
+                    f"{cadena['mu_dead_cp']:.1f} a {cadena['mu_live_cp']:.1f} cp.",
+        )
+    if cadena.get("cst") and cadena.get("mu_live_cp") and cadena.get("sg_oil"):
+        trace.add(
+            "visc_cinematica",
+            {"μ_ob": cadena["mu_live_cp"], "γ_o": cadena["sg_oil"]},
+            cadena["cst"],
+        )
+
+
+def _traza_factores_viscosidad(trace, visc: dict) -> None:
+    """Publica el paso 6: los cuatro factores que salen de la tabla.
+
+    Va separado de :func:`_traza_cadena_viscosidad` porque en el orden del
+    procedimiento el paso 6 viene **después** de la conversión a SSU, que es el
+    4b: la tabla se indexa por SSU, así que mostrar los factores antes de decir
+    con qué número se entró invierte la lectura.
+    """
+    trace.add(
+        "visc_factores",
+        {"SSU": visc["design_ssu"], "C_Q": visc["capacity_factor"],
+         "C_H": visc["head_factor"], "C_HP": visc["hp_factor"],
+         "η_visc": visc["degraded_efficiency"] * 100.0},
+        visc["capacity_factor"],
+        substitute=False,
+        label=f"Paso 6 — factores de corrección "
+              f"(C_Q {visc['capacity_factor']:.1f} %, "
+              f"C_H {visc['head_factor']:.1f} %, "
+              f"C_HP {visc['hp_factor']:.1f} %, "
+              f"η {visc['degraded_efficiency'] * 100:.1f} %)",
+        context=f"Con {visc['design_ssu']:.0f} SSU se entra a la tabla de "
+                f"{visc['pump_max_efficiency_pct']:.0f} % de rendimiento "
+                f"máximo, que es el de esta bomba. "
+                + (
+                    "El corte de agua NO está corregido: sin viscosidad medida "
+                    "de la mezcla, el paso 5 queda sin realizar y se usa la del "
+                    "crudo solo, que puede quedar por debajo de la real."
+                    if visc.get("water_cut_correction") == "no_realizada"
+                    else ""
+                ),
+    )
+
+
 def _pump_max_efficiency_pct(pump: PumpCurve) -> float:
     """Rendimiento máximo de catálogo de la bomba, **en porcentaje**.
 
@@ -744,6 +831,12 @@ def _design_candidate(
                 if viscosity.get("water_cut_correction") != "medida" else None
             ),
             "intake_temp_f": viscosity.get("intake_temp_f"),
+            # Los pasos 2, 3 y 4a, para poder mostrarlos. Hasta ahora el reporte
+            # arrancaba en el SSU, que aparecía sin decir de dónde salía: ni la
+            # lámina que dio la viscosidad muerta, ni el gas disuelto que la
+            # adelgazó, ni la división por la densidad relativa.
+            "viscosity_chain": viscosity.get("viscosity") or {},
+            "viscosity_temp_f": viscosity.get("viscosity_temp_f"),
             "q_required": objectives.target_flow_rate,
             "h_required": tdh_ft,
             "water_cut_correction": viscosity.get("water_cut_correction"),
@@ -791,6 +884,7 @@ def _design_candidate(
 
     # --- Corrección por viscosidad: la traza, antes de usar los valores -----
     if visc_detail is not None:
+        _traza_cadena_viscosidad(trace, visc_detail, viscosity)
         if visc_detail.get("design_cst"):
             trace.add(
                 "visc_ssu",
@@ -803,6 +897,7 @@ def _design_candidate(
                         f"ahí salen los cuatro factores —caudal, altura, "
                         f"rendimiento y potencia— y de ninguna otra fuente.",
             )
+        _traza_factores_viscosidad(trace, visc_detail)
         trace.add(
             "visc_q_water",
             {"Q_pedido": visc_detail["q_required"],

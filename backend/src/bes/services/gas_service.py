@@ -464,6 +464,18 @@ def run_gas_design_complete(
                 cand, inc["pump_curve"], well, surface, fluid, objectives,
                 catalog_manager, depth, reservoir.reservoir_temp,
             )
+            # La escalera, con la del camino de gas y no con la de
+            # ``_assemble_design``. Las dos existen porque cada camino evalúa la
+            # fracción a su temperatura —éste a la de la bomba, aquél a la de
+            # reservorio— y publicar ambas mostraría dos escaleras con números
+            # distintos para la misma decisión. Manda la que efectivamente eligió
+            # el aparejo, que es ésta.
+            if factibilidad.get("formulas"):
+                design.formulas = [
+                    *[f for f in design.formulas
+                      if f.get("step") != "escalera_gas"],
+                    *factibilidad["formulas"],
+                ]
         except (ValueError, KeyError, StopIteration, TypeError) as exc:
             motivos.append(f"{modelo}: no se pudo completar el aparejo ({exc})")
             continue
@@ -487,6 +499,11 @@ def run_gas_design_complete(
             # de modo ejemplo se lee como un diseño real.
             "warnings": _unir_avisos(cand["warnings"], factibilidad.get("warnings")),
             "rejected": motivos,
+            # Las dos condiciones de la escalera, como cuentas auditables. El
+            # camino convencional las agrega en ``_build_design_result``; acá el
+            # diseño se arma con ``assemble_design``, que no ve la escalera, así
+            # que se enganchan sobre el resultado ya construido.
+            "ladder_formulas": factibilidad.get("formulas") or [],
         }
 
     raise ValueError(

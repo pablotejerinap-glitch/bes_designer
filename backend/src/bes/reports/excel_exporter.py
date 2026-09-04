@@ -448,6 +448,69 @@ def _build_warnings(ws, dr: DesignResult) -> None:
             row += 1
 
 
+def _build_memoria(ws, dr: DesignResult) -> None:
+    """Hoja con la cadena completa de cuentas que produjo el diseño.
+
+    Una fila por paso, con la fórmula en símbolos, la misma con los números
+    reemplazados, el resultado con su unidad y la cita. Es lo que permite
+    auditar el diseño en la planilla, sin abrir la aplicación.
+
+    A diferencia del resto de las hojas —que muestran resultados— ésta muestra
+    el procedimiento, así que se ordena por ejecución y no por importancia.
+    """
+    ws.title = "Memoria de cálculo"
+    _set_widths(ws, [4, 34, 40, 44, 18, 34])
+
+    formulas = list(getattr(dr, "formulas", None) or [])
+
+    row = 1
+    c = ws.cell(row=row, column=1, value="MEMORIA DE CÁLCULO")
+    c.fill = _BLUE_FILL; c.font = _HDR_FONT; c.alignment = _CENTER; c.border = _BORDER
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
+    row += 1
+
+    if not formulas:
+        ws.cell(row=row, column=1,
+                value="Este diseño no publicó traza de fórmulas.").font = _DATA_FONT
+        return
+
+    _header_row(ws, row, ["#", "Paso", "Fórmula", "Con los números",
+                          "Resultado", "Fuente"])
+    row += 1
+
+    for i, f in enumerate(formulas, 1):
+        resultado = f.get("result")
+        if isinstance(resultado, (int, float)) and not isinstance(resultado, bool):
+            texto = f"{resultado:,.6g} {f.get('units', '')}".strip()
+        else:
+            texto = f"{resultado} {f.get('units', '')}".strip()
+        valores = [
+            i,
+            f.get("label", ""),
+            f.get("expression", ""),
+            f.get("substitution", ""),
+            texto,
+            f.get("reference", ""),
+        ]
+        for col, valor in enumerate(valores, 1):
+            c = ws.cell(row=row, column=col, value=valor)
+            c.font = _DATA_FONT
+            c.border = _BORDER
+            c.alignment = Alignment(horizontal="left", vertical="top",
+                                    wrap_text=True)
+        # La aclaración propia del caso, debajo y en cursiva: es prosa, no dato,
+        # y meterla en una columna rompería el ancho de toda la hoja.
+        if f.get("context"):
+            row += 1
+            c = ws.cell(row=row, column=2, value=f["context"])
+            c.font = Font(name="Calibri", size=9, italic=True, color="555555")
+            c.alignment = Alignment(horizontal="left", vertical="top",
+                                    wrap_text=True)
+            ws.merge_cells(start_row=row, start_column=2, end_row=row,
+                           end_column=6)
+        row += 1
+
+
 def generate_design_excel(
     design_result: DesignResult,
     well_data: dict,
@@ -469,6 +532,7 @@ def generate_design_excel(
     _build_tdh(wb.create_sheet(), design_result, well_data)
     _build_bomba(wb.create_sheet(), design_result)
     _build_electrico(wb.create_sheet(), design_result)
+    _build_memoria(wb.create_sheet(), design_result)
     _build_warnings(wb.create_sheet(), design_result)
 
     buf = io.BytesIO()

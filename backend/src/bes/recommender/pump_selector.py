@@ -138,6 +138,13 @@ def _build_design_result(
             warnings.append(gas_strategy["verdict"])
         warnings.extend(gas_strategy.get("warnings", []))
 
+    # Las dos condiciones de la escalera, como cuentas. Van al final de la
+    # traza: la decisión de manejo de gas se toma sobre la fracción que el
+    # balance de §gas ya publicó, así que leerlas después es leerlas en orden.
+    formulas = list(pump_dict.get("formulas", []))
+    if gas_strategy:
+        formulas.extend(gas_strategy.get("formulas") or [])
+
     return DesignResult(
         pump_manufacturer=pump_dict["pump_manufacturer"],
         pump_series=pump_obj.series,
@@ -170,7 +177,7 @@ def _build_design_result(
         ),
         gip_fraction=max(0.0, min(1.0, gip)),
         warnings=warnings,
-        formulas=pump_dict.get("formulas", []),
+        formulas=formulas,
         alternatives=[],
         friction_method=str(pump_dict.get("friction_method", "hazen_williams")),
         gas_fraction_threshold=float(gas_fraction_threshold),
