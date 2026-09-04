@@ -42,6 +42,13 @@ herramienta, porque presentarlos indistintamente sería una atribución falsa::
 
 Ver el detalle de cada cita junto a la constante correspondiente.
 
+Sobre el 10 % de la bomba hay además una **verificación paralela**: la
+correlación de Turpin (Takács 2018, ec. 4.30), que responde la misma pregunta
+pero haciendo depender el límite de la presión de admisión en vez de fijar una
+constante. No decide nada —eso lo sigue haciendo ``max_gip``—; se calcula para
+contrastar, y sólo se avisa cuando los dos criterios discrepan. Ver
+:func:`turpin_cross_check`.
+
 El separador escala la RELACION, no la fracción
 -----------------------------------------------
 Un separador que retira el 75 % del gas libre **no** deja ``f × 0.25``. Saca
@@ -307,6 +314,194 @@ def fraction_to_ratio(f: float) -> float:
     if f <= 0.0:
         return 0.0
     return float("inf") if f >= 1.0 else f / (1.0 - f)
+
+
+#: Valor del factor de Turpin que separa la operación estable de la
+#: interferencia severa por gas (Takács 2018, §4.4.3.2, ec. 4.30, pág. 176).
+#: Por debajo de 1 la bomba opera en forma estable; por encima, el gas
+#: interfiere severamente.
+TURPIN_STABILITY_LIMIT = 1.0
+
+#: Coeficiente de la ec. 4.30 de Turpin. Se declara aparte porque es el número
+#: que fija la correlación, y así se lee al lado de su cita en vez de aparecer
+#: enterrado en la cuenta.
+TURPIN_COEFFICIENT = 2000.0
+
+
+def turpin_stability(
+    free_gas_fraction_pump: float,
+    pip_psia: float,
+) -> dict:
+    """Factor de estabilidad de Turpin y la fracción de gas que admite la PIP.
+
+    Segunda opinión sobre la misma pregunta que responde
+    ``GAS_FRACTION_PUMP_LIMIT``: cuánto gas libre tolera la bomba. La
+    diferencia es que Turpin **no fija una constante** — hace depender el
+    límite de la presión de admisión, que es la variable que gobierna cuánto
+    ocupa ese gas::
+
+        F = 2000 · (q'_g / q'_l)³ / PIP        F < 1  →  operación estable
+                                               F > 1  →  interferencia severa
+
+    **Entra la RELACIÓN gas/líquido, no la fracción.** El cociente de caudales
+    volumétricos in situ ``q'_g/q'_l`` es una relación; pasarle la fracción
+    ``f`` da un F equivocado —y por lo bajo, que es la dirección peligrosa—.
+    Es el mismo error que la reducción del separador sobre la fracción, ya
+    documentado en :func:`separator_outlet_fraction`.
+
+    Despejando ``F = 1`` se obtiene el límite en las unidades con que trabaja
+    el resto del módulo::
+
+        r_lím = (PIP / 2000)^(1/3)        f_lím = r_lím / (1 + r_lím)
+
+    que da del orden de 27 % a 100 psia y 44 % a 1000 psia: en ese rango la
+    correlación publicada es **más permisiva** que el 10 % fijo que adopta esta
+    herramienta.
+
+    **Verificación paralela: no decide nada.** La viabilidad la resuelve la
+    escalera contra ``max_gip``. Esta función existe para contrastar, y quien
+    la llama sólo avisa cuando los dos criterios discrepan.
+
+    Args:
+        free_gas_fraction_pump: Fracción volumétrica de gas libre que **entra a
+            la bomba**, ya descontados el venteo y el separador [0–1].
+        pip_psia: Presión en la admisión de la bomba [psia].
+
+    Returns:
+        Dict con ``ratio`` (la relación con que se entró), ``f`` (el factor F),
+        ``stable`` (``F < 1``), ``limit_ratio`` y ``limit_fraction`` (la
+        relación y la fracción que agotan el margen a esa PIP).
+
+    Raises:
+        ValueError: Si la presión de admisión no es positiva — la correlación
+            divide por ella.
+    """
+    if pip_psia <= 0.0:
+        raise ValueError(
+            f"La correlación de Turpin divide por la presión de admisión, así "
+            f"que no se puede evaluar con PIP = {pip_psia} psia."
+        )
+
+    f_pump = max(0.0, min(1.0, float(free_gas_fraction_pump)))
+    # La conversión es el punto delicado de toda la función: la ec. 4.30 toma
+    # el cociente de caudales volumétricos, que es una RELACIÓN.
+    r = fraction_to_ratio(f_pump)
+
+    if r == float("inf"):
+        # 100 % de gas: no hay líquido que bombear. El factor no está definido
+        # y no tiene sentido inventarle un número.
+        factor = float("inf")
+    else:
+        factor = TURPIN_COEFFICIENT * r ** 3 / pip_psia
+
+    r_limite = (pip_psia * TURPIN_STABILITY_LIMIT / TURPIN_COEFFICIENT) ** (1.0 / 3.0)
+
+    return {
+        "ratio": r,
+        "f": factor,
+        "stable": factor < TURPIN_STABILITY_LIMIT,
+        "limit_ratio": r_limite,
+        "limit_fraction": ratio_to_fraction(r_limite),
+        "pip_psia": float(pip_psia),
+        "fraction": f_pump,
+    }
+
+
+def turpin_cross_check(
+    free_gas_fraction_pump: float,
+    pip_psia: float,
+    max_gip: float = GAS_FRACTION_PUMP_LIMIT,
+) -> dict:
+    """Contrasta el criterio propio contra Turpin, y avisa **sólo si discrepan**.
+
+    Los dos responden la misma pregunta —¿tolera la bomba este gas?— por
+    caminos distintos: ``max_gip`` con una constante, Turpin con una curva que
+    depende de la presión de admisión. Cuando coinciden no hay nada que decir;
+    un aviso que aparece siempre deja de leerse.
+
+    Los dos casos que sí importan:
+
+    - **El criterio propio acepta y Turpin no** (``f ≤ max_gip`` pero ``F ≥ 1``):
+      el diseño pasa la verificación de la herramienta mientras la correlación
+      publicada advierte interferencia severa. Es el caso peligroso.
+    - **El criterio propio rechaza y Turpin acepta**: la herramienta está siendo
+      más conservadora que la bibliografía. No es un error, pero conviene que el
+      usuario lo sepa, porque puede aflojar ``max_gip`` con fundamento.
+
+    El texto del aviso lleva **los números** —F, el límite de fracción que esa
+    PIP implica y contra qué se comparó—: «Turpin advierte» a secas no permite
+    decidir nada.
+
+    Args:
+        free_gas_fraction_pump: Gas libre que entra a la bomba, ya separado [0–1].
+        pip_psia: Presión en la admisión [psia].
+        max_gip: Máximo de gas admisible con que diseñó la herramienta [0–1].
+
+    Returns:
+        El dict de :func:`turpin_stability` más ``agree`` (si los dos criterios
+        dicen lo mismo), ``propio_viable``, ``warnings`` y ``formulas`` — la
+        traza para el reporte, que se emite siempre porque el cálculo se hizo.
+    """
+    from bes.core.formulas import FormulaTrace
+
+    t = turpin_stability(free_gas_fraction_pump, pip_psia)
+    propio_ok = t["fraction"] <= max_gip
+    coinciden = propio_ok == t["stable"]
+
+    trace = FormulaTrace()
+    trace.add(
+        "gas_turpin_f",
+        {"r_bomba": t["ratio"], "PIP": t["pip_psia"]},
+        t["f"],
+        context=f"{t['fraction']:.2%} de gas libre en la bomba es una relación "
+                f"de {t['ratio']:.4f}, y a {t['pip_psia']:,.0f} psia da "
+                f"F = {t['f']:.4f}: "
+                + ("operación estable." if t["stable"] else
+                   "interferencia severa por gas."),
+    )
+    trace.add(
+        "gas_turpin_limite",
+        {"PIP": t["pip_psia"], "r_lím": t["limit_ratio"]},
+        t["limit_fraction"],
+        context=f"A {t['pip_psia']:,.0f} psia el margen se agota en "
+                f"{t['limit_fraction']:.1%} de gas libre, contra el "
+                f"{max_gip:.0%} fijo con que diseñó la herramienta.",
+    )
+
+    avisos: list[str] = []
+    if not coinciden and propio_ok:
+        avisos.append(
+            f"VERIFICACIÓN PARALELA — el diseño cumple el criterio propio "
+            f"({t['fraction']:.1%} de gas en la bomba contra {max_gip:.0%} "
+            f"admisible), pero la correlación de Turpin (Takács 2018, ec. 4.30) "
+            f"da F = {t['f']:.2f} ≥ 1, o sea interferencia severa por gas: a "
+            f"{t['pip_psia']:,.0f} psia de admisión su límite es "
+            f"{t['limit_fraction']:.1%} de gas libre. El límite de Turpin "
+            f"DEPENDE de la presión de admisión —del orden de 27 % a 100 psia y "
+            f"44 % a 1000 psia—, mientras la herramienta adopta un "
+            f"{GAS_FRACTION_PUMP_LIMIT:.0%} fijo. Turpin no decide el diseño: "
+            f"se informa para que la discrepancia se pueda revisar."
+        )
+    elif not coinciden:
+        avisos.append(
+            f"VERIFICACIÓN PARALELA — el criterio propio rechaza este pozo "
+            f"({t['fraction']:.1%} de gas en la bomba contra {max_gip:.0%} "
+            f"admisible), pero la correlación de Turpin (Takács 2018, ec. 4.30) "
+            f"da F = {t['f']:.2f} < 1, o sea operación estable: a "
+            f"{t['pip_psia']:,.0f} psia su límite es {t['limit_fraction']:.1%} "
+            f"de gas libre. En este rango la herramienta es MÁS conservadora "
+            f"que la bibliografía; el límite de Turpin depende de la presión de "
+            f"admisión y el de la herramienta no."
+        )
+
+    return {
+        **t,
+        "max_gip": float(max_gip),
+        "propio_viable": propio_ok,
+        "agree": coinciden,
+        "warnings": avisos,
+        "formulas": trace.as_list(),
+    }
 
 
 def free_gas_fraction_detail(
@@ -968,6 +1163,7 @@ def select_gas_handling_strategy(
     tandem_models: "Sequence[str] | None" = None,
     agh_max_gvf: float | None = None,
     agh_model: str | None = None,
+    pip_psia: float | None = None,
 ) -> dict:
     """Elige el manejo de gas mínimo que hace viable la BES, o la descarta.
 
@@ -1021,6 +1217,11 @@ def select_gas_handling_strategy(
             disponible [0–1]. ``None`` = el catálogo no tiene uno que entre en
             este pozo, y el escalón no se ofrece.
         agh_model: Modelo del manejador avanzado, para el texto del veredicto.
+        pip_psia: Presión de admisión [psia]. Habilita la **verificación
+            paralela de Turpin**, que contrasta la condición 2 contra la
+            correlación publicada (ver :func:`turpin_cross_check`). ``None`` la
+            omite: la correlación divide por la presión y sin ese dato no se
+            puede evaluar. No cambia ninguna decisión.
 
     Returns:
         dict con:
@@ -1287,6 +1488,22 @@ def select_gas_handling_strategy(
             f"(Takács pág. 186). El resultado es extrapolación."
         )
 
+    # --- Verificación paralela: Turpin -------------------------------------
+    #
+    # No decide nada. Contrasta la condición 2 —el gas que entra a la bomba
+    # contra max_gip, que es el criterio propio de la herramienta— con la única
+    # correlación publicada que hace depender ese límite de la presión de
+    # admisión en vez de fijar una constante.
+    #
+    # El aviso sale SÓLO si los dos criterios discrepan: uno declara viable y el
+    # otro no. Emitirlo siempre lo volvería ruido, y el caso normal es que
+    # coincidan. La traza, en cambio, va siempre que se haya podido calcular:
+    # la cuenta se hizo, y el reporte tiene que poder mostrarla.
+    turpin = None
+    if pip_psia is not None and pip_psia > 0.0:
+        turpin = turpin_cross_check(f_pump, pip_psia, max_gip)
+        warnings.extend(turpin["warnings"])
+
     return {
         "strategy": estrategia,
         "viable": elegido is not None,
@@ -1298,7 +1515,13 @@ def select_gas_handling_strategy(
         # ``ladder`` de arriba es el dato crudo que consume la pantalla; esto
         # es la MISMA decisión escrita como cuenta, con su cita, para que se
         # pueda auditar por qué se eligió el escalón que se eligió.
-        "formulas": _traza_escalera(ladder, f_vent, elegido),
+        "formulas": (
+            _traza_escalera(ladder, f_vent, elegido)
+            + (turpin["formulas"] if turpin else [])
+        ),
+        # La verificación paralela completa, para quien quiera el número y no
+        # sólo el aviso. ``None`` cuando no se pudo evaluar por falta de PIP.
+        "turpin": turpin,
         "f_intake": f_intake,
         "f_after_vent": f_vent,
         "f_pump": f_pump,

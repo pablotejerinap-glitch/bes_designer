@@ -400,6 +400,7 @@ def run_gas_design_complete(
     factibilidad = _estrategia_de_gas(
         catalog_manager, well, objectives, gip_admision, separador,
         vent_fraction=vent_gas_pct,
+        pip_psia=pip,
     )
     if not factibilidad["viable"]:
         raise ValueError(factibilidad["verdict"])

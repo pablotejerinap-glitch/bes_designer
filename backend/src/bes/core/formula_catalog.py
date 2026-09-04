@@ -768,6 +768,47 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
              "deja f × 0.25; con f = 65 % deja 31.6 % y no 16.2 %.",
     ),
 
+    # 0c) Turpin: la segunda opinión sobre la misma decisión. NO decide nada
+    #     —eso lo hace la condición 2 de arriba—; se calcula para contrastar,
+    #     porque es el único criterio publicado que hace depender el límite de
+    #     la presión de admisión en vez de fijar una constante.
+    FormulaSpec(
+        key="gas_turpin_f", topic="gas", step="verificacion_turpin",
+        label="Factor de estabilidad de Turpin",
+        expression="F = 2000 · r_bomba³ / PIP", units="adimensional",
+        symbols={
+            "r_bomba": "Relación gas libre / líquido a la entrada de la bomba, "
+                       "en condiciones de admisión [-]",
+            "PIP": "Presión en la admisión de la bomba [psia]",
+        },
+        reference="Takács (2018), *Electrical Submersible Pumps Manual*, "
+                  "§4.4.3.2, ec. 4.30, págs. 175-177 (correlación de Turpin)",
+        module="bes.core.gas_handling",
+        note="Entra la RELACIÓN gas/líquido, no la fracción: pasarle la "
+             "fracción directamente da un F equivocado, que es el mismo error "
+             "que la reducción del separador. F < 1 es operación estable; "
+             "F > 1, interferencia severa por gas. Es VERIFICACIÓN PARALELA: "
+             "no decide la viabilidad del pozo, que la resuelve la condición 2 "
+             "de la escalera contra max_gip.",
+    ),
+    FormulaSpec(
+        key="gas_turpin_limite", topic="gas", step="verificacion_turpin",
+        label="Fracción de gas que Turpin admite a esta presión",
+        expression="r_lím = (PIP / 2000)^(1/3)   →   f_lím = r_lím / (1 + r_lím)",
+        units="fracción",
+        symbols={
+            "PIP": "Presión en la admisión de la bomba [psia]",
+            "r_lím": "Relación gas/líquido que hace F = 1 [-]",
+        },
+        reference="Takács (2018), §4.4.3.2, ec. 4.30, despejada para F = 1",
+        module="bes.core.gas_handling",
+        note="Es la ec. 4.30 leída al revés: en qué fracción de gas se agota el "
+             "margen a esta presión. Muestra que el límite DEPENDE de la PIP —"
+             "del orden de 27 % a 100 psia y 44 % a 1000 psia—, mientras que la "
+             "herramienta adopta un 10 % fijo. En ese rango Turpin es más "
+             "permisivo que el criterio propio.",
+    ),
+
     FormulaSpec(
         key="gas_delta_p", topic="gas", step="salto_presion",
         label="Salto de presión que debe dar la bomba",

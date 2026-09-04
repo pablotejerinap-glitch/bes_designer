@@ -482,6 +482,7 @@ def _estrategia_de_gas(
     gip: float,
     gas_handler: dict | None,
     vent_fraction: float = 0.0,
+    pip_psia: float | None = None,
 ) -> dict:
     """Cuántos separadores hacen falta, o si hay que cambiar de método.
 
@@ -491,6 +492,9 @@ def _estrategia_de_gas(
 
     Si el catálogo no tiene con qué armar el tándem, el escalón simplemente no
     se ofrece y la escalera se detiene donde llegue.
+
+    ``pip_psia`` sólo habilita la verificación paralela de Turpin dentro de la
+    escalera: no interviene en la elección del equipo.
     """
     # El manejador avanzado (AGH) es el cuarto escalón y se busca SIEMPRE, haya
     # o no separador: es la única respuesta que el catálogo REDA ofrece por
@@ -512,6 +516,7 @@ def _estrategia_de_gas(
             vent_fraction=vent_fraction,
             agh_max_gvf=agh_gvf,
             agh_model=(agh.get("model") if agh else None),
+            pip_psia=pip_psia,
         )
         estrategia["equipos"] = [agh] if estrategia.get("uses_agh") and agh else []
         return estrategia
@@ -583,6 +588,7 @@ def _estrategia_de_gas(
         tandem_models=tandem_modelos,
         agh_max_gvf=agh_gvf,
         agh_model=(agh.get("model") if agh else None),
+        pip_psia=pip_psia,
     )
     # Los equipos concretos, en el orden en que se apilan. Hacen falta acá
     # afuera porque el consumo lo publica el catálogo POR MODELO: un tándem de
@@ -667,7 +673,10 @@ def _assemble_design(
     # lo da un tándem de separadores de TIPOS DISTINTOS. Si ni con eso el gas
     # en la bomba baja del límite, no hay equipo que lo resuelva y corresponde
     # cambiar de método de levantamiento.
-    estrategia_gas = _estrategia_de_gas(catalog, well, objectives, gip, gas_handler)
+    estrategia_gas = _estrategia_de_gas(
+        catalog, well, objectives, gip, gas_handler,
+        pip_psia=cand.get("pip_psi"),
+    )
 
     # Cuántos separadores lleva el aparejo. **Lo decide la escalera y sólo la
     # escalera.**

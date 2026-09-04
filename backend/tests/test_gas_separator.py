@@ -20,6 +20,8 @@ from bes.core.gas_handling import (
     ratio_to_fraction,
     required_separator_efficiency,
     separator_outlet_fraction,
+    turpin_cross_check,
+    turpin_stability,
 )
 from bes.core.models import DesignObjectives
 
@@ -604,3 +606,138 @@ class TestLasDosPreguntasDeCadaEscalon:
         assert r["switch_lift_method"] is True
         assert "capacidad de la configuración" in r["verdict"]
         assert "máximo de diseño" in r["verdict"]
+
+
+class TestVerificacionParalelaDeTurpin:
+    """La correlación de Turpin, que contrasta el criterio propio sin decidir.
+
+    Takács (2018) §4.4.3.2, ec. 4.30, págs. 175-177::
+
+        F = 2000 · (q'_g / q'_l)³ / PIP      F < 1 → operación estable
+
+    Entra la RELACIÓN gas/líquido, no la fracción. Es el mismo error que ya
+    estaba corregido en el separador y en el diagnóstico de riesgo, y acá
+    volvería a morder porque el cubo lo amplifica.
+    """
+
+    def test_ejemplo_4_4_del_libro(self):
+        """Takács, Ejemplo 4.4, págs. 176-177.
+
+        Con q'_g = 274 bpd, q'_l = 3096 bpd y PIP = 1000 psia el factor da
+        0.0014 y la operación es estable, que es lo que concluye el libro.
+        """
+        q_gas, q_liq, pip = 274.0, 3096.0, 1000.0
+        f_pump = q_gas / (q_gas + q_liq)
+
+        t = turpin_stability(f_pump, pip)
+
+        assert t["ratio"] == pytest.approx(q_gas / q_liq, rel=1e-9)
+        assert t["f"] == pytest.approx(0.0014, abs=5e-5)
+        assert t["stable"] is True
+
+    def test_entra_la_relacion_y_no_la_fraccion(self):
+        """Pasarle la fracción da un F más chico: el cubo amplifica el error.
+
+        Con 50 % de gas la relación vale 1.0 y la fracción 0.5, y 0.5³ es la
+        octava parte de 1.0³. Un F ocho veces menor puede convertir un pozo
+        inestable en uno declarado estable.
+        """
+        t = turpin_stability(0.50, 1000.0)
+
+        assert t["ratio"] == pytest.approx(1.0)
+        assert t["f"] == pytest.approx(2000.0 * 1.0 ** 3 / 1000.0)
+        ingenuo = 2000.0 * 0.50 ** 3 / 1000.0
+        assert t["f"] == pytest.approx(8.0 * ingenuo)
+        assert t["stable"] is False
+
+    def test_el_limite_depende_de_la_presion_de_admision(self):
+        """La ec. 4.30 despejada para F = 1: del orden de 27 % a 100 psia y
+        44 % a 1000 psia, contra el 10 % fijo que adopta la herramienta."""
+        assert turpin_stability(0.0, 100.0)["limit_fraction"] == pytest.approx(
+            0.269, abs=0.005
+        )
+        assert turpin_stability(0.0, 1000.0)["limit_fraction"] == pytest.approx(
+            0.443, abs=0.005
+        )
+
+    def test_el_limite_hace_F_igual_a_uno(self):
+        """Control de coherencia: evaluado en su propio límite, F vale 1."""
+        for pip in (100.0, 500.0, 1000.0, 3000.0):
+            f_lim = turpin_stability(0.0, pip)["limit_fraction"]
+            assert turpin_stability(f_lim, pip)["f"] == pytest.approx(1.0)
+
+    def test_sin_presion_de_admision_no_se_inventa_un_numero(self):
+        with pytest.raises(ValueError, match="presión de admisión"):
+            turpin_stability(0.05, 0.0)
+
+    def test_no_avisa_cuando_los_dos_criterios_coinciden(self):
+        """Un aviso que aparece siempre deja de leerse.
+
+        Con 5 % de gas a 1000 psia los dos aceptan: el criterio propio porque
+        5 % < 10 %, y Turpin porque F queda muy por debajo de 1.
+        """
+        r = turpin_cross_check(0.05, 1000.0, max_gip=0.10)
+
+        assert r["propio_viable"] is True
+        assert r["stable"] is True
+        assert r["agree"] is True
+        assert r["warnings"] == []
+
+    def test_avisa_cuando_el_criterio_propio_acepta_y_turpin_no(self):
+        """El caso peligroso: pasa la verificación de la herramienta y la
+        correlación publicada advierte interferencia severa.
+
+        Con el 10 % por defecto no puede ocurrir a presiones reales —el límite
+        de Turpin queda muy por encima—, y ésa es en sí una conclusión útil.
+        Aparece cuando ``max_gip`` se afloja: con el 70 % del modo ejemplo, que
+        reproduce los enunciados del libro que bombean todo el gas, un pozo con
+        50 % de gas en la bomba a 1000 psia pasa el criterio propio y da F = 2.
+        """
+        r = turpin_cross_check(0.50, 1000.0, max_gip=0.70)
+
+        assert r["propio_viable"] is True
+        assert r["stable"] is False
+        assert r["f"] == pytest.approx(2.0)
+        assert r["agree"] is False
+        assert len(r["warnings"]) == 1
+        aviso = r["warnings"][0]
+        # El aviso lleva los números, no sólo el veredicto.
+        assert "Turpin" in aviso
+        assert f"{r['f']:.2f}" in aviso
+        assert f"{r['limit_fraction']:.1%}" in aviso
+        assert "70%" in aviso
+
+    def test_avisa_cuando_la_herramienta_es_mas_conservadora(self):
+        """Turpin acepta y el criterio propio rechaza: no es un error, pero el
+        usuario puede aflojar max_gip con fundamento."""
+        r = turpin_cross_check(0.20, 1000.0, max_gip=0.10)
+
+        assert r["propio_viable"] is False
+        assert r["stable"] is True
+        assert r["agree"] is False
+        assert "MÁS conservadora" in r["warnings"][0]
+
+    def test_la_verificacion_no_cambia_ninguna_decision(self):
+        """Turpin contrasta; no decide. La escalera tiene que dar exactamente
+        lo mismo con y sin presión de admisión."""
+        sin = select_gas_handling_strategy(
+            0.30, single_efficiency=0.75, max_gip=0.10,
+        )
+        con = select_gas_handling_strategy(
+            0.30, single_efficiency=0.75, max_gip=0.10, pip_psia=1000.0,
+        )
+        for campo in ("strategy", "viable", "switch_lift_method",
+                      "n_separators", "efficiency", "f_pump", "verdict"):
+            assert sin[campo] == con[campo], campo
+        assert sin["turpin"] is None
+        assert con["turpin"] is not None
+
+    def test_la_traza_publica_la_cuenta_aunque_no_haya_aviso(self):
+        """La cuenta se hizo, así que el reporte tiene que poder mostrarla —
+        aunque los dos criterios coincidan y no haya nada que advertir."""
+        r = select_gas_handling_strategy(
+            0.05, single_efficiency=0.75, max_gip=0.10, pip_psia=1000.0,
+        )
+        claves = [f["key"] for f in r["formulas"]]
+        assert "gas_turpin_f" in claves
+        assert "gas_turpin_limite" in claves
