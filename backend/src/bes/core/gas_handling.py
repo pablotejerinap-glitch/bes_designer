@@ -26,12 +26,21 @@ explícitamente con :func:`fraction_to_ratio`.
 
 Los umbrales
 ------------
-    Fracción <= 1 %    gas despreciable: vale el diseño monofásico
-    Fracción >  1 %    obligatorio calcular la pérdida de carga multifásica
+Se marca cuáles tienen fuente publicada y cuáles son criterio propio de esta
+herramienta, porque presentarlos indistintamente sería una atribución falsa::
+
+    Fracción <= 1 %    gas despreciable: vale el diseño monofásico   [propio]
+    Fracción >  1 %    obligatorio calcular la pérdida de carga
+                       multifásica                                   [propio]
     Fracción >  5 %    obligatorio separador o manejador de gas
-    Fracción > 10 % EN LA BOMBA   la BES no converge: evaluar otro método
-    Relación > 0.1     la bomba entrega menos altura que su curva de agua
-    Relación >= 1.0    bloqueo total por gas: deja de bombear líquido
+                       [Takács (2018) §1.3.2, pág. 10]
+    Fracción > 10 % EN LA BOMBA   la BES no converge: evaluar otro
+                       método                                        [propio]
+    Relación > 0.1     la bomba entrega menos altura que su curva de
+                       agua  [Brown Vol. 2b §4.523, pág. 59]
+    Relación >= 1.0    bloqueo total por gas: deja de bombear líquido [propio]
+
+Ver el detalle de cada cita junto a la constante correspondiente.
 
 El separador escala la RELACION, no la fracción
 -----------------------------------------------
@@ -142,33 +151,73 @@ def _oil_sg(api: float) -> float:
 # free_gas_fraction_at_intake()— y convierte explícitamente donde el criterio
 # bibliográfico está expresado en relación.
 #
-# Criterios (Brown Vol. 2b §4.53102 y Takács, "Electrical Submersible Pumps
-# Manual"):
+# Criterios. Se distingue con cuidado LO QUE TIENE FUENTE de lo que es criterio
+# propio de esta herramienta, porque presentarlos indistintamente sería una
+# atribución falsa y es lo primero que un revisor va a querer verificar:
 #
 #   FRACCIÓN del volumen total en la admisión
 #     f ≤ 1 %   gas despreciable: se puede diseñar como monofásico con
-#               gradiente constante
+#               gradiente constante              -> CRITERIO PROPIO
 #     f > 1 %   obligatorio calcular la pérdida de carga con un modelo
 #               multifásico vertical: con gradiente constante el error de
-#               diseño se vuelve grande
-#     f > 5 %   obligatorio incorporar separador o manejador de gas en el
-#               aparejo: el rendimiento hidráulico del equipo convencional
-#               se deteriora demasiado
+#               diseño se vuelve grande          -> CRITERIO PROPIO
+#     f > 5 %   obligatorio incorporar separador o manejador de gas
+#               -> TAKÁCS (2018), §1.3.2, pág. 10: «The use of gas separators
+#                  or gas handlers is required if more than 5% of free gas
+#                  enters the pump.»
 #
 #   RELACIÓN gas libre / líquido en la admisión
 #     r > 0.1   la bomba empieza a degradarse: entrega menos altura que su
 #               curva de agua  (equivale a f > 0.0909)
+#               -> BROWN Vol. 2b §4.523, pág. 59
 #     r > 1.0   bloqueo total por gas (gas lock): deja de bombear líquido
-#               (equivale a f > 0.50)
+#               (equivale a f > 0.50)            -> CRITERIO PROPIO. Brown
+#               describe el bloqueo en esa misma página pero NO le asigna
+#               número: dice que sobreviene «as the free gas increases».
 # ---------------------------------------------------------------------------
 
 #: Gas despreciable: por debajo, el diseño monofásico es válido.
+#:
+#: **Criterio propio de esta herramienta**: no se encontró en la bibliografía
+#: del proyecto. Decide únicamente el MÉTODO de cálculo —qué correlación de
+#: fricción y si corresponde el método por incrementos—, no la viabilidad del
+#: pozo, que la resuelve la escalera de manejo de gas.
 GAS_FRACTION_NEGLIGIBLE = 0.01
+
 #: Por encima, hace falta separador o manejador de gas.
+#:
+#: **Tiene fuente**: Takács, *Electrical Submersible Pumps Manual*, 2ª ed.
+#: (2018), §1.3.2, pág. 10, entre las desventajas del método — *«Free gas
+#: present at suction conditions deteriorates the submersible pump's efficiency
+#: and can even totally prevent liquid production. The use of gas separators or
+#: gas handlers is required if more than 5% of free gas enters the pump.»*
+#:
+#: Obsérvese que Takács lo declara sobre el gas que **entra a la bomba**, o sea
+#: aguas abajo de cualquier separación, que es donde esta herramienta mide
+#: ``max_gip``. Y que su 5 % es la MITAD del ``GAS_FRACTION_PUMP_LIMIT = 0.10``
+#: que el proyecto adopta: en ese punto la herramienta es menos conservadora
+#: que la bibliografía, y así queda declarado.
+#:
+#: Además, el aparejo incorpora el manejador recién con 10 % de gas libre en la
+#: ADMISIÓN (``pump_selector._GIP_PARA_SEPARADOR``), de modo que entre 5 % y
+#: 10 % el veredicto pide separador y el aparejo no lo trae. Es una discrepancia
+#: heredada, documentada allí.
 GAS_FRACTION_SEPARATOR_REQUIRED = 0.05
+
 #: Relación gas/líquido a la que la bomba empieza a perder altura.
+#:
+#: **Tiene fuente**, y es la única cifra numérica sobre gas en toda la
+#: exposición de Brown: Vol. 2b §4.523, pág. 59 — *«...will continue to do so
+#: until the free gas to liquid ratio reaches about 0.1. Above about 0.1 the
+#: pump will likely begin to produce less than normal head...»*
 GAS_RATIO_DEGRADATION_START = 0.10
+
 #: Relación gas/líquido que produce bloqueo total.
+#:
+#: **Criterio propio de esta herramienta.** Brown describe el bloqueo por gas en
+#: la misma pág. 59 pero **no le asigna número**: sólo dice que sobreviene «as
+#: the free gas increases». El 1.0 —equivalente a f = 50 %— es una adopción de
+#: este trabajo y no una cita.
 GAS_RATIO_GAS_LOCK = 1.00
 
 #: **FRACCIÓN** de gas libre a la entrada de la bomba, ya descontado el venteo
@@ -181,8 +230,22 @@ GAS_RATIO_GAS_LOCK = 1.00
 #:   GAS_RATIO_DEGRADATION_START   r > 0.10  la bomba entrega menos altura
 #:   GAS_FRACTION_PUMP_LIMIT       f > 0.10  la bomba directamente no sirve
 #:
-#: Es el valor por defecto de ``DesignObjectives.max_gip``, que lo hace
-#: configurable por pozo.
+#: **Criterio propio de esta herramienta**, y conviene saber contra qué se
+#: compara. La bibliografía publica dos criterios para esta misma magnitud, y
+#: los dos son MÁS EXIGENTES:
+#:
+#:   - Takács (2018), pág. 10: exige separador o manejador por encima del **5 %**
+#:     de gas libre que entra a la bomba, o sea la mitad de este valor.
+#:   - Takács (2018), §4.4.3.2, págs. 175-176: la correlación de Turpin
+#:     (ec. 4.30) hace depender el límite de la presión de admisión, con
+#:     operación estable para F = 2000·(q'_ing/q'_l)³/PIP < 1. Esa curva da del
+#:     orden de 27 % a 100 psia y 44 % a 1000 psia, o sea que en su rango es más
+#:     PERMISIVA que este 10 % fijo.
+#:
+#: Ninguna de las dos está implementada: se adopta un valor fijo, configurable
+#: por pozo mediante ``DesignObjectives.max_gip``, y la sustitución de una curva
+#: dependiente de la presión por una constante queda declarada como
+#: simplificación del trabajo.
 GAS_FRACTION_PUMP_LIMIT = 0.10
 
 #: Fracción de vacío máxima en la ADMISIÓN que admite cada configuración de
@@ -1391,10 +1454,16 @@ def check_gas_lock_risk(
         ``none``      f ≤ 1 %: gas despreciable, vale el diseño monofásico.
         ``low``       1 % < f ≤ 5 %: hay que calcular la pérdida de carga con
                       un modelo multifásico, pero el equipo convencional sirve.
-        ``medium``    f > 5 % (o r > 0.1): separador obligatorio; por encima de
-                      r = 0.1 la bomba además entrega menos altura que su curva.
+        ``medium``    f > 5 % (o r > 0.1): separador obligatorio —Takács (2018),
+                      pág. 10—; por encima de r = 0.1 la bomba además entrega
+                      menos altura que su curva —Brown, pág. 59—.
         ``high``      r ≥ 1.0 (f ≥ 0.50): bloqueo total por gas, la bomba deja
                       de mover líquido.
+
+    **Esta función NO decide nada.** Produce una etiqueta y un texto para el
+    usuario; la viabilidad la resuelve
+    :func:`select_gas_handling_strategy`, que es otra verificación. Un pozo
+    etiquetado ``medium`` se diseña igual si la escalera lo declara viable.
 
     Args:
         free_gas_fraction: Fracción volumétrica de gas libre del total [0–1].
@@ -1424,11 +1493,15 @@ def check_gas_lock_risk(
         riesgo = "medium"
         motivos = []
         if separador:
-            motivos.append(f"la fracción de gas libre ({f:.1%}) supera el 5 %")
+            motivos.append(
+                f"la fracción de gas libre ({f:.1%}) supera el 5 % por encima "
+                f"del cual Takács (2018, pág. 10) exige separador o manejador"
+            )
         if degrada:
             motivos.append(
-                f"la relación gas/líquido ({r:.2f}) supera 0.1, con lo que la "
-                f"bomba entrega menos altura que su curva de agua"
+                f"la relación gas/líquido ({r:.2f}) supera el 0.1 a partir del "
+                f"cual Brown (§4.523, pág. 59) señala que la bomba entrega "
+                f"menos altura que su curva de agua"
             )
         rec = (
             "Separador o manejador de gas obligatorio: " + " y ".join(motivos) + "."

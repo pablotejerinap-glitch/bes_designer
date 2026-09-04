@@ -742,11 +742,15 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "f_bomba": "Gas libre que ENTRA a la bomba, ya separado [0–1]",
             "max_gip": "Máximo de gas admisible, criterio de diseño [0–1]",
         },
-        reference="Criterio propio del proyecto; contrastar con Takács (2018), "
-                  "pág. 10, que exige separador por encima del 5 %",
+        reference="Criterio propio del proyecto. La bibliografía publica dos "
+                  "criterios para esta misma magnitud: Takács (2018), pág. 10, "
+                  "exige separador por encima del 5 % —la mitad—, y la "
+                  "correlación de Turpin (Takács §4.4.3.2, ec. 4.30) hace "
+                  "depender el límite de la presión de admisión",
         module="bes.core.gas_handling",
         note="Se mide DESPUÉS de separar, a diferencia de la condición 1. Un "
-             "escalón de la escalera sirve sólo si cumple las dos.",
+             "escalón de la escalera sirve sólo si cumple las dos. El valor "
+             "por defecto es 10 %, configurable por pozo.",
     ),
     FormulaSpec(
         key="gas_separador_salida", topic="gas", step="escalera_gas",
