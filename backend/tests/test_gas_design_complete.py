@@ -558,3 +558,60 @@ class TestElModeloForzadoLlegaAlCaminoDeGas:
         ).json()["summary"]
         assert resumen["total_stages"] == pytest.approx(209, abs=5)
         assert resumen["total_hp"] == pytest.approx(27.0, abs=2.0)
+
+
+# ===========================================================================
+# 5. Un solo número por magnitud
+# ===========================================================================
+
+class TestElGasSePublicaConUnSoloNumero:
+    """El aparejo y el veredicto tienen que decir lo mismo.
+
+    ``assemble_design`` vuelve a correr la escalera por su cuenta y lo hace
+    sobre una fracción distinta —la del primer tramo, promediada entre sus dos
+    extremos— mientras que la decisión de manejo de gas se toma sobre la de la
+    ADMISIÓN. Las dos son legítimas, pero publicarlas juntas mostraba cuatro
+    porcentajes donde el usuario lee dos magnitudes: en el Ejemplo #3B llegó a
+    verse 79.2 % y 75.1 % de gas en la admisión, y 48.8 % y 43.0 % en la bomba,
+    en la misma pantalla.
+    """
+
+    def test_la_admision_coincide_con_el_veredicto(
+        self, con_gas, reservoir, well, surface, objectives, catalog
+    ):
+        r = _correr(con_gas, reservoir, well, surface, objectives, catalog)
+        assert r["design"].gip_fraction == pytest.approx(
+            r["feasibility"]["f_intake"], abs=1e-9
+        )
+
+    def test_el_gas_en_la_bomba_coincide_con_el_veredicto(
+        self, con_gas, reservoir, well, surface, objectives, catalog
+    ):
+        r = _correr(con_gas, reservoir, well, surface, objectives, catalog)
+        assert r["design"].gas_fraction_at_pump == pytest.approx(
+            r["feasibility"]["f_pump"], abs=1e-9
+        )
+
+    def test_con_separador_el_gas_en_la_bomba_es_menor_que_en_la_admision(
+        self, con_gas, reservoir, well, surface, objectives, catalog
+    ):
+        """La coherencia no puede lograrse igualando los dos números."""
+        r = _correr(con_gas, reservoir, well, surface, objectives, catalog)
+        d = r["design"]
+        if r["feasibility"]["n_separators"]:
+            assert d.gas_fraction_at_pump < d.gip_fraction
+
+    def test_la_escalera_se_publica_una_sola_vez(
+        self, con_gas, reservoir, well, surface, objectives, catalog
+    ):
+        """Dos escaleras en la traza serían dos respuestas a la misma pregunta."""
+        r = _correr(con_gas, reservoir, well, surface, objectives, catalog)
+        pasos = [f for f in r["design"].formulas
+                 if f.get("step") == "escalera_gas"]
+        primeros = [f for f in pasos
+                    if f["key"] == "gas_capacidad_configuracion"
+                    and "sin separador" in f["label"]]
+        assert len(primeros) == 1, (
+            "El escalón «sin separador» aparece más de una vez: hay dos "
+            "escaleras en la traza."
+        )

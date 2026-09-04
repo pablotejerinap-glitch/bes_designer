@@ -464,12 +464,22 @@ def run_gas_design_complete(
                 cand, inc["pump_curve"], well, surface, fluid, objectives,
                 catalog_manager, depth, reservoir.reservoir_temp,
             )
-            # La escalera, con la del camino de gas y no con la de
-            # ``_assemble_design``. Las dos existen porque cada camino evalúa la
-            # fracción a su temperatura —éste a la de la bomba, aquél a la de
-            # reservorio— y publicar ambas mostraría dos escaleras con números
-            # distintos para la misma decisión. Manda la que efectivamente eligió
-            # el aparejo, que es ésta.
+            # --- Un solo número para cada magnitud --------------------------
+            #
+            # ``assemble_design`` vuelve a correr la escalera por su cuenta, y
+            # lo hace sobre una fracción distinta: el candidato por incrementos
+            # lleva la del PRIMER TRAMO —promediada entre sus dos extremos—,
+            # mientras que la decisión de manejo de gas se tomó sobre la de la
+            # ADMISIÓN. Las dos son legítimas y miden cosas distintas, pero
+            # publicarlas juntas mostraba hasta cuatro porcentajes para lo que
+            # el usuario lee como dos magnitudes: en el Ejemplo #3B, 79.2 % y
+            # 75.1 % de gas en la admisión, y 48.8 % y 43.0 % en la bomba.
+            #
+            # Manda la escalera que efectivamente eligió el aparejo. Es la que
+            # se evaluó en la admisión, que es donde ambas magnitudes están
+            # definidas, y la que produjo el veredicto que se muestra al lado.
+            design.gip_fraction = float(factibilidad["f_intake"])
+            design.gas_fraction_at_pump = float(factibilidad["f_pump"])
             if factibilidad.get("formulas"):
                 design.formulas = [
                     *[f for f in design.formulas
