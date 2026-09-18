@@ -112,16 +112,19 @@ class TestCatalogLoading:
         """Qué proveedores pueden armar un aparejo completo, y cuáles no.
 
         Es la contracara de la regla de no mezclar fabricantes: un proveedor que
-        aporta bombas pero no motores no puede diseñar nada. Hoy pasa con Wood
-        Group ESP —tiene 7 bombas y 39 protectores, pero ningún catálogo de
-        motores llegó al proyecto—, así que sus bombas quedan en el catálogo y
-        el diseño las descarta avisando el motivo.
+        aporta bombas pero no motores no puede diseñar nada.
 
-        El test fija ese estado a propósito: si aparece el catálogo de motores
-        Wood Group, falla y hay que sacarlo de la lista de incompletos. Si otro
-        proveedor pierde su aparejo, también falla.
+        Hasta septiembre de 2026 pasaba con Wood Group ESP: tenía bombas y
+        protectores pero ningún motor, así que sus bombas quedaban en el
+        catálogo y el diseño las descartaba avisando el motivo. Este test fijaba
+        ese estado con la instrucción de sacarlo de la lista si aparecía el
+        catálogo de motores. Apareció —«Product Catalog - Motors» del catálogo
+        general de octubre de 2009, 385 placas—, así que la lista quedó vacía:
+        los tres proveedores arman aparejo propio.
+
+        Si alguno vuelve a perderlo, el test falla.
         """
-        SIN_MOTOR_PROPIO = {"Wood Group ESP"}
+        SIN_MOTOR_PROPIO: set[str] = set()
 
         con_bomba = {p.manufacturer for p in manager.get_all_pumps()} - {"Brown (libro)"}
         con_motor = {m.get("manufacturer") for m in manager._motors}
@@ -543,3 +546,75 @@ class TestControllerSelection:
         cm = self._cm()
         with pytest.raises(ValueError):
             cm.get_controller(voltage=99999, kva=99999, amps=99999)
+
+
+class TestElCasingMinimoDelFabricanteManda:
+    """La aptitud motor–casing sale del catálogo, no de una cuenta propia.
+
+    Los tres fabricantes publican, por serie de motor, el casing mínimo en el
+    que la serie se instala. La regla geométrica que había —diámetro del motor
+    más dos espesores de cable plano dentro del diámetro interior— los
+    contradecía a los tres: con 5½" exigía OD ≤ 4.29 in y dejaba afuera todas
+    las series de 4.56 in que los propios catálogos declaran aptas para 5½".
+
+    El efecto no era neutro. Como Centrilift publica potencias altas en 3.75 in
+    y REDA y Wood Group las publican en 4.56 in, el filtro le entregaba a
+    Centrilift todos los pozos de 5½" por construcción, no por mérito.
+    """
+
+    def test_una_serie_de_456_entra_en_un_casing_de_5_1_2(self):
+        from bes.core.electrical import motor_entra_en_casing
+        motor = {"od_inches": 4.56, "min_casing_od_in": 5.5}
+        assert motor_entra_en_casing(motor, 5.5, 4.892, 0.30), (
+            "el fabricante declara la serie apta para 5½ pulgadas"
+        )
+
+    def test_la_misma_serie_no_entra_en_un_casing_de_4_1_2(self):
+        from bes.core.electrical import motor_entra_en_casing
+        motor = {"od_inches": 4.56, "min_casing_od_in": 5.5}
+        assert not motor_entra_en_casing(motor, 4.5, 4.0, 0.30)
+
+    def test_sin_casing_declarado_vuelve_la_regla_geometrica(self):
+        """Es el respaldo: un motor sin el dato no entra por la ventana."""
+        from bes.core.electrical import motor_entra_en_casing
+        motor = {"od_inches": 4.56}
+        assert not motor_entra_en_casing(motor, 5.5, 4.892, 0.30)
+        assert motor_entra_en_casing({"od_inches": 3.75}, 5.5, 4.892, 0.30)
+
+    def test_todo_motor_resuelve_su_casing_minimo(self, manager):
+        """Declarado o inferido, pero nunca a merced de la regla geométrica.
+
+        Centrilift no publica el casing mínimo de sus motores —su catálogo está
+        escaneado y las páginas de motores sólo imprimen el diámetro—. Sin
+        sustituto, sus motores caerían al respaldo geométrico mientras REDA y
+        Wood Group pasan por la regla del fabricante, y el filtro volvería a
+        decidir la competencia por quién tiene mejor digitalizado el catálogo,
+        que es justo lo que se quería sacar del medio.
+        """
+        from bes.core.electrical import (
+            casing_minimo_inferido, tabla_casing_por_od,
+        )
+        tabla = tabla_casing_por_od(manager._motors)
+        sin_resolver = {
+            (m["manufacturer"], m["od_inches"]) for m in manager._motors
+            if m.get("min_casing_od_in") is None
+            and casing_minimo_inferido(float(m["od_inches"]), tabla) is None
+        }
+        # La única excepción admitida: motores MÁS GRANDES que cualquier
+        # diámetro declarado. Ahí no hay de dónde inferir sin extrapolar, así
+        # que manda el respaldo geométrico —que es el criterio estricto— y se
+        # deja anotado en vez de inventarles un casing.
+        assert sin_resolver == {("Centrilift", 8.8)}, (
+            f"Cambió qué motores quedan sin casing mínimo resoluble. "
+            f"Encontrado: {sin_resolver}. Si aparece uno nuevo, o se consigue "
+            f"el dato del fabricante o se acepta que caiga al respaldo."
+        )
+
+    def test_la_inferencia_redondea_hacia_arriba(self, manager):
+        """Un motor de 4.50 in no puede pedir menos casing que uno de 4.56."""
+        from bes.core.electrical import (
+            casing_minimo_inferido, tabla_casing_por_od,
+        )
+        tabla = tabla_casing_por_od(manager._motors)
+        assert casing_minimo_inferido(4.50, tabla) == 5.5
+        assert casing_minimo_inferido(3.75, tabla) == 4.5

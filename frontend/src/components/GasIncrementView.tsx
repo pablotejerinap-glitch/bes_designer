@@ -89,6 +89,9 @@ function asDesignResponse(r: GasCompleteDesignResponse): DesignResponse {
       "Descarte por carcasas, eje/cojinete y disponibilidad de aparejo del mismo fabricante",
     ],
     n_candidates_evaluated: r.rejected.length + 1,
+    // El camino de gas ya publica sus descartes en `rejected`, con su propia
+    // tabla; acá el cartel gris sobraría repitiéndolos.
+    discarded: [],
     warnings: r.warnings,
     // Ya estamos en el camino de incrementos: el aviso de "este pozo pedía el
     // método de incrementos" no tiene sentido acá, y su botón llevaría a la

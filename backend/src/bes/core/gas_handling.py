@@ -648,6 +648,97 @@ def gas_ingestion_percentage(
     return max(0.0, min(1.0, gip))
 
 
+def gor_en_el_tubing(
+    fluid: "Fluid",
+    pressure: float,
+    temp_f: float,
+    gip: float,
+) -> float:
+    """GOR de la columna de descarga cuando parte del gas se va por el anular.
+
+    El separador de fondo desvía al anular el gas **libre** que no entra a la
+    bomba; ese gas se produce por el casing y no sube por el tubing. El gas
+    **disuelto**, en cambio, viaja dentro del petróleo y sube por el tubing pase
+    lo que pase. Así que el GOR de la columna de descarga no es el GOR de
+    producción escalado por el GIP: es el disuelto **más** la parte del libre
+    que efectivamente pasó por la bomba::
+
+        GOR_tubing = Rs(PIP) + GIP · (GOR − Rs(PIP))
+
+    Por qué importa
+    ---------------
+    Con un separador que retira el 93.75 % del gas libre, usar el GOR completo
+    para el recorrido del tubing arma una columna mucho más liviana que la real
+    y devuelve una presión de descarga muy baja. En el caso del ejercicio del
+    tutor la diferencia era de 887 psia contra 2714, y con ella el TDH por
+    incrementos daba 997 ft contra los 6086 ft del camino convencional: seis
+    veces. Con el GOR corregido los dos métodos convergen en potencia dentro
+    del 7 %.
+
+    Con ``gip = 1`` —sin separador ni venteo— devuelve el GOR completo, que es
+    el comportamiento de siempre.
+
+    Args:
+        fluid: PVT y composición del fluido.
+        pressure: Presión de admisión de la bomba [psia].
+        temp_f: Temperatura a la profundidad de la bomba [°F].
+        gip: Fracción del gas libre de la admisión que entra a la bomba [0–1].
+
+    Returns:
+        GOR aparente de la columna del tubing [scf/STB].
+    """
+    pb = fluid.bubble_point_pressure
+    rs = min(
+        standing_rs(pressure, temp_f, fluid.oil_api, fluid.gas_sg, pb)
+        if pb > 0 else fluid.gor,
+        fluid.gor,
+    )
+    libre = max(fluid.gor - rs, 0.0)
+    return rs + max(0.0, min(1.0, gip)) * libre
+
+
+def gip_from_ladder(f_intake: float, f_pump: float) -> float:
+    """Qué parte del gas libre de la admisión sobrevive hasta la bomba.
+
+    La escalera de manejo de gas publica dos fracciones: la que llega a la
+    admisión (*f_intake*) y la que entra a la bomba después del venteo y del
+    separador (*f_pump*). El dimensionamiento por incrementos necesita el
+    cociente entre las dos, porque multiplica el **volumen** de gas libre, y el
+    volumen escala con la RELACIÓN gas/líquido, no con la fracción::
+
+        r   = f / (1 − f)
+        GIP = r_bomba / r_admisión
+
+    Hacerlo por fracciones daría mal. Con f_adm = 0.691 y f_bomba = 0.123 el
+    cociente de fracciones es 0.178, mientras que el de relaciones —el correcto—
+    es 0.0625, o sea exactamente la eficiencia complementaria del separador
+    (1 − 0.9375). Es la misma distinción fracción/relación que gobierna toda la
+    escalera.
+
+    Se deriva de la escalera y no de ``separator_efficiency`` para que haya una
+    sola fuente de verdad: si la escalera cambia de escalón —de simple a tándem,
+    o a manejador avanzado— el caudal de mezcla la sigue sin tocar nada acá.
+
+    Args:
+        f_intake: Fracción de gas libre en la admisión [0–1].
+        f_pump: Fracción de gas libre que entra a la bomba, ya descontados el
+            venteo por el anular y el separador [0–1].
+
+    Returns:
+        Fracción del gas libre de la admisión que entra a la bomba [0–1]. Vale
+        1.0 cuando no hay gas en la admisión o cuando no hay nada que separar.
+    """
+    if f_intake <= 0.0:
+        return 1.0
+    r_intake = fraction_to_ratio(f_intake)
+    if r_intake <= 0.0 or not math.isfinite(r_intake):
+        return 1.0
+    r_pump = fraction_to_ratio(max(f_pump, 0.0))
+    if not math.isfinite(r_pump):
+        return 1.0
+    return max(0.0, min(1.0, r_pump / r_intake))
+
+
 #: Potencia que consume el separador de gas de fondo [hp]. Va montado en el
 #: mismo eje, entre el sello y la bomba, así que su consumo **se suma al de la
 #: bomba antes de elegir el motor**: el motor mueve las dos cosas.
@@ -2042,6 +2133,8 @@ def _viscosity_factors_for_interval(
         rs_scf_bbl=rs,
         pump_efficiency_pct=pump_efficiency_pct,
         dead_oil_cp=dead_oil_cp,
+        # Con corte de agua 1.0 no hay crudo: la corrección no se aplica.
+        water_cut=fluid.water_cut,
     )
     return {
         "is_viscous": resultado["is_viscous"],

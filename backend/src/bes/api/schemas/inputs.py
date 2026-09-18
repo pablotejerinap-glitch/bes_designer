@@ -14,7 +14,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class IPRMethodStr(str, Enum):
@@ -74,10 +74,25 @@ class IPRFromTestRequest(BaseModel):
     )
 
 
+#: Valor con que se completan las propiedades del petróleo en un pozo de agua
+#: pura. No es un dato: es un relleno inerte para que el modelo de dominio, que
+#: tipa ``oil_api`` como float, no tenga que volverse opcional en las setenta y
+#: ocho referencias que tiene. Que sea inerte está VERIFICADO —con corte de
+#: agua 1.0, el diseño da idéntico con 5, 10, 30 o 70 °API— y hay un test que
+#: lo fija. Los reportes muestran «no aplica», nunca este número.
+API_NO_APLICA = 30.0
+
+
 class FluidSchema(BaseModel):
-    oil_api: float = Field(..., ge=5, le=70, description="Gravedad API [°API]")
+    oil_api: float | None = Field(
+        None, ge=5, le=70,
+        description="Gravedad API [°API]. Se puede omitir SÓLO con corte de "
+                    "agua 1.0, donde el pozo no produce petróleo y el dato no "
+                    "existe.",
+    )
     water_cut: float = Field(..., ge=0, le=1, description="Corte de agua [0-1]")
-    gor: float = Field(..., ge=0, description="GOR [scf/STB]")
+    gor: float = Field(0.0, ge=0, description="GOR [scf/STB]. Cero por defecto: "
+                                              "sin petróleo no hay gas asociado.")
     gas_sg: float = Field(..., gt=0, description="SG del gas (aire=1)")
     water_sg: float = Field(..., gt=0, description="SG de la salmuera")
     # Opcionales a propósito: sin ensayo de laboratorio la viscosidad se lee de
@@ -93,10 +108,36 @@ class FluidSchema(BaseModel):
         description="Temp. a la que se midió esa viscosidad [°F]. Obligatoria "
                     "sólo si se manda oil_viscosity_dead.",
     )
-    bubble_point_pressure: float = Field(..., ge=0, description="Pb del fluido [psia]")
-    h2s_content: float = Field(..., ge=0, description="H2S [ppm]")
-    co2_content: float = Field(..., ge=0, description="CO2 [ppm]")
-    sand_production: bool
+    bubble_point_pressure: float = Field(
+        0.0, ge=0,
+        description="Pb del fluido [psia]. Cero por defecto: sin petróleo no "
+                    "hay punto de burbuja.",
+    )
+    h2s_content: float = Field(0.0, ge=0, description="H2S [ppm]")
+    co2_content: float = Field(0.0, ge=0, description="CO2 [ppm]")
+    sand_production: bool = False
+
+    @model_validator(mode="after")
+    def _petroleo_solo_si_hay_petroleo(self) -> "FluidSchema":
+        """El °API es obligatorio si hay petróleo, y prohibido si no lo hay.
+
+        Un pozo de agua pura no tiene grado API, y pedirlo obliga al usuario
+        a inventar un número. Peor: ese número inventado ENTRABA a la cuenta
+        —un pozo de agua cargado con 5 °API salía con 137 % más de potencia
+        por la corrección de viscosidad de un crudo inexistente—. La
+        corrección ya está atajada en ``viscosity.evaluate_viscosity``; acá
+        se saca además la obligación de cargarlo.
+        """
+        if self.water_cut >= 1.0:
+            if self.oil_api is None:
+                self.oil_api = API_NO_APLICA
+        elif self.oil_api is None:
+            raise ValueError(
+                "oil_api es obligatoria: el pozo produce petróleo "
+                f"(corte de agua {self.water_cut:.2f}). Sólo se puede omitir "
+                "con corte de agua 1.0."
+            )
+        return self
 
 
 class WellSchema(BaseModel):

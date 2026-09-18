@@ -99,6 +99,35 @@ def poettmann_carpenter_components(
     tomar ``friction`` y **nunca** ``total``: sumar el total contaría la columna
     hidrostática dos veces.
 
+    LIMITACIÓN DECLARADA — el término de fricción no es separable
+    -------------------------------------------------------------
+    Partir el gradiente en dos y usar sólo uno es **una licencia del proyecto,
+    no algo que P&C habiliten**, y así se declara en la tesis.
+
+    Beggs (*Production Optimization*, pág. 84) describe cómo se levantó la
+    correlación: se midieron **únicamente la presión de superficie y la de
+    fondo** y los caudales de 334 pozos fluyentes —la mayoría por debajo de
+    500 STB/d—. No se midió hold-up ni se dividieron los pozos en tramos. El
+    factor de fricción se despejó **por diferencia**::
+
+        f_TP = 2·g_c·d·(dP/dL)_fricción / (ρ·v²)
+
+    donde ``(dP/dL)_fricción`` es lo que queda después de restar un término de
+    elevación calculado con densidad SIN RESBALAMIENTO. Es decir: el "factor de
+    fricción" de P&C no es fricción de pared, es un residuo que absorbe todo lo
+    que el método desprecia —resbalamiento, patrones de flujo, aceleración— y
+    sólo cierra **acompañado del término de elevación con el que se lo despejó**.
+
+    Acá se lo suma, en cambio, a una elevación calculada con el SG del líquido.
+    Son dos modelos de densidad distintos, y el residuo de uno queda pegado a la
+    elevación del otro. El error que eso introduce no está acotado por ninguna
+    fuente del proyecto.
+
+    La salida correcta sería Hagedorn & Brown, que Beggs presenta en la página
+    siguiente justamente porque sí mide hold-up. Queda fuera del alcance: cambiar
+    la correlación del tubing mueve el PIP, la presión de descarga y el TDH de
+    todos los casos con gas, incluido el #3B ya validado contra el impreso.
+
     Args:
         q_liq: Caudal bruto de líquido en superficie [STB/d].
         wc: Corte de agua [0-1].

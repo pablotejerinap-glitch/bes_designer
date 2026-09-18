@@ -166,9 +166,6 @@ def _build_inputs(ws, well_data: dict) -> None:
             ("Viscosidad dead oil", (round(fluid.oil_viscosity_dead, 2)
                                      if fluid.oil_viscosity_dead is not None
                                      else "Sin ensayo — Fig. 4L(2)"),           "cp"),
-            ("H2S",                 round(fluid.h2s_content, 0),                      "ppm"),
-            ("CO2",                 round(fluid.co2_content, 0),                      "ppm"),
-            ("Producción de arena", "Sí" if fluid.sand_production else "No",          "—"),
         ])
 
     if well:
@@ -193,7 +190,6 @@ def _build_inputs(ws, well_data: dict) -> None:
             ("ID flowline",          round(surface.flowline_id, 2),                "in"),
             ("Elevación flowline",   round(surface.flowline_elevation_change, 0),  "ft"),
             ("Presión separador",    round(surface.separator_pressure, 0),         "psi"),
-            ("Voltaje disponible",   round(surface.power_supply_voltage, 0),       "V"),
             ("Frecuencia",           round(surface.frequency, 0),                  "Hz"),
         ])
 
@@ -201,9 +197,7 @@ def _build_inputs(ws, well_data: dict) -> None:
         section("OBJETIVOS DE DISEÑO", [
             ("Tasa objetivo",       round(objectives.target_flow_rate, 0),          "STB/d"),
             ("Margen seguridad",    round(objectives.safety_margin_depth, 0),       "ft"),
-            ("Venteo de gas",       "Sí" if objectives.allow_gas_venting else "No", "—"),
             ("Máx. GIP",           f"{objectives.max_gip:.1%}",                    "—"),
-            ("Vida útil",           round(objectives.design_life_years, 1),         "años"),
             ("VSD",                 "Sí" if objectives.use_vsd else "No",           "—"),
         ])
 

@@ -85,6 +85,7 @@ def post_design(req: DesignRequest, catalog=Depends(get_catalog)) -> DesignRespo
         design_basis=result["design_basis"],
         ordering_criteria=result["ordering_criteria"],
         n_candidates_evaluated=result["n_candidates_evaluated"],
+        discarded=result.get("discarded") or [],
         warnings=[str(w.message) for w in caught],
         gas_method=gas_method,
     )

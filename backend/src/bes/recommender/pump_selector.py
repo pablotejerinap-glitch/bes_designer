@@ -191,6 +191,7 @@ def _build_design_result(
         housing_rationale=str(pump_dict.get("housing_rationale", "")),
         housing_pressure_verified=bool(pump_dict.get("housing_pressure_verified", False)),
         shaft_check=dict(pump_dict.get("shaft_check", {})),
+        viscosity_correction=dict(pump_dict.get("viscosity_correction") or {}),
         bearing_check=dict(pump_dict.get("bearing_check", {})),
         bearing_load_lbs=float(pump_dict.get("bearing_load_lbs", 0.0)),
         staging_ceiling=dict(pump_dict.get("staging_ceiling", {})),
@@ -246,6 +247,7 @@ def select_top_n_pumps(
     objectives: DesignObjectives,
     catalog: "CatalogManager",
     n: int = 3,
+    motivos_out: list[str] | None = None,
 ) -> list[DesignResult]:
     """Elige los N mejores diseños BES, ordenados por criterios de ingeniería.
 
@@ -344,33 +346,34 @@ def select_top_n_pumps(
     if not results:
         raise ValueError(_motivo_sin_aparejo(motivos))
 
+    # Los motivos se publican SIEMPRE, no sólo cuando no queda ninguna. Una
+    # bomba que califica hidráulicamente y se cae al armar el aparejo —porque
+    # su proveedor no tiene motores cargados, o porque ninguno entra en el
+    # casing— desaparecía de la pantalla sin dejar rastro, y desde afuera no
+    # había forma de distinguir «esta bomba no sirve» de «a esta bomba le falta
+    # un dato en el catálogo». Son dos cosas muy distintas y el usuario tiene
+    # derecho a saber cuál de las dos está viendo.
+    if motivos_out is not None:
+        motivos_out.extend(_agrupar_motivos(motivos))
+
     return results
 
 
-def _motivo_sin_aparejo(motivos: list[str]) -> str:
-    """Arma el mensaje de «ninguna bomba completó el aparejo».
+def _agrupar_motivos(motivos: list[str]) -> list[str]:
+    """Agrupa los descartes por causa, una línea por causa.
 
-    Agrupa las candidatas por motivo en vez de listarlas una por una: con nueve
-    bombas que fallan todas por lo mismo —no hay motor de ese proveedor que
-    entre en el casing— nueve líneas iguales esconden que el motivo es uno solo.
+    Cinco bombas que se quedan sin motor por el claro de cable del casing dicen
+    lo mismo con hp distintos; listarlas por separado repite cinco veces la
+    única frase que importa. Los números se borran para comparar causas, y se
+    muestra la de la mejor rankeada del grupo —la que el usuario iba a leer
+    primero—, avisando si las demás traían cifras propias.
 
     Args:
         motivos: Un ``"Fabricante Modelo: causa"`` por candidata descartada.
 
     Returns:
-        El texto de la excepción, que la API devuelve como HTTP 422.
+        Una línea ``"Bomba1, Bomba2 — causa"`` por causa distinta.
     """
-    if not motivos:
-        return (
-            "Ninguna bomba del catálogo completa el aparejo para este pozo, y "
-            "ninguna llegó siquiera a intentarlo."
-        )
-
-    # Misma causa → una sola línea. Se agrupa por la causa con los NÚMEROS
-    # borrados: cinco bombas que se quedan sin motor por el claro de cable del
-    # casing dicen lo mismo con hp distintos, y listarlas por separado repite
-    # cinco veces la única frase que importa. Se muestra la causa de la mejor
-    # rankeada del grupo, que es la que el usuario iba a leer primero.
     import re
 
     por_causa: dict[str, tuple[str, list[str], bool]] = {}
@@ -393,6 +396,29 @@ def _motivo_sin_aparejo(motivos: list[str]) -> str:
         if cifras_distintas:
             causa += " (las demás fallan igual, con su propia potencia)"
         lineas.append(f"{cuales} — {causa}")
+    return lineas
+
+
+def _motivo_sin_aparejo(motivos: list[str]) -> str:
+    """Arma el mensaje de «ninguna bomba completó el aparejo».
+
+    Agrupa las candidatas por motivo en vez de listarlas una por una: con nueve
+    bombas que fallan todas por lo mismo —no hay motor de ese proveedor que
+    entre en el casing— nueve líneas iguales esconden que el motivo es uno solo.
+
+    Args:
+        motivos: Un ``"Fabricante Modelo: causa"`` por candidata descartada.
+
+    Returns:
+        El texto de la excepción, que la API devuelve como HTTP 422.
+    """
+    if not motivos:
+        return (
+            "Ninguna bomba del catálogo completa el aparejo para este pozo, y "
+            "ninguna llegó siquiera a intentarlo."
+        )
+
+    lineas = _agrupar_motivos(motivos)
 
     return (
         f"Ninguna de las {len(motivos)} bombas que entran en este pozo completa "

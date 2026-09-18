@@ -194,15 +194,30 @@ class TestPozoConGas:
         assert resultado["method"]["applies"] is True
 
     def test_el_caudal_de_mezcla_es_VARIABLE(self, resultado):
-        """El punto entero del método: con gas el volumen NO es constante."""
+        """El punto entero del método: con gas el volumen NO es constante.
+
+        Lo que se exige es que la caída sea **monótona** —el gas se comprime y
+        parte vuelve a solución, así que el volumen sólo puede bajar— y que su
+        tamaño guarde relación con el gas que efectivamente entra a la bomba.
+
+        Antes se exigía un factor 1.5 fijo. Ese número salía de cuando la tabla
+        ignoraba el separador y dimensionaba contra el gas SIN separar: con 69 %
+        de gas el volumen se desplomaba. Este pozo resuelve con dos separadores
+        que retiran el 93.75 % del gas libre, así que a la bomba entra el 12 % y
+        la caída real es del orden del 8 %. Pedir 1.5 era pedir que el
+        separador no hiciera efecto.
+        """
         tabla = resultado["increment"]["increment_table"]
         caudales = [r["q_avg_bpd"] for r in tabla]
-        assert caudales[0] > caudales[-1], (
-            "el caudal de mezcla tiene que caer al subir la presión: el gas se "
-            "comprime y parte pasa a solución"
+        assert all(a >= b for a, b in zip(caudales, caudales[1:])), (
+            f"el caudal de mezcla tiene que caer monótonamente al subir la "
+            f"presión: {caudales}"
         )
-        # Y la caída tiene que ser grande, no ruido numérico.
-        assert caudales[0] / caudales[-1] > 1.5
+        f_pump = resultado["feasibility"]["f_pump"]
+        assert caudales[0] / caudales[-1] > 1.0 + f_pump / 4.0, (
+            "la caída tiene que ser del orden del gas que entra a la bomba, "
+            "no ruido numérico"
+        )
 
     def test_la_masa_se_conserva(self, resultado):
         """Invariante de control de Brown: cambia el volumen, no la masa."""
@@ -329,10 +344,21 @@ class TestFallbackDeCandidatas:
     def test_bomba_fija_sin_fallback(
         self, con_gas, reservoir, well, surface, objectives, catalog
     ):
-        """Con la bomba elegida a mano no hay suplente: falla explicando."""
+        """Con la bomba elegida a mano no hay suplente: falla explicando.
+
+        Se fuerza la M675A: serie 863, de 8.63 in de diámetro, que no entra ni
+        de lejos en el casing de 5½" de este pozo. La imposibilidad es
+        geométrica y del equipo, no un hueco de catálogo.
+
+        Este test ya cambió de bomba dos veces —forzaba una Wood Group cuando
+        ese proveedor no tenía motores, y después una TD-4300 que dejó de fallar
+        al habilitarse los motores de 4.56 in— porque apuntaba a huecos de datos
+        en vez de a una imposibilidad física. Una bomba que no entra en el
+        casing no deja de no entrar porque crezca el catálogo.
+        """
         with pytest.raises(ValueError, match="Ninguna bomba"):
             _correr(con_gas, reservoir, well, surface, objectives, catalog,
-                    fixed_pump_model="TD-650")   # Wood Group: sin motores
+                    fixed_pump_model="M675A")
 
 
 # ===========================================================================

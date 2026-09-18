@@ -53,8 +53,30 @@ type SavedCases = Record<string, DesignInputs>;
 // para PVT). El formulario pide uno solo ("Presión de burbuja"); acá forzamos
 // que el de fluido lo iguale, así IPR y PVT nunca quedan inconsistentes.
 function syncPb(di: DesignInputs): DesignInputs {
-  if (di.fluid.bubble_point_pressure === di.reservoir.bubble_point) return di;
-  return { ...di, fluid: { ...di.fluid, bubble_point_pressure: di.reservoir.bubble_point } };
+  const out =
+    di.fluid.bubble_point_pressure === di.reservoir.bubble_point
+      ? di
+      : { ...di, fluid: { ...di.fluid, bubble_point_pressure: di.reservoir.bubble_point } };
+  return sinPetroleo(out);
+}
+
+// Corte de agua 1.0: el pozo no produce petróleo, así que las propiedades del
+// crudo se mandan en null. El formulario las esconde, pero el estado conserva
+// lo último que se tipeó —o el 0 del arranque— y ese 0 caería fuera del rango
+// 5-70 del backend. Nulos dicen «no hay dato», que es la verdad.
+function sinPetroleo(di: DesignInputs): DesignInputs {
+  if (Number(di.fluid.water_cut) < 1) return di;
+  const f = di.fluid;
+  if (f.oil_api === null && f.oil_viscosity_dead === null) return di;
+  return {
+    ...di,
+    fluid: {
+      ...f,
+      oil_api: null,
+      oil_viscosity_dead: null,
+      viscosity_temp_ref: null,
+    },
+  };
 }
 
 // Punto de partida del formulario. NO es un caso de ejemplo: son los valores

@@ -263,6 +263,15 @@ class DesignResultSchema(BaseModel):
     staging_ceiling: StagingCeiling | None = Field(
         None, description="Tope de etapas por carcasa, eje y cojinete; manda el menor",
     )
+    viscosity_correction: dict | None = Field(
+        None,
+        description="Corrección por viscosidad de Riling (Brown §4.53112) tal "
+                    "como se aplicó: factores C_Q, C_H y C_hp, SSU de diseño y "
+                    "procedencia de la viscosidad. La corrección se calculaba y "
+                    "se aplicaba a la curva, pero no se publicaba: el reporte "
+                    "mostraba el resultado corregido sin poder decir con qué "
+                    "factores. None con crudo liviano, donde no se corrige nada.",
+    )
     fluid_velocity_ft_s: float = 0.0
     cooling_ok: bool = True
     motor_hp_max: float = 0.0
@@ -333,6 +342,15 @@ class DesignResponse(BaseModel):
                     "método: no son pesos configurables.",
     )
     n_candidates_evaluated: int
+    discarded: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Bombas que entraban en el pozo y quedaban dentro de su rango de "
+            "caudal, pero no pudieron completar el aparejo, agrupadas por "
+            "causa. Distingue «esta bomba no sirve» de «a esta bomba le falta "
+            "un dato en el catálogo»."
+        ),
+    )
     warnings: list[str] = Field(default_factory=list, description="Warnings del run (p.ej. reservorio depletado)")
     gas_method: GasMethodDecision | None = Field(
         None,

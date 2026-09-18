@@ -12,6 +12,8 @@ tabla que pide el capítulo 23 del procedimiento.
 """
 from __future__ import annotations
 
+from dataclasses import replace
+
 from bes.core.gas_handling import (
     GAS_FRACTION_NEGLIGIBLE,
     SEPARATOR_DEFAULT_EFFICIENCY,
@@ -19,6 +21,8 @@ from bes.core.gas_handling import (
     complete_gas_design,
     evaluate_gas_feasibility,
     free_gas_fraction_at_intake,
+    gip_from_ladder,
+    gor_en_el_tubing,
     increment_result_to_candidate,
     pressure_increment_design,
     recommend_gas_separator,
@@ -367,18 +371,6 @@ def run_gas_design_complete(
         reservoir=reservoir, fluid=fluid, well=well,
         pump_setting_depth=depth, target_rate=target,
     )
-    p_discharge = calculate_discharge_pressure(
-        fluid=fluid, tubing_id=well.tubing_id, pump_depth=depth,
-        wellhead_pressure=surface.wellhead_pressure_required,
-        target_rate=target, t_pump=t_pump, t_wellhead=well.wellhead_temp,
-    )
-    if p_discharge <= pip:
-        raise ValueError(
-            f"La presión de descarga calculada ({p_discharge:.0f} psia) no "
-            f"supera a la de admisión ({pip:.0f} psia): con estas condiciones "
-            f"el pozo no necesita bomba, o los datos de superficie no cierran."
-        )
-
     # --- Gas y TDH convencional (referencia para auditar) -----------------
     decision = gas_method_applies(
         fluid, pip, t_pump, objectives.gas_fraction_pc_threshold
@@ -409,7 +401,54 @@ def run_gas_design_complete(
         free_gas_fraction=decision["free_gas_fraction"],
     )
 
-    gip = 1.0 - vent_gas_pct
+    # El gas que entra a la bomba sale de LA ESCALERA, no del venteo manual.
+    # La escalera ya contabilizó las dos cosas: el venteo por el anular y la
+    # eficiencia del separador que ella misma eligió del catálogo.
+    #
+    # Acá iba ``1.0 - vent_gas_pct``, que ignoraba el separador. El efecto era
+    # que la tabla de incrementos dimensionaba la bomba contra el caudal de
+    # mezcla SIN separar —hasta tres veces el real— mientras el reporte
+    # publicaba, en la misma pantalla, el gas ya separado. Los dos números no
+    # cerraban y la bomba salía sobredimensionada.
+    gip = gip_from_ladder(
+        float(factibilidad["f_intake"]), float(factibilidad["f_pump"])
+    )
+
+    # --- Presión de descarga, YA con el gas que el separador dejó pasar ----
+    # El recorrido del tubing va después de la escalera a propósito. El gas
+    # libre que el separador desvía se produce por el anular y NO sube por el
+    # tubing; el disuelto sí. Usar el GOR completo armaba una columna mucho más
+    # liviana que la real: en el ejercicio del tutor daba 887 psia en vez de
+    # 2714, y con eso el TDH por incrementos salía 997 ft contra los 6086 ft del
+    # camino convencional. Con el GOR corregido los dos métodos convergen en
+    # potencia dentro del 7 %.
+    # Ese GOR reducido es el del fluido que efectivamente atraviesa la bomba y
+    # sube por el tubing, así que gobierna las DOS cosas: el recorrido de
+    # descarga y la tabla de incrementos.
+    #
+    # En la tabla importa por una razón que no es obvia. Al subir la presión el
+    # petróleo redisuelve gas, pero sólo puede redisolver el que viaja con él:
+    # el que el separador mandó al anular ya no está. Con el GOR de producción
+    # completo, Rs trepaba de 72 a 446 scf/STB a lo largo de la bomba y el
+    # petróleo se hinchaba (Bo de 1.08 a 1.24) a costa de un gas que no tenía,
+    # al punto de que el caudal de mezcla CRECÍA con la presión. Con el GOR
+    # disponible real, Rs satura en 119 scf/STB y el volumen cae en forma
+    # monótona, que es lo que tiene que pasar.
+    fluido_tubing = replace(
+        fluid, gor=gor_en_el_tubing(fluid, pip, t_pump, gip)
+    )
+    p_discharge = calculate_discharge_pressure(
+        fluid=fluido_tubing, tubing_id=well.tubing_id, pump_depth=depth,
+        wellhead_pressure=surface.wellhead_pressure_required,
+        target_rate=target, t_pump=t_pump, t_wellhead=well.wellhead_temp,
+    )
+    if p_discharge <= pip:
+        raise ValueError(
+            f"La presión de descarga calculada ({p_discharge:.0f} psia) no "
+            f"supera a la de admisión ({pip:.0f} psia): con estas condiciones "
+            f"el pozo no necesita bomba, o los datos de superficie no cierran."
+        )
+
     sg = _sg_liquid(fluid)
     sg_max = _sg_max(fluid)
 
@@ -417,9 +456,13 @@ def run_gas_design_complete(
 
     def _correr(modelo: str | None) -> dict:
         return pressure_increment_design(
-            reservoir=reservoir, fluid=fluid,
+            reservoir=reservoir, fluid=fluido_tubing,
             p_intake=pip, p_discharge=p_discharge, target_rate=target,
-            catalog_manager=catalog_manager, gip=gip,
+            # La separación ya está adentro de ``fluido_tubing``: su GOR es el
+            # que atraviesa la bomba. Descontarla otra vez con el GIP la
+            # contaría dos veces, así que acá va 1.0. El GIP de la escalera se
+            # sigue publicando en el resumen, que es donde se audita.
+            catalog_manager=catalog_manager, gip=1.0,
             water_cut=fluid.water_cut, increment_psi=increment_psi,
             apply_deterioration=apply_deterioration,
             fixed_pump_model=modelo, casing_id=well.casing_id,
@@ -501,6 +544,10 @@ def run_gas_design_complete(
             "pump_intake_temp_f": t_pump,
             "tdh_conventional_ft": tdh_info["tdh_ft"],
             "tdh_increment_ft": inc["tdh_equivalent_ft"],
+            # El GIP que se publica es el de la ESCALERA. La tabla recibe 1.0
+            # porque su fluido ya viene con el GOR separado; mostrar ese 1.0
+            # diría que entra todo el gas, que es lo contrario de lo que pasa.
+            "gip": gip,
             # Las del cálculo hidráulico MÁS las de la escalera de manejo de
             # gas. Iban sólo las primeras, y por eso la advertencia de MODO
             # EJEMPLO —la que avisa que ``max_gip`` está en 100 % y que el

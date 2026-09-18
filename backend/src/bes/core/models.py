@@ -820,6 +820,13 @@ class DesignResult:
     bearing_check: dict = field(default_factory=dict)    # etapas vs cojinete y BHT
     bearing_load_lbs: float = 0.0    # Carga TL = Ho × Pem × A_eje
     staging_ceiling: dict = field(default_factory=dict)  # tope por housing/eje/cojinete
+    # Corrección por viscosidad de Riling (Brown §4.53112), tal como se aplicó.
+    # Trae los factores C_Q, C_H y C_hp, el SSU de diseño y de dónde salió la
+    # viscosidad. Se calculaba y se aplicaba a la curva desde siempre, pero NO
+    # viajaba: la pantalla y el reporte mostraban el resultado corregido sin
+    # poder decir con qué factores. En un crudo de 14 °API eso es la mitad del
+    # cálculo. Vacío cuando el crudo es liviano y no hay nada que corregir.
+    viscosity_correction: dict = field(default_factory=dict)
     # Enfriamiento del motor (velocidad de fluido en el anular)
     fluid_velocity_ft_s: float = 0.0
     cooling_ok: bool = True

@@ -166,7 +166,7 @@ def post_gas_complete_design(
         "pump_setting_depth":  resultado["pump_setting_depth"],
         "pump_intake_temp_f":  resultado["pump_intake_temp_f"],
         "pvt_source":          inc["pvt_source"],
-        "gip":                 inc["gip"],
+        "gip":                 resultado.get("gip", inc["gip"]),
     }
 
     return GasCompleteDesignResponse(

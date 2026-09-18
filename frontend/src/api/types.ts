@@ -38,7 +38,8 @@ export interface IPRFromTestResponse {
 }
 
 export interface FluidInput {
-  oil_api: number;
+  /** null con corte de agua 1.0: el pozo no produce petróleo. */
+  oil_api: number | null;
   water_cut: number;
   gor: number;
   gas_sg: number;
@@ -442,6 +443,12 @@ export interface DesignResponse {
   /** Criterios aplicados, en orden de prioridad. Documentan el método. */
   ordering_criteria: string[];
   n_candidates_evaluated: number;
+  /**
+   * Bombas que entraban en el pozo y caían dentro de su rango de caudal, pero
+   * no completaron el aparejo, agrupadas por causa. Distingue «esa bomba no
+   * sirve» de «a esa bomba le falta un dato en el catálogo».
+   */
+  discarded: string[];
   warnings: string[];
   /**
    * ¿Este pozo pedía el método por incrementos? Es INFORMATIVO: el diseño que

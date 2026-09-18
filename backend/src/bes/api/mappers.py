@@ -87,4 +87,5 @@ def from_design_result(dr: DesignResult) -> DesignResultSchema:
     """
     datos = asdict(dr)
     datos["gas_feasibility"] = datos.get("gas_feasibility") or None
+    datos["viscosity_correction"] = datos.get("viscosity_correction") or None
     return DesignResultSchema(**datos)

@@ -233,6 +233,8 @@ def _viscosity_context(
         # de la tabla de 70 % sólo para poblar el diagnóstico del pozo.
         pump_efficiency_pct=70.0,
         dead_oil_cp=dead_oil_cp,
+        # Con corte de agua 1.0 no hay crudo: la corrección no se aplica.
+        water_cut=fluid.water_cut,
     )
     resultado["intake_temp_f"] = t_intake
     resultado["viscosity_temp_f"] = t_eval

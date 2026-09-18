@@ -204,6 +204,12 @@ def generate_recommendations(
     Raises:
         ValueError: Si no se puede armar ningún diseño que califique.
     """
+    # Las candidatas que califican hidráulicamente pero no completan el aparejo
+    # se recogen acá para publicarlas: sin esto desaparecen de la pantalla y no
+    # hay manera de distinguir «esa bomba no sirve» de «a esa bomba le falta un
+    # dato en el catálogo». Son dos cosas distintas y sólo una se arregla
+    # cambiando el pozo.
+    descartadas: list[str] = []
     designs = select_top_n_pumps(
         reservoir=reservoir,
         fluid=fluid,
@@ -212,6 +218,7 @@ def generate_recommendations(
         objectives=objectives,
         catalog=catalog,
         n=n,
+        motivos_out=descartadas,
     )
 
     if not designs:
@@ -283,6 +290,7 @@ def generate_recommendations(
             "3. Potencia requerida en el eje (ascendente)",
         ],
         "n_candidates_evaluated": len(paired),
+        "discarded": descartadas,
     }
 
 

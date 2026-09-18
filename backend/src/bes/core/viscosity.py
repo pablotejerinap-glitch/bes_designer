@@ -999,6 +999,7 @@ def evaluate_viscosity(
     pump_efficiency_pct: float,
     dead_oil_cp: float | None = None,
     measured_mixture_ssu: float | None = None,
+    water_cut: float = 0.0,
 ) -> dict:
     """Procedimiento de Riling completo, con la regla de crudo liviano adelante.
 
@@ -1026,12 +1027,40 @@ def evaluate_viscosity(
             Fig. 4L-2. Sin ella se estima con Beggs-Robinson y se avisa.
         measured_mixture_ssu: Viscosidad de la mezcla con agua [SSU], medida.
             Cuando se pasa, **reemplaza** a la del crudo solo (paso 5).
+        water_cut: Corte de agua [0–1]. Con 1.0 el pozo no produce petróleo y
+            no hay nada que corregir: el fluido es agua.
 
     Returns:
         dict con ``is_viscous``, ``oil_api``, ``api_threshold``, los factores de
         corrección, el detalle de la viscosidad en ``viscosity`` (o ``None`` en
         crudo liviano), ``water_cut_correction`` y ``warnings``.
     """
+    # --- Pozo de agua pura: no hay crudo que corregir ----------------------
+    # El procedimiento de Riling corrige la curva por la viscosidad del CRUDO.
+    # Con corte de agua 1.0 no hay crudo: el fluido es agua, y el °API que
+    # figura en la carga no describe nada.
+    #
+    # Sin esta guarda la corrección se aplicaba igual. Un pozo de agua pura
+    # cargado con 5 °API —un valor que el usuario tiene que inventar porque el
+    # formulario lo exige— pasaba de 443 etapas y 66.5 hp a 480 y 157.5: un
+    # 137 % más de potencia por una propiedad de un petróleo que no existe.
+    if water_cut >= 1.0:
+        return {
+            "is_viscous": False,
+            "oil_api": None,
+            "api_threshold": VISCOUS_CRUDE_API_THRESHOLD,
+            "design_ssu": None,
+            "viscosity": None,
+            "water_cut_correction": "no_aplica",
+            "new_efficiency": pump_efficiency_pct,
+            "reason": (
+                "Corte de agua 100 %: el pozo no produce petróleo, así que no "
+                "hay viscosidad de crudo que corregir. La curva se lee tal cual "
+                "la publica el fabricante, que es con agua."
+            ),
+            **_SIN_CORRECCION,
+        }
+
     if is_viscous_crude(oil_api):
         v = crude_viscosity_ssu(oil_api, temp_f, rs_scf_bbl, dead_oil_cp)
         warnings = list(v["warnings"])

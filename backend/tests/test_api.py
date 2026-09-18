@@ -649,12 +649,23 @@ def test_max_gip_es_opcional_y_toma_el_default(client: TestClient) -> None:
     assert r.json()["feasibility"]["max_gip"] == pytest.approx(0.10)
 
 
-def test_gas_design_bomba_sin_motor_422(client: TestClient) -> None:
-    """Wood Group no tiene motores: sin fallback, falla explicando."""
+def test_gas_design_bomba_forzada_arma_su_aparejo(client: TestClient) -> None:
+    """Una Wood Group forzada ahora completa el aparejo con motor Wood Group.
+
+    Este test pedía lo contrario —un 422 porque Wood Group no tenía motores—
+    hasta que se digitalizó su catálogo (sep-2026, 385 placas). Lo que se
+    verifica ahora es lo que importaba de fondo: que el modelo forzado llegue
+    hasta el final y que el aparejo NO mezcle fabricantes.
+    """
     r = client.post("/api/gas/design",
                     json=_gas_design_payload(fixed_pump_model="TD-650"))
-    assert r.status_code == 422
-    assert "Ninguna bomba" in r.json()["detail"]
+    assert r.status_code == 200, r.text
+    d = r.json()["design"]
+    assert d["pump_model"] == "TD-650"
+    assert d["pump_manufacturer"] == "Wood Group ESP"
+    assert d["motor_manufacturer"] == "Wood Group ESP", (
+        "la regla de aparejo único no puede romperse: motor del mismo proveedor"
+    )
 
 
 def test_gas_design_explica_sus_formulas(client: TestClient) -> None:
@@ -1245,31 +1256,70 @@ class TestCuandoNoHayAparejoElErrorDicePorQue:
             "n": 3,
         }
 
+    def _pozo_imposible(self):
+        """Un pozo que NINGUNA bomba del catálogo puede resolver.
+
+        Antes este bloque usaba el §4.53103 de Brown, que fallaba porque Wood
+        Group no tenía motores cargados. Al digitalizarse el catálogo de motores
+        Wood Group (sep-2026) ese pozo pasó a tener solución, y con él se caían
+        cuatro pruebas que en realidad son sobre el MENSAJE, no sobre ese pozo.
+
+        Este apreta el casing a 4½" y lleva la bomba a 14 000 ft: el único
+        diámetro de motor que entra es el de 3.75", y a esa profundidad ninguno
+        da la potencia. Es una imposibilidad física, no un hueco de catálogo,
+        así que no se evapora cuando entra un proveedor nuevo.
+        """
+        p = self._brown_3a()
+        p["well"].update({
+            "casing_od": 4.5, "casing_weight": 11.6, "casing_id": 4.0,
+            "total_depth": 14000.0,
+            "perforations_top": 13950.0, "perforations_bottom": 14000.0,
+        })
+        return p
+
     def test_el_422_explica_la_causa_y_no_solo_el_sintoma(self, client):
-        r = client.post("/api/design", json=self._brown_3a())
+        r = client.post("/api/design", json=self._pozo_imposible())
         assert r.status_code == 422
         detalle = r.json()["detail"]
         # Cuántas bombas se intentaron, y por qué falló cada grupo.
         assert "completa el aparejo" in detalle
         assert "Motivos:" in detalle
-        # La causa concreta: el motor que entra no da la potencia.
-        assert "hp" in detalle and "casing" in detalle
+        # La causa concreta: no hay motor que dé la potencia en ese casing.
+        assert "motor" in detalle and "casing" in detalle
 
     def test_el_mensaje_esta_en_castellano(self, client):
         """El tutor de la tesis lee la pantalla, no el código."""
-        detalle = client.post("/api/design", json=self._brown_3a()).json()["detail"]
+        detalle = client.post("/api/design", json=self._pozo_imposible()).json()["detail"]
         assert "No complete ESP design" not in detalle
         assert "No motor found" not in detalle
 
     def test_la_misma_causa_no_se_repite_una_vez_por_bomba(self, client):
         """Cinco líneas iguales esconden que el motivo es uno solo."""
-        detalle = client.post("/api/design", json=self._brown_3a()).json()["detail"]
-        assert detalle.count("El motor más potente") == 1
+        from bes.recommender.pump_selector import _agrupar_motivos
+        lineas = _agrupar_motivos([
+            "REDA A: Ningún motor de REDA entra en un casing de 4.000 in de ID.",
+            "REDA B: Ningún motor de REDA entra en un casing de 4.000 in de ID.",
+            "REDA C: Ningún motor de REDA entra en un casing de 4.000 in de ID.",
+        ])
+        assert len(lineas) == 1
+        assert "REDA A, REDA B, REDA C" in lineas[0]
 
-    def test_un_proveedor_sin_motores_lo_dice_con_todas_las_letras(self, client):
-        """Wood Group tiene bombas y ningún motor: es un estado conocido."""
-        detalle = client.post("/api/design", json=self._brown_3a()).json()["detail"]
-        assert "No hay motores de Wood Group ESP" in detalle
+    def test_un_proveedor_sin_motores_lo_dice_con_todas_las_letras(self):
+        """Un proveedor con bombas y sin motores tiene que decirlo, si aparece.
+
+        Hoy los tres proveedores del catálogo arman aparejo propio, así que la
+        situación no se puede provocar desde la API. Se prueba el armador del
+        mensaje directamente: la capacidad tiene que seguir existiendo para el
+        día que entre un catálogo de bombas sin su catálogo de motores.
+        """
+        from bes.recommender.pump_selector import _motivo_sin_aparejo
+        texto = _motivo_sin_aparejo([
+            "Proveedor X TD-1: No hay motores de Proveedor X en el catálogo. "
+            "La regla de aparejo único exige que bomba, motor y sello sean del "
+            "mismo proveedor, así que esta bomba no se puede completar.",
+        ])
+        assert "No hay motores de Proveedor X" in texto
+        assert "aparejo único" in texto
 
     def test_un_pozo_que_si_disena_sigue_diseñando(self, client):
         """El mensaje nuevo no puede haber convertido un éxito en un error."""

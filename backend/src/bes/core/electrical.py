@@ -185,6 +185,7 @@ def select_cable(
     motor_od: float,
     catalog_manager: "CatalogManager",
     motor_voltage: float = 0.0,
+    fitment_declarado: bool = False,
 ) -> dict:
     """Elige el cable de potencia más económico que cumpla todo.
 
@@ -195,7 +196,13 @@ def select_cable(
            al 100 % de su capacidad todo el día.
         2. **Temperatura**: ``max_temp_f`` >= temperatura de fondo + 25 °F.
         3. **Que entre físicamente**: el espesor del cable plano tiene que
-           caber en la luz del anular de un lado (casing − motor).
+           caber en la luz del anular de un lado (casing − motor). Se saltea
+           cuando el fabricante del motor ya declaró el casing mínimo de la
+           serie (``fitment_declarado``): esa declaración cubre la extensión de
+           cable que corre al costado del motor, que va abulonada en el rebaje
+           del propio motor y no simplemente apoyada en el anular. Rederivarla
+           por geometría contradecía a los tres fabricantes — con 5½" la cuenta
+           deja 0.166 in por lado y ningún cable plano publicado baja de 0.37.
         4. **Conductor**: se prefiere cobre (CU) antes que aluminio (AL).
         5. **Economía**: entre los que cumplen 1 a 4, el conductor más
            chico — o sea el de menor ampacidad, que es el más barato.
@@ -233,7 +240,8 @@ def select_cable(
         and c.get("max_temp_f") is not None
         and c["max_amps"] >= required_ampacity
         and c["max_temp_f"] >= min_temp_rating
-        and _CABLE_FLAT_THICKNESS_IN.get(c["size"], 0.50) <= annular_clearance
+        and (fitment_declarado
+             or _CABLE_FLAT_THICKNESS_IN.get(c["size"], 0.50) <= annular_clearance)
     ]
 
     if not candidates:
@@ -564,6 +572,7 @@ def _motivo_sin_motor(
     casing_id: float | None,
     min_cable_thk: float,
     min_temp: float,
+    casing_od: float | None = None,
 ) -> str:
     """Por qué no hay motor, en castellano y con el número que lo explica.
 
@@ -606,20 +615,27 @@ def _motivo_sin_motor(
         )
 
     # Los que entran físicamente: OD contra la bomba y claro para el cable.
-    entran = [m for m in motores if m["od_inches"] <= max_od]
-    if casing_id is not None:
-        entran = [
-            m for m in entran
-            if m["od_inches"] + 2.0 * min_cable_thk <= casing_id
-        ]
+    # Las dos restricciones de diámetro se evalúan por separado porque el
+    # mensaje tiene que nombrar la que realmente ató. Antes se filtraba con las
+    # dos juntas y se culpaba siempre al casing: con una bomba de la serie 338 y
+    # motores de 4.56 in, lo que ata es el tope de 1.20 × el OD de la bomba, y
+    # decir «piden un casing mayor» mandaba al usuario a cambiar el casing
+    # cuando el remedio era otra bomba.
+    pasan_casing = [
+        m for m in motores
+        if motor_entra_en_casing(m, casing_od, casing_id, min_cable_thk,
+                                 tabla_casing_por_od(catalog_manager._motors))
+    ]
+    entran = [m for m in pasan_casing if m["od_inches"] <= max_od]
 
     if not entran:
         od_min = min(m["od_inches"] for m in motores)
         detalle = (
-            f"OD del motor + 2 × {min_cable_thk:.2f} in de cable plano "
-            f"≤ {casing_id:.3f} in de ID de casing, o sea OD ≤ "
-            f"{casing_id - 2.0 * min_cable_thk:.3f} in"
-            if casing_id is not None
+            f"un casing de {casing_od:.2f} in o mayor según el catálogo del "
+            f"fabricante, o —para los motores que no lo declaran— OD del motor "
+            f"+ 2 × {min_cable_thk:.2f} in de cable plano ≤ {casing_id:.3f} in "
+            f"de ID"
+            if casing_id is not None and casing_od is not None
             else f"OD ≤ {max_od:.2f} in (1.20 × el OD de la bomba)"
         )
         return (
@@ -640,7 +656,28 @@ def _motivo_sin_motor(
             f"{hp_min:.1f} hp — {hp_required:.1f} hp al eje más el 10 % de "
             f"margen."
         )
-        if casing_id is not None:
+        # ¿Qué ató: el casing o el diámetro de la bomba? Si entre los que el
+        # casing admite hay alguno más potente, lo que sobra es el tope de
+        # 1.20 × el OD de la bomba, y el remedio es cambiar de bomba.
+        hp_con_casing = max((m["hp_rating"] for m in pasan_casing), default=0.0)
+        if hp_con_casing > hp_techo:
+            od_grande = min(
+                m["od_inches"] for m in pasan_casing
+                if m["hp_rating"] == hp_con_casing
+            )
+            motivo += (
+                f" El casing sí admite motores{del_prov} de hasta "
+                f"{hp_con_casing:.0f} hp (OD {od_grande:.2f} in), pero no caben "
+                f"bajo el tope de {max_od:.2f} in que impone la bomba de "
+                f"{pump_od:.2f} in (1.20 × su OD). Con una bomba de serie mayor "
+                f"este motor entraría."
+            )
+        elif casing_od is not None:
+            motivo += (
+                f" Los motores más grandes{del_prov} piden un casing mayor que "
+                f"el de {casing_od:.2f} in de este pozo."
+            )
+        elif casing_id is not None:
             motivo += (
                 f" Los motores más grandes{del_prov} no pasan el claro de cable "
                 f"de un casing de {casing_id:.3f} in de ID."
@@ -655,6 +692,100 @@ def _motivo_sin_motor(
     )
 
 
+def tabla_casing_por_od(motores: list[dict]) -> dict[float, float]:
+    """OD de motor → casing mínimo, según los catálogos que SÍ lo publican.
+
+    REDA y Wood Group publican el casing mínimo de cada serie; Centrilift no
+    —su catálogo está escaneado y sus páginas de motores sólo imprimen el
+    diámetro—. Sin un sustituto, esos motores caerían a la regla geométrica
+    mientras los otros dos pasan por la del fabricante, y el filtro volvería a
+    decidir la competencia por quién tiene mejor digitalizado el catálogo.
+
+    La tabla se arma **con los datos publicados**: para cada diámetro, el casing
+    mínimo más conservador que algún fabricante declara. En 5.40 in, por
+    ejemplo, REDA pide 7" y Wood Group 6⅝": se toma 7".
+
+    Returns:
+        ``{od_motor: casing_minimo}`` con los diámetros declarados.
+    """
+    tabla: dict[float, float] = {}
+    for m in motores:
+        mc = m.get("min_casing_od_in")
+        if mc is None:
+            continue
+        od = float(m["od_inches"])
+        tabla[od] = max(tabla.get(od, 0.0), float(mc))
+    return tabla
+
+
+def casing_minimo_inferido(od: float, tabla: dict[float, float]) -> float | None:
+    """Casing mínimo para un motor cuyo catálogo no lo declara.
+
+    Se redondea **hacia arriba** al diámetro declarado inmediato superior y se
+    toma su casing: un motor de 4.50 in no puede pedir menos que uno de 4.56 in.
+    Es una inferencia, no un dato de catálogo, y por eso vive acá y no dentro de
+    ``motors.json``: el archivo sigue diciendo sólo lo que dice el impreso.
+
+    Devuelve ``None`` si el motor es más grande que todos los declarados, y en
+    ese caso manda la regla geométrica.
+    """
+    arriba = [o for o in tabla if o >= od - 1e-9]
+    return tabla[min(arriba)] if arriba else None
+
+
+def motor_entra_en_casing(
+    motor: dict,
+    casing_od: float | None,
+    casing_id: float | None,
+    min_cable_thk: float,
+    tabla_od: dict[float, float] | None = None,
+) -> bool:
+    """¿Este motor se puede instalar en este casing?
+
+    **Manda el dato del fabricante.** Los catálogos publican, por serie de
+    motor, el casing mínimo en el que la serie se instala —``min_casing_od_in``,
+    que en el impreso es el encabezado «5-1/2" / 139.70 MM O.D. or Larger
+    Casing»—. Es una declaración de aptitud del que fabrica el equipo y del que
+    responde por él, y contempla cómo corre en realidad la extensión de cable al
+    costado del motor.
+
+    Sólo cuando ese dato falta se cae a la regla geométrica de reemplazo: que el
+    diámetro del motor más dos espesores del cable plano más fino entren en el
+    diámetro interior del casing.
+
+    Por qué el orden es ése y no al revés
+    -------------------------------------
+    La regla geométrica sola contradecía a los tres fabricantes. Con un casing
+    de 5½" (ID 4.892 in) exigía OD ≤ 4.292 in, y eso dejaba afuera **todas** las
+    series de 4.56 in —la 456 de REDA hasta 270 hp y la 400 de Wood Group hasta
+    180 hp— que sus propios catálogos declaran aptas para 5½". Como Centrilift
+    sí publica potencias altas en 3.75 in, el efecto neto era que Centrilift
+    ganaba todos los pozos de 5½" por construcción del filtro y no por mérito
+    del equipo.
+
+    La regla geométrica se conserva como respaldo porque sigue siendo la única
+    defensa cuando un motor entra al catálogo sin su casing mínimo declarado.
+
+    Args:
+        motor: Fila del catálogo de motores.
+        casing_od: Diámetro exterior nominal del casing [in]. Es contra éste
+            que los fabricantes publican la aptitud.
+        casing_id: Diámetro interior del casing [in], para la regla geométrica.
+        min_cable_thk: Espesor del cable plano más fino del catálogo [in].
+
+    Returns:
+        True si el motor se puede instalar.
+    """
+    minimo = motor.get("min_casing_od_in")
+    if minimo is None and tabla_od:
+        minimo = casing_minimo_inferido(float(motor["od_inches"]), tabla_od)
+    if minimo is not None and casing_od is not None:
+        return casing_od >= float(minimo) - 1e-9
+    if casing_id is None:
+        return True
+    return motor["od_inches"] + 2.0 * min_cable_thk <= casing_id
+
+
 def select_motor(
     hp_required: float,
     catalog_manager: "CatalogManager",
@@ -663,6 +794,7 @@ def select_motor(
     depth_ft: float,
     casing_id: float | None = None,
     manufacturer: str | None = None,
+    casing_od: float | None = None,
 ) -> dict:
     """Elige el mejor motor para la potencia pedida y las condiciones del pozo.
 
@@ -713,6 +845,7 @@ def select_motor(
     max_od = round(pump_od * 1.20, 6)
     min_temp = bottom_temp + 25.0
     min_cable_thk = min(_CABLE_FLAT_THICKNESS_IN.values())
+    tabla_od = tabla_casing_por_od(catalog_manager._motors)
 
     if hp_required <= 70.0:
         target_v = 800.0
@@ -727,16 +860,13 @@ def select_motor(
         and m["hp_rating"] >= hp_min
         and m["od_inches"] <= max_od
         and motor_temperature_ok(m, min_temp)
-        and (
-            casing_id is None
-            or m["od_inches"] + 2.0 * min_cable_thk <= casing_id
-        )
+        and motor_entra_en_casing(m, casing_od, casing_id, min_cable_thk, tabla_od)
     ]
 
     if not candidates:
         raise ValueError(_motivo_sin_motor(
             catalog_manager, manufacturer, hp_required, hp_min,
-            pump_od, max_od, casing_id, min_cable_thk, min_temp,
+            pump_od, max_od, casing_id, min_cable_thk, min_temp, casing_od,
         ))
 
     # Un motor cuya corriente ningún cable del catálogo puede llevar no es un
@@ -747,7 +877,9 @@ def select_motor(
     feasible = [
         m for m in candidates
         if m["amperage"] * _CABLE_DERATING
-        <= max_cable_ampacity(catalog_manager, bottom_temp, casing_id, m["od_inches"])
+        <= max_cable_ampacity(catalog_manager, bottom_temp, casing_id,
+                              m["od_inches"],
+                              True)
     ]
     candidates = feasible or candidates
 
@@ -761,6 +893,7 @@ def max_cable_ampacity(
     bottom_temp: float,
     casing_id: float | None,
     motor_od: float,
+    fitment_declarado: bool = False,
 ) -> float:
     """Corriente máxima que algún cable del catálogo puede llevar a este motor.
 
@@ -775,7 +908,8 @@ def max_cable_ampacity(
         if c.get("max_amps") is not None
         and c.get("max_temp_f") is not None
         and c["max_temp_f"] >= min_temp_rating
-        and _CABLE_FLAT_THICKNESS_IN.get(c["size"], 0.50) <= clearance
+        and (fitment_declarado
+             or _CABLE_FLAT_THICKNESS_IN.get(c["size"], 0.50) <= clearance)
     ]
     return max(usable) if usable else 0.0
 
@@ -916,6 +1050,7 @@ def electrical_design_complete(
         bottom_temp=bottom_temp,
         depth_ft=pump_depth,
         casing_id=well.casing_id,
+        casing_od=well.casing_od,
         manufacturer=manufacturer,
     )
 
@@ -952,6 +1087,10 @@ def electrical_design_complete(
         motor_od=motor["od_inches"],
         catalog_manager=catalog_manager,
         motor_voltage=motor["voltage"],
+        # El motor pasó por su casing mínimo declarado, no por la regla
+        # geométrica de reemplazo: el fabricante ya se hizo cargo de que la
+        # extensión de cable pase al costado.
+        fitment_declarado=True,
     )
 
     cable_drop = cable["voltage_drop_per_1000ft"] * cable["length_ft"] / 1000.0

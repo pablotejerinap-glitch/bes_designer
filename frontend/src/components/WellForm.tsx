@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Accordion,
+  Alert,
   Divider,
   Grid,
   NumberInput,
@@ -35,6 +36,12 @@ interface NumField {
   description?: string;
   /** Vacío viaja como null en vez de 0, para campos que el backend admite sin valor. */
   optional?: boolean;
+  /**
+   * Propiedad del petróleo: desaparece con corte de agua 1.0, donde el pozo no
+   * produce petróleo y el dato no existe. Pedirlo obligaba al usuario a
+   * inventar un número.
+   */
+  soloConPetroleo?: boolean;
 }
 
 // El índice de productividad NO se carga: es un resultado del ensayo. Acá se
@@ -51,10 +58,17 @@ const RESERVOIR_NUM: NumField[] = [
   { key: "reservoir_temp", label: "Temperatura de reservorio", unit: "°F" },
 ];
 
+// H2S, CO2 y «producción de arena» se sacaron del formulario en sep-2026: un
+// barrido de sensibilidad mostró que no movían ni uno de los 73 campos del
+// diseño —sólo se imprimían en el reporte—. Los campos siguen en el modelo con
+// su valor por defecto, así que vuelven en cuanto se conecte la selección de
+// materiales (hay un `elastomers.json` cargado y sin usar) y la de bombas
+// antiabrasivas (el catálogo de Wood Group publica la variante AR de cada
+// bomba). No se borraron del dominio para no perder esa puerta.
 const FLUID_NUM: NumField[] = [
-  { key: "oil_api", label: "Gravedad API", unit: "°API", step: 0.1 },
-  { key: "water_cut", label: "Corte de agua", unit: "frac 0-1", step: 0.01 },
-  { key: "gor", label: "GOR", unit: "scf/STB" },
+  { key: "oil_api", label: "Gravedad API", unit: "°API", step: 0.1, soloConPetroleo: true },
+  { key: "water_cut", label: "Corte de agua", unit: "frac 0-1", step: 0.01, soloConPetroleo: true },
+  { key: "gor", label: "GOR", unit: "scf/STB", soloConPetroleo: true },
   { key: "gas_sg", label: "SG del gas", unit: "aire=1", step: 0.01 },
   { key: "water_sg", label: "SG de la salmuera", step: 0.01 },
   // Opcionales: sin ensayo de laboratorio el backend lee la Fig. 4L(2) del
@@ -67,6 +81,7 @@ const FLUID_NUM: NumField[] = [
     step: 0.1,
     description: "opcional · vacío = Fig. 4L(2)",
     optional: true,
+    soloConPetroleo: true,
   },
   {
     key: "viscosity_temp_ref",
@@ -74,12 +89,11 @@ const FLUID_NUM: NumField[] = [
     unit: "°F",
     description: "sólo si cargaste la viscosidad",
     optional: true,
+    soloConPetroleo: true,
   },
   // Pb del fluido no se pide acá: es el mismo punto de burbuja del reservorio
   // ("Presión de burbuja"). App sincroniza fluid.bubble_point_pressure =
   // reservoir.bubble_point para que IPR y PVT usen un único valor.
-  { key: "h2s_content", label: "H2S", unit: "ppm" },
-  { key: "co2_content", label: "CO2", unit: "ppm" },
 ];
 
 // Los diámetros de casing/tubing salen de la tabla Tenaris (OD -> peso -> ID),
@@ -109,14 +123,12 @@ const SURFACE_NUM: NumField[] = [
   { key: "flowline_id", label: "ID flowline", unit: "in", step: 0.1 },
   { key: "flowline_elevation_change", label: "Cambio de elevación", unit: "ft" },
   { key: "separator_pressure", label: "Presión separador", unit: "psi" },
-  { key: "power_supply_voltage", label: "Voltaje de superficie", unit: "V" },
 ];
 
 const OBJECTIVES_NUM: NumField[] = [
   { key: "target_flow_rate", label: "Caudal objetivo", unit: "STB/d" },
   { key: "safety_margin_depth", label: "Margen de profundidad", unit: "ft" },
   { key: "max_gip", label: "Máx. gas en bomba", unit: "frac 0-1", step: 0.01 },
-  { key: "design_life_years", label: "Vida de diseño", unit: "años", step: 0.5 },
 ];
 
 const IPR_OPTIONS: { value: IPRMethod; label: string }[] = [
@@ -172,9 +184,13 @@ export function WellForm({ value, onChange }: Props) {
   // description: siempre visible al lado del número.
   function numGrid<S extends Section>(section: S, fields: NumField[]) {
     const obj = value[section] as unknown as Record<string, number>;
+    // Con corte de agua 1.0 el pozo no produce petróleo: las propiedades del
+    // crudo no se muestran porque no existen. El backend las acepta ausentes.
+    const sinCrudo = Number((value.fluid as FluidInput).water_cut) >= 1;
+    const visibles = sinCrudo ? fields.filter((f) => !f.soloConPetroleo) : fields;
     return (
       <Grid gutter="xs">
-        {fields.map((f) => (
+        {visibles.map((f) => (
           <Grid.Col span={{ base: 12, xs: 6 }} key={f.key}>
             <NumberInput
               label={f.label}
@@ -206,6 +222,8 @@ export function WellForm({ value, onChange }: Props) {
 
   const reservoir = value.reservoir as ReservoirInput;
   const fluid = value.fluid as FluidInput;
+  // Pozo de agua: gobierna qué campos del panel Fluido tienen sentido.
+  const soloAgua = Number(fluid.water_cut) >= 1;
   const surface = value.surface as SurfaceInput;
   const objectives = value.objectives as ObjectivesInput;
   const well = value.well as WellInput;
@@ -215,6 +233,15 @@ export function WellForm({ value, onChange }: Props) {
   // casi nunca está a mano— se autocompleta desde la tabla. Se puede editar a
   // mano si hace falta un valor no estándar.
   const [tubulars, setTubulars] = useState<TubularCatalog | null>(null);
+  // Lo que había cargado antes de marcar «pozo de agua», para poder volver sin
+  // que el usuario tenga que tipearlo todo de nuevo. Marcar y desmarcar por
+  // error no le puede costar los datos del crudo.
+  const [previoCrudo, setPrevioCrudo] = useState<{
+    water_cut: number;
+    oil_api: number | null;
+    oil_viscosity_dead: number | null;
+    viscosity_temp_ref: number | null;
+  }>({ water_cut: 0, oil_api: null, oil_viscosity_dead: null, viscosity_temp_ref: null });
   useEffect(() => {
     api.tubulars().then(setTubulars).catch(() => setTubulars(null));
   }, []);
@@ -490,13 +517,58 @@ export function WellForm({ value, onChange }: Props) {
       <Accordion.Item value="fluid">
         <Accordion.Control>2 · Fluido</Accordion.Control>
         <Accordion.Panel>
-          {numGrid("fluid", FLUID_NUM)}
+          {/*
+            Interruptor de pozo de agua. Va ARRIBA de todo y no abajo porque es
+            lo primero que hay que decidir: define qué campos tienen sentido.
+            Antes había que deducirlo escribiendo 1 en «Corte de agua», y el
+            usuario no tenía por qué saber que ese 1 apagaba medio panel.
+          */}
           <Switch
-            mt="sm"
-            label="Producción de arena"
-            checked={fluid.sand_production}
-            onChange={(e) => setRaw("fluid", "sand_production", e.currentTarget.checked)}
+            mb="sm"
+            label="Pozo de agua 100 % (sin petróleo)"
+            description="Apaga las propiedades del crudo: no existen en este pozo"
+            checked={soloAgua}
+            onChange={(e) => {
+              const marcado = e.currentTarget.checked;
+              if (marcado) {
+                // Se guarda lo cargado antes de apagar el crudo.
+                setPrevioCrudo({
+                  water_cut: fluid.water_cut < 1 ? fluid.water_cut : 0,
+                  oil_api: fluid.oil_api,
+                  oil_viscosity_dead: fluid.oil_viscosity_dead,
+                  viscosity_temp_ref: fluid.viscosity_temp_ref,
+                });
+              }
+              onChange({
+                ...value,
+                fluid: marcado
+                  ? {
+                      ...fluid,
+                      water_cut: 1,
+                      // «No hay dato», en vez de un número inventado.
+                      oil_api: null,
+                      oil_viscosity_dead: null,
+                      viscosity_temp_ref: null,
+                    }
+                  : { ...fluid, ...previoCrudo },
+              });
+            }}
           />
+
+          {soloAgua && (
+            <Alert color="blue" variant="light" mb="sm" title="Pozo de agua">
+              <Text size="sm">
+                Corte de agua 100 %. No se piden °API, GOR ni viscosidad del
+                crudo: el pozo no produce petróleo y esos datos no existen.
+              </Text>
+              <Text size="sm" mt={6}>
+                La curva de la bomba se lee tal cual la publica el fabricante,
+                que es con agua, y no se aplica corrección por viscosidad.
+              </Text>
+            </Alert>
+          )}
+
+          {numGrid("fluid", FLUID_NUM)}
         </Accordion.Panel>
       </Accordion.Item>
 
@@ -589,12 +661,6 @@ export function WellForm({ value, onChange }: Props) {
         <Accordion.Control>5 · Objetivos</Accordion.Control>
         <Accordion.Panel>
           {numGrid("objectives", OBJECTIVES_NUM)}
-          <Switch
-            mt="sm"
-            label="Permite venteo de gas"
-            checked={objectives.allow_gas_venting}
-            onChange={(e) => setRaw("objectives", "allow_gas_venting", e.currentTarget.checked)}
-          />
           {/* La correlación de pérdida de carga. Vacío = la decide la fracción
               de gas libre en la admisión, que es lo que hacía el programa
               antes de que esto se pudiera elegir. El umbral de gas sigue sin

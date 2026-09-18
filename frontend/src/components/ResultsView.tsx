@@ -355,6 +355,27 @@ export function ResultsView({
         salida. Las dos rutas al TDH son un resultado del trabajo y tienen que
         poder compararse.
       */}
+      {/*
+        Las bombas que entraban en el pozo, caían dentro de su rango de caudal
+        y quedaban mejor rankeadas que alguna de las mostradas, pero no
+        pudieron completar el aparejo. Se publican porque su ausencia no es
+        neutra: una bomba que se cae porque su proveedor no tiene motores
+        cargados NO es lo mismo que una bomba que no sirve para el pozo, y sin
+        este cartel las dos cosas se ven igual —no se ven—.
+      */}
+      {response.discarded?.length > 0 && (
+        <Alert color="gray" mt="sm" variant="light" title="Candidatas descartadas al armar el aparejo">
+          {response.discarded.map((motivo, i) => (
+            <Text key={i} size="sm" mt={i === 0 ? 0 : "xs"}>• {motivo}</Text>
+          ))}
+          <Text size="xs" c="dimmed" mt="xs">
+            Estaban mejor rankeadas que alguna de las opciones de arriba. Si el
+            motivo es la falta de un dato de catálogo, la comparación no está
+            completa.
+          </Text>
+        </Alert>
+      )}
+
       {gasMethod?.applies && (
         <Alert color="orange" mt="sm" variant="light" title="Este pozo tiene gas libre">
           <Text size="sm">{gasMethod.reason}</Text>

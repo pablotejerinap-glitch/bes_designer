@@ -730,9 +730,6 @@ def generate_design_report(
                   fallback="Sin ensayo — Fig. 4L(2)"), "cp"],
             ["Temp. del ensayo de viscosidad",
              _num(fluid.viscosity_temp_ref, ".0f", fallback=_SIN), "°F"],
-            ["H2S", _num(fluid.h2s_content, ".0f"), "ppm"],
-            ["CO2", _num(fluid.co2_content, ".0f"), "ppm"],
-            ["Producción de arena", "Sí" if fluid.sand_production else "No", "—"],
         ]))
 
     if well:
@@ -762,7 +759,6 @@ def generate_design_report(
             ["ID de flowline", _num(surface.flowline_id, ".2f"), "in"],
             ["Cambio de elevación flowline", _num(surface.flowline_elevation_change, ".0f"), "ft"],
             ["Presión de separador", _num(surface.separator_pressure, ".0f"), "psi"],
-            ["Voltaje disponible", _num(surface.power_supply_voltage, ",.0f"), "V"],
             ["Frecuencia", _num(surface.frequency, ".0f"), "Hz"],
         ]))
 
@@ -771,9 +767,7 @@ def generate_design_report(
             _ENC,
             ["Tasa objetivo", _num(objectives.target_flow_rate, ",.0f"), "STB/d"],
             ["Margen de seguridad (profundidad)", _num(objectives.safety_margin_depth, ".0f"), "ft"],
-            ["Venteo de gas", "Sí" if objectives.allow_gas_venting else "No", "—"],
             ["GIP máximo en admisión", _num(objectives.max_gip, ".1%"), "fracción"],
-            ["Vida útil de diseño", _num(objectives.design_life_years, ".1f"), "años"],
             ["Variador de velocidad (VSD)", "Sí" if objectives.use_vsd else "No", "—"],
             ["Frecuencia de diseño (VSD)",
              _num(objectives.design_frequency_hz, ".1f", fallback="La de red"), "Hz"],
