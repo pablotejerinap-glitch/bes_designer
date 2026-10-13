@@ -18,6 +18,12 @@ CATALOG_DIR = Path(__file__).parent
 CWD ni de la raiz del repo. Unico lugar de verdad — usarlo desde los scripts."""
 
 
+def marca_normalizada(nombre: str) -> str:
+    """Primera palabra del fabricante, en minúsculas: «Wood Group ESP» y «Wood
+    Group» son la misma marca."""
+    return (nombre or "").strip().split(" ")[0].lower()
+
+
 def _load_json(path: Path) -> dict:
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -135,8 +141,10 @@ class CatalogManager:
         )
         # Datos mecánicos por serie (eje, presión de carcasa, cojinetes). Una
         # serie ausente = sin dato: la verificación se reporta como no realizada.
-        self._pump_series: dict[str, dict] = {
-            str(s["series"]): s
+        # Se indexa por (fabricante, serie): la ficha de una marca NO se aplica
+        # a bombas de otra, porque el eje de cada fabricante es hardware propio.
+        self._pump_series: dict[tuple[str, str], dict] = {
+            (marca_normalizada(s.get("manufacturer", "")), str(s["series"])): s
             for s in _load_optional(base / "pump_series.json", "series")
         }
         # Tablas dimensionales Tenaris (API 5CT): OD + peso -> ID y drift.
@@ -530,26 +538,26 @@ class CatalogManager:
         """Return every surface controller in the catalog."""
         return list(self._controllers)
 
-    def get_pump_series(self, series: str) -> dict | None:
-        """Datos mecánicos de una serie de bombas; ``None`` si el catálogo no los tiene.
+    def get_pump_series(self, series: str, manufacturer: str) -> dict | None:
+        """Datos mecánicos de una serie **del mismo fabricante**; ``None`` si no hay.
 
         El diámetro y los límites del eje, la presión que aguantan las carcasas y el
-        tope de etapas del cojinete son propiedades del **hardware de la serie**, no
-        del modelo hidráulico, así que se indexan por serie.
+        tope de etapas del cojinete son propiedades del hardware de la serie de UN
+        fabricante. La ficha de una marca no se aplica a otra: suponer que el eje
+        de Centrilift es igual al de Wood Group sería un dato supuesto.
 
         Devolver ``None`` en vez de valores por defecto es **deliberado**: quien
         llama tiene que poder distinguir «no verificado» de «verificado y aprobado».
-        Un valor por defecto haría pasar por aprobada una verificación que nunca se
-        hizo.
 
         Args:
-            series: Designación de la serie tal como aparece en
-                ``PumpCurve.series`` (por ej. ``"400"``).
+            series: Designación de la serie (``PumpCurve.series``, por ej. ``"400"``).
+            manufacturer: Fabricante de la bomba (``PumpCurve.manufacturer``).
 
         Returns:
-            La ficha de la serie, o ``None`` si no está en el catálogo.
+            La ficha de la serie, o ``None`` si el catálogo no la tiene para ese
+            fabricante.
         """
-        return self._pump_series.get(str(series))
+        return self._pump_series.get((marca_normalizada(manufacturer), str(series)))
 
     def get_all_transformers(self) -> list[dict]:
         """Todos los transformadores del catálogo."""

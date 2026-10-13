@@ -132,3 +132,79 @@ def viscosidad(fila: dict, rotulo: str) -> str:
     a2.set_title("Tablas 4.520 / 4.521 a %.0f SSU" % ch["ssu"], color=AZ, fontweight="bold", fontsize=9)
     fig.tight_layout()
     return _uri(fig)
+
+
+# ---------------------------------------------------------------------------
+# Láminas 4L de Brown redibujadas con la lectura del pozo
+# ---------------------------------------------------------------------------
+# Se dibujan con las mismas tablas digitalizadas que usa el cálculo
+# (catalogs/viscosity_charts.json) y con la misma regla de interpolación
+# (segmentos rectos en log μ), de modo que la lectura marcada es exactamente
+# el valor que entró a la cuenta.
+
+def _marca(ax, x, y, x0, y0, txt, dx=12, dy=14):
+    ax.plot([x, x], [y0, y], color=RO, lw=1.3, ls="--", zorder=4)
+    ax.plot([x0, x], [y, y], color=RO, lw=1.3, ls="--", zorder=4)
+    ax.plot([x], [y], "o", color=RO, ms=7, zorder=5)
+    ax.annotate(txt, (x, y), textcoords="offset points", xytext=(dx, dy), color=RO, fontsize=8,
+                fontweight="bold", bbox=dict(boxstyle="round,pad=0.25", fc="white", ec=RO, lw=.8))
+
+
+def carta_4l2(api: float, temp_f: float, mu_od: float, medido: bool, rotulo: str) -> str:
+    """Fig. 4L(2): viscosidad del crudo sin gas en función de °API e isoterma."""
+    from bes.core.viscosity import _charts, dead_oil_viscosity_chart
+    plt = _plt()
+    L = _charts()["fig_4L_2"]
+    apis = L["api"]
+    fig, ax = plt.subplots(figsize=(5.6, 3.9))
+    grises = ["#1F3864", "#2F5597", "#5B7DB8", "#8EA6D2", "#B4C4E3"]
+    for iso, c in zip(L["isotermas"], grises):
+        ax.plot(apis, iso["mu_cp"], color=c, lw=1.4, label=f"{iso['temp_f']:.0f} °F")
+    temps = [iso["temp_f"] for iso in L["isotermas"]]
+    if not medido and temps[0] <= temp_f <= temps[-1] and temp_f not in temps:
+        ys = [dead_oil_viscosity_chart(a, temp_f)["mu_cp"] for a in apis]
+        ax.plot(apis, ys, color=RO, lw=1.2, ls=":", label=f"{temp_f:.0f} °F (interpolada)")
+    ax.set_yscale("log")
+    ax.set_xlim(apis[0], apis[-1]); ax.set_ylim(0.1, 10000)
+    if medido:
+        ax.text(0.97, 0.95, f"μod de ensayo = {mu_od:.1f} cP\n(medido a la temperatura de evaluación:\nno se lee la lámina)",
+                transform=ax.transAxes, ha="right", va="top", fontsize=8, color=RO,
+                bbox=dict(boxstyle="round,pad=0.3", fc="white", ec=RO, lw=.8))
+    else:
+        _marca(ax, api, mu_od, apis[0], 0.1, f"{api:.1f} °API, {temp_f:.0f} °F\nμod = {mu_od:.1f} cP")
+    ax.set_xlabel("gravedad del crudo  [°API a 60 °F]")
+    ax.set_ylabel("viscosidad del crudo sin gas  μod  [cP]")
+    ax.set_title(f"{rotulo} — Fig. 4L(2): crudo sin gas", color=AZ, fontweight="bold")
+    ax.legend(title="isoterma", fontsize=7, title_fontsize=7, loc="lower left")
+    ax.grid(True, which="both", alpha=.25)
+    fig.tight_layout()
+    return _uri(fig)
+
+
+def carta_4l1(mu_od: float, rs: float, mu_ob: float, rotulo: str) -> str:
+    """Fig. 4L(1): viscosidad del crudo saturado según μod y el gas en solución."""
+    from bes.core.viscosity import _charts, gas_saturated_viscosity_chart
+    plt = _plt()
+    curvas = _charts()["fig_4L_1"]["curvas"]
+    fig, ax = plt.subplots(figsize=(5.6, 3.9))
+    for cv in curvas:
+        ax.plot(cv["rs_scf_bbl"], cv["mu_cp"], color="#8EA6D2", lw=1.0)
+        ax.text(cv["rs_scf_bbl"][0] + 8, cv["mu_cp"][0], f"{cv['mu_dead_cp']:g}", fontsize=6.5,
+                color="#1F3864", va="center")
+    etiquetas = [cv["mu_dead_cp"] for cv in curvas]
+    if mu_od not in etiquetas and etiquetas[0] <= mu_od <= etiquetas[-1]:
+        hi = next(cv for cv in curvas if cv["mu_dead_cp"] > mu_od)
+        lo = [cv for cv in curvas if cv["mu_dead_cp"] < mu_od][-1]
+        rmax = min(hi["rs_scf_bbl"][-1], lo["rs_scf_bbl"][-1])
+        xs = [rmax * i / 60 for i in range(61)]
+        ys = [gas_saturated_viscosity_chart(mu_od, x)["mu_cp"] for x in xs]
+        ax.plot(xs, ys, color=RO, lw=1.2, ls=":", label=f"curva de {mu_od:.0f} cP (interpolada)")
+        ax.legend(fontsize=7, loc="upper right")
+    ax.set_yscale("log"); ax.set_xlim(0, 1400); ax.set_ylim(0.1, 600)
+    _marca(ax, rs, mu_ob, 0, 0.1, f"μod = {mu_od:.1f} cP, Rs = {rs:.0f}\nμob = {mu_ob:.1f} cP", dx=14, dy=10)
+    ax.set_xlabel("gas en solución a la presión de admisión  Rs  [scf/bbl]")
+    ax.set_ylabel("viscosidad del crudo saturado  μob  [cP]")
+    ax.set_title(f"{rotulo} — Fig. 4L(1): corrección por gas disuelto", color=AZ, fontweight="bold")
+    ax.grid(True, which="both", alpha=.25)
+    fig.tight_layout()
+    return _uri(fig)

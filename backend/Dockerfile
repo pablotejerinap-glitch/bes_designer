@@ -7,6 +7,22 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+# Librerías del sistema que WeasyPrint carga por FFI en tiempo de ejecución, no
+# al instalar: sin ellas `pip install weasyprint` pasa y el `import weasyprint`
+# falla recién cuando alguien pide la memoria en PDF. Son las que renderizan
+# texto (Pango), vectores (Cairo) e imágenes (gdk-pixbuf), más un juego de
+# fuentes: una imagen slim no trae ninguna, y sin fuentes el PDF sale en blanco.
+# Van antes de las deps de Python para que esta capa quede cacheada.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libpango-1.0-0 \
+        libpangoft2-1.0-0 \
+        libcairo2 \
+        libgdk-pixbuf-2.0-0 \
+        libffi8 \
+        shared-mime-info \
+        fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+
 # Deps primero para aprovechar la cache de capas.
 COPY requirements-base.txt requirements-api.txt ./
 RUN pip install -r requirements-api.txt

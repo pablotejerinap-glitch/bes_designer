@@ -809,6 +809,14 @@ def seccion_caso(r: dict, cm, rotulo: str, titulo: str) -> str:
     nro += 1
     if r["viscoso"]:
         H.append(paso(nro, "CORRECCIÓN POR VISCOSIDAD (RILING)", bloque_visc(r)))
+        ch = r["visc"]["viscosity_chain"]
+        medido = ch.get("dead_oil_source") == "medido"
+        H.append(fig(G.carta_4l2(r["pozo"]["fluid"]["oil_api"], ch["temp_f"], ch["mu_dead_cp"], medido, rotulo),
+                     "Paso 2 de Riling: lectura en la Fig. 4L(2) de Brown (1980, Apéndice 4L), redibujada con "
+                     "la lámina digitalizada que usa la herramienta."))
+        H.append(fig(G.carta_4l1(ch["mu_dead_cp"], ch["rs_scf_bbl"], ch["mu_live_cp"], rotulo),
+                     "Paso 3 de Riling: lectura en la Fig. 4L(1) de Brown (1980, Apéndice 4L), entrando con el "
+                     "gas que permanece disuelto a la presión de admisión."))
         H.append(fig(G.viscosidad(r, rotulo), "Cadena de Riling y factores leídos de las Tablas 4.520 / 4.521."))
         nro += 1
     sel = []

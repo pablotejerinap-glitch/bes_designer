@@ -12,7 +12,7 @@
       "shaft_hp_limit_std": 94.0,
       "shaft_hp_limit_high_strength": 150.0,
       "shaft_hp_limit_ultra_high_strength": 192.0,
-      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Aplicado a todas las marcas por decision de diseno: el limite lo fija la seccion del eje, no el logo del fabricante. Modelos de esta carcasa: TA-400, TA-550, TA-900, TA-1200 (5/8\"); TA-1500 usa 11/16\"."
+      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Se aplica solo a bombas Wood Group: la ficha de una marca no se presta a otra (bes.core.mechanical.mechanical_data). Modelos de esta carcasa: TA-400, TA-550, TA-900, TA-1200 (5/8\"); TA-1500 usa 11/16\"."
     },
     {
       "series": "400",
@@ -48,7 +48,7 @@
       "shaft_hp_limit_std": 375.0,
       "shaft_hp_limit_high_strength": 600.0,
       "shaft_hp_limit_ultra_high_strength": 765.0,
-      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Aplicado a todas las marcas por decision de diseno: el limite lo fija la seccion del eje, no el logo del fabricante. Modelos de esta carcasa: TG-4000."
+      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Se aplica solo a bombas Wood Group: la ficha de una marca no se presta a otra (bes.core.mechanical.mechanical_data). Modelos de esta carcasa: TG-4000."
     },
     {
       "series": "538",
@@ -61,7 +61,7 @@
       "shaft_hp_limit_std": 256.0,
       "shaft_hp_limit_high_strength": 410.0,
       "shaft_hp_limit_ultra_high_strength": 522.0,
-      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Aplicado a todas las marcas por decision de diseno: el limite lo fija la seccion del eje, no el logo del fabricante. Modelos de esta carcasa: TE-1500, TE-2700, TE-3300 (7/8\"); TE-4200/7000/7200 usan 1\"."
+      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Se aplica solo a bombas Wood Group: la ficha de una marca no se presta a otra (bes.core.mechanical.mechanical_data). Modelos de esta carcasa: TE-1500, TE-2700, TE-3300 (7/8\"); TE-4200/7000/7200 usan 1\"."
     },
     {
       "series": "563",
@@ -74,7 +74,7 @@
       "shaft_hp_limit_std": 637.0,
       "shaft_hp_limit_high_strength": 1019.0,
       "shaft_hp_limit_ultra_high_strength": 1300.0,
-      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Aplicado a todas las marcas por decision de diseno: el limite lo fija la seccion del eje, no el logo del fabricante. Modelos de esta carcasa: TH-15000, TH-20000."
+      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Se aplica solo a bombas Wood Group: la ficha de una marca no se presta a otra (bes.core.mechanical.mechanical_data). Modelos de esta carcasa: TH-15000, TH-20000."
     },
     {
       "series": "675",
@@ -87,7 +87,7 @@
       "shaft_hp_limit_std": 637.0,
       "shaft_hp_limit_high_strength": 1019.0,
       "shaft_hp_limit_ultra_high_strength": 1300.0,
-      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Aplicado a todas las marcas por decision de diseno: el limite lo fija la seccion del eje, no el logo del fabricante. Modelos de esta carcasa: TJ-7500, TJ-9000, TJ-12000, TJ-20000."
+      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Se aplica solo a bombas Wood Group: la ficha de una marca no se presta a otra (bes.core.mechanical.mechanical_data). Modelos de esta carcasa: TJ-7500, TJ-9000, TJ-12000, TJ-20000."
     },
     {
       "series": "863",
@@ -100,7 +100,7 @@
       "shaft_hp_limit_std": 637.0,
       "shaft_hp_limit_high_strength": 1019.0,
       "shaft_hp_limit_ultra_high_strength": 1300.0,
-      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Aplicado a todas las marcas por decision de diseno: el limite lo fija la seccion del eje, no el logo del fabricante. Modelos de esta carcasa: TM-19000A, TM-19000B, TM-19000C."
+      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Se aplica solo a bombas Wood Group: la ficha de una marca no se presta a otra (bes.core.mechanical.mechanical_data). Modelos de esta carcasa: TM-19000A, TM-19000B, TM-19000C."
     },
     {
       "series": "950",
@@ -113,7 +113,7 @@
       "shaft_hp_limit_std": 1000.0,
       "shaft_hp_limit_high_strength": 1600.0,
       "shaft_hp_limit_ultra_high_strength": 2040.0,
-      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Aplicado a todas las marcas por decision de diseno: el limite lo fija la seccion del eje, no el logo del fabricante. Modelos de esta carcasa: TN-35000A."
+      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Se aplica solo a bombas Wood Group: la ficha de una marca no se presta a otra (bes.core.mechanical.mechanical_data). Modelos de esta carcasa: TN-35000A."
     }
   ]
 }

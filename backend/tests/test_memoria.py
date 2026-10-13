@@ -88,12 +88,21 @@ class TestModeloDeLaMemoria:
         body = {**CASOS["C"]["pozo"], "increment_psi": 200}
         body["well"] = {**body["well"], "pump_setting_depth": 7900}
         r = client.post("/api/gas/memoria", json=body)
-        assert r.status_code == 422 and "límites mecánicos" in r.text
+        # Cada candidata se rechaza con su motivo. Las Wood Group ya no caen por
+        # «límites mecánicos»: los toman de la ficha de su serie (misma marca).
+        assert r.status_code == 422 and "Ninguna bomba candidata completa el aparejo" in r.text
+        assert "TD-1750: La bomba TD-1750 no tiene los límites mecánicos" not in r.text
 
     def test_viscoso_trae_riling(self, htmls):
         p = _pasos(htmls["D"])
         assert "CORRECCIÓN POR VISCOSIDAD (RILING)" in p
         assert all(t in p for t in _APAREJO)
+
+    def test_viscoso_muestra_las_cartas_4l_marcadas(self, htmls):
+        """Las dos láminas de Brown aparecen redibujadas con la lectura del pozo."""
+        html = htmls["D"]
+        assert "lectura en la Fig. 4L(2)" in html
+        assert "lectura en la Fig. 4L(1)" in html
 
     def test_sin_notas_ni_avisos(self, htmls):
         for h in htmls.values():

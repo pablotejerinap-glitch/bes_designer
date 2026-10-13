@@ -218,47 +218,68 @@ Los detalles completos están en `docs/BROWN_VOL4_NODAL_ANALYSIS.md`.
 23. **Surface choke con Gilbert** (§3.5.1.1) — útil para análisis de optimización.
 24. **Gravel pack ΔP con Jones-Blount-Glaze** (§4.5) — relevante para Comahue convencional.
 
-### Límites mecánicos por bomba — bloquean el camino de gas paso a paso
+### Límites mecánicos — consulta resuelta, datos todavía incompletos
 
-25. **19 de las 71 bombas no tienen límites mecánicos cargados en `pumps.json`**,
-    y el método de gas paso a paso las rechaza con
-    «La bomba X no tiene los límites mecánicos cargados del catálogo»
-    (`core/gas_paso_a_paso.py:614`). Detectado el 13-oct-2026 probando
-    `POST /api/gas/paso-a-paso` contra producción.
+25. Tiene **tres partes** y sólo la primera está cerrada. Verificado el
+    13-oct-2026 corriendo el código, no sólo leyendo los tests.
 
-    **No es sólo la TD-1750, y no es sólo Wood Group.** El reparto exacto:
+    **a) El problema de consulta: RESUELTO.** Había dos lecturas distintas del
+    mismo dato — el camino convencional leía `pump_series.json` y el método con
+    gas sólo los campos por bomba de `pumps.json` —, así que una misma bomba
+    recibía dos veredictos. Ahora hay **una sola consulta**,
+    `core/mechanical.mechanical_data(pump, catalog_manager)`, que usan
+    `housing_and_mechanical_checks`, `paso8_eje_carcasas` y
+    `reports/memoria/aparejo.py`, con un orden único: hoja del modelo → ficha de
+    la serie **del mismo fabricante** → `None` (sin verificar).
 
-    | Fabricante | Con límites | Total |
-    |---|---:|---:|
-    | REDA | 52 | 53 |
-    | Centrilift | **0** | 10 |
-    | Wood Group ESP | **0** | 8 |
+    Se arreglaron de paso dos cosas que estaban mal en el camino con gas: el
+    límite se escalaba con la frecuencia de la **curva** en vez de la de la
+    **hoja mecánica** — la serie 400 de Wood Group está publicada a 50 Hz, así
+    que a 60 Hz son 124,8 hp y no 104 —, y no contemplaba la carcasa de alta
+    presión.
 
-    Los cuatro campos que faltan son `shaft_hp_limit_std`,
-    `shaft_hp_limit_high_strength`, `housing_burst_psi` y `fuente_mecanica`.
+    **La ficha de una marca ya no se presta a otra.** Antes el `_source` de las
+    series decía «aplicado a todas las marcas» y las ocho fichas son de hojas de
+    Wood Group. El cruce de las 38 bombas que tenían las dos fuentes mostró por
+    qué eso no se podía sostener: normalizado a 60 Hz, 25 coincidían, en 10 la
+    serie era conservadora y en **3 prometía más de lo que el modelo aguanta**
+    (HN15000: serie 637 hp contra 375 reales, +70 %; D475N y D725N: 124,8
+    contra 94). Indexar por fabricante elimina esos tres casos.
 
-    **Hay dos fuentes paralelas de datos mecánicos y sólo una está completa.**
-    El camino convencional lee `catalogs/pump_series.json`, que es **por serie**
-    y sí cubre la serie 400 — su `_source` es, literalmente, la hoja
-    *ENGINEERING DATA TD1750 50Hz* de Wood Group. El camino nuevo de gas lee
-    campos **por bomba** en `pumps.json`, que sólo REDA tiene. Por eso la
-    TD-1750 se rechaza por «falta de datos» mientras la hoja que define su
-    propia serie está cargada en el otro archivo.
+    **b) Datos ausentes: 11 bombas de 71.** No es una consecuencia del cambio:
+    es el estado real del catálogo, que antes quedaba tapado por el préstamo
+    entre marcas.
 
-    Antes de tocar nada hay que decidir cuál de las dos es la fuente de verdad:
-    si el límite es propiedad de la **serie** (que es la tesis de
-    `pump_series.json`: lo fija la sección del eje, no el modelo hidráulico),
-    el camino de gas debería leer de ahí vía `get_pump_series()` y el pendiente
-    es un **bug de consulta, no un faltante de datos**. Si es propiedad del
-    **modelo**, hay que digitalizar las hojas de engineering data de Centrilift
-    y Wood Group.
+    | Bombas | Fabricante | Serie | Qué falta |
+    |---|---|---|---|
+    | DC800, DC1000 | Centrilift | 338 | toda la ficha |
+    | B11W, FC925, FC1200, FC1600, FC2200, FC2700 | Centrilift | 400 | toda la ficha |
+    | GC1200, GC1600 | Centrilift | 513 | toda la ficha |
+    | D-40 | REDA | 400 | hoja del modelo; REDA no tiene ficha de serie 400 |
 
-    **Hasta tener la hoja del fabricante en la mano no se carga ningún valor.**
-    No se estima, no se extrapola de una serie vecina y no se afloja el
-    criterio de validación para que el pozo «pase»: una bomba sin verificar se
-    reporta sin verificar, nunca aprobada. Es la misma regla que ya declara el
-    `_comment` de `pump_series.json` y la de los motores Wood Group en
-    `.claude/rules/domain.md`.
+    Las 8 Wood Group **sí** quedan verificadas contra su propia serie 400, y las
+    52 REDA restantes contra la hoja de cada modelo.
+
+    **Los límites mecánicos NO están completos.** Cerrarlo necesita las hojas de
+    engineering data de **Centrilift** (las tres series) y la página de la
+    **D-40** de REDA. Hasta tenerlas no se carga ningún valor: no se estima, no
+    se extrapola de una serie vecina y no se presta la ficha de otra marca.
+
+    **c) Qué hacer ante la falta de datos: PENDIENTE DE DECISIÓN.** Los dos
+    caminos se comportan distinto frente a la misma bomba sin ficha, y está
+    comprobado corriendo el código:
+
+    | Camino | Con `mechanical_data = None` |
+    |---|---|
+    | Convencional | `verify_shaft` devuelve `verified=False, ok=True`: **diseña igual** y avisa |
+    | Con gas | `paso8_eje_carcasas` levanta `ValueError`: **descarta la bomba** |
+
+    Ninguno de los dos distingue los **tres** estados que la herramienta
+    debería publicar: verificada, no verificada por falta de datos, e incumple
+    un límite comprobado. El convencional funde los dos primeros en «pasó» y el
+    de gas funde los dos últimos en «rechazada». Unificarlo cambia qué bomba
+    elige el diseño en pozos reales, así que es una decisión de Pablo y no se
+    toca hasta que él la tome.
 
 ---
 

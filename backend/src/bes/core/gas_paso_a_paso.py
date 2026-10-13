@@ -593,7 +593,8 @@ def paso7_incrementos(pip: float, p_desc: float, t_adm: float, q_liq: float, wc:
 # --------------------------------------------------------------------------
 # Paso 8 — Eje, presión de carcasa y arreglo de carcasas
 # --------------------------------------------------------------------------
-TIPOS_CARCASA = (("standard", "estándar"), ("buttress", "buttress"), ("welded", "soldada"))
+TIPOS_CARCASA = (("standard", "estándar"), ("high_pressure", "alta presión"), ("buttress", "buttress"),
+                 ("welded", "soldada"))
 
 
 def paso8_eje_carcasas(modelo: str, etapas: int, hp: float, grad_max: float, frecuencia_hz: float,
@@ -606,15 +607,19 @@ def paso8_eje_carcasas(modelo: str, etapas: int, hp: float, grad_max: float, fre
     empatan, menos tamaños distintos con las grandes primero.
     """
     from bes.core.housing import optimize_housings
+    from bes.core.mechanical import mechanical_data
     raw = next(b for b in catalog_manager.get_all_pumps() if b.model == modelo)
-    f_base = raw.catalog_frequency_hz
-    rel = frecuencia_hz / f_base
-    hoja = raw.fuente_mecanica or "hoja de la bomba en el catálogo"
-    if not raw.shaft_hp_limit_std:
+    f_base = raw.catalog_frequency_hz                     # frecuencia de la curva
+    mec = mechanical_data(raw, catalog_manager)           # consulta única de la herramienta
+    if not mec or not mec.get("shaft_hp_limit_std"):
         raise ValueError(f"La bomba {modelo} no tiene los límites mecánicos cargados del catálogo.")
-    # 8.1 Eje (Takács ec. 5.12)
-    std_f = raw.shaft_hp_limit_std * rel
-    hs_f = raw.shaft_hp_limit_high_strength * rel
+    f_eje = mec["reference_frequency_hz"]                 # frecuencia del límite publicado
+    hoja = mec["fuente"] if mec["origen"] == "modelo" else f"ficha de la serie {raw.series}: {mec['fuente']}"
+    rel = frecuencia_hz / f_base
+    lim_std, lim_hs = mec["shaft_hp_limit_std"], mec.get("shaft_hp_limit_high_strength") or 0.0
+    # 8.1 Eje (Takács ec. 5.12), con la frecuencia a la que está publicado el límite
+    std_f = lim_std * frecuencia_hz / f_eje
+    hs_f = lim_hs * frecuencia_hz / f_eje
     if hp <= std_f:
         eje = "estándar"
     elif hs_f and hp <= hs_f:
@@ -627,7 +632,7 @@ def paso8_eje_carcasas(modelo: str, etapas: int, hp: float, grad_max: float, fre
     p_max = h0 * etapas * grad_max * rel ** 2
     tipo, limite = None, None
     for clave, nombre in TIPOS_CARCASA:
-        lim = raw.housing_burst_psi.get(clave)
+        lim = mec["housing_burst_psi"].get(clave)
         if lim and p_max <= lim:
             tipo, limite = nombre, lim
             break
@@ -646,10 +651,10 @@ def paso8_eje_carcasas(modelo: str, etapas: int, hp: float, grad_max: float, fre
     c5 = TK + "Sección 5.3.3.4 (pág. 250)"
     pasos = [
         Paso("Límite del eje estándar a la frecuencia de diseño", "HP_eje = HP_eje base · f / f_base",
-             f"{raw.shaft_hp_limit_std:.0f} × {frecuencia_hz:.0f} / {f_base:.0f}", std_f, "hp",
+             f"{lim_std:.0f} × {frecuencia_hz:.0f} / {f_eje:.0f}", std_f, "hp",
              TK + f"ec. 5.12 (pág. 250); límite: {hoja}"),
         Paso("Límite del eje de alta resistencia", "HP_eje = HP_eje base · f / f_base",
-             f"{raw.shaft_hp_limit_high_strength:.0f} × {frecuencia_hz:.0f} / {f_base:.0f}", hs_f, "hp",
+             f"{lim_hs:.0f} × {frecuencia_hz:.0f} / {f_eje:.0f}", hs_f, "hp",
              TK + f"ec. 5.12 (pág. 250); límite: {hoja}"),
         Paso(f"Eje: {eje}", "HP_bomba ≤ HP_eje", f"{hp:.2f} hp (paso 7)", hp, "hp", c5),
         Paso("Altura por etapa a caudal cero", "(H/etapa)máx de la curva a f_base",
@@ -660,7 +665,7 @@ def paso8_eje_carcasas(modelo: str, etapas: int, hp: float, grad_max: float, fre
              f"{h0:.4f} × {etapas} × {grad_max:.6f} × ({frecuencia_hz:.0f} / {f_base:.0f})²", p_max, "psi",
              TK + "ec. 5.13 (pág. 250)"),
         Paso(f"Carcasa: {tipo}", "p_máx ≤ presión de reventamiento de la carcasa",
-             " · ".join(f"{n} {raw.housing_burst_psi.get(k):.0f} psi" if raw.housing_burst_psi.get(k)
+             " · ".join(f"{n} {mec['housing_burst_psi'].get(k):.0f} psi" if mec["housing_burst_psi"].get(k)
                         else f"{n} no aplica" for k, n in TIPOS_CARCASA), limite, "psi", c5 + f"; {hoja}"),
         Paso("Arreglo de carcasas", "Σ etapas de las carcasas = Etapas; menor cantidad de carcasas",
              texto, arr["n_housings"], "carcasas",

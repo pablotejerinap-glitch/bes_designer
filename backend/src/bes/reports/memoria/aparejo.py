@@ -9,14 +9,13 @@ from bes.core import electrical as E
 
 
 def _limites_eje(cm, pu) -> dict | None:
-    """Límites del eje: los de la hoja del modelo si existen; si no, los de la serie."""
-    raw = next((p for p in getattr(cm, "_pumps", [])
+    """Límites del eje con la consulta única de la herramienta
+    (:func:`bes.core.mechanical.mechanical_data`): hoja del modelo, si no la
+    serie del mismo fabricante, si no ninguno."""
+    from bes.core.mechanical import mechanical_data
+    raw = next((p for p in cm.get_all_pumps()
                 if p.model == pu["pump_model"] and p.manufacturer == pu["pump_manufacturer"]), None)
-    if raw is not None and raw.shaft_hp_limit_std:
-        return {"shaft_hp_limit_std": raw.shaft_hp_limit_std,
-                "shaft_hp_limit_high_strength": raw.shaft_hp_limit_high_strength,
-                "reference_frequency_hz": 60.0, "fuente": raw.fuente_mecanica}
-    return cm.get_pump_series(pu["pump_series"])
+    return mechanical_data(raw, cm) if raw is not None else None
 
 
 def sg_liquido(fila: dict) -> float:

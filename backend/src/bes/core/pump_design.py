@@ -697,7 +697,10 @@ def housing_and_mechanical_checks(
     # carcasa (estándar, buttress, soldada); se prueba de la más simple a la
     # más resistente y se adopta la primera que aloja las etapas (Takács,
     # Sección 5.3.3.4, pág. 250). Sin ese dato, el límite general de la bomba.
-    limites = sorted(float(v) for v in (pump.housing_burst_psi or {}).values() if v)
+    _base = next((p for p in catalog_manager.get_all_pumps()
+                  if p.model == pump.model and p.manufacturer == pump.manufacturer), pump)
+    _mec = mechanical.mechanical_data(_base, catalog_manager) or {}
+    limites = sorted(float(v) for v in (_mec.get("housing_burst_psi") or {}).values() if v)
     if not limites:
         limites = [float(pump.housing_pressure_limit_psi or 0.0)]
     housing = None
@@ -736,19 +739,13 @@ def housing_and_mechanical_checks(
     # --- Verificación mecánica: eje y cojinete (bes.core.mechanical) ---
     # Los datos son de la SERIE, no del modelo. Una serie sin ficha en el
     # catálogo deja las verificaciones sin realizar, nunca aprobadas.
-    series = catalog_manager.get_pump_series(pump.series)
+    # Consulta única (bes.core.mechanical.mechanical_data): hoja del modelo →
+    # serie del mismo fabricante → sin verificar. ``pump`` llega escalado, así
+    # que se busca la bomba de catálogo para leer sus datos tal como se publican.
+    base = next((p for p in catalog_manager.get_all_pumps()
+                 if p.model == pump.model and p.manufacturer == pump.manufacturer), pump)
+    series = mechanical.mechanical_data(base, catalog_manager)
     frequency = float(pump.catalog_frequency_hz or 60.0)
-    # Si la hoja del propio modelo publica el límite del eje (REDA lo imprime
-    # en la página de 60 Hz de cada bomba), ese dato manda sobre el de la serie.
-    if pump.shaft_hp_limit_std:
-        series = {
-            **(series or {}),
-            "shaft_hp_limit_std": pump.shaft_hp_limit_std,
-            "shaft_hp_limit_high_strength": pump.shaft_hp_limit_high_strength,
-            "reference_frequency_hz": 60.0,
-        }
-        if pump.shaft_area_in2:
-            series["shaft_area_in2"] = pump.shaft_area_in2
 
     hp_shaft = mechanical.shaft_power(hp_per_stage, stages, sg)
     shaft_check = mechanical.verify_shaft(hp_shaft, series, frequency)

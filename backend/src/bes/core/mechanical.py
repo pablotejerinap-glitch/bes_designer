@@ -530,3 +530,62 @@ def mechanical_trace(
                     f"excluye de la comparación.",
         )
     return trace.as_list()
+
+
+# ---------------------------------------------------------------------------
+# Consulta ÚNICA de los datos mecánicos de una bomba
+# ---------------------------------------------------------------------------
+
+def mechanical_data(pump, catalog_manager) -> dict | None:
+    """Datos mecánicos de una bomba, con un solo orden para toda la herramienta.
+
+    La usan el camino convencional, el método para pozos con gas y la memoria de
+    cálculo, de modo que una misma bomba recibe siempre el mismo veredicto:
+
+        1. la hoja de la propia bomba (REDA imprime el límite del eje en cada
+           lámina), que manda sobre la serie;
+        2. si no hay, la ficha de la serie **del mismo fabricante**
+           (``pump_series.json``);
+        3. si tampoco hay, ``None``: la verificación queda **sin realizar**, nunca
+           aprobada.
+
+    La frecuencia de referencia viaja con el dato: la hoja de la bomba está a la
+    frecuencia de su catálogo, y la ficha de serie a la que declara (la de Wood
+    Group serie 400 es de 50 Hz). Llevar el límite a la frecuencia de diseño con
+    la de otra fuente lo correría un 20 %.
+
+    Args:
+        pump: ``PumpCurve`` **de catálogo** (no escalada).
+        catalog_manager: Catálogo cargado.
+
+    Returns:
+        dict con ``shaft_hp_limit_std``, ``shaft_hp_limit_high_strength``,
+        ``reference_frequency_hz``, ``housing_burst_psi`` (por tipo de carcasa),
+        los topes de etapas que publique la serie, ``origen`` (``"modelo"`` o
+        ``"serie"``) y ``fuente``; o ``None`` si no hay ningún dato.
+    """
+    serie = catalog_manager.get_pump_series(pump.series, pump.manufacturer)
+    burst_modelo = {k: float(v) for k, v in (pump.housing_burst_psi or {}).items() if v}
+    burst_serie = {}
+    if serie and serie.get("housing_pressure_limit_std_psi"):
+        burst_serie["standard"] = float(serie["housing_pressure_limit_std_psi"])
+    if serie and serie.get("housing_pressure_limit_high_psi"):
+        burst_serie["high_pressure"] = float(serie["housing_pressure_limit_high_psi"])
+    if pump.shaft_hp_limit_std:
+        datos = dict(serie or {})
+        datos.update(
+            shaft_hp_limit_std=float(pump.shaft_hp_limit_std),
+            shaft_hp_limit_high_strength=float(pump.shaft_hp_limit_high_strength or 0.0),
+            reference_frequency_hz=float(pump.catalog_frequency_hz or 60.0),
+            origen="modelo",
+            fuente=pump.fuente_mecanica or f"hoja de la {pump.model} en el catálogo",
+        )
+        if pump.shaft_area_in2:
+            datos["shaft_area_in2"] = float(pump.shaft_area_in2)
+        datos["housing_burst_psi"] = burst_modelo or burst_serie
+        return datos
+    if serie:
+        return {**serie, "origen": "serie", "fuente": serie.get("_source", "ficha de la serie"),
+                "reference_frequency_hz": float(serie.get("reference_frequency_hz") or 60.0),
+                "housing_burst_psi": burst_modelo or burst_serie}
+    return None

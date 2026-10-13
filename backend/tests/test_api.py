@@ -653,15 +653,18 @@ def test_gas_design_bomba_forzada_arma_su_aparejo(client: TestClient) -> None:
     """Una Wood Group forzada ahora completa el aparejo con motor Wood Group.
 
     Este test pedía lo contrario —un 422 porque Wood Group no tenía motores—
-    hasta que se digitalizó su catálogo (sep-2026, 385 placas). Lo que se
+    hasta que se digitalizó su catálogo (sep-2026, 385 placas). Se usa la TD-1200
+    porque la TD-650 (650 b/d) pide 555 etapas para estos 1 227 b/d y, ahora que
+    sus límites salen de la ficha de la serie 400 de Wood Group, no hay carcasa que
+    aguante esa presión: es un rechazo correcto, no un faltante de datos. Lo que se
     verifica ahora es lo que importaba de fondo: que el modelo forzado llegue
     hasta el final y que el aparejo NO mezcle fabricantes.
     """
     r = client.post("/api/gas/design",
-                    json=_gas_design_payload(fixed_pump_model="TD-650"))
+                    json=_gas_design_payload(fixed_pump_model="TD-1200"))
     assert r.status_code == 200, r.text
     d = r.json()["design"]
-    assert d["pump_model"] == "TD-650"
+    assert d["pump_model"] == "TD-1200"
     assert d["pump_manufacturer"] == "Wood Group ESP"
     assert d["motor_manufacturer"] == "Wood Group ESP", (
         "la regla de aparejo único no puede romperse: motor del mismo proveedor"

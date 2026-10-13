@@ -19,7 +19,7 @@ from bes.core import mechanical as mx
 
 @pytest.fixture(scope="module")
 def series400() -> dict:
-    s = CatalogManager().get_pump_series("400")
+    s = CatalogManager().get_pump_series("400", "Wood Group ESP")
     assert s is not None, "la serie 400 tiene que estar en pump_series.json"
     return s
 
@@ -47,8 +47,16 @@ class TestSeriesCatalog:
         Wood Group, que es de donde salen los límites de eje. Quedan a
         propósito sin ficha en vez de extrapolarles un eje.
         """
-        assert CatalogManager().get_pump_series("387") is None
-        assert CatalogManager().get_pump_series("540") is None
+        assert CatalogManager().get_pump_series("387", "REDA") is None
+        assert CatalogManager().get_pump_series("540", "REDA") is None
+
+    def test_la_ficha_de_una_marca_no_se_aplica_a_otra(self):
+        """La serie 400 de Wood Group no le presta su eje a Centrilift ni a REDA:
+        el eje es hardware de cada fabricante."""
+        cm = CatalogManager()
+        assert cm.get_pump_series("400", "Wood Group ESP") is not None
+        assert cm.get_pump_series("400", "Centrilift") is None
+        assert cm.get_pump_series("400", "REDA") is None
 
 
 class TestShaftPower:

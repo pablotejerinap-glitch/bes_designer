@@ -5,6 +5,12 @@ matplotlib==3.10.8
 plotly==6.7.0
 reportlab==4.4.10
 openpyxl==3.1.5
+
+# Memoria de calculo en PDF (bes.reports.memoria.html_a_pdf). Necesita Pango,
+# Cairo y gdk-pixbuf del sistema: la imagen del backend los instala por apt
+# (ver backend/Dockerfile). Sin ellas el import falla y la memoria se
+# entrega en HTML, que es el camino de respaldo ya implementado.
+weasyprint==66.0
 pytest==9.0.3
 
 # Backend API (Semana 2+)
