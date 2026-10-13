@@ -191,7 +191,7 @@ Los detalles completos están en `docs/BROWN_VOL4_NODAL_ANALYSIS.md`.
 5. **Interpolación lineal vs cúbica** — el plan original decía "cúbica", el código usa "linear" en `bes/catalogs/loader.py:196`. Decidir y documentar.
 6. **`system_efficiency = pump_efficiency × 0.92`** — proxy hardcodeado en `bes/recommender/pump_selector.py:134`. Usar eficiencia real del motor del catálogo.
 7. **`gip_fraction` se calcula pero no afecta el ranking.** Agregar `reliability_score` (estaba en el plan original como 4to criterio).
-8. **Falta `transformers.json`** — los tamaños están hardcodeados en `bes/core/electrical.py:27`.
+8. ~~**Falta `transformers.json`**~~ — **RESUELTO (13-oct-2026)**: `catalogs/transformers.json` existe, digitalizado de la Tab. 15 de Inv_83338.
 9. **Test affinity laws 60↔50 Hz** — no documentado.
 10. **Logging real** — toda la app usa `warnings.append(string)`. Agregar `logging` con niveles.
 
@@ -217,6 +217,48 @@ Los detalles completos están en `docs/BROWN_VOL4_NODAL_ANALYSIS.md`.
 22. **Tapered strings** (§4.27) — diferenciador para tu defensa, pocos OSS lo hacen.
 23. **Surface choke con Gilbert** (§3.5.1.1) — útil para análisis de optimización.
 24. **Gravel pack ΔP con Jones-Blount-Glaze** (§4.5) — relevante para Comahue convencional.
+
+### Límites mecánicos por bomba — bloquean el camino de gas paso a paso
+
+25. **19 de las 71 bombas no tienen límites mecánicos cargados en `pumps.json`**,
+    y el método de gas paso a paso las rechaza con
+    «La bomba X no tiene los límites mecánicos cargados del catálogo»
+    (`core/gas_paso_a_paso.py:614`). Detectado el 13-oct-2026 probando
+    `POST /api/gas/paso-a-paso` contra producción.
+
+    **No es sólo la TD-1750, y no es sólo Wood Group.** El reparto exacto:
+
+    | Fabricante | Con límites | Total |
+    |---|---:|---:|
+    | REDA | 52 | 53 |
+    | Centrilift | **0** | 10 |
+    | Wood Group ESP | **0** | 8 |
+
+    Los cuatro campos que faltan son `shaft_hp_limit_std`,
+    `shaft_hp_limit_high_strength`, `housing_burst_psi` y `fuente_mecanica`.
+
+    **Hay dos fuentes paralelas de datos mecánicos y sólo una está completa.**
+    El camino convencional lee `catalogs/pump_series.json`, que es **por serie**
+    y sí cubre la serie 400 — su `_source` es, literalmente, la hoja
+    *ENGINEERING DATA TD1750 50Hz* de Wood Group. El camino nuevo de gas lee
+    campos **por bomba** en `pumps.json`, que sólo REDA tiene. Por eso la
+    TD-1750 se rechaza por «falta de datos» mientras la hoja que define su
+    propia serie está cargada en el otro archivo.
+
+    Antes de tocar nada hay que decidir cuál de las dos es la fuente de verdad:
+    si el límite es propiedad de la **serie** (que es la tesis de
+    `pump_series.json`: lo fija la sección del eje, no el modelo hidráulico),
+    el camino de gas debería leer de ahí vía `get_pump_series()` y el pendiente
+    es un **bug de consulta, no un faltante de datos**. Si es propiedad del
+    **modelo**, hay que digitalizar las hojas de engineering data de Centrilift
+    y Wood Group.
+
+    **Hasta tener la hoja del fabricante en la mano no se carga ningún valor.**
+    No se estima, no se extrapola de una serie vecina y no se afloja el
+    criterio de validación para que el pozo «pase»: una bomba sin verificar se
+    reporta sin verificar, nunca aprobada. Es la misma regla que ya declara el
+    `_comment` de `pump_series.json` y la de los motores Wood Group en
+    `.claude/rules/domain.md`.
 
 ---
 
