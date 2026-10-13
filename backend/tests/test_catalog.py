@@ -78,7 +78,10 @@ class TestCatalogLoading:
                               ("sellos", manager._seals),
                               ("cables", manager._cables)):
             fabricantes = {x.get("manufacturer") for x in items}
-            assert fabricantes <= proveedores, f"{nombre}: sobra {fabricantes - proveedores}"
+            # El cable no integra el aparejo de un solo fabricante: el EPDM se
+            # carga como tipo genérico con la temperatura de Takács (p. 256).
+            permitidos = proveedores | ({"Genérico"} if nombre == "cables" else set())
+            assert fabricantes <= permitidos, f"{nombre}: sobra {fabricantes - permitidos}"
         fab_bombas = {p.manufacturer for p in manager.get_all_pumps()}
         assert fab_bombas <= proveedores
 
@@ -489,8 +492,8 @@ class TestCableQuery:
             manager.get_cable(amps=9999, temp_f=150, voltage=1000)
 
     def test_high_temp_requires_epdm_or_redalene(self, manager):
-        cable = manager.get_cable(amps=40, temp_f=450, voltage=1000)
-        assert cable["max_temp_f"] >= 450
+        cable = manager.get_cable(amps=40, temp_f=350, voltage=1000)
+        assert cable["max_temp_f"] >= 350
 
 
 class TestControllerSelection:

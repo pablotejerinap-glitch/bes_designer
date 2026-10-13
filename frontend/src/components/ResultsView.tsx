@@ -11,8 +11,13 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import { api, ApiError, downloadBlob } from "../api/client";
-import type { DesignInputs, DesignResponse, Recommendation } from "../api/types";
+import { api, ApiError, downloadBlob, openHtmlInNewTab } from "../api/client";
+import type {
+  DesignInputs,
+  DesignResponse,
+  GasCompleteDesignRequest,
+  Recommendation,
+} from "../api/types";
 import { DesignCharts } from "./DesignCharts";
 import { ComparisonView } from "./ComparisonView";
 import { GasHandlingPanel } from "./GasHandlingPanel";
@@ -50,13 +55,15 @@ function RecPanel({
   inputs,
   manual = false,
   showGas = true,
+  gasRequest,
 }: {
   rec: Recommendation;
   inputs: DesignInputs;
   manual?: boolean;
   showGas?: boolean;
+  gasRequest?: GasCompleteDesignRequest;
 }) {
-  const [busy, setBusy] = useState<"pdf" | "xlsx" | null>(null);
+  const [busy, setBusy] = useState<"pdf" | "xlsx" | "memoria" | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const d = rec.design;
 
@@ -72,6 +79,27 @@ function RecPanel({
         : { ...inputs, n: 3, rank: rec.rank - 1 };
       const blob = await api.report(fmt, req);
       downloadBlob(blob, `reporte_bes_opcion${rec.rank}.${fmt}`);
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function verMemoria() {
+    setBusy("memoria");
+    setErr(null);
+    try {
+      if (gasRequest) {
+        await openHtmlInNewTab(() =>
+          api.gasMemoria({ ...gasRequest, titulo: "Diseño por incrementos de presión" })
+        );
+      } else {
+        const req = manual
+          ? { ...inputs, n: 1, pump_model: d.pump_model }
+          : { ...inputs, n: 3, rank: rec.rank - 1 };
+        await openHtmlInNewTab(() => api.memoria({ ...req, titulo: `Opción ${rec.rank}` }));
+      }
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : String(e));
     } finally {
@@ -129,8 +157,8 @@ function RecPanel({
     [
       "Pérdida de carga en tubing",
       d.friction_method === "poettmann_carpenter"
-        ? `Poettmann-Carpenter — multifásica, porque el gas en la admisión (${(d.gip_fraction * 100).toFixed(0)} %) supera el ${(d.gas_fraction_threshold * 100).toFixed(0)} % a partir del cual la corriente deja de ser prácticamente líquida. Este umbral sólo elige la correlación de fricción; no dice nada sobre si el pozo es viable.`
-        : `Hazen-Williams — monofásica, porque el gas en la admisión (${(d.gip_fraction * 100).toFixed(0)} %) no llega al ${(d.gas_fraction_threshold * 100).toFixed(0)} % a partir del cual haría falta un modelo multifásico. Este umbral sólo elige la correlación de fricción; no dice nada sobre si el pozo es viable.`,
+        ? `Poettmann-Carpenter (gas en la admisión ${(d.gip_fraction * 100).toFixed(0)} % > ${(d.gas_fraction_threshold * 100).toFixed(0)} %)`
+        : `Hazen-Williams (gas en la admisión ${(d.gip_fraction * 100).toFixed(0)} % < ${(d.gas_fraction_threshold * 100).toFixed(0)} %)`,
     ],
     ["Profundidad de asentamiento", `${Math.round(d.pump_setting_depth)} ft`],
     ["Presión de admisión (PIP)", `${Math.round(d.intake_pressure)} psi`],
@@ -195,16 +223,6 @@ function RecPanel({
         />
       </SimpleGrid>
 
-      <Text mt="md" c="dimmed" size="sm">
-        {rec.rationale}
-      </Text>
-
-      {d.warnings.length > 0 && (
-        <Alert color="yellow" mt="sm" title="Advertencias de diseño">
-          {d.warnings.join(" · ")}
-        </Alert>
-      )}
-
       <Table mt="md" striped withTableBorder>
         <Table.Tbody>
           {rows.map(([k, v]) => (
@@ -223,9 +241,6 @@ function RecPanel({
           <Title order={5} mt="lg">
             Carcasas (pump housings)
           </Title>
-          <Text size="sm" c="dimmed" mb="xs">
-            {d.housing_rationale}
-          </Text>
           <Table striped withTableBorder>
             <Table.Thead>
               <Table.Tr>
@@ -292,6 +307,9 @@ function RecPanel({
       <FormulaTraceSection formulas={d.formulas} />
 
       <Group mt="md">
+        <Button onClick={verMemoria} loading={busy === "memoria"}>
+          Memoria de cálculo
+        </Button>
         <Button onClick={() => download("pdf")} loading={busy === "pdf"} variant="light">
           Descargar PDF
         </Button>
@@ -315,6 +333,7 @@ export function ResultsView({
   manual = false,
   onGoToGas,
   showGas = true,
+  gasRequest,
 }: {
   response: DesignResponse;
   inputs: DesignInputs;
@@ -328,6 +347,8 @@ export function ResultsView({
    * dato dos veces en la misma pantalla.
    */
   showGas?: boolean;
+  /** Si viene, la memoria de cálculo se pide por el método de incrementos (pozo con gas). */
+  gasRequest?: GasCompleteDesignRequest;
 }) {
   const recs = response.recommendations;
   if (recs.length === 0) {
@@ -339,6 +360,24 @@ export function ResultsView({
   // candidatas. Se toma el de la mejor rankeada y se muestra una sola vez,
   // arriba, en vez de repetirlo en cada pestaña de opción.
   const gasMethod = showGas ? response.gas_method : null;
+
+  // Pozo con gas libre: el diseño con caudal único no corresponde. Sólo se
+  // informa el gas en la admisión y se lleva al método paso a paso.
+  if (gasMethod?.applies) {
+    return (
+      <Card withBorder radius="md" padding="lg">
+        <Title order={4}>{title}</Title>
+        <Alert color="orange" mt="sm" variant="light">
+          <Text size="sm">{gasMethod.reason}</Text>
+          {onGoToGas && (
+            <Button size="xs" mt="sm" variant="filled" color="orange" onClick={onGoToGas}>
+              Ir a Pozo con gas
+            </Button>
+          )}
+        </Alert>
+      </Card>
+    );
+  }
 
   return (
     <Card withBorder radius="md" padding="lg">
@@ -368,32 +407,6 @@ export function ResultsView({
           {response.discarded.map((motivo, i) => (
             <Text key={i} size="sm" mt={i === 0 ? 0 : "xs"}>• {motivo}</Text>
           ))}
-          <Text size="xs" c="dimmed" mt="xs">
-            Estaban mejor rankeadas que alguna de las opciones de arriba. Si el
-            motivo es la falta de un dato de catálogo, la comparación no está
-            completa.
-          </Text>
-        </Alert>
-      )}
-
-      {gasMethod?.applies && (
-        <Alert color="orange" mt="sm" variant="light" title="Este pozo tiene gas libre">
-          <Text size="sm">{gasMethod.reason}</Text>
-          <Text size="sm" mt="xs" fw={600}>
-            El resultado de esta pestaña usa un caudal único y por lo tanto
-            subestima las etapas. El método de incrementos es el que corresponde.
-          </Text>
-          {onGoToGas && (
-            <Button size="xs" mt="sm" variant="filled" color="orange" onClick={onGoToGas}>
-              Ir al método de incrementos
-            </Button>
-          )}
-        </Alert>
-      )}
-
-      {response.warnings.length > 0 && (
-        <Alert color="blue" mt="sm" variant="light">
-          {response.warnings.join(" · ")}
         </Alert>
       )}
 
@@ -408,7 +421,13 @@ export function ResultsView({
         </Tabs.List>
         {recs.map((r, i) => (
           <Tabs.Panel key={r.rank} value={String(i)}>
-            <RecPanel rec={r} inputs={inputs} manual={manual} showGas={showGas} />
+            <RecPanel
+              rec={r}
+              inputs={inputs}
+              manual={manual}
+              showGas={showGas}
+              gasRequest={gasRequest}
+            />
           </Tabs.Panel>
         ))}
         {recs.length > 1 && (

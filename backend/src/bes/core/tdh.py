@@ -39,7 +39,7 @@ admisión de la bomba:
     - mucho gas -> Poettmann-Carpenter (multifásica), sólo el término de
       fricción
 
-El umbral por defecto es 1 % de gas libre. Ver
+El umbral por defecto es 5 % de gas libre (Takács, 2018, Sección 1.3.2). Ver
 ``.claude/rules/domain.md``.
 
 Contenido
@@ -357,13 +357,13 @@ def _viscosidad_de_la_mezcla(
     from bes.core.viscosity import crude_viscosity_ssu
 
     try:
-        from bes.core.pump_design import _rs_en_la_admision
+        from bes.core.pump_design import VISCOSITY_TEMP_TOLERANCE_F, _rs_en_la_admision
         rs = _rs_en_la_admision(fluid, pip, bottom_temp_f)
         medida = (
             fluid.oil_viscosity_dead
             if fluid.oil_viscosity_dead is not None
             and fluid.viscosity_temp_ref is not None
-            and abs(fluid.viscosity_temp_ref - bottom_temp_f) <= 5.0
+            and abs(fluid.viscosity_temp_ref - bottom_temp_f) <= VISCOSITY_TEMP_TOLERANCE_F
             else None
         )
         mu_o = crude_viscosity_ssu(
@@ -688,56 +688,22 @@ def _traza_pip(
         pip: Presión en la admisión ya calculada [psia].
         pwf: Presión de fondo fluyente en las perforaciones [psia].
     """
-    from bes.core.formulas import Formula
-    from bes.core.multiphase import PIP_TRAVERSE_SEGMENTS, poettmann_carpenter_trace
+    from bes.core.gas_paso_a_paso import paso2a_pvt, paso2bc_mezcla
 
     largo = well.perforations_bottom - pump_depth
-    delta_p = pwf - pip
-    t_admision = temp_at_depth(well, pump_depth, reservoir.reservoir_temp)
-
-    cadena = poettmann_carpenter_trace(
-        q_liq=objectives.target_flow_rate,
-        wc=fluid.water_cut,
-        gor=fluid.gor,
-        oil_api=fluid.oil_api,
-        gas_sg=fluid.gas_sg,
-        water_sg=fluid.water_sg,
-        pipe_id=well.casing_id,
-        p=pip,
-        t=t_admision,
-    )
-    cadena[0]["context"] = (
-        f"Cadena de Poettmann & Carpenter con la que se recorre el ANULAR "
-        f"(ID de casing {well.casing_id:.3f} in) desde las perforaciones hasta "
-        f"la bomba. Se muestra evaluada en la admisión: {pip:,.1f} psia y "
-        f"{t_admision:.1f} °F. Los otros tramos del recorrido resuelven la "
-        f"misma cadena a su propia presión y temperatura."
-    )
-    for f in cadena:
-        trace.items.append(Formula(**f))
-
-    # El sumatorio queda en símbolos, pero Δz sí se sustituye: es un dato de
-    # entrada del recorrido, no el resultado de la propia cuenta.
-    trace.add(
-        "pip_recorrido",
-        {"Δz": largo / PIP_TRAVERSE_SEGMENTS},
-        delta_p,
-        context=(
-            f"Recorrido ascendente de {well.perforations_bottom:,.0f} ft "
-            f"(perforaciones) a {pump_depth:,.0f} ft (admisión), o sea "
-            f"{largo:,.0f} ft en {PIP_TRAVERSE_SEGMENTS} tramos de "
-            f"{largo / PIP_TRAVERSE_SEGMENTS:,.1f} ft, con "
-            f"{objectives.target_flow_rate:,.0f} STB/d de líquido."
-        ),
-    )
-    trace.add("pip_admision", {"Pwf": pwf, "Δp_anular": delta_p}, pip)
-    if largo > 0:
-        trace.add(
-            "pip_gradiente_promedio",
-            {"Δp_anular": delta_p, "D_perf": well.perforations_bottom,
-             "D_bomba": pump_depth},
-            delta_p / largo,
-        )
+    pvt, _ = paso2a_pvt(pwf, reservoir.reservoir_temp, fluid.oil_api, fluid.gas_sg,
+                        fluid.water_sg, fluid.gor)
+    mezcla, _ = paso2bc_mezcla(objectives.target_flow_rate, fluid.water_cut, fluid.gor,
+                               fluid.gas_sg, fluid.water_sg, pvt)
+    sg = mezcla["sg"]
+    grad = 0.433 * sg
+    trace.add("pip_sg_fondo", {"m": mezcla["masa"], "V": mezcla["v_total"]}, sg,
+              context=(f"A Pwf = {pwf:,.2f} psi y {reservoir.reservoir_temp:.1f} °F, "
+                       f"con Bo = {pvt['bo']:.4f} y Bw = {pvt['bw']:.4f}."))
+    trace.add("pip_gradiente_promedio", {"SG": sg}, grad)
+    trace.add("pip_recorrido", {"grad": grad, "D_perf": well.perforations_bottom,
+                                "D_bomba": pump_depth}, grad * largo)
+    trace.add("pip_admision", {"Pwf": pwf, "Δp_anular": grad * largo}, pip)
 
 
 def calculate_tdh(

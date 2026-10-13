@@ -153,8 +153,7 @@ class TestLoQueSeMuestraEsLoQueSeEjecuto:
         t = FormulaTrace()
         t.add(
             "pc_gradiente_friccion",
-            {"f": 0.0157, "ρ_m": 40.684, "v_m": 3.664, "g_c": 32.174,
-             "d": 0.2034},
+            {"f": 0.0157, "w": 268000.0, "ρ_m": 40.684, "d": 0.2034},
             0.00455,
         )
         s = t.as_list()[0]["substitution"]
@@ -162,7 +161,7 @@ class TestLoQueSeMuestraEsLoQueSeEjecuto:
         assert "0.0157ric" not in s and "0.2034P" not in s
 
     def test_el_exponente_no_bloquea_la_sustitucion(self):
-        """``v_m`` tiene que reemplazarse también en ``v_m²``.
+        """``w`` y ``d`` tienen que reemplazarse también en ``w²`` y ``d⁵``.
 
         El superíndice es notación de la fórmula, no parte del nombre de la
         variable, aunque Python lo considere alfanumérico.
@@ -170,13 +169,12 @@ class TestLoQueSeMuestraEsLoQueSeEjecuto:
         t = FormulaTrace()
         t.add(
             "pc_gradiente_friccion",
-            {"f": 0.0157, "ρ_m": 40.684, "v_m": 3.664, "g_c": 32.174,
-             "d": 0.2034},
+            {"f": 0.0157, "w": 268000.0, "ρ_m": 40.684, "d": 0.2034},
             0.00455,
         )
         s = t.as_list()[0]["substitution"]
-        assert "3.664²" in s, s
-        assert "v_m" not in s
+        assert "268000²" in s and "0.2034⁵" in s, s
+        assert " w²" not in s
 
     def test_los_totales_pueden_no_sustituirse(self):
         """Reemplazar un sumatorio por su valor imprimiría «51.8 = 51.8»."""

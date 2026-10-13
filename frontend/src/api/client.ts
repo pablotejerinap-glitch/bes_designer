@@ -31,7 +31,7 @@ import type {
 // devuelve 404 sin explicar por qué.
 //
 // El cast quedó de más: VITE_API_BASE ahora está declarada en vite-env.d.ts.
-const BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
+export const BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
 export class ApiError extends Error {
   status: number;
@@ -185,6 +185,11 @@ export const api = {
   tubulars: () => request<TubularCatalog>("/api/catalogs/tubulars"),
   design: (req: DesignRequest) => request<DesignResponse>("/api/design", req),
   nodal: (req: NodalRequest) => request<NodalResponse>("/api/nodal", req),
+  // Foto de la curva del catálogo del fabricante (REDA / Wood Group).
+  curvaInfo: (model: string, hz: number) =>
+    request<{ tiene_foto: boolean; hz: number | null; fuente: string | null; url?: string }>(
+      `/api/catalogs/pumps/${encodeURIComponent(model)}/curva-info?hz=${hz}`
+    ),
   pumpCurve: (p: {
     pump_model: string;
     operating_flow: number;
@@ -276,7 +281,31 @@ export const api = {
     request<GasCompleteDesignResponse>("/api/gas/design", req),
   report: (fmt: "pdf" | "xlsx", req: DesignRequest & { rank?: number }) =>
     requestBlob(`/api/reports/${fmt}`, req),
+  // Memoria de cálculo paso a paso (HTML imprimible, mismo modelo que la tesis).
+  memoria: (req: DesignRequest & { rank?: number; titulo?: string }) =>
+    requestBlob("/api/reports/memoria?formato=html", req),
+  // Método nuevo de gas, paso a paso.
+  gasPasoAPaso: (req: GasCompleteDesignRequest & { eta_separador?: number }) =>
+    request<import("../components/GasPasoAPaso").PasoAPasoResponse>("/api/gas/paso-a-paso", req),
+  gasMemoria: (req: GasCompleteDesignRequest & { titulo?: string; eta_separador?: number }) =>
+    requestBlob("/api/gas/memoria?formato=html", req),
 };
+
+// Abre un HTML devuelto por la API en una pestaña nueva. La pestaña se abre
+// ANTES de esperar la respuesta: si se abre después del await el navegador la
+// toma como popup y la bloquea.
+export async function openHtmlInNewTab(fetchHtml: () => Promise<Blob>): Promise<void> {
+  const w = window.open("", "_blank");
+  try {
+    const blob = await fetchHtml();
+    const url = URL.createObjectURL(new Blob([blob], { type: "text/html" }));
+    if (w) w.location.href = url;
+    else window.location.href = url;
+  } catch (e) {
+    w?.close();
+    throw e;
+  }
+}
 
 // Dispara la descarga de un Blob en el navegador.
 export function downloadBlob(blob: Blob, filename: string): void {

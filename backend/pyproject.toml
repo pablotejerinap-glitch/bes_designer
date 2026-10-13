@@ -27,7 +27,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 # Los catálogos de equipos son datos del paquete: `catalogs/loader.py` los
 # resuelve con Path(__file__).parent, así que viajan con él.
-"bes.catalogs" = ["*.json"]
+"bes.catalogs" = ["*.json", "curvas/*.jpg", "curvas/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

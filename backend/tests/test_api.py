@@ -1063,7 +1063,7 @@ class TestElDisenoConvencionalAvisaQueElPozoTieneGas:
         payload["objectives"]["gas_fraction_pc_threshold"] = 0.99
         body = client.post("/api/design", json=payload).json()
         # El valor mandado se ignora: manda el default del dominio.
-        assert body["gas_method"]["threshold"] == 0.01
+        assert body["gas_method"]["threshold"] == 0.05
         assert body["gas_method"]["applies"] is True
 
     def test_el_veredicto_de_la_escalera_viaja_por_el_camino_convencional(self, client):
@@ -1259,22 +1259,39 @@ class TestCuandoNoHayAparejoElErrorDicePorQue:
     def _pozo_imposible(self):
         """Un pozo que NINGUNA bomba del catálogo puede resolver.
 
-        Antes este bloque usaba el §4.53103 de Brown, que fallaba porque Wood
-        Group no tenía motores cargados. Al digitalizarse el catálogo de motores
-        Wood Group (sep-2026) ese pozo pasó a tener solución, y con él se caían
-        cuatro pruebas que en realidad son sobre el MENSAJE, no sobre ese pozo.
+        Este bloque se fue endureciendo a medida que la herramienta ganó
+        capacidades, y cada vez por la misma razón: el pozo dejaba de ser
+        imposible. Primero fue el §4.53103 de Brown, que se resolvió al
+        digitalizarse los motores de Wood Group (sep-2026). Después un casing
+        de 4½" a 14 000 ft, que se resolvió al agregarse los **motores en
+        tándem** (sep-2026): tres unidades en serie dan tres veces la potencia
+        sin ganar un milímetro de diámetro.
 
-        Este apreta el casing a 4½" y lleva la bomba a 14 000 ft: el único
-        diámetro de motor que entra es el de 3.75", y a esa profundidad ninguno
-        da la potencia. Es una imposibilidad física, no un hueco de catálogo,
-        así que no se evapora cuando entra un proveedor nuevo.
+        Éste exige 561 hp al eje con un casing de 4½", donde el motor más
+        potente que entra —y que además sea del mismo proveedor que la bomba,
+        por la regla de aparejo único— da 47 hp. Ni tres de ésos en tándem
+        llegan. Es una imposibilidad de potencia contra diámetro, no un hueco
+        de catálogo.
+
+        Las pruebas de esta clase son sobre el MENSAJE, no sobre este pozo.
         """
         p = self._brown_3a()
+        p["reservoir"].update({
+            "static_pressure": 6000.0, "bubble_point": 0.0,
+            "test_pwf": 5000.0, "test_rate": 3000.0, "ipr_method": "linear",
+            "reservoir_temp": 200.0, "drive_mechanism": "water_drive",
+        })
+        p["fluid"].update({
+            "gor": 0.0, "bubble_point_pressure": 0.0, "oil_viscosity_dead": 2.0,
+        })
         p["well"].update({
             "casing_od": 4.5, "casing_weight": 11.6, "casing_id": 4.0,
-            "total_depth": 14000.0,
-            "perforations_top": 13950.0, "perforations_bottom": 14000.0,
+            "total_depth": 15000.0,
+            "perforations_top": 14950.0, "perforations_bottom": 15000.0,
+            "wellhead_temp": 120.0,
         })
+        p["surface"]["wellhead_pressure_required"] = 500.0
+        p["objectives"]["target_flow_rate"] = 3000.0
         return p
 
     def test_el_422_explica_la_causa_y_no_solo_el_sintoma(self, client):

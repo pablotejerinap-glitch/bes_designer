@@ -35,6 +35,9 @@ import { AffinityPanel } from "./components/AffinityPanel";
 import { GasIncrementView } from "./components/GasIncrementView";
 import { IconDownload, IconFolderOpen, IconMoon, IconSave, IconSun } from "./components/icons";
 
+// Pestaña de leyes de afinidad oculta por el momento.
+const MOSTRAR_AFINIDAD = false;
+
 type Health = "checking" | "ok" | "error";
 
 const HEALTH_LABEL: Record<Health, string> = {
@@ -516,7 +519,7 @@ export function App() {
               <Tabs.Tab value="design">Diseño</Tabs.Tab>
               <Tabs.Tab value="ipr">Curva IPR</Tabs.Tab>
               <Tabs.Tab value="gas">Pozo con gas</Tabs.Tab>
-              <Tabs.Tab value="affinity">Leyes de afinidad</Tabs.Tab>
+              {MOSTRAR_AFINIDAD && <Tabs.Tab value="affinity">Leyes de afinidad</Tabs.Tab>}
               <Tabs.Tab value="library">Biblioteca ESP</Tabs.Tab>
               <Tabs.Tab value="formulas">Fórmulas</Tabs.Tab>
             </Tabs.List>
@@ -550,8 +553,8 @@ export function App() {
                   <Card>
                     <Title order={3}>Sin diseño calculado</Title>
                     <Text c="dimmed" size="sm" mt={4}>
-                      Cargá los datos del pozo en el panel izquierdo y presioná "Calcular diseño BES". Las recomendaciones, la curva
-                      de la bomba y el análisis nodal aparecen acá.
+                      Cargá los datos del pozo en el panel izquierdo y presioná "Calcular diseño BES". Las recomendaciones y la curva
+                      de la bomba aparecen aquí.
                     </Text>
                   </Card>
                 )}

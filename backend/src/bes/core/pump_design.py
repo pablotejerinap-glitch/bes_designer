@@ -21,7 +21,7 @@ Lo que hay que resolver antes de poder dividir
     3. **TDH** — la altura total (``tdh.calculate_tdh``).
     4. **Curva a la frecuencia real** — si el pozo va a 50 Hz, la curva de
        60 Hz no sirve. Se reescala ANTES de filtrar por rango de caudal.
-    5. **Corrección por viscosidad** si el crudo es pesado (< 28 °API): el
+    5. **Corrección por viscosidad** si la viscosidad de diseño llega a 100 SSU: el
        caudal y la altura se convierten a sus equivalentes en agua, porque
        la curva de catálogo está levantada con agua.
     6. **Verificaciones mecánicas** — carcasas, eje y cojinete, que ponen un
@@ -82,7 +82,7 @@ if TYPE_CHECKING:
 #: fuera el de admisión mete un error grande. Dentro de esta tolerancia se
 #: acepta el dato; fuera, se lee la Fig. 4L(2) del libro a la temperatura de
 #: admisión y se avisa.
-VISCOSITY_TEMP_TOLERANCE_F = 5.0
+from bes.core.viscosity import VISCOSITY_TEMP_TOLERANCE_F  # noqa: E402  (única fuente)
 
 
 def _rs_en_la_admision(fluid: Fluid, p_psia: float, t_f: float) -> float:
@@ -108,16 +108,14 @@ def _rs_en_la_admision(fluid: Fluid, p_psia: float, t_f: float) -> float:
     Returns:
         Gas en solución [scf/bbl], entre 0 y ``fluid.gor``.
     """
-    from bes.core.pvt import standing_pb, standing_rs
+    from bes.core.pvt import pb_para_pvt, standing_rs
 
     # Sin gas no hay nada que despejar, y además `standing_pb` exige Rs > 0:
     # un pozo de agua de inyección —el Ejemplo 1A del libro— entraba acá con
     # GOR nulo y hacía fallar el diseño entero.
     if fluid.gor <= 0 or p_psia <= 0:
         return 0.0
-    pb = fluid.bubble_point_pressure or standing_pb(
-        fluid.gor, t_f, fluid.oil_api, fluid.gas_sg
-    )
+    pb = pb_para_pvt(fluid.bubble_point_pressure, fluid.gor, t_f, fluid.oil_api, fluid.gas_sg)
     if pb <= 0 or p_psia >= pb:
         return fluid.gor
     rs = standing_rs(p_psia, t_f, fluid.oil_api, fluid.gas_sg, pb)
@@ -149,7 +147,7 @@ def _viscosity_context(
     de los punzados llega prácticamente sin enfriarse. Tomar la temperatura de
     la roca subestima la del fluido y por lo tanto **sobrestima** la viscosidad.
 
-    En MA-102 la diferencia es 127.4 °F contra 117.4 °F — 86 m de separación
+    En UNC-1 la diferencia es 127.4 °F contra 117.4 °F — 86 m de separación
     entre punzados y admisión— y da 33.1 cp contra 38.4 cp: un 16 %, porque la
     viscosidad es exponencial con la temperatura.
 
@@ -172,7 +170,7 @@ def _viscosity_context(
 
     Returns:
         Lo que devuelve :func:`bes.core.viscosity.evaluate_viscosity`, más
-        ``intake_temp_f``. Con crudo liviano (≥ 28 °API) devuelve factores
+        ``intake_temp_f``. Con viscosidad menor a 100 SSU devuelve factores
         unitarios y ``is_viscous = False``.
     """
     from bes.core.viscosity import evaluate_viscosity
@@ -215,7 +213,7 @@ def _viscosity_context(
     # viscosidad del líquido.
     #
     # Durante un tiempo acá se pasaba `fluid.gor`, el GOR total del pozo, que
-    # es el disuelto MÁS el liberado. En MA-102 eso son 449.2 contra 49.5
+    # es el disuelto MÁS el liberado. En UNC-1 eso son 449.2 contra 49.5
     # scf/STB reales a 402 psia: la lámina devolvía 6.0 cp en vez de 24.0, el
     # SSU caía a 47 —por debajo del piso de 50 de las Tablas 4.520/4.521— y la
     # corrección se anulaba sola, acotada a «los factores del extremo, que son
@@ -240,6 +238,12 @@ def _viscosity_context(
     resultado["viscosity_temp_f"] = t_eval
     if aviso_temp:
         resultado["warnings"] = [aviso_temp, *resultado.get("warnings", [])]
+        # Se cargó un ensayo pero no se usó: la traza tiene que decirlo, no
+        # informar que «no se cargó viscosidad de ensayo».
+        resultado["measured_dead_oil_discarded"] = {
+            "mu_cp": fluid.oil_viscosity_dead,
+            "temp_ref_f": fluid.viscosity_temp_ref,
+        }
     return resultado
 
 
@@ -474,6 +478,22 @@ def select_housing(
     }
 
 
+def _contexto_lamina(api: float, t_eval: float, descartada: dict | None) -> str:
+    """Texto de la traza cuando la viscosidad del crudo muerto sale de la lámina."""
+    if descartada:
+        return (
+            f"Leída de la lámina a {api:.1f} °API y {t_eval:.0f} °F. La viscosidad "
+            f"de ensayo cargada ({descartada['mu_cp']:.1f} cp a "
+            f"{descartada['temp_ref_f']:.0f} °F) no se usa porque está a más de "
+            f"{VISCOSITY_TEMP_TOLERANCE_F:.0f} °F de la temperatura de evaluación."
+        )
+    return (
+        f"Leída de la lámina a {api:.1f} °API y {t_eval:.0f} °F: no se "
+        f"cargó viscosidad de ensayo. Es la fuente que indica Riling, "
+        f"pero un PVT medido sigue siendo mejor dato."
+    )
+
+
 def _traza_cadena_viscosidad(trace, visc: dict, viscosity: dict | None) -> None:
     """Publica los pasos 2, 3, 4a y 6 del procedimiento de Riling.
 
@@ -505,9 +525,7 @@ def _traza_cadena_viscosidad(trace, visc: dict, viscosity: dict | None) -> None:
             context=(
                 f"Dato de ensayo de laboratorio, referido a {t_eval:.0f} °F."
                 if medido else
-                f"Leída de la lámina a {api:.1f} °API y {t_eval:.0f} °F: no se "
-                f"cargó viscosidad de ensayo. Es la fuente que indica Riling, "
-                f"pero un PVT medido sigue siendo mejor dato."
+                _contexto_lamina(api, t_eval, (viscosity or {}).get("measured_dead_oil_discarded"))
             ),
         )
     if cadena.get("mu_live_cp") and cadena.get("mu_dead_cp"):
@@ -669,20 +687,30 @@ def housing_and_mechanical_checks(
         )
 
     # Optimización automática de carcasas (bes.core.housing). La verificación de
-    # presión (housing burst, Brown §4.5451) es restricción DURA dentro de la
+    # presión (housing burst, Takács ec. 5.13, pág. 250) es restricción DURA dentro de la
     # búsqueda: el peor caso es a caudal cero (shut-in), donde el head por etapa
     # es máximo, y se aproxima por el head máximo de la curva de catálogo.
     shutin_head = max(
         (pt.head_per_stage for pt in pump.points), default=head_per_stage
     )
-    housing_limit = float(pump.housing_pressure_limit_psi or 0.0)
-    housing = optimize_housings(
-        required_stages=stages,
-        housings=pump.housings,
-        shutin_head_per_stage=shutin_head,
-        sg_fluid=sg,
-        pump_pressure_limit_psi=housing_limit,
-    )
+    # Presión admisible: la del modelo si el catálogo la imprime por tipo de
+    # carcasa (estándar, buttress, soldada); se prueba de la más simple a la
+    # más resistente y se adopta la primera que aloja las etapas (Takács,
+    # Sección 5.3.3.4, pág. 250). Sin ese dato, el límite general de la bomba.
+    limites = sorted(float(v) for v in (pump.housing_burst_psi or {}).values() if v)
+    if not limites:
+        limites = [float(pump.housing_pressure_limit_psi or 0.0)]
+    housing = None
+    for housing_limit in limites:
+        housing = optimize_housings(
+            required_stages=stages,
+            housings=pump.housings,
+            shutin_head_per_stage=shutin_head,
+            sg_fluid=sg,
+            pump_pressure_limit_psi=housing_limit,
+        )
+        if housing is not None:
+            break
     if housing is None:
         msg = (
             f"Ninguna combinación de carcasas de la bomba {pump.model} aloja las "
@@ -710,6 +738,17 @@ def housing_and_mechanical_checks(
     # catálogo deja las verificaciones sin realizar, nunca aprobadas.
     series = catalog_manager.get_pump_series(pump.series)
     frequency = float(pump.catalog_frequency_hz or 60.0)
+    # Si la hoja del propio modelo publica el límite del eje (REDA lo imprime
+    # en la página de 60 Hz de cada bomba), ese dato manda sobre el de la serie.
+    if pump.shaft_hp_limit_std:
+        series = {
+            **(series or {}),
+            "shaft_hp_limit_std": pump.shaft_hp_limit_std,
+            "shaft_hp_limit_high_strength": pump.shaft_hp_limit_high_strength,
+            "reference_frequency_hz": 60.0,
+        }
+        if pump.shaft_area_in2:
+            series["shaft_area_in2"] = pump.shaft_area_in2
 
     hp_shaft = mechanical.shaft_power(hp_per_stage, stages, sg)
     shaft_check = mechanical.verify_shaft(hp_shaft, series, frequency)
@@ -997,7 +1036,10 @@ def _design_candidate(
         pump=pump,
         stages=stages,
         sg=sg,
-        hp_per_stage=curve["hp_per_stage"],
+        # Con crudo viscoso el eje transmite la potencia CORREGIDA (C_HP), no la
+        # de la curva de agua: verificarlo con la de agua lo subestima.
+        hp_per_stage=curve["hp_per_stage"] * (
+            visc_detail["hp_factor"] / 100.0 if visc_detail is not None else 1.0),
         head_per_stage=curve["head_per_stage"],
         vertical_lift_ft=float(tdh_info.get("vertical_lift_ft", 0.0)),
         bottom_temp_f=bottom_temp_f,
@@ -1155,8 +1197,11 @@ def design_pump_complete(
         target_rate=objectives.target_flow_rate,
     )
 
+    # A la temperatura de la admisión (perfil lineal), igual que el método
+    # para pozos con gas: la fracción que decide la derivación es la misma.
+    from bes.core.tdh import temp_at_depth
     free_gas_fraction = free_gas_fraction_at_intake(
-        fluid, pip, reservoir.reservoir_temp
+        fluid, pip, temp_at_depth(well, pump_setting_depth, reservoir.reservoir_temp)
     )
 
     tdh_info = calculate_tdh(
@@ -1164,6 +1209,10 @@ def design_pump_complete(
         free_gas_fraction=free_gas_fraction,
     )
     tdh_ft = tdh_info["tdh_ft"]
+    if tdh_ft <= 0:
+        raise ValueError(
+            f"El TDH da {tdh_ft:.0f} ft: la presión en la admisión ({pip:.0f} psia) alcanza para llevar "
+            f"el fluido a superficie, así que el pozo surge solo y no hace falta bomba a esa profundidad.")
     sg = _sg_liquid(fluid)
     sg_max = _sg_max(fluid)
 
@@ -1291,14 +1340,21 @@ def design_pump_by_model(
         pump_setting_depth=pump_setting_depth,
         target_rate=objectives.target_flow_rate,
     )
+    # A la temperatura de la admisión (perfil lineal), igual que el método
+    # para pozos con gas: la fracción que decide la derivación es la misma.
+    from bes.core.tdh import temp_at_depth
     free_gas_fraction = free_gas_fraction_at_intake(
-        fluid, pip, reservoir.reservoir_temp
+        fluid, pip, temp_at_depth(well, pump_setting_depth, reservoir.reservoir_temp)
     )
     tdh_info = calculate_tdh(
         reservoir, fluid, well, surface, objectives, pump_setting_depth, pip,
         free_gas_fraction=free_gas_fraction,
     )
     tdh_ft = tdh_info["tdh_ft"]
+    if tdh_ft <= 0:
+        raise ValueError(
+            f"El TDH da {tdh_ft:.0f} ft: la presión en la admisión ({pip:.0f} psia) alcanza para llevar "
+            f"el fluido a superficie, así que el pozo surge solo y no hace falta bomba a esa profundidad.")
     sg = _sg_liquid(fluid)
     sg_max = _sg_max(fluid)
 

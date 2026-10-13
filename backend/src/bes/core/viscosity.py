@@ -71,40 +71,20 @@ _CHARTS: dict | None = None
 #: extrapola: se acota al extremo más cercano y se avisa.
 _TABLE_EFFICIENCIES = (60.0, 70.0)
 
-#: Frontera entre crudo liviano y pesado [°API].
-#:
-#: De 28 °API para arriba el crudo es liviano y **no se trata como viscoso**:
-#: no hace falta corregir la curva de la bomba. Por debajo, la viscosidad
-#: empieza a pesar y hay que analizarla.
-#:
-#: El corte no es arbitrario. Evaluando la cadena completa —viscosidad de la
-#: Fig. 4L(2), conversión a SSU y factores de la Tabla 4.521— en el umbral:
-#:
-#:     28 °API a 120 °F -> 18.8 cp -> 102 SSU -> C_Q = 99.0 %, C_H =  99.5 %
-#:     28 °API a 180 °F -> 10.4 cp ->  65 SSU -> C_Q = 99.8 %, C_H = 100.0 %
-#:
-#: (Con Beggs-Robinson, que es lo que se usaba antes de digitalizar la lámina,
-#: daban 12.1 y 4.0 cp y la corrección quedaba en ~0.4 %. La figura del libro
-#: es más viscosa; el orden de magnitud de la conclusión no cambia.)
-#:
-#: O sea que en el umbral la corrección ya es menor al 0.5 %: ruido frente a la
-#: incertidumbre de leer la viscosidad de un gráfico. Por debajo empieza a
-#: morder, y a 16 °API —el ejemplo de cátedra— se va a 88 %.
-VISCOUS_CRUDE_API_THRESHOLD = 28.0
+#: Umbral que decide si se corrige por viscosidad: 100 SSU de la viscosidad de
+#: diseño (la del crudo vivo a la temperatura de evaluación, o la de la mezcla
+#: si se midió). Por debajo no se corrige. Criterio del proyecto, fijado con el
+#: tutor: el criterio va por viscosidad y no por densidad (°API). En las Tablas
+#: 4.520 y 4.521 de Brown (1980) caudal y altura recién bajan desde 80 SSU, y a
+#: 100 SSU la corrección de caudal es de 1 a 2 %.
+VISCOUS_SSU_THRESHOLD = 100.0
 
 
-def is_viscous_crude(oil_api: float) -> bool:
-    """¿Hay que analizar los efectos de la viscosidad en este crudo?
 
-    Args:
-        oil_api: Gravedad del petróleo [°API].
-
-    Returns:
-        ``True`` si el crudo es pesado (< 28 °API) y corresponde corregir la
-        curva de la bomba; ``False`` si es liviano y se diseña con la curva de
-        agua sin corregir.
-    """
-    return oil_api < VISCOUS_CRUDE_API_THRESHOLD
+#: Tolerancia para aceptar la viscosidad medida del crudo [°F]. Fuera de ella el
+#: dato no se usa y se lee la Fig. 4L(2) a la temperatura de evaluación. Es la
+#: misma en toda la herramienta.
+VISCOSITY_TEMP_TOLERANCE_F = 5.0
 
 
 def _tables() -> dict:
@@ -978,7 +958,7 @@ def centrilift_factors(ssu: float) -> dict:
 
 
 # --------------------------------------------------------------------------
-# Punto de entrada: el procedimiento completo, con la regla de los 28 °API
+# Punto de entrada: el procedimiento completo, con el umbral de 100 SSU
 # --------------------------------------------------------------------------
 
 #: Lo que se devuelve cuando el crudo es liviano: nada se corrige.
@@ -1003,14 +983,10 @@ def evaluate_viscosity(
 ) -> dict:
     """Procedimiento de Riling completo, con la regla de crudo liviano adelante.
 
-    **De 28 °API para arriba el crudo es liviano y no se corrige nada**: se
-    devuelven factores unitarios y ``is_viscous`` en ``False``. El diseño usa
-    la curva de agua tal cual, que es lo correcto — en el umbral la corrección
-    ya vale menos del 0.5 %.
-
-    Por debajo de 28 °API se corre la cadena completa: viscosidad del crudo sin
-    gas, corrección por gas disuelto, conversión a SSU y factores de las Tablas
-    4.520 / 4.521.
+    Siempre se calcula la viscosidad de diseño (crudo sin gas, corrección por
+    gas disuelto y conversión a SSU). **Si da menos de 100 SSU no se corrige**:
+    se devuelven factores unitarios y ``is_viscous`` en ``False``. Con 100 SSU
+    o más se aplican los factores de las Tablas 4.520 / 4.521.
 
     El corte de agua (paso 5) entra por ``measured_mixture_ssu``: es un dato de
     laboratorio, no una cuenta. Riling dice «si hay datos disponibles» porque la
@@ -1024,14 +1000,14 @@ def evaluate_viscosity(
         rs_scf_bbl: Gas en solución [scf/bbl].
         pump_efficiency_pct: Rendimiento máximo de la bomba [%].
         dead_oil_cp: Viscosidad del crudo sin gas [cp], medida o de la
-            Fig. 4L-2. Sin ella se estima con Beggs-Robinson y se avisa.
+            Fig. 4L(2). Sin ella se lee la Fig. 4L(2).
         measured_mixture_ssu: Viscosidad de la mezcla con agua [SSU], medida.
             Cuando se pasa, **reemplaza** a la del crudo solo (paso 5).
         water_cut: Corte de agua [0–1]. Con 1.0 el pozo no produce petróleo y
             no hay nada que corregir: el fluido es agua.
 
     Returns:
-        dict con ``is_viscous``, ``oil_api``, ``api_threshold``, los factores de
+        dict con ``is_viscous``, ``oil_api``, ``ssu_threshold``, los factores de
         corrección, el detalle de la viscosidad en ``viscosity`` (o ``None`` en
         crudo liviano), ``water_cut_correction`` y ``warnings``.
     """
@@ -1048,7 +1024,7 @@ def evaluate_viscosity(
         return {
             "is_viscous": False,
             "oil_api": None,
-            "api_threshold": VISCOUS_CRUDE_API_THRESHOLD,
+            "ssu_threshold": VISCOUS_SSU_THRESHOLD,
             "design_ssu": None,
             "viscosity": None,
             "water_cut_correction": "no_aplica",
@@ -1061,8 +1037,10 @@ def evaluate_viscosity(
             **_SIN_CORRECCION,
         }
 
-    if is_viscous_crude(oil_api):
-        v = crude_viscosity_ssu(oil_api, temp_f, rs_scf_bbl, dead_oil_cp)
+    v = crude_viscosity_ssu(oil_api, temp_f, rs_scf_bbl, dead_oil_cp)
+    _ssu_eval = (float(measured_mixture_ssu) if measured_mixture_ssu
+                 else v["ssu"])
+    if _ssu_eval >= VISCOUS_SSU_THRESHOLD:
         warnings = list(v["warnings"])
 
         # --- Paso 5 — corte de agua -----------------------------------------
@@ -1086,7 +1064,7 @@ def evaluate_viscosity(
         return {
             "is_viscous": True,
             "oil_api": oil_api,
-            "api_threshold": VISCOUS_CRUDE_API_THRESHOLD,
+            "ssu_threshold": VISCOUS_SSU_THRESHOLD,
             "design_ssu": ssu_diseno,
             "viscosity": v,
             "water_cut_correction": correccion_agua,
@@ -1099,19 +1077,19 @@ def evaluate_viscosity(
             "warnings": warnings,
         }
 
-    # --- Crudo liviano: no se corrige nada ---------------------------------
+    # --- Viscosidad menor a 100 SSU: no se corrige -----------------------
     return {
         "is_viscous": False,
         "oil_api": oil_api,
-        "api_threshold": VISCOUS_CRUDE_API_THRESHOLD,
-        "design_ssu": None,
-        "viscosity": None,
+        "ssu_threshold": VISCOUS_SSU_THRESHOLD,
+        "design_ssu": _ssu_eval,
+        "viscosity": v,
         "water_cut_correction": "no_aplica",
         "new_efficiency": pump_efficiency_pct,
         "reason": (
-            f"Crudo de {oil_api:.1f} °API: liviano (≥ "
-            f"{VISCOUS_CRUDE_API_THRESHOLD:.0f} °API). No se corrige la curva "
-            f"por viscosidad — en el umbral la corrección ya es menor al 0.5 %."
+            f"Viscosidad de diseño {_ssu_eval:.0f} SSU, menor a "
+            f"{VISCOUS_SSU_THRESHOLD:.0f} SSU: no se corrige la curva por "
+            f"viscosidad (criterio del proyecto)."
         ),
         **_SIN_CORRECCION,
     }

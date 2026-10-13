@@ -46,7 +46,7 @@
     "_no_digitalizado": "La curva rotulada «reservoir temperature» de la misma lámina NO se digitalizó: no es una isoterma y su uso no se desprende de la lámina sola.",
     "_ancla": "16 °API a 130 °F = 150 cp, valor que la cátedra lee de esta misma figura. La tabla interpolada da 151.8 cp en ese punto.",
     "_contraste": "A 100 °F la figura da ~100 cp para 20 °API y menos de 3 cp para 40 °API, que es lo que ya estaba anotado en docs/CRUDOS_VISCOSOS.md.",
-    "_incertidumbre": "Entre 10 y 15 °API las curvas son casi verticales y están apretadas: ahí la lectura es la menos firme de la tabla. De 40 °API para arriba los valores son chicos y las isotermas se separan poco. En todo caso, de 28 °API para arriba el crudo es liviano y no se corrige nada (VISCOUS_CRUDE_API_THRESHOLD), así que la mitad derecha de la tabla casi no interviene en un diseño.",
+    "_incertidumbre": "Entre 10 y 15 °API las curvas son casi verticales y están apretadas: ahí la lectura es la menos firme de la tabla. De 40 °API para arriba los valores son chicos y las isotermas se separan poco. La corrección se aplica sólo si la viscosidad de diseño llega a 100 SSU (VISCOUS_SSU_THRESHOLD).",
     "_unidades": {
       "api": "°API a 60 °F",
       "temp_f": "°F",

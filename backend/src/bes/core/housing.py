@@ -44,8 +44,10 @@ Nomenclatura
 
 Referencia
 ----------
-Brown, K.E. "The Technology of Artificial Lift Methods", Vol. 2b, §4.5451
-    (presión de reventamiento de carcasa).
+Takács, G. (2018), "Electrical Submersible Pumps Manual", 2.ª ed.,
+    Sección 5.3.3.4, ec. 5.13 (pág. 250): presión máxima dentro de la bomba a
+    caudal cero contra la presión de reventamiento de la carcasa. El orden de
+    elección entre combinaciones es criterio del proyecto.
 """
 from __future__ import annotations
 

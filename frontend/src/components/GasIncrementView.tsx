@@ -31,13 +31,13 @@ import { api, ApiError } from "../api/client";
 import type {
   DesignInputs,
   DesignResponse,
+  GasCompleteDesignRequest,
   GasCompleteDesignResponse,
   GasIncrementResponse,
-  PlotlyFigure,
 } from "../api/types";
 import { FormulaTraceSection } from "./FormulaTrace";
 import { GasHandlingPanel } from "./GasHandlingPanel";
-import { PlotFigure } from "./PlotFigure";
+import { GasPasoAPaso } from "./GasPasoAPaso";
 import { ResultsView } from "./ResultsView";
 
 /** Pasos ofrecidos. Cuanto más chico, mejor representa el cambio del fluido. */
@@ -85,7 +85,7 @@ function asDesignResponse(r: GasCompleteDesignResponse): DesignResponse {
       free_gas_fraction_at_intake: r.method.free_gas_fraction,
     },
     ordering_criteria: [
-      "Bomba única para toda la sarta, elegida sobre el caudal de mezcla representativo (Brown §4.53103 paso 6)",
+      "Bomba única para toda la sarta, elegida sobre el caudal de mezcla representativo (criterio del proyecto)",
       "Descarte por carcasas, eje/cojinete y disponibilidad de aparejo del mismo fabricante",
     ],
     n_candidates_evaluated: r.rejected.length + 1,
@@ -107,7 +107,7 @@ function OrigenPVT({ sources }: { sources: Record<string, string> }) {
   const total = Object.keys(sources).length;
   if (deTabla === 0) {
     return (
-      <Tooltip label="Todas las propiedades salen de correlaciones (Standing / DAK / McCain)">
+      <Tooltip label="Todas las propiedades salen de correlaciones (Standing / DAK / Ahmed)">
         <Badge color="gray" variant="light" size="sm">
           correlación
         </Badge>
@@ -127,33 +127,9 @@ function OrigenPVT({ sources }: { sources: Record<string, string> }) {
   );
 }
 
-/**
- * Escalera de incrementos — la figura 4.56B del libro.
- *
- * El gráfico lo construye el backend (`bes.plotting.plot_gas_increment_ladder`)
- * y viaja dentro de la respuesta del cálculo: acá sólo se pasa a <Plot>, que es
- * la regla del proyecto (ver `.claude/rules/frontend.md`).
- *
- * Si el backend no pudo armarla manda `{}` y no se dibuja nada — un gráfico no
- * puede hacer desaparecer el resto del resultado.
- */
-function Escalera({ figure }: { figure: PlotlyFigure | Record<string, never> }) {
-  if (!("data" in figure)) return null;
-  return (
-    <Card padding="lg">
-      <Title order={5}>Escalera de incrementos</Title>
-      <Text c="dimmed" size="sm" mt={4}>
-        La Fig. 4.56B de Brown: la admisión abajo, la descarga arriba, el caudal
-        de mezcla a la izquierda de cada peldaño y la presión a la derecha. El
-        volumen <b>baja</b> al subir la presión, porque el gas se comprime y
-        parte pasa a solución — es el motivo de todo el método. La separación
-        entre peldaños es proporcional al ΔP, así que un último escalón corto
-        (marcado con <b>*</b>) es el resto de la división.
-      </Text>
-      <PlotFigure figure={figure as PlotlyFigure} height={620} />
-    </Card>
-  );
-}
+// El método de gas viejo (diseño completo, sólo hidráulica y escalera) queda
+// oculto: la pestaña muestra sólo el método paso a paso.
+const MOSTRAR_METODO_VIEJO = false;
 
 export function GasIncrementView({
   inputs,
@@ -193,13 +169,15 @@ export function GasIncrementView({
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<GasIncrementResponse | null>(null);
   const [completo, setCompleto] = useState<GasCompleteDesignResponse | null>(null);
+  // Pedido con que se armó `completo`: la memoria de cálculo lo reusa tal cual.
+  const [completoReq, setCompletoReq] = useState<GasCompleteDesignRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // El disparo automático. Se omite la primera vez (token 0) para que abrir
   // la pestaña a mano no calcule nada sin que el usuario lo pida.
   const yaDisparado = useRef(0);
   useEffect(() => {
-    if (autoRunToken > 0 && autoRunToken !== yaDisparado.current && inputs) {
+    if (MOSTRAR_METODO_VIEJO && autoRunToken > 0 && autoRunToken !== yaDisparado.current && inputs) {
       yaDisparado.current = autoRunToken;
       void runCompleto();
     }
@@ -245,15 +223,17 @@ export function GasIncrementView({
     setError(null);
     setCompleto(null);
     try {
-      const res = await api.gasCompleteDesign({
+      const req: GasCompleteDesignRequest = {
         ...inputs,
         increment_psi: incrementPsi,
         vent_gas_pct: Number(ventGasPct) / 100,
         apply_viscosity: aplicarViscosidad,
         apply_deterioration: aplicarDeterioro,
         fixed_pump_model: fixedPumpModel,
-      });
+      };
+      const res = await api.gasCompleteDesign(req);
       setCompleto(res);
+      setCompletoReq(req);
       // La tabla por intervalo es la misma; se reusa el render de abajo.
       setResult({
         summary: res.summary,
@@ -286,15 +266,10 @@ export function GasIncrementView({
 
   return (
     <Stack gap="md">
+      <GasPasoAPaso inputs={inputs} autoRunToken={autoRunToken} />
+      {MOSTRAR_METODO_VIEJO && (<>
       <Card padding="lg">
         <Title order={4}>Método de incrementos de presión</Title>
-        <Text c="dimmed" size="sm">
-          Brown Vol. 2b §4.53103. Divide el salto de presión de la bomba en
-          escalones, evalúa el fluido en <b>los dos extremos</b> de cada uno y
-          resuelve etapas y potencia tramo por tramo. Con gas libre el caudal de
-          mezcla cambia con la presión, así que un único caudal promedio no
-          alcanza.
-        </Text>
 
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} mt="md">
           <NumberInput
@@ -348,13 +323,13 @@ export function GasIncrementView({
         <Group mt="md" gap="xl">
           <Checkbox
             label="Corregir por viscosidad (Riling)"
-            description="Sin efecto en crudos de 28 °API o más"
+            description="Sin efecto con menos de 100 SSU"
             checked={aplicarViscosidad}
             onChange={(e) => setAplicarViscosidad(e.currentTarget.checked)}
           />
           <Checkbox
             label="Degradar altura por gas libre"
-            description="Brown §4.53102"
+            description="Criterio del proyecto"
             checked={aplicarDeterioro}
             onChange={(e) => setAplicarDeterioro(e.currentTarget.checked)}
           />
@@ -387,31 +362,8 @@ export function GasIncrementView({
           <Alert
             color={completo.method.applies ? "teal" : "blue"}
             variant="light"
-            title="Método aplicado"
           >
             <Text size="sm">{completo.method.reason}</Text>
-            <Text size="sm" mt="xs">
-              <b>TDH:</b> {n(completo.tdh_increment_ft)} ft por incrementos
-              (con este se dimensionó el aparejo) contra{" "}
-              {n(completo.tdh_conventional_ft)} ft por la fórmula convencional
-              de tres términos —{" "}
-              {n(
-                (Math.abs(
-                  completo.tdh_increment_ft - completo.tdh_conventional_ft
-                ) /
-                  completo.tdh_conventional_ft) *
-                  100,
-                1
-              )}{" "}
-              % de diferencia. Son dos rutas independientes a la misma magnitud;
-              se publican las dos para poder auditarlas.
-            </Text>
-            {completo.rejected.length > 0 && (
-              <Text size="xs" c="dimmed" mt="xs">
-                Bombas descartadas antes de llegar a ésta:{" "}
-                {completo.rejected.join(" · ")}
-              </Text>
-            )}
           </Alert>
 
           {/* La escalera NO va acá: `runCompleto` también setea `result`, así que
@@ -421,23 +373,13 @@ export function GasIncrementView({
             inputs={inputs}
             title="Diseño BES — método por incrementos de presión"
             showGas={false}
+            gasRequest={completoReq ?? undefined}
           />
         </>
       )}
 
       {result && s && (
         <>
-          {result.warnings.length > 0 && (
-            <Alert color="yellow" variant="light" title="Advertencias">
-              <Stack gap={4}>
-                {result.warnings.map((w, i) => (
-                  <Text key={i} size="sm">
-                    {w}
-                  </Text>
-                ))}
-              </Stack>
-            </Alert>
-          )}
 
           <Card padding="lg">
             <Group justify="space-between" align="flex-start">
@@ -503,7 +445,7 @@ export function GasIncrementView({
             </SimpleGrid>
           </Card>
 
-          <Escalera figure={result.ladder_figure} />
+          {/* Gráfico de la escalera retirado por ahora (se rehace el método de gas). */}
 
           <Card padding="lg">
             <Group justify="space-between">
@@ -651,6 +593,7 @@ export function GasIncrementView({
           )}
         </>
       )}
+      </>)}
     </Stack>
   );
 }

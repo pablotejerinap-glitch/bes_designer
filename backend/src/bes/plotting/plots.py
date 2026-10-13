@@ -962,7 +962,7 @@ def plot_gas_increment_ladder(
                       "<extra></extra>",
     ))
 
-    titulo = "Incrementos de presión — Brown Vol. 2b Fig. 4.56B"
+    titulo = "Incrementos de presión — Brown Vol. 2b, Fig. 4.56B (pág. 75)"
     if pump_model:
         detalle = pump_model
         if total_stages is not None:

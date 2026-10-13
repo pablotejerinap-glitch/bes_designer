@@ -1,7 +1,7 @@
 // Comparación lado a lado de las opciones recomendadas.
 // No pide nada a la API: /api/design ya devuelve las N opciones con sus
 // métricas, así que esto es pura presentación.
-import { Alert, Badge, Card, Group, SimpleGrid, Table, Text } from "@mantine/core";
+import { Badge, Card, Group, SimpleGrid, Table, Text } from "@mantine/core";
 import type { BepClassification, Recommendation } from "../api/types";
 
 // Etiquetas de la clasificación de distancia al BEP. Solo informan: el orden
@@ -121,15 +121,6 @@ function OptionCard({ rec, best }: { rec: Recommendation; best: Recommendation }
         </Table.Tbody>
       </Table>
 
-      <Text size="xs" c="dimmed" mt="sm">
-        {rec.rationale}
-      </Text>
-
-      {d.warnings.length > 0 && (
-        <Alert color="yellow" mt="sm" p="xs">
-          <Text size="xs">{d.warnings.join(" · ")}</Text>
-        </Alert>
-      )}
     </Card>
   );
 }

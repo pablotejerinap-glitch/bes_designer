@@ -456,11 +456,16 @@ export function WellForm({ value, onChange }: Props) {
             <Grid gutter="xs">
               <Grid.Col span={{ base: 12, sm: 4 }}>
                 <NumberInput
-                  label="Índice de productividad"
+                  label="Índice de productividad J"
                   description={
                     reservoir.ipr_method === "fetkovich"
                       ? "secante en el ensayo — informativo"
-                      : "calculado, no editable"
+                      : // Brown (1984, Vol. I, §1.32): el PI de la ec. 1.1 es
+                        // q/Δp en UN punto, y sólo coincide con la pendiente
+                        // de la ec. 1.2 cuando la IPR es recta. Acá J es la
+                        // pendiente del tramo lineal, así que con un ensayo
+                        // por debajo de la burbuja NO es el q/Δp medido.
+                        "pendiente del tramo lineal — no es q/Δp del ensayo"
                   }
                   value={Number(derived.productivity_index.toFixed(4))}
                   rightSection={<Text size="xs" c="dimmed" pr={8}>STB/d/psi</Text>}

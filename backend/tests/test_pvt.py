@@ -21,8 +21,7 @@ from bes.core.pvt import (
     gas_bg,
     gas_z_factor,
     mixture_specific_gravity,
-    oil_viscosity_dead,
-    oil_viscosity_live,
+    oil_viscosity_brown,
     standing_bo,
     standing_pb,
     standing_rs,
@@ -273,75 +272,39 @@ class TestWaterBw:
 
 
 # ---------------------------------------------------------------------------
-# oil_viscosity_dead
+# oil_viscosity_brown — única fuente de viscosidad del crudo (láminas 4L)
 # ---------------------------------------------------------------------------
 
-class TestOilViscosityDead:
-    def test_decreases_with_temperature(self):
-        """Crude oil viscosity decreases with rising temperature."""
-        mu_cold = oil_viscosity_dead(api=35, t=100)
-        mu_hot = oil_viscosity_dead(api=35, t=200)
-        assert mu_cold > mu_hot
+class TestOilViscosityBrown:
+    def _f(self, api=12.0, mu=None, tref=None):
+        return replace(Fluid(oil_api=api, water_cut=0.0, gor=100.0, gas_sg=0.65,
+                             water_sg=1.0, oil_viscosity_dead=None,
+                             viscosity_temp_ref=None, bubble_point_pressure=0.0,
+                             h2s_content=0.0, co2_content=0.0, sand_production=False),
+                       oil_viscosity_dead=mu, viscosity_temp_ref=tref)
 
-    def test_decreases_with_api(self):
-        """Higher API (lighter) oil is less viscous."""
-        mu_heavy = oil_viscosity_dead(api=20, t=160)
-        mu_light = oil_viscosity_dead(api=45, t=160)
-        assert mu_heavy > mu_light
+    def test_caso_4b_lamina(self):
+        """12 °API, 200 °F, Rs 100 → 239 cP muerto y 72,7 cP saturado (Caso 3)."""
+        mu_od, mu_ob, origen = oil_viscosity_brown(self._f(), 200.0, 100.0)
+        assert origen == "lamina"
+        assert mu_od == pytest.approx(239.0, rel=0.01)
+        assert mu_ob == pytest.approx(72.7, rel=0.01)
 
-    def test_positive(self):
-        mu = oil_viscosity_dead(api=35, t=160)
-        assert mu > 0
+    def test_ensayo_dentro_de_tolerancia(self):
+        mu_od, _, origen = oil_viscosity_brown(self._f(mu=150.0, tref=198.0), 200.0, 0.0)
+        assert origen == "medido" and mu_od == 150.0
 
-    def test_beggs_robinson_reference(self):
-        """Beggs-Robinson: API=35, T=160°F → X = 160^(-1.163) × exp(6.9824-0.04658×35).
-        Formula gives mu_dead ≈ 2.77 cp (light-medium crude, typical for 35 API).
-        """
-        mu = oil_viscosity_dead(api=35, t=160)
-        assert mu == pytest.approx(2.77, rel=0.05)
+    def test_ensayo_fuera_de_tolerancia_se_descarta(self):
+        mu_od, _, origen = oil_viscosity_brown(self._f(mu=400.0, tref=100.0), 200.0, 0.0)
+        assert origen == "lamina" and mu_od == pytest.approx(239.0, rel=0.01)
 
-    def test_zero_temperature_raises(self):
-        with pytest.raises(ValueError, match="t"):
-            oil_viscosity_dead(api=35, t=0)
+    def test_gas_disuelto_baja_la_viscosidad(self):
+        mu_od, mu_ob, _ = oil_viscosity_brown(self._f(api=30.0), 160.0, 300.0)
+        assert mu_ob < mu_od
 
-
-# ---------------------------------------------------------------------------
-# oil_viscosity_live
-# ---------------------------------------------------------------------------
-
-class TestOilViscosityLive:
-    def test_live_less_than_dead(self):
-        """Dissolved gas reduces oil viscosity."""
-        mu_dead = oil_viscosity_dead(api=35, t=160)
-        mu_live = oil_viscosity_live(mu_dead=mu_dead, rs=300)
-        assert mu_live < mu_dead
-
-    def test_decreases_with_rs(self):
-        """More gas in solution → lower live-oil viscosity."""
-        mu_dead = 3.0
-        mu_low_rs = oil_viscosity_live(mu_dead, rs=100)
-        mu_high_rs = oil_viscosity_live(mu_dead, rs=500)
-        assert mu_high_rs < mu_low_rs
-
-    def test_zero_rs_converges_to_dead(self):
-        """With Rs=0 (no dissolved gas), live viscosity must equal dead viscosity."""
-        mu_dead = 5.0
-        mu_live = oil_viscosity_live(mu_dead, rs=0)
-        a = 10.715 * 100.0 ** (-0.515)
-        b = 5.44 * 150.0 ** (-0.338)
-        expected = a * mu_dead ** b
-        assert mu_live == pytest.approx(expected, rel=1e-9)
-
-    def test_positive(self):
-        assert oil_viscosity_live(mu_dead=3.0, rs=300) > 0
-
-    def test_negative_mu_dead_raises(self):
-        with pytest.raises(ValueError, match="mu_dead"):
-            oil_viscosity_live(mu_dead=-1.0, rs=300)
-
-    def test_negative_rs_raises(self):
-        with pytest.raises(ValueError, match="rs"):
-            oil_viscosity_live(mu_dead=3.0, rs=-10)
+    def test_temperatura_cero(self):
+        with pytest.raises(ValueError):
+            oil_viscosity_brown(self._f(), 0.0, 0.0)
 
 
 # ---------------------------------------------------------------------------
@@ -501,14 +464,13 @@ class TestLaCadenaDelFactorZ:
         """Dividir °F por °R daría cualquier cosa: T_pr tiene que dar ~1.7."""
         assert 1.05 <= self._paso(base_fluid, "pvt_tpr")["result"] <= 3.0
 
-    def test_la_densidad_reducida_es_la_de_dak(self, base_fluid):
-        """ρ_r = 0.27·P_pr/(z·T_pr), no 0.27·P/z."""
+    def test_z_es_papay_con_las_reducidas(self, base_fluid):
+        """z = 1 − 3,52·Ppr/10^(0,9813·Tpr) + 0,274·Ppr²/10^(0,8157·Tpr) (Takács ec. 4.26)."""
         z = self._paso(base_fluid, "pvt_z")
         ppr = self._paso(base_fluid, "pvt_ppr")["result"]
         tpr = self._paso(base_fluid, "pvt_tpr")["result"]
-        assert z["inputs"]["ρ_r"] == pytest.approx(
-            0.27 * ppr / (z["result"] * tpr)
-        )
+        assert z["result"] == pytest.approx(
+            1 - 3.52 * ppr / 10 ** (0.9813 * tpr) + 0.274 * ppr ** 2 / 10 ** (0.8157 * tpr))
         assert z["inputs"]["P_pr"] == pytest.approx(ppr)
         assert z["inputs"]["T_pr"] == pytest.approx(tpr)
 

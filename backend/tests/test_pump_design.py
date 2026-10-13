@@ -1124,9 +1124,8 @@ class TestLaTrazaExplicaDeDondeSaleElPIP:
 
     Antes la traza arrancaba la sumergencia con un número sin origen: se veía
     ``H_pip = 1378.4 · 2.31 / 1.042`` y nadie podía auditar el 1378.4. Ahora se
-    publica el eslabón que faltaba —Pwf del IPR, recorrido por el anular con
-    Poettmann & Carpenter, PIP— con la cadena completa de P&C evaluada en la
-    admisión.
+    publica el eslabón que faltaba: Pwf del IPR, SG de la mezcla en el fondo,
+    gradiente constante y PIP (Brown, Ejemplo #1C).
     """
 
     @pytest.fixture(scope="class")
@@ -1149,19 +1148,15 @@ class TestLaTrazaExplicaDeDondeSaleElPIP:
         assert "pip_admision" in claves, "el PIP sigue apareciendo de la nada"
         assert claves.index("pip_admision") < claves.index("pip_head")
 
-    def test_el_recorrido_muestra_la_cadena_de_poettmann_carpenter(self, traza):
-        """La correlación con la que se integró tiene que quedar a la vista."""
+    def test_el_pip_sale_de_la_cuenta_de_brown(self, traza):
+        """Un solo método: PIP = Pwf − 0,433·SG·(D_perf − D_bomba) (Brown, Ej. #1C)."""
         claves = [f["key"] for f in traza]
-        for k in ("pc_area", "pc_densidad_mezcla", "pc_factor_friccion",
-                  "pc_gradiente_gravedad", "pc_gradiente_friccion",
-                  "pc_gradiente_total"):
+        for k in ("pip_sg_fondo", "pip_gradiente_promedio", "pip_recorrido", "pip_admision"):
             assert k in claves, f"falta {k} en la traza del PIP"
-        assert claves.index("pc_gradiente_total") < claves.index("pip_recorrido")
-
-    def test_la_cadena_se_evalua_en_el_anular_y_no_en_el_tubing(self, traza):
-        """El recorrido sube por el espacio anular: manda el ID del casing."""
-        area = next(f for f in traza if f["key"] == "pc_area")
-        assert area["inputs"]["d"] == pytest.approx(7.825)
+        assert "pc_area" not in claves[:claves.index("pip_admision")]
+        sg = next(f for f in traza if f["key"] == "pip_sg_fondo")["result"]
+        grad = next(f for f in traza if f["key"] == "pip_gradiente_promedio")["result"]
+        assert grad == pytest.approx(0.433 * sg)
 
     def test_los_numeros_cierran_con_el_pip_que_se_uso(self, traza):
         """La traza no puede contar una cuenta distinta de la que se hizo."""

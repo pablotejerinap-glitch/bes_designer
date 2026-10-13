@@ -52,13 +52,27 @@ Nomenclatura
 
 Referencias
 -----------
-Brown, K.E. "The Technology of Artificial Lift Methods", Vol. 2b, §4.522
-    y Figura 4.55.
+Brown, K.E. "The Technology of Artificial Lift Methods", Vol. 4, cap. 2,
+    págs. 14-16: ecs. 2.19 y 2.20 (Vogel), 2.24-2.26 (el 1.8), 2.27-2.29
+    (compuesta), 2.30-2.31 (J del ensayo), 2.32 (Darcy); Fig. 2.14; Ejemplos
+    #5 a #8.
 Vogel, J.V. (1968). "Inflow Performance Relationships for Solution-Gas Drive
     Wells". Journal of Petroleum Technology.
-Beggs, H.D. "Production Optimization Using Nodal Analysis", §2 — el Vogel
-    generalizado para reservorios subsaturados (ecs. 2-38 y 2-53) y los
-    ejemplos 2-2, 2-5B y 2-7A, que son la regresión de este módulo.
+Standing, M.B. (1970) — la forma COMPUESTA (recta arriba de Pb, Vogel abajo)
+    es la extensión de Standing al Vogel original, que sólo cubría reservorios
+    saturados.
+Beggs, H.D. (2003). "Production Optimization Using NODAL Analysis", 2ª ed.,
+    cap. 2, págs. 24-25 — reproduce la forma compuesta:
+        ec. 2-22  J del ensayo, tramo recto
+        ec. 2-36/2-37  de dónde sale el 1.8 (el libro lo escribe «0.2 + 1.6»)
+        ec. 2-38  la compuesta que implementa este módulo
+        ec. 2-39  q_b = J·(Pr − Pb)
+        ec. 2-40  despeje de J cuando el ensayo cae DEBAJO de la burbuja
+    Los ejemplos 2-2, 2-5B y 2-7A son la regresión de este módulo.
+    NOTA: las ecs. 2-50/2-51 (págs. 30-31) son el mismo Vogel generalizado con
+    eficiencia de flujo FE (skin). Este módulo trabaja con FE = 1 y NO las
+    implementa. La cita «ec. 2-53» que figuraba acá no se pudo localizar en el
+    libro; la correcta es la 2-38.
 Fetkovich, M.J. (1973). "The Isochronal Testing of Oil Wells". SPE 4529.
 """
 
@@ -178,7 +192,7 @@ def vogel_composite_ipr(pr: float, pb: float, pwf: float, pi: float) -> float:
 
     Referencia:
         Beggs, *Production Optimization Using Nodal Analysis*, §2, ecs. 2-38 y
-        2-53 («Undersaturated Reservoirs»). Brown Vol. 2b §4.522.
+        2-53 («Undersaturated Reservoirs»). Brown Vol. 4, ecs. 2.27-2.29 (pág. 15).
     """
     if pi <= 0:
         raise ValueError(f"pi must be > 0, got {pi}")
@@ -575,8 +589,8 @@ def calculate_pwf_for_target_rate(
     aof = _compute_aof(reservoir, fetkovich_c, fetkovich_n)
     if target_rate > aof:
         raise ValueError(
-            f"target_rate {target_rate:.1f} STB/d exceeds the reservoir AOF "
-            f"{aof:.1f} STB/d."
+            f"El caudal objetivo ({target_rate:.1f} STB/d) supera lo máximo que puede dar el "
+            f"reservorio (AOF = {aof:.1f} STB/d)."
         )
 
     if method is IPRMethod.LINEAR:

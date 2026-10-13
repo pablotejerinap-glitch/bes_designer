@@ -39,12 +39,24 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 def _build_criteria(dr: DesignResult, pump_obj, target_flow: float) -> dict:
-    """Raw engineering criteria for one design — the data the ranking uses."""
-    dist = bep_distance(pump_obj, target_flow)
+    """Raw engineering criteria for one design — the data the ranking uses.
+
+    El BEP se lleva a la frecuencia de operación (Q ∝ f) y, si hubo corrección
+    por viscosidad, se compara con el caudal equivalente en agua, que es el
+    punto en que la bomba trabaja sobre su curva de catálogo.
+    """
+    from bes.core.affinity import pump_at_frequency
+    f_op = float(getattr(dr, "operating_frequency", 0.0) or 0.0)
+    if f_op and abs(f_op - float(pump_obj.catalog_frequency_hz or 60.0)) > 1e-9:
+        pump_obj = pump_at_frequency(pump_obj, f_op)
+    visc = getattr(dr, "viscosity_correction", None) or {}
+    q_op = float(visc.get("q_water") or target_flow)
+    dist = bep_distance(pump_obj, q_op)
     return {
         "bep_flow_bpd": pump_obj.bep_flow,
         "bep_distance_frac": dist,
-        "flow_vs_bep_pct": 100.0 * target_flow / pump_obj.bep_flow,
+        "flow_vs_bep_pct": 100.0 * q_op / pump_obj.bep_flow,
+        "q_op": q_op,
         "efficiency": dr.pump_efficiency,
         "total_pump_hp": dr.total_pump_hp,
         "classification": classify_bep_distance(dist),
@@ -72,7 +84,7 @@ def _build_rationale(
             f"seleccionada manualmente por el usuario. Opera al "
             f"{criteria['flow_vs_bep_pct']:.0f} % de su caudal de máxima "
             f"eficiencia (BEP = {criteria['bep_flow_bpd']:.0f} STB/d frente a "
-            f"{dr.flow_rate_achieved:.0f} STB/d de diseño), alcanza el TDH "
+            f"{criteria['q_op']:.0f} STB/d de operación), alcanza el TDH "
             f"requerido de {dr.total_head_required:.0f} ft con "
             f"{dr.num_stages} etapas y presenta una eficiencia hidráulica del "
             f"{dr.pump_efficiency:.1%}"
@@ -86,7 +98,7 @@ def _build_rationale(
             f"como {ordinal} porque opera al "
             f"{criteria['flow_vs_bep_pct']:.0f} % de su caudal de máxima "
             f"eficiencia (BEP = {criteria['bep_flow_bpd']:.0f} STB/d frente a "
-            f"{dr.flow_rate_achieved:.0f} STB/d de diseño), alcanza el TDH "
+            f"{criteria['q_op']:.0f} STB/d de operación), alcanza el TDH "
             f"requerido de {dr.total_head_required:.0f} ft con "
             f"{dr.num_stages} etapas y presenta una eficiencia hidráulica del "
             f"{dr.pump_efficiency:.1%}"

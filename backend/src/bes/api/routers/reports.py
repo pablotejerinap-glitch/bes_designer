@@ -27,6 +27,37 @@ class ReportRequest(DesignRequest):
     rank: int = Field(0, ge=0, description="Índice de la recomendación a reportar (0 = mejor)")
 
 
+class MemoriaRequest(ReportRequest):
+    titulo: str | None = Field(None, description="Título del caso en la memoria")
+    fuente: str | None = Field(None, description="Fuente del enunciado, si la hay")
+
+
+def respuesta_memoria(fila: dict, titulo: str | None, formato: str, catalog) -> Response:
+    """HTML imprimible (por defecto) o PDF de la memoria de cálculo de un caso."""
+    from bes.reports.memoria import PDFNoDisponible, html_a_pdf, memoria_html
+    tit = (titulo or "Pozo de diseño").strip()
+    html = memoria_html([(tit, tit.upper(), fila)], catalog,
+                        subtitulo="resuelto con todas las fórmulas, las cuentas y las unidades")
+    if formato == "html":
+        return Response(content=html, media_type="text/html; charset=utf-8")
+    if formato != "pdf":
+        raise HTTPException(status_code=404, detail=f"Formato '{formato}' no soportado (html|pdf)")
+    try:
+        data = html_a_pdf(html)
+    except PDFNoDisponible as exc:
+        raise HTTPException(status_code=501, detail=str(exc)) from exc
+    return Response(content=data, media_type="application/pdf",
+                    headers={"Content-Disposition": 'attachment; filename="memoria_de_calculo.pdf"'})
+
+
+@router.post("/reports/memoria")
+def post_memoria(req: MemoriaRequest, formato: str = "html", catalog=Depends(get_catalog)) -> Response:
+    """Memoria de cálculo paso a paso del diseño convencional (mismo modelo que la tesis)."""
+    from bes.api.memoria_datos import caso_convencional
+    fila = caso_convencional(req, catalog, rank=req.rank, titulo=req.titulo or "", fuente=req.fuente or "")
+    return respuesta_memoria(fila, req.titulo, formato, catalog)
+
+
 @router.post("/reports/{fmt}")
 def post_report(fmt: str, req: ReportRequest, catalog=Depends(get_catalog)) -> Response:
     if fmt not in _FORMATS:

@@ -116,7 +116,7 @@ class TestCriterioDeConmutacion:
         d = gas_method_applies(sin_gas, 500.0, 170.0, 0.01)
         assert d["applies"] is False
         assert d["free_gas_fraction"] == pytest.approx(0.0)
-        assert "convencional" in d["reason"]
+        assert "caudal único" in d["reason"]
 
     def test_con_gas_aplica_el_metodo(self, con_gas):
         d = gas_method_applies(con_gas, 500.0, 170.0, 0.01)
@@ -355,8 +355,15 @@ class TestFallbackDeCandidatas:
         al habilitarse los motores de 4.56 in— porque apuntaba a huecos de datos
         en vez de a una imposibilidad física. Una bomba que no entra en el
         casing no deja de no entrar porque crezca el catálogo.
+
+        La tercera vez fue distinta y valió la pena: al agregarse los motores
+        en tándem (sep-2026) este caso DEJÓ DE FALLAR, y ahí se vio que forzar
+        un modelo salteaba la verificación de casing. La herramienta devolvía
+        un aparejo con una bomba de 8.63 in dentro de un casing de 4.892 in de
+        ID. El test no se aflojó: se arregló el código y ahora falla por el
+        motivo correcto, que es el diámetro y no la potencia del motor.
         """
-        with pytest.raises(ValueError, match="Ninguna bomba"):
+        with pytest.raises(ValueError, match="no entra"):
             _correr(con_gas, reservoir, well, surface, objectives, catalog,
                     fixed_pump_model="M675A")
 

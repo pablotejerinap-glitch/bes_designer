@@ -41,3 +41,40 @@ def get_tubulars(catalog=Depends(get_catalog)) -> TubularCatalog:
         casing=[TubularDim(**r) for r in catalog.all_casing_dims()],
         tubing=[TubularDim(**r) for r in catalog.all_tubing_dims()],
     )
+
+
+# --- Foto de la curva de catálogo de cada bomba ------------------------------
+_CURVAS = __import__("pathlib").Path(__file__).resolve().parents[2] / "catalogs" / "curvas"
+
+
+def _indice_curvas() -> dict:
+    import json
+    p = _CURVAS / "indice.json"
+    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+
+
+@router.get("/catalogs/pumps/{model}/curva-info")
+def get_curva_info(model: str, hz: float = 60.0) -> dict:
+    """Qué foto de catálogo hay para la bomba y a qué frecuencia.
+
+    Se muestra la de la frecuencia de diseño si existe (50 o 60 Hz); si no, la
+    más cercana. Centrilift no publica curvas dibujadas: ``tiene_foto`` = False.
+    """
+    ent = _indice_curvas().get(model)
+    if not ent:
+        return {"tiene_foto": False, "hz": None, "fuente": None}
+    disponibles = [f for f in ("60", "50") if f in ent]
+    elegida = min(disponibles, key=lambda f: abs(float(f) - hz))
+    return {"tiene_foto": True, "hz": int(elegida), "fuente": ent["fuente"],
+            "url": f"/api/catalogs/pumps/{model}/curva.jpg?hz={elegida}"}
+
+
+@router.get("/catalogs/pumps/{model}/curva.jpg")
+def get_curva_foto(model: str, hz: int = 60):
+    from fastapi import HTTPException
+    from fastapi.responses import FileResponse
+    ent = _indice_curvas().get(model, {})
+    nombre = ent.get(str(hz))
+    if not nombre:
+        raise HTTPException(status_code=404, detail=f"No hay foto de catálogo de {model} a {hz} Hz.")
+    return FileResponse(_CURVAS / nombre, media_type="image/jpeg")

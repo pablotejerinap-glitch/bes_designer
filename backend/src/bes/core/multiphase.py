@@ -18,8 +18,8 @@ Referencias
 -----------
 Poettmann, F.H. & Carpenter, P.G. (1952). "The Multiphase Flow of Gas, Oil and
     Water Through Vertical Flow Strings". API Drilling and Production Practice.
-Brown, K.E. (1977). "The Technology of Artificial Lift Methods", Vol. 1,
-    Tabla 4-7 (carta del factor de fricción de Poettmann & Carpenter).
+Brown, K.E. y Beggs, H.D. (1977). "The Technology of Artificial Lift Methods",
+    Vol. 1, Sección 2.3322: ec. 2.34 y Fig. 2.36 (factor de Poettmann & Carpenter).
 Brown, K.E. (1980). "The Technology of Artificial Lift Methods", Vol. 2b,
     Sección 4.532 (cálculo de PIP y presión de descarga).
 
@@ -34,10 +34,18 @@ Viscosidad     cp            Diámetro de cañería      pulgadas (se pasa a ft)
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from bes.core.models import Fluid, Reservoir, WellGeometry
-from bes.core.pvt import fluid_properties_at_conditions, standing_pb
+from bes.core.pvt import (
+    fluid_properties_at_conditions,
+    standing_pb,
+    pb_para_pvt,
+    standing_rs,
+    water_viscosity,
+)
 from bes.core.ipr import calculate_pwf_for_target_rate
 
 # ---------------------------------------------------------------------------
@@ -47,6 +55,59 @@ _GC = 32.174         # lbm·ft / (lbf·s²) — constante gravitacional
 _BBL_FT3 = 5.615     # ft³ por barril
 _SEC_DAY = 86400.0   # segundos por día
 _PSI_CONV = 144.0    # lbf/ft² por psi — dividir por 144 convierte a psi/ft
+
+# ---------------------------------------------------------------------------
+# Factor de pérdida de energía de Poettmann & Carpenter — Brown Vol. 1, Fig. 2.36
+# ---------------------------------------------------------------------------
+#: Curva de la Fig. 2.36 de Brown y Beggs (1977), Sección 2.3322 (pág. 106),
+#: digitalizada sobre el escaneo del libro: pares (Dρv [lb/(ft·s)], f [-]).
+#: El f es el de la ec. 2.34 del mismo libro (factor tipo Fanning, el que va
+#: con la constante 7,413×10¹⁰). Entre puntos se interpola en escala log-log.
+#: Fuera del rango impreso (0,853 a 100) se toma el valor del extremo:
+#: criterio del proyecto, el libro no da la curva más allá.
+BROWN_FIG_2_36: tuple[tuple[float, float], ...] = (
+    (0.853, 80.0), (0.974, 50.0), (1.146, 30.0), (1.298, 20.0), (1.618, 10.0),
+    (1.870, 7.0), (2.009, 5.0), (2.387, 3.0), (2.746, 2.0), (2.995, 1.5),
+    (3.422, 1.0), (3.882, 0.7), (4.360, 0.5), (5.225, 0.3), (6.009, 0.2),
+    (6.714, 0.15), (8.032, 0.1), (9.592, 0.07), (10.883, 0.05),
+    (12.518, 0.04), (14.898, 0.03), (19.311, 0.02), (22.211, 0.015),
+    (29.285, 0.01), (36.685, 0.007), (45.797, 0.005), (52.497, 0.004),
+    (67.581, 0.003), (88.196, 0.002), (100.0, 0.00165),
+)
+#: Constante de la ec. 2.34 de Brown y Beggs (1977): w en lb/d y d en ft.
+BROWN_K_2_34 = 7.413e10
+
+
+def pc_friction_factor(d_rho_v: float) -> tuple[float, bool]:
+    """Factor f de Poettmann & Carpenter leído de la Fig. 2.36 de Brown Vol. 1.
+
+    Args:
+        d_rho_v: Numerador del número de Reynolds, Dρv = ρ_m·v_m·d [lb/(ft·s)].
+            Es igual a 1,4737×10⁻⁵·M·Q/D de Brown.
+
+    Returns:
+        ``(f, fuera_de_rango)``. ``fuera_de_rango`` es True si Dρv cae fuera de
+        lo impreso (0,853 a 100) y se tomó el valor del extremo.
+    """
+    xs = [x for x, _ in BROWN_FIG_2_36]
+    if d_rho_v <= xs[0]:
+        return BROWN_FIG_2_36[0][1], d_rho_v < xs[0]
+    if d_rho_v >= xs[-1]:
+        return BROWN_FIG_2_36[-1][1], d_rho_v > xs[-1]
+    lx = math.log10(d_rho_v)
+    for (x1, f1), (x2, f2) in zip(BROWN_FIG_2_36, BROWN_FIG_2_36[1:]):
+        if x1 <= d_rho_v <= x2:
+            t = (lx - math.log10(x1)) / (math.log10(x2) - math.log10(x1))
+            return 10 ** (math.log10(f1) + t * (math.log10(f2) - math.log10(f1))), False
+    raise AssertionError("inalcanzable")
+
+
+def pc_friction_gradient(f: float, w_lb_d: float, rho_m: float, d_ft: float) -> float:
+    """Término de fricción de la ec. 2.34 de Brown y Beggs (1977) [psi/ft].
+
+        (dP/dh)_fric = f·w² / (7,413×10¹⁰·ρ_m·d⁵) / 144
+    """
+    return f * w_lb_d ** 2 / (BROWN_K_2_34 * rho_m * d_ft ** 5) / _PSI_CONV
 
 
 # ===========================================================================
@@ -73,10 +134,11 @@ def poettmann_carpenter_components(
     una. El factor de fricción es empírico, leído de la carta original de
     Poettmann & Carpenter.
 
-    Ecuación del gradiente
-    ----------------------
-        dP/dz  =  ρm · sen(θ) / 144            <- término de gravedad
-                + f · ρm · vm² / (2·gc·d·144)  <- término de fricción
+    Ecuación del gradiente (Brown y Beggs, 1977, ec. 2.34)
+    -------------------------------------------------------
+        dP/dz  =  ρm · sen(θ) / 144                    <- término de gravedad
+                + f · w² / (7.413e10 · ρm · d⁵) / 144  <- término de fricción
+        w = ρm · vm · A · 86 400   caudal másico [lb/d]
 
     donde
         ρm = ρl · λl + ρg · (1 − λl)     densidad de la mezcla   [lb/ft³]
@@ -84,13 +146,12 @@ def poettmann_carpenter_components(
         vm = vsl + vsg                   velocidad de la mezcla  [ft/s]
         d  = diámetro interno            [ft]
         gc = 32.174 lbm·ft/(lbf·s²)
-        f  = factor de fricción de Fanning (ver abajo)
+        f  = factor de pérdida de energía de P&C (ver abajo)
 
     Factor de fricción
     ------------------
-        N_ρ = ρm · vm · d                grupo tipo Reynolds de P&C
-        f   = 0.030 · N_ρ^(−0.19)        ajuste log-log a la carta original
-        f   se acota entre 0.005 y 0.065 (rango del gráfico publicado)
+        Dρv = ρm · vm · d                numerador del número de Reynolds
+        f   = Fig. 2.36 de Brown Vol. 1, digitalizada (:data:`BROWN_FIG_2_36`)
 
     Por qué se devuelven los términos por separado
     ----------------------------------------------
@@ -171,15 +232,15 @@ def poettmann_carpenter_components(
     # --- Densidad de la mezcla (sin deslizamiento) --------------------------
     rho_m = rho_l * lambda_l + rho_g * (1.0 - lambda_l)
 
-    # --- Factor de fricción de Poettmann & Carpenter ------------------------
+    # --- Factor de Poettmann & Carpenter (Brown Vol. 1, Fig. 2.36) ----------
     n_rho = max(rho_m * vm * d_ft, 1e-6)
-    f_pc = 0.030 * n_rho ** (-0.19)
-    f_pc = max(0.005, min(0.065, f_pc))
+    f_pc, fuera = pc_friction_factor(n_rho)
+    w = rho_m * vm * area * _SEC_DAY          # caudal másico [lb/d]
 
-    # --- Los dos términos del gradiente [psi/ft] ----------------------------
+    # --- Los dos términos del gradiente [psi/ft] (Brown, ec. 2.34) ----------
     sin_theta = np.sin(np.radians(angle))
     grad_gravity = rho_m * sin_theta / _PSI_CONV
-    grad_friction = f_pc * rho_m * vm ** 2 / (2.0 * _GC * d_ft * _PSI_CONV)
+    grad_friction = pc_friction_gradient(f_pc, w, rho_m, d_ft)
 
     return {
         "gravity": grad_gravity,
@@ -189,6 +250,9 @@ def poettmann_carpenter_components(
         "mixture_velocity": vm,
         "liquid_holdup_noslip": lambda_l,
         "friction_factor": f_pc,
+        "d_rho_v": n_rho,
+        "mass_rate_lb_d": w,
+        "friction_factor_out_of_chart": fuera,
         # Intermedios: los consume poettmann_carpenter_trace() para poder
         # mostrar la cadena completa sin recalcularla —recalcular sería abrir
         # la puerta a que la traza y la cuenta se separen—.
@@ -230,6 +294,171 @@ def poettmann_carpenter_gradient(
 # ===========================================================================
 # 2. INTEGRACIÓN DEL GRADIENTE A LO LARGO DEL POZO
 # ===========================================================================
+
+#: Factor C de Hazen-Williams para acero de diseño. 130 sería caño nuevo; se
+#: adopta 120 por ser el criterio con que se dimensiona, no el de estreno.
+HW_C_FACTOR = 120.0
+
+
+def friccion_monofasica(
+    q_res_bpd: float,
+    pipe_id: float,
+    rho_l: float,
+    mu_l_cp: float,
+    sg_l: float,
+) -> tuple[float, dict]:
+    """Gradiente de fricción de UNA sola fase líquida [psi/ft].
+
+    Poettmann & Carpenter es una correlación **multifásica**: correlaciona el
+    gradiente de una mezcla gas-líquido sin deslizamiento, y su factor de
+    fricción es un residuo empírico que absorbe el resbalamiento y los patrones
+    de flujo. Sin gas libre no hay nada de eso que absorber, y aplicarla a una
+    sola fase es usar una correlación fuera de su objeto.
+
+    Se elige con el MISMO criterio que el tubing (``tdh.calculate_tdh``):
+
+        μ > 5 cp    ->  Darcy-Weisbach con Reynolds
+        μ <= 5 cp   ->  Hazen-Williams
+
+    El caudal que entra es el de FONDO, no el de superficie: es el volumen que
+    realmente circula por el anular a esa presión y temperatura.
+
+    Args:
+        q_res_bpd: Caudal de líquido a condiciones de fondo [bbl/d].
+        pipe_id: Diámetro interno del conducto [in].
+        rho_l: Densidad del líquido a condiciones de fondo [lb/ft³].
+        mu_l_cp: Viscosidad del líquido [cp].
+        sg_l: Gravedad específica del líquido, para pasar pies a psi.
+
+    Returns:
+        ``(gradiente_psi_ft, diagnostico)``. El diagnóstico trae el método
+        elegido, el número de Reynolds, el régimen y la velocidad.
+    """
+    d_ft = pipe_id / 12.0
+    area = np.pi / 4.0 * d_ft ** 2
+    v = q_res_bpd * _BBL_FT3 / _SEC_DAY / area if area > 0 else 0.0
+    mu_lb_ft_s = max(mu_l_cp, 1e-9) * 6.7197e-4
+    reynolds = rho_l * v * d_ft / mu_lb_ft_s if mu_lb_ft_s > 0 else 0.0
+
+    if mu_l_cp > PC_MAX_OIL_VISCOSITY_CP:
+        if reynolds < 2000.0:
+            f = 64.0 / reynolds if reynolds > 0 else 0.0
+            regimen = "laminar"
+        else:
+            # Swamee-Jain para cañería lisa.
+            f = 0.25 / (math.log10(5.74 / reynolds ** 0.9)) ** 2
+            regimen = "turbulento"
+        grad = f * rho_l * v * v / (2.0 * _GC * d_ft * _PSI_CONV)
+        metodo = "darcy_weisbach"
+    else:
+        # Hazen-Williams devuelve pies de líquido cada 100 ft de cañería; se
+        # pasa a psi/ft con la gravedad específica.
+        q_gpm = q_res_bpd * 42.0 / 1440.0
+        ft_por_100 = (
+            0.2083 * (100.0 / HW_C_FACTOR) ** 1.852
+            * q_gpm ** 1.852 / pipe_id ** 4.8655
+        )
+        grad = ft_por_100 / 100.0 * sg_l / 2.31
+        # Factor de Darcy EQUIVALENTE: el que daría este mismo gradiente. No es
+        # un dato de Hazen-Williams —que no usa factor de fricción— sino la
+        # forma de publicar el resultado en las mismas unidades que el resto de
+        # la traza, y de poder compararlo con el de Poettmann & Carpenter.
+        denom = rho_l * v * v / (2.0 * _GC * d_ft * _PSI_CONV)
+        f = grad / denom if denom > 0 else 0.0
+        regimen = "turbulento" if reynolds >= 2000.0 else "laminar"
+        metodo = "hazen_williams"
+
+    return grad, {
+        "metodo": metodo,
+        "reynolds": reynolds,
+        "regimen": regimen,
+        "velocidad_ft_s": v,
+        "friction_factor": f,
+    }
+
+
+def gradiente_del_recorrido(
+    q_liq: float,
+    fluid: "Fluid",
+    p: float,
+    t: float,
+    pipe_id: float,
+    angle: float = 90.0,
+) -> tuple[float, dict]:
+    """Gradiente de presión del recorrido, con el método que corresponda.
+
+    **El fusible es el GAS LIBRE.** Poettmann & Carpenter correlaciona una
+    mezcla gas-líquido; lo que la hace multifásica es la presencia de una fase
+    gaseosa, no que haya dos líquidos. Petróleo y agua sin gas —o con todo el
+    gas todavía en solución, por encima del punto de burbuja— son una sola fase
+    líquida y se resuelven con el gradiente monofásico::
+
+        hay gas libre   ->  Poettmann & Carpenter
+        no hay          ->  ρ_l/144  +  fricción monofásica
+
+    El término de gravedad es el mismo por los dos caminos: sin gas P&C da
+    λ_l = 1 y ρ_m = ρ_l. Lo que cambia es la fricción, que pasa a calcularse
+    con Hazen-Williams o Darcy-Weisbach según la viscosidad, igual que en el
+    tubing.
+
+    Args:
+        q_liq: Caudal bruto de líquido en superficie [STB/d].
+        fluid: PVT y composición del fluido.
+        p: Presión del punto [psia].
+        t: Temperatura del punto [°F].
+        pipe_id: Diámetro interno del conducto [in].
+        angle: Inclinación respecto de la horizontal [°].
+
+    Returns:
+        ``(gradiente_total_psi_ft, diagnostico)``.
+    """
+    comps = poettmann_carpenter_components(
+        q_liq=q_liq, wc=fluid.water_cut, gor=fluid.gor, gas_sg=fluid.gas_sg,
+        oil_api=fluid.oil_api, water_sg=fluid.water_sg, p=max(p, 14.7), t=t,
+        pipe_id=pipe_id, angle=angle,
+    )
+
+    # ¿Hay gas libre? Se decide con el punto de burbuja QUE CARGÓ EL USUARIO,
+    # no con el que P&C se calcula puertas adentro. ``_make_fluid`` estima el
+    # suyo con Standing a 160 °F fijos, y con él un pozo por encima de su
+    # burbuja real puede aparecer con gas libre —o al revés—. Para elegir el
+    # método manda el dato del pozo.
+    pb = pb_para_pvt(fluid.bubble_point_pressure, fluid.gor, t, fluid.oil_api, fluid.gas_sg)
+    rs = min(
+        standing_rs(max(p, 14.7), t, fluid.oil_api, fluid.gas_sg, pb)
+        if pb > 0 else fluid.gor,
+        fluid.gor,
+    )
+    hay_gas_libre = (
+        fluid.water_cut < 1.0 and max(fluid.gor - rs, 0.0) > 0.0
+    )
+    if hay_gas_libre:
+        return comps["total"], {**comps, "metodo": "poettmann_carpenter"}
+
+    # --- Una sola fase líquida ------------------------------------------
+    props = fluid_properties_at_conditions(
+        _make_fluid(fluid.oil_api, fluid.water_cut, fluid.gor,
+                    fluid.gas_sg, fluid.water_sg, p), max(p, 14.7), t,
+    )
+    wc = fluid.water_cut
+    mu_l = props["mu_oil"] * (1.0 - wc) + water_viscosity(t) * wc
+    sg_l = _oil_sg_local(fluid.oil_api) * (1.0 - wc) + fluid.water_sg * wc
+    q_res = q_liq * ((1.0 - wc) * props["bo"] + wc * props["bw"])
+
+    fric, diag = friccion_monofasica(
+        q_res, pipe_id, comps["mixture_density"], mu_l, sg_l,
+    )
+    total = comps["gravity"] + fric
+    return total, {
+        **comps, "friction": fric, "total": total,
+        "viscosidad_liquido_cp": mu_l, **diag,
+    }
+
+
+def _oil_sg_local(api: float) -> float:
+    """Gravedad específica del petróleo de tanque."""
+    return 141.5 / (131.5 + api)
+
 
 def pressure_traverse(
     q_liq: float,
@@ -288,24 +517,25 @@ def pressure_traverse(
         t_frac = (d_mid - depth_start) / (depth_end - depth_start + 1e-12)
         t_mid = t_start + t_frac * (t_end - t_start)
 
-        # Tres pasadas correctoras: el PVT depende de la presión buscada
-        p_mid = pressures[i]
-        for _ in range(3):
-            grad = poettmann_carpenter_gradient(
+        # P2 supuesta = P1; se itera hasta que P2 calculada = P2 supuesta
+        # (diferencia < 0,01 psi), como en Brown y Beggs (1977), Apéndice C.12.
+        p_next = pressures[i]
+        for _ in range(50):
+            p_mid = 0.5 * (pressures[i] + max(p_next, 14.7))
+            grad, _diag = gradiente_del_recorrido(
                 q_liq=q_liq,
-                wc=fluid.water_cut,
-                gor=fluid.gor,
-                gas_sg=fluid.gas_sg,
-                oil_api=fluid.oil_api,
-                water_sg=fluid.water_sg,
+                fluid=fluid,
                 p=max(p_mid, 14.7),
                 t=t_mid,
                 pipe_id=pipe_id,
                 angle=90.0,
             )
             dp = grad * dz
-            p_next = pressures[i] - dp if going_up else pressures[i] + dp
-            p_mid = 0.5 * (pressures[i] + max(p_next, 14.7))
+            p_calc = pressures[i] - dp if going_up else pressures[i] + dp
+            listo = abs(p_calc - p_next) < 0.01
+            p_next = p_calc
+            if listo:
+                break
 
         pressures[i + 1] = max(p_next, 14.7)
 
@@ -331,48 +561,36 @@ def calculate_pip(
 ) -> float:
     """Presión en la admisión de la bomba (PIP) para un caudal dado.
 
-    Procedimiento (Brown Vol. 2b, §4.532):
-        1. Pwf en las perforaciones, a partir del IPR del reservorio.
-        2. Temperatura en la profundidad de la bomba (perfil lineal).
-        3. Recorrido de presión hacia arriba, desde las perforaciones hasta la
-           admisión, por el espacio anular (se usa el ID del casing).
-        4. La presión al final de ese recorrido es el PIP.
+    Un solo método para toda la herramienta, el de Brown (Vol. 2b, Ejemplo #1C,
+    pág. 68), el mismo que usa el método para pozos con gas::
 
-    Args:
-        reservoir: Reservorio (presión estática, Pb, IPR).
-        fluid: Fluido (PVT, GOR, corte de agua).
-        well: Geometría del pozo (profundidades, ID de casing, temperaturas).
-        pump_setting_depth: Profundidad de la admisión de la bomba [ft TVD].
-        target_rate: Caudal bruto de líquido objetivo [STB/d].
+        PIP = Pwf − 0,433 · SG · (D_punzados − D_bomba)
+
+    1. Pwf en la base de los punzados, a partir de la IPR.
+    2. SG de la mezcla en el fondo (Pwf y temperatura de reservorio) por balance
+       de masa (Brown Vol. 2b, Sección 4.53102, paso 5).
+    3. Gradiente constante 0,433 · SG sobre la columna punzados-bomba. La
+       fricción en el casing se desprecia: es menor al 0,3 % del gradiente.
 
     Returns:
-        Presión en la admisión de la bomba, PIP [psia].
+        PIP [psi].
     """
+    from bes.core.gas_paso_a_paso import paso2a_pvt, paso2bc_mezcla, paso3_pip
+
     pwf = calculate_pwf_for_target_rate(reservoir, target_rate)
-
-    def temp_at(depth: float) -> float:
-        """Temperatura interpolada linealmente entre boca de pozo y fondo.
-
-        El extremo de fondo es la temperatura de reservorio: la geometría del
-        pozo ya no la duplica.
-        """
-        frac = depth / max(well.total_depth, 1.0)
-        return well.wellhead_temp + frac * (
-            reservoir.reservoir_temp - well.wellhead_temp
-        )
-
-    _, pressures = pressure_traverse(
-        q_liq=target_rate,
-        fluid=fluid,
-        pipe_id=well.casing_id,
-        depth_start=well.perforations_bottom,
-        depth_end=pump_setting_depth,
-        p_start=pwf,
-        t_start=temp_at(well.perforations_bottom),
-        t_end=temp_at(pump_setting_depth),
-        n_segments=PIP_TRAVERSE_SEGMENTS,
-    )
-    return float(pressures[-1])
+    pvt, _ = paso2a_pvt(pwf, reservoir.reservoir_temp, fluid.oil_api, fluid.gas_sg,
+                        fluid.water_sg, fluid.gor)
+    mezcla, _ = paso2bc_mezcla(target_rate, fluid.water_cut, fluid.gor, fluid.gas_sg,
+                               fluid.water_sg, pvt)
+    pip, _ = paso3_pip(pwf, mezcla["sg"], well.perforations_bottom, pump_setting_depth)
+    if pip <= 0.0:
+        # La columna sobre la bomba no alcanza a equilibrar la Pwf: la admisión
+        # queda por encima del nivel dinámico y no tendría fluido.
+        raise ValueError(
+            f"La presión en la admisión llega a 0 psig: la bomba a {pump_setting_depth:.0f} ft queda "
+            f"por encima del nivel dinámico para {target_rate:.0f} STB/d (Pwf {pwf:.1f} psi). "
+            f"Hay que bajarla o reducir el caudal.")
+    return float(pip)
 
 
 def calculate_discharge_pressure(
@@ -489,7 +707,7 @@ def _make_fluid(
         gor=max(gor, 0.0),
         gas_sg=gas_sg,
         water_sg=water_sg,
-        # Sin ensayo: el PVT de P&C resuelve la viscosidad con Beggs-Robinson,
+        # Sin ensayo: el PVT de P&C lee la viscosidad de las láminas 4L de Brown,
         # así que un valor acá no se usaría. None lo dice; un placeholder
         # numérico haría creer que hay un dato medido.
         oil_viscosity_dead=None,
@@ -596,14 +814,20 @@ def poettmann_carpenter_trace(
          "ρ_g": c["gas_density"]},
         c["mixture_density"],
     )
-    acotado = c["friction_factor"] in (0.005, 0.065)
     trace.add(
         "pc_factor_friccion",
         {"ρ_m": c["mixture_density"], "v_m": c["mixture_velocity"],
          "d": c["pipe_id_ft"]},
         c["friction_factor"],
-        context=("El valor quedó acotado al extremo del rango de la carta."
-                 if acotado else ""),
+        context=(f"Dρv = {c['d_rho_v']:.2f} cae fuera de la Fig. 2.36 (0,853 a "
+                 f"100): se tomó el valor del extremo."
+                 if c["friction_factor_out_of_chart"] else ""),
+    )
+    trace.add(
+        "pc_caudal_masico",
+        {"ρ_m": c["mixture_density"], "v_m": c["mixture_velocity"],
+         "A": c["area_ft2"]},
+        c["mass_rate_lb_d"],
     )
     trace.add(
         "pc_gradiente_gravedad",
@@ -611,8 +835,8 @@ def poettmann_carpenter_trace(
     )
     trace.add(
         "pc_gradiente_friccion",
-        {"f": c["friction_factor"], "ρ_m": c["mixture_density"],
-         "v_m": c["mixture_velocity"], "g_c": _GC, "d": c["pipe_id_ft"]},
+        {"f": c["friction_factor"], "w": c["mass_rate_lb_d"],
+         "ρ_m": c["mixture_density"], "d": c["pipe_id_ft"]},
         c["friction"],
     )
     trace.add(
@@ -761,13 +985,14 @@ def poettmann_carpenter_applicability(
         - ``viscosity_cp`` / ``viscosity_source``: el valor usado y su origen.
         - ``glr_scf_bbl``: la RGL calculada.
     """
-    from bes.core.viscosity import dead_oil_viscosity_chart
+    from bes.core.pvt import oil_viscosity_brown
 
-    if fluid.oil_viscosity_dead is not None:
-        mu_o = fluid.oil_viscosity_dead
+    # Misma regla que en todo el programa: el ensayo vale sólo dentro de la
+    # tolerancia de temperatura; si no, se lee la Fig. 4L(2).
+    mu_o, _, origen = oil_viscosity_brown(fluid, temp_f, 0.0)
+    if origen == "medido":
         visc_source = f"ensayo de laboratorio a {fluid.viscosity_temp_ref:.0f} °F"
     else:
-        mu_o = dead_oil_viscosity_chart(fluid.oil_api, temp_f)["mu_cp"]
         visc_source = f"Fig. 4L(2) con {fluid.oil_api:.1f} °API a {temp_f:.0f} °F"
 
     glr = gas_liquid_ratio(fluid.gor, fluid.water_cut)

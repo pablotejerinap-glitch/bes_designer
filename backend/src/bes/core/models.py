@@ -186,8 +186,8 @@ class Fluid:
 
     Attributes:
         oil_api: Gravedad del petróleo en el tanque [°API]. Rango válido 5–70.
-            Cuanto más alto, más liviano. Por debajo de 28 °API el crudo es
-            pesado y hay que corregir la curva de la bomba por viscosidad.
+            Cuanto más alto, más liviano. La corrección de la curva de la bomba
+            no depende del °API sino de la viscosidad (desde 100 SSU).
         water_cut: Fracción de agua producida, en superficie [0–1]. 0.4 = 40 %
             de agua.
         gor: Relación gas-petróleo de producción, en superficie [scf/STB].
@@ -465,10 +465,9 @@ class DesignObjectives:
             calcula con Poettmann-Carpenter en vez de Hazen-Williams [0–1].
 
             **No es un parámetro de diseño y NO se pide por pantalla ni por la
-            API.** El umbral lo fija la física, no el usuario: con más del 1 %
-            de gas libre, usar un gradiente de líquido constante introduce un
-            error de diseño grande (Brown Vol. 2b §4.53102; Takács, *ESP
-            Manual*). El programa decide solo qué correlación corresponde.
+            API.** El umbral es 5 % de gas libre en la admisión: por encima, Takács
+            (2018, Sección 1.3.2) exige separador o manejador de gas, y el pozo
+            se diseña por el método para pozos con gas. El programa decide solo qué correlación corresponde.
 
             Queda como parámetro únicamente para poder **reproducir los
             ejemplos impresos** de Brown, que se resuelven a mano como
@@ -514,7 +513,7 @@ class DesignObjectives:
     # las construcciones del proyecto son por keyword, así que el reordenamiento
     # no rompe llamadas posicionales.
     max_gip: float = 0.10
-    gas_fraction_pc_threshold: float = 0.01
+    gas_fraction_pc_threshold: float = 0.05
     pressure_loss_method: Optional[str] = None
     design_frequency_hz: Optional[float] = None
 
@@ -539,8 +538,8 @@ class DesignObjectives:
                 )
             if not self.use_vsd:
                 raise ValueError(
-                    "design_frequency_hz requires use_vsd=True: without a "
-                    "variable-speed drive the pump runs at line frequency"
+                    "La frecuencia de diseño requiere variador (VSD): sin variador "
+                    "la bomba gira a la frecuencia de la red"
                 )
         if self.target_flow_rate <= 0:
             raise ValueError(f"target_flow_rate must be > 0, got {self.target_flow_rate}")
@@ -677,6 +676,19 @@ class PumpCurve:
     # es la frecuencia declarada en el _source de los catálogos digitalizados y
     # la de los ejemplos del libro de Brown.
     catalog_frequency_hz: float = 60.0
+    # Límites mecánicos tal como los imprime la hoja del catálogo (0 / None =
+    # sin dato): potencia del eje a catalog_frequency_hz [hp] y presión de
+    # reventamiento de la carcasa por tipo {standard, buttress, welded} [psi].
+    shaft_hp_limit_std: float = 0.0
+    shaft_hp_limit_high_strength: float = 0.0
+    housing_burst_psi: dict = field(default_factory=dict)
+    # Sección del eje impresa en la misma hoja [in²] (0 = sin dato).
+    shaft_area_in2: float = 0.0
+    fuente_mecanica: str = ""
+    fuente_carcasas: str = ""
+    # Tabla «Tandem Combinations» del catálogo: fuente, tipo de etapa,
+    # etapas máximas de la tabla y desde cuántas pide cojinete high-load.
+    tandem: dict = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.od <= 0:
@@ -789,6 +801,15 @@ class DesignResult:
     flow_rate_achieved: float
     operating_frequency: float
     gip_fraction: float
+    #: Número de parte del transformador elegido del catálogo. Vacío cuando se
+    #: cayó a la serie comercial de respaldo, que no identifica un equipo.
+    transformer_model: str = ""
+    #: Conexión del secundario: ``"delta"`` o ``"wye"``. La WYE entrega √3 veces
+    #: la tensión de línea de la DELTA para el mismo bobinado, así que no es un
+    #: detalle de montaje: decide si el equipo llega o no a la tensión pedida.
+    transformer_connection: str = ""
+    #: Rango de tensión de secundario del equipo elegido, como texto.
+    transformer_secondary_range_v: str = ""
     warnings: list[str] = field(default_factory=list)
 
     # Traza de fórmulas: cada cuenta del diseño con su expresión simbólica, los

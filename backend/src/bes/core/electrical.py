@@ -102,16 +102,39 @@ _CABLE_FLAT_THICKNESS_IN: dict[str, float] = {
     "#6": 0.30,
 }
 
-# Standard 3-phase transformer ratings [kVA]
-_TRANSFORMER_SIZES_KVA = (25.0, 37.5, 50.0, 75.0, 100.0, 150.0, 200.0, 300.0)
+#: Potencias estándar de transformador trifásico [kVA], **de respaldo**.
+#:
+#: Desde que existe ``catalogs/transformers.json`` la selección real la hace
+#: ``CatalogManager.select_transformer``, que además de la potencia verifica
+#: que la tensión de secundario alcance. Esta serie queda para cuando no hay
+#: catálogo cargado o cuando no se conoce la tensión: devuelve el escalón
+#: comercial y nada más.
+#:
+#: Los valores replican los kVA del catálogo digitalizado, así que las dos
+#: rutas dan el mismo escalón.
+_TRANSFORMER_SIZES_KVA = (
+    67.0, 100.0, 130.0, 150.0, 200.0, 210.0, 250.0, 260.0,
+    350.0, 355.0, 400.0, 450.0, 520.0, 750.0, 850.0, 1000.0,
+)
 
-# Representative pump-shaft diameters [in] by pump series, for axial-thrust
-# estimation (industry-typical; not a per-model catalog value).
+# Diámetro de eje [in] por serie de bomba, para estimar el empuje axial.
+#
+# Sale de los bloques «ENGINEERING DATA» del catálogo de Wood Group, que
+# publican SHAFT DIAMETER junto al HOUSING DIAMETER; el OD de carcasa es el que
+# da nombre a la serie (4.000 in -> serie 400). Es la misma fuente que
+# ``pump_series.json`` usa para los límites de potencia del eje, así que el
+# empuje y la verificación mecánica hablan del mismo eje.
+#
+# Cuando una carcasa agrupa modelos con ejes distintos se toma el **más chico**
+# publicado: subestimar la sección sobreestima la tensión, que es el lado
+# seguro. Series sin carcasa equivalente en Wood Group (387, 540, 725, 1000)
+# no están: caen al valor por defecto y su verificación mecánica queda SIN
+# REALIZAR, nunca aprobada.
 _SHAFT_DIAMETER_IN = {
-    "400": 0.62, "420": 0.62, "456": 0.69, "513": 0.69, "538": 0.69,
-    "540": 0.88, "544": 0.88, "562": 0.88, "738": 1.19,
+    "338": 0.625, "400": 0.6875, "513": 1.0, "538": 0.875,
+    "563": 1.1875, "675": 1.1875, "863": 1.2, "950": 1.5,
 }
-_DEFAULT_SHAFT_DIAMETER_IN = 0.69
+_DEFAULT_SHAFT_DIAMETER_IN = 0.6875
 _THRUST_MARGIN = 1.20   # design margin on estimated axial load
 # Wellbore inclination above which a labyrinth seal loses effectiveness and a
 # bag (positive-seal) protector is preferred (Brown §4.5325).
@@ -120,10 +143,67 @@ _SEAL_DEVIATION_THRESHOLD_DEG = 30.0
 # NEC/API RP 11S6 continuous-load derating for cable ampacity selection
 _CABLE_DERATING = 1.25
 
+#: Cuántos motores se admiten acoplados en serie (tándem). Es práctica de campo
+#: corriente cuando ningún motor suelto alcanza la potencia y el casing no deja
+#: subir de diámetro: se acoplan eje con eje y se conectan ELÉCTRICAMENTE EN
+#: SERIE, así que las potencias y las tensiones se suman y la corriente es la
+#: misma que la de un motor solo.
+#:
+#: Tres es el tope habitual de los catálogos. El tándem se usa sólo cuando hace
+#: falta: la búsqueda arranca en un motor y sube de a uno.
+MOTOR_TANDEM_MAX = 3
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+def _vdrop_en_tabla(temps: list[float], vals: list[float], temp_f: float) -> float:
+    """Caída de línea a ``temp_f`` sobre una tabla tabulada por temperatura.
+
+    Es el equivalente numérico del par de cartas de cátedra: la carta *CABLE
+    VOLTAGE DROP* a 77 °F más la carta *CABLE VOLTAGE DROP CORRECTION*. En vez
+    de leer un valor base y multiplicarlo por un factor gráfico, se interpola
+    directamente sobre la tabla que el fabricante publica a varias
+    temperaturas. Los dos caminos coinciden dentro del 0.7 % entre 100 y
+    200 °F, porque los dos describen lo mismo: la resistividad del cobre sube
+    con la temperatura y la caída sube con ella::
+
+        R(T) = R_ref · [1 + α · (T − T_ref)]        ->     ΔV = √3 · I · R
+
+    Fuera del rango tabulado el criterio es **asimétrico a propósito**:
+
+    - **Por arriba se extrapola** con la pendiente de los dos últimos puntos.
+      Saturar en el último valor subestimaría la caída en pozos más calientes
+      que la tabla, y subestimar la caída es el lado peligroso: da por bueno un
+      calibre que en el pozo no arranca. Las tablas del catálogo llegan a
+      200 °F y hay pozos de 250 °F y más.
+    - **Por abajo se satura** en el primer valor. Ahí el error va al revés
+      —sobreestima la caída— y eso es conservador: en el peor caso elige un
+      calibre más grueso del necesario. Extrapolar hacia abajo, en cambio,
+      podría llegar a valores absurdos (incluso negativos) en un pozo frío.
+
+    Args:
+        temps: Temperaturas tabuladas [°F], **ordenadas de menor a mayor**.
+        vals: Caída de línea en cada una [V/(A·1000 ft)].
+        temp_f: Temperatura a la que se quiere el valor [°F].
+
+    Returns:
+        Caída de línea [V/(A·1000 ft)]. Nunca negativa.
+    """
+    if temp_f <= temps[0]:
+        return vals[0]
+    if temp_f >= temps[-1]:
+        if len(temps) < 2 or temps[-1] == temps[-2]:
+            return vals[-1]                      # un solo punto: no hay pendiente
+        pendiente = (vals[-1] - vals[-2]) / (temps[-1] - temps[-2])
+        return max(0.0, vals[-1] + pendiente * (temp_f - temps[-1]))
+    for i in range(len(temps) - 1):
+        if temps[i] <= temp_f <= temps[i + 1]:
+            frac = (temp_f - temps[i]) / (temps[i + 1] - temps[i])
+            return vals[i] + frac * (vals[i + 1] - vals[i])
+    return vals[-1]
+
 
 def _interp_vdrop_per_amp(conductor: str, size: str, temp_f: float) -> float:
     """Volts por amper cada 1000 ft, interpolados a la temperatura pedida.
@@ -135,17 +215,9 @@ def _interp_vdrop_per_amp(conductor: str, size: str, temp_f: float) -> float:
     key = (conductor.upper(), size)
     if key not in _VDROP_PER_AMP_PER_1000FT:
         raise ValueError(f"No voltage-drop data for {size} {conductor}")
-    vals = _VDROP_PER_AMP_PER_1000FT[key]
-    temps = _VDROP_TEMPS_F
-    if temp_f <= temps[0]:
-        return vals[0]
-    if temp_f >= temps[-1]:
-        return vals[-1]
-    for i in range(len(temps) - 1):
-        if temps[i] <= temp_f <= temps[i + 1]:
-            frac = (temp_f - temps[i]) / (temps[i + 1] - temps[i])
-            return vals[i] + frac * (vals[i + 1] - vals[i])
-    return vals[-1]
+    return _vdrop_en_tabla(
+        list(_VDROP_TEMPS_F), list(_VDROP_PER_AMP_PER_1000FT[key]), temp_f
+    )
 
 
 def _vdrop_per_amp_from_cable(cable: dict, temp_f: float) -> float:
@@ -156,21 +228,15 @@ def _vdrop_per_amp_from_cable(cable: dict, temp_f: float) -> float:
     catálogo — incluidos los que no están en la tabla vieja hardcodeada, como el
     1/0. Sólo cae a la tabla vieja cuando la ficha del cable no publica datos de
     caída de tensión.
+
+    El manejo del fuera-de-rango lo explica :func:`_vdrop_en_tabla`.
     """
     vd_map = cable.get("voltage_drop_v_per_amp_per_1000ft")
     if not vd_map:
         return _interp_vdrop_per_amp(cable["conductor"], cable["size"], temp_f)
     temps = sorted(float(k) for k in vd_map)
     vals = [vd_map[str(int(t))] for t in temps]
-    if temp_f <= temps[0]:
-        return vals[0]
-    if temp_f >= temps[-1]:
-        return vals[-1]
-    for i in range(len(temps) - 1):
-        if temps[i] <= temp_f <= temps[i + 1]:
-            frac = (temp_f - temps[i]) / (temps[i + 1] - temps[i])
-            return vals[i] + frac * (vals[i + 1] - vals[i])
-    return vals[-1]
+    return _vdrop_en_tabla(temps, vals, temp_f)
 
 
 # ---------------------------------------------------------------------------
@@ -478,7 +544,9 @@ def check_cable_electrical(
         "startup_ok": startup_ok,
         "drop_per_1000ft_ok": per_1000_ok,
         "drop_fraction_ok": fraction <= _MAX_VDROP_FRACTION,
-        "ok": startup_ok and per_1000_ok,
+        # Criterio único: 30 V/1000 ft (Brown 4.5325). El arranque se informa
+        # pero no descarta: se unificó el diseño eléctrico en Brown (1980).
+        "ok": per_1000_ok,
     }
 
 
@@ -644,9 +712,9 @@ def _motivo_sin_motor(
             f"{pump_od:.2f} in no queda luz para pasar el cable."
         )
 
-    # Entran, pero no dan la potencia.
+    # Entran, pero no dan la potencia — ni siquiera apilando el tándem máximo.
     hp_techo = max(m["hp_rating"] for m in entran)
-    if hp_techo < hp_min:
+    if hp_techo * MOTOR_TANDEM_MAX < hp_min:
         od_techo = min(
             m["od_inches"] for m in entran if m["hp_rating"] == hp_techo
         )
@@ -654,7 +722,8 @@ def _motivo_sin_motor(
             f"El motor más potente{de_quien} que entra en este pozo da "
             f"{hp_techo:.0f} hp (OD {od_techo:.2f} in) y hacen falta "
             f"{hp_min:.1f} hp — {hp_required:.1f} hp al eje más el 10 % de "
-            f"margen."
+            f"margen. Ni siquiera {MOTOR_TANDEM_MAX} de esos motores en tándem "
+            f"({hp_techo * MOTOR_TANDEM_MAX:.0f} hp) alcanzan."
         )
         # ¿Qué ató: el casing o el diámetro de la bomba? Si entre los que el
         # casing admite hay alguno más potente, lo que sobra es el tope de
@@ -854,14 +923,30 @@ def select_motor(
     else:
         target_v = 2000.0
 
-    candidates = [
+    # Todo lo que NO depende de la cantidad de motores: fabricante, diámetro,
+    # temperatura y que entre en el casing. Un tándem son N unidades iguales,
+    # así que estos filtros se aplican a la unidad.
+    # Los Maximus de REDA se acoplan con brida MaxJoint (REDA ESP Catalog,
+    # pág. 403) y los Maximus ProMotor traen el protector integrado (pág. 455):
+    # ninguno se arma con los protectores modulares atornillados del catálogo.
+    aptos = [
         m for m in catalog_manager._motors
-        if (manufacturer is None or (m.get("manufacturer") or "") == manufacturer)
-        and m["hp_rating"] >= hp_min
+        if "MAXIMUS" not in (m.get("model") or "").upper()
+        and (manufacturer is None or (m.get("manufacturer") or "") == manufacturer)
         and m["od_inches"] <= max_od
         and motor_temperature_ok(m, min_temp)
         and motor_entra_en_casing(m, casing_od, casing_id, min_cable_thk, tabla_od)
     ]
+
+    # Se sube de a un motor: primero se intenta con uno solo, y sólo si ninguno
+    # alcanza la potencia se pasa al tándem. No instalar equipo de más.
+    candidates: list[dict] = []
+    n_motores = 1
+    for n in range(1, MOTOR_TANDEM_MAX + 1):
+        candidates = [m for m in aptos if m["hp_rating"] * n >= hp_min]
+        if candidates:
+            n_motores = n
+            break
 
     if not candidates:
         raise ValueError(_motivo_sin_motor(
@@ -874,6 +959,9 @@ def select_motor(
     # que baja la corriente para la misma potencia. Se aplica como preferencia
     # y no como filtro duro para que, si no queda ninguno, sea `select_cable`
     # quien informe el motivo exacto.
+    #
+    # En tándem la corriente NO cambia: los motores van en serie, así que por
+    # los tres pasa la misma. Por eso el chequeo se hace sobre la unidad.
     feasible = [
         m for m in candidates
         if m["amperage"] * _CABLE_DERATING
@@ -885,7 +973,59 @@ def select_motor(
 
     min_hp = min(m["hp_rating"] for m in candidates)
     candidates = [m for m in candidates if m["hp_rating"] == min_hp]
-    return min(candidates, key=lambda m: abs(m["voltage"] - target_v))
+    # El desempate va contra la tensión TOTAL del conjunto, que es la que ve el
+    # transformador y el tablero de superficie.
+    elegido = min(candidates, key=lambda m: abs(m["voltage"] * n_motores - target_v))
+
+    if n_motores == 1:
+        return elegido
+    return _motor_en_tandem(elegido, n_motores)
+
+
+def _motor_en_tandem(motor: dict, n: int) -> dict:
+    """El conjunto de *n* motores iguales acoplados en serie, como un solo equipo.
+
+    Se devuelve un dict con la misma forma que un motor de catálogo, para que
+    todo lo que viene después —cable, caída de tensión, transformador, tablero,
+    sello, verificación térmica— siga funcionando sin cambios, pero sobre los
+    números del CONJUNTO.
+
+    Qué se suma y qué no, con los motores acoplados eje con eje y conectados
+    eléctricamente **en serie**::
+
+        potencia   HP_total = n · HP_unidad      (se suma)
+        tensión    V_total  = n · V_unidad       (se suma)
+        corriente  I_total  = I_unidad           (NO cambia: es la misma malla)
+        largo      L_total  = n · L_unidad       (se suma)
+        diámetro   OD       = OD_unidad          (NO cambia)
+
+    Es la razón por la que el tándem es la salida cuando el casing no deja
+    subir de diámetro: se gana potencia sin ganar un milímetro de OD.
+
+    Los campos de la unidad quedan bajo ``unit_*`` para que el reporte pueda
+    decir «2 × 160 hp» y no sólo «320 hp».
+
+    Args:
+        motor: Ficha de catálogo de UNA unidad.
+        n: Cantidad de unidades acopladas.
+
+    Returns:
+        dict del conjunto, con ``tandem_count`` y los ``unit_*``.
+    """
+    conjunto = dict(motor)
+    conjunto.update(
+        model=f"{n} × {motor['model']}",
+        hp_rating=motor["hp_rating"] * n,
+        voltage=motor["voltage"] * n,
+        length_ft=(motor.get("length_ft") or 0.0) * n,
+        weight_lbs=(motor.get("weight_lbs") or 0.0) * n or motor.get("weight_lbs"),
+        tandem_count=n,
+        unit_model=motor["model"],
+        unit_hp_rating=motor["hp_rating"],
+        unit_voltage=motor["voltage"],
+        unit_length_ft=motor.get("length_ft"),
+    )
+    return conjunto
 
 
 def max_cable_ampacity(
@@ -1097,14 +1237,6 @@ def electrical_design_complete(
     # Avisos eléctricos del cable, en el mismo estilo que el resto del módulo.
     cable_check = cable.get("electrical_check") or {}
     cable_warnings: list[str] = []
-    if cable_check and not cable_check.get("startup_ok", True):
-        cable_warnings.append(
-            f"Arranque comprometido: al arrancar llega el "
-            f"{cable_check['startup_ratio'] * 100:.0f} % de la tensión de placa "
-            f"(mínimo 50 %). El {cable['cable_size']} es el mayor calibre del "
-            f"catálogo que entra en el anular; el remedio habitual es un motor "
-            f"de mayor tensión, que baja la corriente."
-        )
     if cable_check and not cable_check.get("drop_per_1000ft_ok", True):
         cable_warnings.append(
             f"Caída de tensión {cable_check['voltage_drop_per_1000ft']:.1f} "
@@ -1119,7 +1251,36 @@ def electrical_design_complete(
 
     surface_v = calculate_surface_voltage(motor["voltage"], cable_drop)
     kva = calculate_kva(surface_v, motor["amperage"])
-    transformer = select_transformer(kva)
+    # El catálogo verifica potencia Y tensión de secundario; la serie de
+    # respaldo sólo potencia. Se prefiere el catálogo y se cae a la serie
+    # cuando no hay ninguno que cubra las dos cosas, declarándolo.
+    transformer_warning: str | None = None
+    del_catalogo = catalog_manager.select_transformer(kva, surface_v)
+    if del_catalogo is not None:
+        transformer = {
+            "n_phases": 3,
+            "kva_per_unit": float(del_catalogo["kva"]),
+            "n_units": 1,
+            "total_kva": float(del_catalogo["kva"]),
+            "model": del_catalogo.get("part_number", ""),
+            "connection": del_catalogo.get("connection", ""),
+            "primary_volts": del_catalogo.get("primary_volts"),
+            "secondary_range_v": (
+                f"{del_catalogo['secondary_wye_min']}-{del_catalogo['secondary_wye_max']}"
+                if del_catalogo.get("connection") == "wye"
+                else f"{del_catalogo['secondary_delta_min']}-{del_catalogo['secondary_delta_max']}"
+            ),
+            "dimensions_in": del_catalogo.get("dimensions_in"),
+            "weight_lbs": del_catalogo.get("weight_lbs"),
+        }
+    else:
+        transformer = select_transformer(kva)
+        transformer_warning = (
+            f"Ningún transformador del catálogo cubre {kva:.1f} kVA a "
+            f"{surface_v:.0f} V de secundario a la vez. Se informa el escalón "
+            f"comercial de {transformer['kva_per_unit']:.0f} kVA por potencia, "
+            f"pero la tensión NO está verificada contra un equipo real."
+        )
 
     # --- Controlador de superficie (tablero fijo o VSD); no fatal ---
     controller: dict | None = None
@@ -1183,6 +1344,7 @@ def electrical_design_complete(
         "controller_warning": controller_warning,
         "cable_check": cable_check,
         "cable_warnings": cable_warnings,
+        "transformer_warning": transformer_warning,
     }
 
 
@@ -1255,16 +1417,6 @@ def electrical_trace(
         "elec_perdida_cable",
         {"I": motor_amps, "R": r}, cable_power_loss_kw(motor_amps, r),
     )
-
-    if motor_voltage > 0:
-        trace.add(
-            "elec_tension_arranque",
-            {"V_motor": motor_voltage, "k": _STARTUP_CURRENT_MULTIPLIER,
-             "ΔV": dv},
-            startup_voltage_ratio(motor_voltage, dv),
-            context="Si baja demasiado el motor no desarrolla par y no "
-                    "arranca, aunque en régimen anduviera.",
-        )
 
     vs = calculate_surface_voltage(motor_voltage, dv, transformer_loss_pct)
     trace.add(

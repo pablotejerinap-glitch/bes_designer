@@ -23,7 +23,9 @@ from bes.core.electrical import (
     estimate_axial_thrust,
     select_cable,
     select_motor,
+    _vdrop_per_amp_from_cable,
     select_transformer,
+    _TRANSFORMER_SIZES_KVA,
     voltage_drop,
 )
 
@@ -143,10 +145,19 @@ class TestVoltageDrop:
         h_hot = voltage_drop("#2", "CU", 50.0, 200.0, 1000.0)
         assert h_hot > h_cold
 
-    def test_clamped_above_max_temp(self):
+    def test_extrapolated_above_max_temp(self):
+        """Por encima de la tabla se extrapola, no se satura.
+
+        Saturar subestimaba la caída en pozos más calientes que el último punto
+        tabulado (200 °F), que es exactamente el lado peligroso: daba por bueno
+        un calibre que en el pozo no llega a arrancar el motor.
+        """
         h200 = voltage_drop("#2", "CU", 50.0, 200.0, 1000.0)
         h300 = voltage_drop("#2", "CU", 50.0, 300.0, 1000.0)
-        assert h300 == pytest.approx(h200, rel=1e-6)
+        h400 = voltage_drop("#2", "CU", 50.0, 400.0, 1000.0)
+        assert h300 > h200
+        # la extrapolación es lineal: incrementos iguales para saltos iguales
+        assert (h400 - h300) == pytest.approx(h300 - h200, rel=1e-6)
 
     def test_clamped_below_min_temp(self):
         h100 = voltage_drop("#1", "CU", 40.0, 100.0, 1000.0)
@@ -188,18 +199,74 @@ class TestCableVdropFromCatalog:
             )
 
 
+class TestCaidaFueraDelRangoTabulado:
+    """Las tablas del catálogo llegan a 200 °F y hay pozos más calientes.
+
+    Saturar en el último valor tabulado subestima la caída justo donde más
+    duele, y subestimarla es el lado peligroso: da por bueno un calibre que en
+    el pozo no arranca. Por arriba se extrapola; por abajo se satura, porque
+    ahí el error es conservador.
+    """
+
+    @pytest.fixture
+    def cable(self, manager):
+        return next(
+            c for c in manager._cables
+            if c["size"] == "#2" and c["type"] == "Polyethylene"
+        )
+
+    def test_por_encima_de_la_tabla_sigue_creciendo(self, cable):
+        v200 = _vdrop_per_amp_from_cable(cable, 200.0)
+        v250 = _vdrop_per_amp_from_cable(cable, 250.0)
+        v300 = _vdrop_per_amp_from_cable(cable, 300.0)
+        assert v250 > v200, "a 250 °F la caída no puede ser la de 200 °F"
+        assert v300 > v250
+
+    def test_extrapola_con_la_pendiente_de_los_dos_ultimos_puntos(self, cable):
+        """180 -> 200 °F: (0.354 − 0.341)/20 = 0.00065 V/(A·kft·°F)."""
+        v200 = _vdrop_per_amp_from_cable(cable, 200.0)
+        pendiente = (0.354 - 0.341) / 20.0
+        assert _vdrop_per_amp_from_cable(cable, 250.0) == pytest.approx(
+            v200 + pendiente * 50.0, rel=1e-9
+        )
+
+    def test_coincide_con_la_carta_de_correccion_de_catedra(self, cable):
+        """Validación contra la carta CABLE VOLTAGE DROP CORRECTION.
+
+        La carta va de (80 °F, 0.96) a (275 °F, 1.34). Normalizada a 100 °F, el
+        factor implícito de la tabla del catálogo la sigue dentro del 2 % en
+        todo el rango — incluida la zona extrapolada.
+        """
+        base = _vdrop_per_amp_from_cable(cable, 100.0)
+        carta_100 = 0.96 + 20.0 * (1.34 - 0.96) / 195.0
+        for t in (150.0, 185.0, 200.0, 250.0, 275.0):
+            carta = (0.96 + (t - 80.0) * (1.34 - 0.96) / 195.0) / carta_100
+            app = _vdrop_per_amp_from_cable(cable, t) / base
+            assert app == pytest.approx(carta, rel=0.02), f"a {t:.0f} °F"
+
+    def test_por_debajo_de_la_tabla_satura(self, cable):
+        """Hacia el frío se satura: sobreestima la caída, que es conservador."""
+        v100 = _vdrop_per_amp_from_cable(cable, 100.0)
+        assert _vdrop_per_amp_from_cable(cable, 60.0) == v100
+        assert _vdrop_per_amp_from_cable(cable, -40.0) == v100
+
+    def test_nunca_devuelve_una_caida_negativa(self, cable):
+        assert _vdrop_per_amp_from_cable(cable, 10_000.0) > 0
+
+
 # ---------------------------------------------------------------------------
 # Axial-thrust estimate (for protector selection)
 # ---------------------------------------------------------------------------
 
 class TestAxialThrust:
     def test_hand_calc_series_400(self):
-        # TDH 4000 ft, SG 1.0, series 400 (d_shaft 0.62"):
+        # TDH 4000 ft, SG 1.0, serie 400 (eje 11/16" = 0.6875", del bloque
+        # ENGINEERING DATA de Wood Group — el mismo que usa pump_series.json):
         #   dP = 4000·0.433·1.0 = 1732 psi
-        #   A  = pi/4·0.62² = 0.3019 in²
-        #   F  = 1732·0.3019·1.20 ≈ 627 lbs
+        #   A  = pi/4·0.6875² = 0.37122 in²
+        #   F  = 1732·0.37122·1.20 ≈ 772 lbs
         f = estimate_axial_thrust(4000.0, 1.0, "400")
-        assert f == pytest.approx(627.0, rel=0.02)
+        assert f == pytest.approx(772.0, rel=0.02)
 
     def test_scales_with_tdh(self):
         assert estimate_axial_thrust(8000.0, 1.0, "400") > estimate_axial_thrust(4000.0, 1.0, "400")
@@ -284,19 +351,34 @@ class TestCalculateKva:
 # ---------------------------------------------------------------------------
 
 class TestSelectTransformer:
+    """La serie de respaldo: sólo potencia, sin verificar tensión.
+
+    Los escalones salen de ``_TRANSFORMER_SIZES_KVA``, que replica los kVA del
+    catálogo digitalizado (``catalogs/transformers.json``). Los tests se
+    escriben CONTRA la constante y no contra números pegados, así no se caen
+    cuando entre un equipo nuevo.
+    """
+
+    @staticmethod
+    def _siguiente(demanda: float) -> float:
+        return next(x for x in _TRANSFORMER_SIZES_KVA if x >= demanda)
 
     def test_selects_next_standard_size(self):
-        # 113 kVA → next standard ≥ 113 is 150 kVA
         t = select_transformer(113.0)
-        assert t["kva_per_unit"] == 150.0
+        assert t["kva_per_unit"] == self._siguiente(113.0)
 
     def test_exact_match(self):
-        t = select_transformer(100.0)
-        assert t["kva_per_unit"] == 100.0
+        """Un valor que ES un escalón se toma tal cual, sin saltar al siguiente."""
+        exacto = _TRANSFORMER_SIZES_KVA[2]
+        t = select_transformer(exacto)
+        assert t["kva_per_unit"] == exacto
 
     def test_just_above_boundary(self):
-        t = select_transformer(100.1)
-        assert t["kva_per_unit"] == 150.0
+        """Un pelo por encima de un escalón salta al siguiente."""
+        escalon = _TRANSFORMER_SIZES_KVA[1]
+        t = select_transformer(escalon + 0.1)
+        assert t["kva_per_unit"] == self._siguiente(escalon + 0.1)
+        assert t["kva_per_unit"] > escalon
 
     def test_3phase_single_unit(self):
         t = select_transformer(75.0, n_phases=3)
@@ -304,24 +386,80 @@ class TestSelectTransformer:
         assert t["total_kva"] == t["kva_per_unit"]
 
     def test_1phase_three_units(self):
-        # 90 kVA / 3 = 30 kVA per unit → next size ≥ 30 is 37.5 kVA
+        """Con tres monofásicos cada uno cubre un tercio de la demanda."""
         t = select_transformer(90.0, n_phases=1)
         assert t["n_units"] == 3
-        assert t["kva_per_unit"] == 37.5
-        assert t["total_kva"] == pytest.approx(112.5, rel=1e-6)
+        assert t["kva_per_unit"] == self._siguiente(30.0)
+        assert t["total_kva"] == pytest.approx(t["kva_per_unit"] * 3, rel=1e-6)
 
     def test_exceeds_max_raises(self):
         with pytest.raises(ValueError):
-            select_transformer(10000.0)
+            select_transformer(_TRANSFORMER_SIZES_KVA[-1] * 2)
 
     def test_minimum_size(self):
-        t = select_transformer(10.0)
-        assert t["kva_per_unit"] == 25.0
+        """Por debajo del escalón más chico se entrega el más chico."""
+        t = select_transformer(_TRANSFORMER_SIZES_KVA[0] / 4)
+        assert t["kva_per_unit"] == _TRANSFORMER_SIZES_KVA[0]
 
     def test_returns_required_keys(self):
         t = select_transformer(50.0)
         for k in ("n_phases", "kva_per_unit", "n_units", "total_kva"):
             assert k in t
+
+
+class TestTransformadorDeCatalogo:
+    """La selección real: potencia **y** tensión de secundario.
+
+    El chequeo por kVA solo no alcanza. Un transformador puede tener potencia
+    de sobra y no llegar a la tensión que el cable necesita, o al revés. El
+    catálogo publica el rango de secundario en dos conexiones —DELTA y WYE— y
+    la WYE entrega √3 veces la tensión de línea de la DELTA para el mismo
+    bobinado, así que se prueban las dos.
+
+    Fuente: tabla «VARIABLE SPEED DRIVE TRANSFORMER – 3 PHASE» digitalizada en
+    ``catalogs/transformers.json``.
+    """
+
+    def test_el_catalogo_tiene_equipos(self, manager):
+        assert len(manager.get_all_transformers()) > 0
+
+    def test_elige_el_mas_chico_que_cubra_las_dos_cosas(self, manager):
+        t = manager.select_transformer(kva_required=120.0, secondary_voltage=1361.0)
+        assert t is not None
+        assert t["kva"] >= 120.0
+        lo, hi = ((t["secondary_wye_min"], t["secondary_wye_max"])
+                  if t["connection"] == "wye"
+                  else (t["secondary_delta_min"], t["secondary_delta_max"]))
+        assert lo <= 1361.0 <= hi
+
+    def test_la_potencia_sola_no_alcanza(self, manager):
+        """Con potencia de sobra pero tensión fuera de rango, no califica.
+
+        10 000 V de secundario no lo entrega ningún equipo del catálogo, por
+        más kVA que sobren.
+        """
+        assert manager.select_transformer(kva_required=100.0,
+                                          secondary_voltage=10_000.0) is None
+
+    def test_informa_la_conexion(self, manager):
+        """Hay que saber si el secundario va en DELTA o en WYE para conectarlo."""
+        t = manager.select_transformer(kva_required=400.0, secondary_voltage=3218.0)
+        assert t is not None
+        assert t["connection"] in ("delta", "wye")
+
+    def test_a_igual_kva_toma_el_mas_liviano(self, manager):
+        """El catálogo tiene tres equipos de 400 kVA con dimensiones distintas."""
+        de_400 = [t for t in manager.get_all_transformers() if t["kva"] == 400]
+        assert len(de_400) >= 2, "el catálogo debe tener más de un modelo de 400 kVA"
+        t = manager.select_transformer(kva_required=360.0, secondary_voltage=2000.0)
+        assert t is not None
+        mismos = [x for x in manager.get_all_transformers() if x["kva"] == t["kva"]]
+        elegibles = [
+            x for x in mismos
+            if x["secondary_delta_min"] <= 2000.0 <= x["secondary_delta_max"]
+            or x["secondary_wye_min"] <= 2000.0 <= x["secondary_wye_max"]
+        ]
+        assert t["weight_lbs"] == min(x["weight_lbs"] for x in elegibles)
 
 
 # ---------------------------------------------------------------------------
@@ -429,17 +567,18 @@ class TestSelectCable:
             )
 
     def test_high_temp_requires_higher_rating(self, manager):
-        # At 430°F bottom temp → min rating 455°F → Redalene (450°F) excluded
-        # EPDM (500°F) should be selected if available
+        # A 350 °F de fondo el mínimo es 375 °F: sólo califica el EPDM
+        # (400 °F, Takács 2018 p. 256); Redalene (180) y Redared (300) no.
         cable = select_cable(
             motor_amps=30.0,
             pump_depth=4000.0,
-            bottom_temp=430.0,
+            bottom_temp=350.0,
             casing_id=8.681,
             motor_od=5.40,
             catalog_manager=manager,
         )
         assert cable["max_amps"] >= 30.0 * 1.25
+        assert cable["cable_type"] == "EPDM"
 
 
 # ---------------------------------------------------------------------------
@@ -528,7 +667,11 @@ class TestSelectMotor:
         pump_od = 5.62
         alcanzables = [m["hp_rating"] for m in manager._motors
                        if m["od_inches"] <= round(pump_od * 1.20, 6)]
-        imposible = max(alcanzables) * 2.0
+        # El techo ya no es el motor más grande: con tándem se apilan hasta
+        # MOTOR_TANDEM_MAX unidades en serie, así que lo inalcanzable arranca
+        # por encima de ese múltiplo.
+        from bes.core.electrical import MOTOR_TANDEM_MAX
+        imposible = max(alcanzables) * MOTOR_TANDEM_MAX * 2.0
 
         # El mensaje dice POR QUÉ, no sólo que no hay. «No motor found for
         # 2178 hp» no le permitía al usuario saber si el remedio era bajar el
@@ -538,6 +681,8 @@ class TestSelectMotor:
             select_motor(imposible, manager, pump_od=pump_od,
                          bottom_temp=200.0, depth_ft=6000.0)
         assert f"{max(alcanzables):.0f} hp" in str(exc.value)
+        # Y el mensaje tiene que decir que ni el tándem máximo alcanza.
+        assert "tándem" in str(exc.value)
         assert f"{round(imposible * 1.10, 6):.1f} hp" in str(exc.value)
 
     def test_returns_dict_with_standard_keys(self, manager):
@@ -742,3 +887,77 @@ class TestCableElectricalCheck:
             casing_id=4.892, motor_od=4.0, catalog_manager=cm,
         )
         assert sel["cable_size"]
+
+
+class TestMotoresEnTandem:
+    """Cuando ningún motor solo alcanza, se acoplan en serie.
+
+    Es práctica de campo corriente y la única salida cuando el casing no deja
+    subir de diámetro: acoplados eje con eje y conectados ELÉCTRICAMENTE EN
+    SERIE, las potencias y las tensiones se suman y la corriente es la misma.
+    Se gana potencia sin ganar un milímetro de OD.
+
+    El caso que lo motivó es el pozo «Facultad 01» de la tesis Inv_83338:
+    327 hp al eje en un casing de 5½", donde el motor REDA más potente que
+    entra da 270 hp. Esa tesis lo resuelve con 2 × 160 hp, que es exactamente
+    lo que ahora hace la herramienta.
+    """
+
+    @staticmethod
+    def _techo_de_un_motor(manager, pump_od: float) -> float:
+        """La potencia del motor más grande que entra bajo ese OD de bomba."""
+        max_od = round(pump_od * 1.20, 6)
+        return max(m["hp_rating"] for m in manager._motors
+                   if m["od_inches"] <= max_od)
+
+    def test_un_motor_solo_no_se_reemplaza_por_un_tandem(self, manager):
+        """Con uno alcanza, se instala uno. No instalar equipo de más."""
+        motor = select_motor(50.0, manager, pump_od=5.13,
+                             bottom_temp=150.0, depth_ft=3000.0)
+        assert motor.get("tandem_count", 1) == 1
+        assert "×" not in motor["model"]
+
+    def test_por_encima_del_techo_aparece_el_tandem(self, manager):
+        """Pidiendo más de lo que da un motor solo, se apilan unidades."""
+        pump_od = 3.87
+        techo = self._techo_de_un_motor(manager, pump_od)
+        motor = select_motor(techo * 1.5, manager, pump_od=pump_od,
+                             bottom_temp=150.0, depth_ft=6000.0)
+        n = motor.get("tandem_count", 1)
+        assert n > 1, "debería haber armado un tándem"
+        assert motor["hp_rating"] >= round(techo * 1.5 * 1.10, 6)
+
+    def test_en_serie_se_suman_potencia_y_tension_pero_no_la_corriente(self, manager):
+        """La física del acoplamiento en serie, que es lo que hace al tándem útil."""
+        pump_od = 3.87
+        techo = self._techo_de_un_motor(manager, pump_od)
+        motor = select_motor(techo * 1.5, manager, pump_od=pump_od,
+                             bottom_temp=150.0, depth_ft=6000.0)
+        n = motor["tandem_count"]
+        assert motor["hp_rating"] == pytest.approx(motor["unit_hp_rating"] * n)
+        assert motor["voltage"] == pytest.approx(motor["unit_voltage"] * n)
+        assert motor["length_ft"] == pytest.approx(motor["unit_length_ft"] * n)
+        # La corriente NO se multiplica: por los n motores pasa la misma.
+        unidad = next(m for m in manager._motors
+                      if m["model"] == motor["unit_model"])
+        assert motor["amperage"] == unidad["amperage"]
+        # Y el diámetro tampoco, que es justamente la razón de ser del tándem.
+        assert motor["od_inches"] == unidad["od_inches"]
+
+    def test_el_tandem_no_pasa_del_maximo_declarado(self, manager):
+        """Por encima de MOTOR_TANDEM_MAX unidades el diseño falla explicando."""
+        from bes.core.electrical import MOTOR_TANDEM_MAX
+        pump_od = 3.87
+        techo = self._techo_de_un_motor(manager, pump_od)
+        with pytest.raises(ValueError, match="tándem"):
+            select_motor(techo * MOTOR_TANDEM_MAX * 2.0, manager, pump_od=pump_od,
+                         bottom_temp=150.0, depth_ft=6000.0)
+
+    def test_el_modelo_dice_cuantas_unidades_son(self, manager):
+        """El reporte tiene que decir «2 × …», no sólo la potencia total."""
+        pump_od = 3.87
+        techo = self._techo_de_un_motor(manager, pump_od)
+        motor = select_motor(techo * 1.5, manager, pump_od=pump_od,
+                             bottom_temp=150.0, depth_ft=6000.0)
+        assert motor["model"].startswith(f"{motor['tandem_count']} × ")
+        assert motor["unit_model"] in motor["model"]

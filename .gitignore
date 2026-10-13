@@ -28,3 +28,13 @@ htmlcov/
 # Copia de trabajo del layout anterior al refactor backend/frontend. Su
 # contenido vive versionado en la rama respaldo/pre-refactor-metrico.
 Archivos_innecesarios_solo_lectura/
+
+# Archivos temporales que Vite deja al recargar su config
+frontend/vite.config.ts.timestamp-*.mjs
+
+# Copia de los modulos de gas previa al refactor de sep-2026. Git ya es el
+# respaldo: esos archivos viven en el historial.
+backend/respaldo_gas_2026-09-29/
+
+# Base de datos ajena al proyecto (tape de trades de otra herramienta).
+/data/

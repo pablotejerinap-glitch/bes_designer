@@ -352,7 +352,8 @@ class TestCalculateDischarge:
         assert 100 < p_disc < 2200, (
             f"La presión de descarga {p_disc:.0f} psi cae fuera del rango esperado"
         )
-        assert p_disc == pytest.approx(681.0, rel=0.10), (
+        # 870 psi con el factor de la Fig. 2.36 de Brown Vol. 1 (681 con el ajuste viejo).
+        assert p_disc == pytest.approx(870.0, rel=0.10), (
             f"Valor de regresión de P&C para este escenario: {p_disc:.0f} psi"
         )
 

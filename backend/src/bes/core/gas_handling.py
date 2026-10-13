@@ -29,11 +29,11 @@ Los umbrales
 Se marca cuáles tienen fuente publicada y cuáles son criterio propio de esta
 herramienta, porque presentarlos indistintamente sería una atribución falsa::
 
-    Fracción <= 1 %    gas despreciable: vale el diseño monofásico   [propio]
-    Fracción >  1 %    obligatorio calcular la pérdida de carga
-                       multifásica                                   [propio]
-    Fracción >  5 %    obligatorio separador o manejador de gas
-                       [Takács (2018) §1.3.2, pág. 10]
+    Fracción <= 5 %    diseño convencional (caudal único, fricción de
+                       líquido)                  [Takács (2018) §1.3.2]
+    Fracción >  5 %    método para pozos con gas: incrementos de
+                       presión, Poettmann-Carpenter y separador o
+                       manejador de gas          [Takács (2018) §1.3.2]
     Fracción > 10 % EN LA BOMBA   la BES no converge: evaluar otro
                        método                                        [propio]
     Relación > 0.1     la bomba entrega menos altura que su curva de
@@ -114,6 +114,7 @@ from bes.core.formulas import FormulaTrace
 from bes.core.models import Fluid, Reservoir, WellGeometry
 from bes.core.pvt import (
     fluid_properties_at_conditions,
+    pb_para_pvt,
     standing_rs,
     standing_bo,
     gas_z_factor,
@@ -163,12 +164,9 @@ def _oil_sg(api: float) -> float:
 # atribución falsa y es lo primero que un revisor va a querer verificar:
 #
 #   FRACCIÓN del volumen total en la admisión
-#     f ≤ 1 %   gas despreciable: se puede diseñar como monofásico con
-#               gradiente constante              -> CRITERIO PROPIO
-#     f > 1 %   obligatorio calcular la pérdida de carga con un modelo
-#               multifásico vertical: con gradiente constante el error de
-#               diseño se vuelve grande          -> CRITERIO PROPIO
-#     f > 5 %   obligatorio incorporar separador o manejador de gas
+#     f ≤ 5 %   diseño convencional: caudal único y fricción de líquido
+#     f > 5 %   método para pozos con gas (incrementos de presión,
+#               Poettmann-Carpenter) y separador o manejador de gas
 #               -> TAKÁCS (2018), §1.3.2, pág. 10: «The use of gas separators
 #                  or gas handlers is required if more than 5% of free gas
 #                  enters the pump.»
@@ -183,13 +181,15 @@ def _oil_sg(api: float) -> float:
 #               número: dice que sobreviene «as the free gas increases».
 # ---------------------------------------------------------------------------
 
-#: Gas despreciable: por debajo, el diseño monofásico es válido.
+#: Umbral que decide el MÉTODO de cálculo: hasta 5 % de gas libre en la
+#: admisión se diseña por el camino convencional; por encima, por el método
+#: para pozos con gas (incrementos de presión y Poettmann-Carpenter).
 #:
-#: **Criterio propio de esta herramienta**: no se encontró en la bibliografía
-#: del proyecto. Decide únicamente el MÉTODO de cálculo —qué correlación de
-#: fricción y si corresponde el método por incrementos—, no la viabilidad del
-#: pozo, que la resuelve la escalera de manejo de gas.
-GAS_FRACTION_NEGLIGIBLE = 0.01
+#: **Tiene fuente**: Takács (2018), Sección 1.3.2 — *«The use of gas separators
+#: or gas handlers is required if more than 5% of free gas enters the pump.»*
+#: Es el mismo 5 % de ``GAS_FRACTION_SEPARATOR_REQUIRED``: el pozo que necesita
+#: separador es el que se diseña por el método con gas.
+GAS_FRACTION_NEGLIGIBLE = 0.05
 
 #: Por encima, hace falta separador o manejador de gas.
 #:
@@ -317,15 +317,26 @@ def fraction_to_ratio(f: float) -> float:
 
 
 #: Valor del factor de Turpin que separa la operación estable de la
-#: interferencia severa por gas (Takács 2018, §4.4.3.2, ec. 4.30, pág. 176).
+#: interferencia severa por gas (Takács 2018, §4.4.3.2, ec. 4.30, pág. 175).
 #: Por debajo de 1 la bomba opera en forma estable; por encima, el gas
 #: interfiere severamente.
 TURPIN_STABILITY_LIMIT = 1.0
 
-#: Coeficiente de la ec. 4.30 de Turpin. Se declara aparte porque es el número
-#: que fija la correlación, y así se lee al lado de su cita en vez de aparecer
-#: enterrado en la cuenta.
+#: Coeficiente del numerador de la ec. 4.30 de Turpin. Se declara aparte porque
+#: es el número que fija la correlación, y así se lee al lado de su cita en vez
+#: de aparecer enterrado en la cuenta.
 TURPIN_COEFFICIENT = 2000.0
+
+#: Factor del DENOMINADOR de la ec. 4.30, junto a la PIP. Existe como constante
+#: con nombre porque acá estuvo un error: el 3 se había leído como un exponente
+#: sobre la relación gas/líquido (``F = 2000·r³/PIP``) en vez de como factor del
+#: denominador (``F = 2000·r/(3·PIP)``). El impreso de la ec. 4.30 tiene el 3 en
+#: la línea de abajo, al lado de PIP. Lo dirime la Fig. 4.9 (pág. 176), que
+#: grafica la curva F = 1: la forma correcta la reproduce punto por punto
+#: (23.08 % contra 23 % leídos a 200 psia; 60.00 % contra 60 % a 1000 psia;
+#: 70.59 % contra 70.5 % a 1600 psia), mientras que la forma con exponente da
+#: 31.7 / 44.3 / 48.1 % y ni se acerca. **No volver a subirlo al exponente.**
+TURPIN_DENOMINATOR_FACTOR = 3.0
 
 
 def turpin_stability(
@@ -340,23 +351,29 @@ def turpin_stability(
     límite de la presión de admisión, que es la variable que gobierna cuánto
     ocupa ese gas::
 
-        F = 2000 · (q'_g / q'_l)³ / PIP        F < 1  →  operación estable
-                                               F > 1  →  interferencia severa
+                2000 · (q'_g / q'_l)
+        Φ  =  ------------------------          Φ < 1  →  operación estable
+                     3 · PIP                    Φ > 1  →  interferencia severa
+
+    **El 3 va en el denominador, no como exponente.** Ver la nota de
+    :data:`TURPIN_DENOMINATOR_FACTOR`: acá hubo un error que sobreestimaba
+    groseramente el margen a baja presión, y lo dirime la Fig. 4.9 del libro.
 
     **Entra la RELACIÓN gas/líquido, no la fracción.** El cociente de caudales
     volumétricos in situ ``q'_g/q'_l`` es una relación; pasarle la fracción
-    ``f`` da un F equivocado —y por lo bajo, que es la dirección peligrosa—.
+    ``f`` da un Φ equivocado —y por lo bajo, que es la dirección peligrosa—.
     Es el mismo error que la reducción del separador sobre la fracción, ya
     documentado en :func:`separator_outlet_fraction`.
 
-    Despejando ``F = 1`` se obtiene el límite en las unidades con que trabaja
+    Despejando ``Φ = 1`` se obtiene el límite en las unidades con que trabaja
     el resto del módulo::
 
-        r_lím = (PIP / 2000)^(1/3)        f_lím = r_lím / (1 + r_lím)
+        r_lím = 3 · PIP / 2000            f_lím = r_lím / (1 + r_lím)
 
-    que da del orden de 27 % a 100 psia y 44 % a 1000 psia: en ese rango la
-    correlación publicada es **más permisiva** que el 10 % fijo que adopta esta
-    herramienta.
+    que da 13.0 % a 100 psia, 60.0 % a 1000 psia y 70.6 % a 1600 psia — los
+    mismos valores que la curva impresa de la Fig. 4.9. O sea que la
+    correlación publicada es **más exigente** que el 10 % fijo de esta
+    herramienta por debajo de unos 74 psia, y más permisiva por encima.
 
     **Verificación paralela: no decide nada.** La viabilidad la resuelve la
     escalera contra ``max_gip``. Esta función existe para contrastar, y quien
@@ -368,8 +385,8 @@ def turpin_stability(
         pip_psia: Presión en la admisión de la bomba [psia].
 
     Returns:
-        Dict con ``ratio`` (la relación con que se entró), ``f`` (el factor F),
-        ``stable`` (``F < 1``), ``limit_ratio`` y ``limit_fraction`` (la
+        Dict con ``ratio`` (la relación con que se entró), ``f`` (el factor Φ),
+        ``stable`` (``Φ < 1``), ``limit_ratio`` y ``limit_fraction`` (la
         relación y la fracción que agotan el margen a esa PIP).
 
     Raises:
@@ -392,9 +409,12 @@ def turpin_stability(
         # y no tiene sentido inventarle un número.
         factor = float("inf")
     else:
-        factor = TURPIN_COEFFICIENT * r ** 3 / pip_psia
+        factor = TURPIN_COEFFICIENT * r / (TURPIN_DENOMINATOR_FACTOR * pip_psia)
 
-    r_limite = (pip_psia * TURPIN_STABILITY_LIMIT / TURPIN_COEFFICIENT) ** (1.0 / 3.0)
+    r_limite = (
+        TURPIN_DENOMINATOR_FACTOR * pip_psia * TURPIN_STABILITY_LIMIT
+        / TURPIN_COEFFICIENT
+    )
 
     return {
         "ratio": r,
@@ -520,7 +540,7 @@ def free_gas_fraction_detail(
 
         Rs      gas que sigue disuelto        [scf/STB]   Standing, acotado al GOR
         GOR−Rs  gas libre                     [scf/STB]
-        z       factor de compresibilidad     [-]         Dranchuk & Abou-Kassem
+        z       factor de compresibilidad     [-]         Papay (Takács ec. 4.26)
         Bg      factor volumétrico del gas    [bbl/scf]
         Bo, Bw  factores volumétricos         [bbl/STB]
 
@@ -543,7 +563,7 @@ def free_gas_fraction_detail(
     if pressure <= 0:
         raise ValueError(f"pressure must be > 0, got {pressure}")
 
-    pb = fluid.bubble_point_pressure
+    pb = pb_para_pvt(fluid.bubble_point_pressure, fluid.gor, temp_f, fluid.oil_api, fluid.gas_sg)
     gor = fluid.gor
     wc = fluid.water_cut
 
@@ -609,7 +629,15 @@ def free_gas_fraction_at_intake(
     Raises:
         ValueError: Si la presión es <= 0.
     """
-    return free_gas_fraction_detail(fluid, pressure, temp_f)["fraction"]
+    if pressure <= 0:
+        raise ValueError(f"pressure must be > 0, got {pressure}")
+    # Un solo cálculo en toda la herramienta: el PVT y el balance del método
+    # para pozos con gas (pasos 2a y 2b-c), con la presión manométrica de la
+    # PIP y presión absoluta = P + 14,7.
+    from bes.core.gas_paso_a_paso import paso2a_pvt, paso2bc_mezcla
+    pvt, _ = paso2a_pvt(pressure, temp_f, fluid.oil_api, fluid.gas_sg, fluid.water_sg, fluid.gor)
+    mez, _ = paso2bc_mezcla(1.0, fluid.water_cut, fluid.gor, fluid.gas_sg, fluid.water_sg, pvt)
+    return mez["vg"] / mez["v_total"] if mez["v_total"] > 0 else 0.0
 
 
 def gas_ingestion_percentage(
@@ -687,7 +715,7 @@ def gor_en_el_tubing(
     Returns:
         GOR aparente de la columna del tubing [scf/STB].
     """
-    pb = fluid.bubble_point_pressure
+    pb = pb_para_pvt(fluid.bubble_point_pressure, fluid.gor, temp_f, fluid.oil_api, fluid.gas_sg)
     rs = min(
         standing_rs(pressure, temp_f, fluid.oil_api, fluid.gas_sg, pb)
         if pb > 0 else fluid.gor,
@@ -1765,9 +1793,9 @@ def check_gas_lock_risk(
     donde el criterio bibliográfico está expresado así (degradación y bloqueo).
 
     Niveles:
-        ``none``      f ≤ 1 %: gas despreciable, vale el diseño monofásico.
-        ``low``       1 % < f ≤ 5 %: hay que calcular la pérdida de carga con
-                      un modelo multifásico, pero el equipo convencional sirve.
+        ``none``      f ≤ 5 %: vale el diseño convencional (Takács, 2018,
+                      Sección 1.3.2).
+        ``low``       sólo si se pasa un ``threshold`` menor que 5 %.
         ``medium``    f > 5 % (o r > 0.1): separador obligatorio —Takács (2018),
                       pág. 10—; por encima de r = 0.1 la bomba además entrega
                       menos altura que su curva —Brown, pág. 59—.
@@ -1781,7 +1809,7 @@ def check_gas_lock_risk(
 
     Args:
         free_gas_fraction: Fracción volumétrica de gas libre del total [0–1].
-        threshold: Límite de gas despreciable. Por defecto 1 %.
+        threshold: Límite del diseño convencional. Por defecto 5 % (Takács, 2018, Sección 1.3.2).
 
     Returns:
         dict con ``risk``, ``free_gas_fraction``, ``free_gas_ratio``,
@@ -1830,8 +1858,8 @@ def check_gas_lock_risk(
     else:
         riesgo = "none"
         rec = (
-            f"Gas despreciable ({f:.1%} ≤ {threshold:.0%}): el diseño "
-            f"monofásico con gradiente constante es válido."
+            f"Gas libre {f:.1%} ≤ {threshold:.0%}: vale el diseño "
+            f"convencional (Takács, 2018, Sección 1.3.2)."
         )
 
     return {
@@ -2100,7 +2128,7 @@ def _viscosity_factors_for_interval(
     liviano. Como la viscosidad entra en Rs, cada tramo de la bomba ve un
     fluido distinto.
 
-    Con crudo de 28 °API o más devuelve factores unitarios sin tocar el PVT: la
+    Con viscosidad de diseño menor a 100 SSU devuelve factores unitarios sin tocar el PVT: la
     regla de crudo liviano vive en ``evaluate_viscosity`` y se aplica antes de
     calcular nada.
 
@@ -2108,8 +2136,16 @@ def _viscosity_factors_for_interval(
         fluid: Fluido producido.
         temp_f: Temperatura del intervalo [°F].
         rs: Gas en solución promedio del intervalo [scf/bbl].
-        pump_efficiency_pct: Rendimiento de la bomba en ese punto [%], leído de
-            la curva de agua — es lo que pide la Tabla 4.521.
+        pump_efficiency_pct: Rendimiento **MÁXIMO** de la bomba [%], o sea el
+            del pico de su curva de agua. Es lo que piden las tablas: se
+            titulan «60 % / 70 % **maximum efficiency** pumps» y la cabecera de
+            columna dice «performances as percentages of performance with
+            water, **all at maximum efficiency**» (Brown, 1984, Tablas 4.520 y
+            4.521, pág. 91). El ejemplo resuelto de §4.53113 lo confirma:
+            «assume a 70 % efficient pump and use Table 4.521».
+            **NO es el rendimiento del punto de operación.** Pasarlo mandaba a
+            la tabla valores de 3-5 % en las candidatas que caían en el extremo
+            de su curva, y el guard de ``viscosity`` abortaba el diseño entero.
         apply: ``False`` desactiva la corrección y devuelve factores unitarios.
 
     Returns:
@@ -2124,7 +2160,8 @@ def _viscosity_factors_for_interval(
     # El dato medido sólo vale a la temperatura a la que se midió.
     dead_oil_cp = None
     if fluid.oil_viscosity_dead is not None:
-        if abs(fluid.viscosity_temp_ref - temp_f) <= 20.0:
+        from bes.core.pump_design import VISCOSITY_TEMP_TOLERANCE_F
+        if abs(fluid.viscosity_temp_ref - temp_f) <= VISCOSITY_TEMP_TOLERANCE_F:
             dead_oil_cp = fluid.oil_viscosity_dead
 
     resultado = evaluate_viscosity(
@@ -2243,7 +2280,7 @@ def pressure_increment_design(
             de elegir la bomba (§17): sin esto se puede elegir una bomba que no
             entra en el pozo. ``None`` = sin filtro.
         apply_viscosity: Aplica la corrección de Riling **por intervalo**. Con
-            crudo >= 28 °API no cambia nada (factores unitarios). Por defecto
+            viscosidad < 100 SSU no cambia nada (factores unitarios). Por defecto
             True.
         pvt_table: :class:`bes.core.pvt.PVTTable` de laboratorio. Sus valores
             ganan sobre las correlaciones, propiedad por propiedad (§5).
@@ -2347,6 +2384,18 @@ def pressure_increment_design(
             p for p in catalog_manager.get_all_pumps()
             if p.model == fixed_pump_model
         ]
+        # Forzar un modelo saltea la selección, NO las leyes de la física. La
+        # bomba tiene que entrar en el casing igual que si la hubiera elegido
+        # el método: es la restricción más dura del diseño (``.claude/rules``).
+        # Sin esto la herramienta devolvía un aparejo con una bomba de 8.63 in
+        # en un casing de 4.892 in de ID, que no se puede bajar al pozo.
+        if matches and casing_id is not None and matches[0].od >= casing_id:
+            raise ValueError(
+                f"La bomba forzada {fixed_pump_model} tiene {matches[0].od:.2f} in "
+                f"de diámetro y el casing de este pozo {casing_id:.3f} in de "
+                f"diámetro interno: no entra. Elegir un modelo de serie menor o "
+                f"dejar que el método seleccione."
+            )
         forced_pump = _a_frecuencia(matches[0]) if matches else None
 
     q_representativo = (
@@ -2418,6 +2467,13 @@ def pressure_increment_design(
     viscosity_warnings: list[str] = []
     fuera_de_rango: list[tuple] = []
 
+    # Rendimiento máximo de la bomba, en PORCENTAJE. Es el índice de las
+    # tablas de corrección por viscosidad y no depende del intervalo, así que
+    # se calcula una sola vez.
+    eficiencia_max_pct = (
+        max((pt.efficiency for pt in pump.points), default=0.0) * 100.0
+    )
+
     for idx, iv in enumerate(intervalos):
         p_lo, p_hi = iv["p_lo"], iv["p_hi"]
         p_mid = 0.5 * (p_lo + p_hi)
@@ -2445,11 +2501,25 @@ def pressure_increment_design(
 
         # --- Corrección por viscosidad (Riling, §4.53112) ---------------
         # Se evalúa POR INTERVALO: el gas en solución cambia con la presión y
-        # la viscosidad del crudo vivo con él. Crudo ≥ 28 °API devuelve
+        # la viscosidad del crudo vivo con él. Viscosidad < 100 SSU devuelve
         # factores unitarios y esto no toca nada.
-        visc = _viscosity_factors_for_interval(
-            fluid, temp, iv["rs"], eficiencia_agua, apply_viscosity
-        )
+        #
+        # A la tabla va el rendimiento MÁXIMO de la bomba, no el del punto:
+        # las Tablas 4.520/4.521 se titulan «60 % / 70 % maximum efficiency
+        # pumps». Con el del punto, una candidata que cayera en el extremo de
+        # su curva (la DN3100 da 3.48 % a 5000 bpd) mandaba a la tabla un
+        # número imposible y hacía fallar TODO el diseño con un 422.
+        if eficiencia_max_pct <= 0.0:
+            visc = {**_VISCOSIDAD_NEUTRA, "new_efficiency": eficiencia_agua,
+                    "warnings": [
+                        f"El catálogo no publica el rendimiento de la "
+                        f"{pump.model}: la corrección por viscosidad no se "
+                        f"pudo aplicar y los factores quedan en 100 %."
+                    ]}
+        else:
+            visc = _viscosity_factors_for_interval(
+                fluid, temp, iv["rs"], eficiencia_max_pct, apply_viscosity
+            )
         cq = visc["capacity_factor"] / 100.0
         ch = visc["head_factor"] / 100.0
         chp = visc["hp_factor"] / 100.0
@@ -2469,7 +2539,15 @@ def pressure_increment_design(
             head_per_stage = curve["head_per_stage"]
 
         hp_per_stage_w = curve["hp_per_stage"]   # rated for water
-        eficiencia = visc["new_efficiency"]
+        # La tabla devuelve el rendimiento máximo YA corregido. Lo que se
+        # publica por tramo es el del PUNTO de operación, degradado en la misma
+        # proporción: la tabla corre la curva entera, no sólo su pico.
+        if visc["is_viscous"] and eficiencia_max_pct > 0.0:
+            eficiencia = eficiencia_agua * (
+                visc["new_efficiency"] / eficiencia_max_pct
+            )
+        else:
+            eficiencia = eficiencia_agua
 
         # Pump-deterioration derating of the head (Brown §4.53102).
         det_factor = pump_deterioration_factor(fg_ratio) if apply_deterioration else 1.0
@@ -2722,7 +2800,7 @@ def pressure_increment_design(
         # --- Trazabilidad y avisos (§25) --------------------------------
         "pvt_source":        (
             pvt_table.source if pvt_table is not None
-            else "Correlaciones Standing / DAK / McCain"
+            else "Correlaciones Standing / DAK / Ahmed"
         ),
         "pvt_warnings":      pvt_warnings,
         "viscosity_warnings": viscosity_warnings,
@@ -3069,26 +3147,18 @@ def complete_gas_design(
         p_discharge = pip + 1000.0  # minimum 1000 psi differential
 
     # --- 3. Free gas and GIP ---
-    pb = fluid.bubble_point_pressure
+    # Mismo PVT y mismo balance que el método para pozos con gas (pasos 2a y
+    # 2b-c de bes.core.gas_paso_a_paso), con presión absoluta = PIP + 14,7: así
+    # la fracción que decide la derivación es la misma que después se diseña.
+    from bes.core.gas_paso_a_paso import paso2a_pvt, paso2bc_mezcla
     t = t_pump
-    rs_at_pip = min(
-        standing_rs(pip, t, fluid.oil_api, fluid.gas_sg, pb) if pb > 0 else fluid.gor,
-        fluid.gor,
-    )
+    pvt_pip, _ = paso2a_pvt(pip, t, fluid.oil_api, fluid.gas_sg, fluid.water_sg, fluid.gor)
+    rs_at_pip = pvt_pip["rs"]
     free_gas_at_intake = max(fluid.gor - rs_at_pip, 0.0)  # scf/STB oil
-
-    # Volumetric free gas fraction at pump intake
-    z_pip = gas_z_factor(pip, t, fluid.gas_sg)
-    bg_pip = gas_bg(pip, t, z_pip)
-    bo_pip = standing_bo(rs_at_pip, t, fluid.oil_api, fluid.gas_sg)
-    bw_pip = water_bw(pip, t)
-
+    mez_pip, _ = paso2bc_mezcla(1.0, fluid.water_cut, fluid.gor, fluid.gas_sg,
+                                fluid.water_sg, pvt_pip)
+    fg_ratio = mez_pip["vg"] / mez_pip["v_total"] if mez_pip["v_total"] > 0.0 else 0.0
     wc = fluid.water_cut
-    v_oil_pip = (1.0 - wc) * bo_pip
-    v_water_pip = wc * bw_pip
-    v_gas_pip = (1.0 - wc) * free_gas_at_intake * bg_pip
-    v_total_pip = v_oil_pip + v_water_pip + v_gas_pip
-    fg_ratio = v_gas_pip / v_total_pip if v_total_pip > 0.0 else 0.0
 
     # Gas vented is vent_gas_pct of the free gas
     gas_vented = free_gas_at_intake * vent_gas_pct

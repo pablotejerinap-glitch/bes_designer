@@ -355,7 +355,7 @@ class TestFrequencyReachesTheDesign:
         assert c["operating_frequency_hz"] == pytest.approx(55.0)
 
     def test_design_frequency_requires_a_vsd(self):
-        with pytest.raises(ValueError, match="use_vsd"):
+        with pytest.raises(ValueError, match="variador"):
             self._case(50.0, use_vsd=False, design_frequency_hz=55.0)
 
     def test_design_frequency_out_of_vsd_range_rejected(self):

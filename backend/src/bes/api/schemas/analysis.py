@@ -152,10 +152,10 @@ class GasIncrementRequest(BaseModel):
     )
     vent_gas_pct: float = Field(0.0, ge=0, le=1, description="Gas libre venteado [0-1]")
     apply_deterioration: bool = Field(
-        False, description="Degrada la altura por gas libre (Brown §4.53102)",
+        False, description="Degrada la altura por gas libre (Brown Vol. 2b, Sección 4.53102, pág. 74)",
     )
     apply_viscosity: bool = Field(
-        True, description="Corrección de Riling por intervalo (Brown §4.53112)",
+        True, description="Corrección de Riling por intervalo (Brown Vol. 2b, Sección 4.53112, pág. 90)",
     )
     fixed_pump_model: str | None = Field(
         None, description="Fija el modelo en vez de seleccionarlo del catálogo",

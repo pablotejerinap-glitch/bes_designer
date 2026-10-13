@@ -403,8 +403,8 @@ def _methodology(dr, reservoir, fluid, well, surface, objectives) -> dict:
 
     # 3.2 PVT at PIP
     try:
-        from bes.core.pvt import standing_rs, standing_bo
-        pb = fluid.bubble_point_pressure
+        from bes.core.pvt import pb_para_pvt, standing_rs, standing_bo
+        pb = pb_para_pvt(fluid.bubble_point_pressure, fluid.gor, t_pump, fluid.oil_api, fluid.gas_sg)
         rs = min(standing_rs(dr.intake_pressure, t_pump, fluid.oil_api, fluid.gas_sg, pb)
                  if pb > 0 else fluid.gor, fluid.gor)
         M["rs_pip"] = rs
@@ -873,8 +873,8 @@ def generate_design_report(
     story.append(_method_block(
         "3.1  Capacidad Productiva (IPR)",
         "La capacidad productiva del pozo se determinó mediante la correlación de "
-        "Vogel (1968), aplicable a reservorios con empuje por gas en solución, según "
-        "el procedimiento descrito en Brown (1980), Sección 4.5322.",
+        "Vogel, aplicable a reservorios con empuje por gas en solución, según "
+        "Brown Vol. 4, ecs. 2.19 y 2.20 (pág. 14).",
         "q / q<sub>max</sub> = 1 − 0.2 (P<sub>wf</sub>/P<sub>R</sub>) − 0.8 (P<sub>wf</sub>/P<sub>R</sub>)<sup>2</sup>",
         f"q<sub>max</sub> = {_num(M.get('qmax'), ',.0f')} STB/d&nbsp;&nbsp;|&nbsp;&nbsp;"
         f"Caudal a PIP de diseño = {_num(M.get('q_pip'), ',.0f')} STB/d",
@@ -888,7 +888,7 @@ def generate_design_report(
         "Las propiedades del fluido se estimaron mediante las correlaciones de "
         "Standing (1947): relación gas-petróleo en solución (Rs), factor de volumen "
         "de formación del petróleo (Bo) y, para el gas, el factor volumétrico Bg "
-        "con z por Dranchuk-Abou-Kassem.",
+        "con z por Papay (Takács, 2018).",
         None,
         f"Bo @ PIP = {_num(M.get('bo_pip'), '.3f')} bbl/STB&nbsp;&nbsp;|&nbsp;&nbsp;"
         f"Rs @ PIP = {_num(M.get('rs_pip'), '.0f')} scf/STB&nbsp;&nbsp;|&nbsp;&nbsp;"
@@ -900,7 +900,7 @@ def generate_design_report(
         "3.3  Caudal de Diseño en la Bomba",
         "El caudal en condiciones de bomba se obtiene aplicando los factores "
         "volumétricos de formación al caudal de superficie, según Brown (1980), "
-        "Sección 4.538.",
+        "Sección 4.523 (pág. 59).",
         "Q<sub>bomba</sub> = q<sub>o</sub> · B<sub>o</sub> + q<sub>w</sub> · B<sub>w</sub> + gas libre",
         f"Q<sub>bomba</sub> = {_num(M.get('q_pump_bfpd'), ',.0f')} BFPD",
     ))
@@ -912,7 +912,7 @@ def generate_design_report(
         story.append(Paragraph(
             "El TDH se compone de la elevación vertical neta, las pérdidas por "
             "fricción en el tubing (Hazen-Williams) y la presión requerida en "
-            "cabezal, conforme a Brown (1980), Sección 4.5324.", method_s))
+            "cabezal, conforme a Brown (1980), Sección 4.5324 (págs. 62 a 64).", method_s))
         story.append(Spacer(1, 2))
         story.append(_equation("TDH = H<sub>d</sub> + F<sub>t</sub> + F<sub>wh</sub>"))
         story.append(Spacer(1, 4))
@@ -931,7 +931,7 @@ def generate_design_report(
         story.append(_method_block(
             "3.4  Altura Dinámica Total (TDH)",
             "El TDH se compone de elevación vertical, fricción en tubing y presión "
-            "de cabezal (Brown, 1980, Sección 4.5324).",
+            "de cabezal (Brown, 1980, Sección 4.5324, pág. 63).",
             "TDH = H<sub>d</sub> + F<sub>t</sub> + F<sub>wh</sub>",
             f"TDH = {_num(dr.total_head_required, ',.0f')} ft",
         ))
@@ -942,7 +942,7 @@ def generate_design_report(
         "La bomba se seleccionó del catálogo filtrado por diámetro de casing y rango "
         "operativo, maximizando la eficiencia al caudal de diseño. El número de "
         "etapas resulta de dividir el TDH por el head por etapa a dicho caudal "
-        "(Brown, 1980, Sección 4.5323).",
+        "(Brown, 1980, Sección 4.5323, págs. 61 y 62).",
         "N = TDH / (head por etapa)",
         f"N = {dr.num_stages} etapas&nbsp;&nbsp;|&nbsp;&nbsp;"
         f"head/etapa = {_num(dr.head_per_stage, '.1f')} ft @ "
@@ -967,7 +967,7 @@ def generate_design_report(
             "La combinación se busca entre todas las posibles y se elige por criterios "
             "estrictos: ajuste exacto de etapas, mínimo excedente, mínima cantidad de "
             "carcasas y arreglo más estandarizado. La presión de la carcasa a caudal "
-            "cero (Brown, 1980, Sección 4.5451) es restricción obligatoria: una "
+            "cero (criterio del proyecto) es restricción obligatoria: una "
             "combinación que la supere se descarta.",
             "MaxP = P<sub>(Q=0)</sub> × N<sub>etapas activas</sub> × Pem",
             f"Arreglo = {_combo}&nbsp;&nbsp;|&nbsp;&nbsp;"
@@ -995,7 +995,7 @@ def generate_design_report(
         "3.7  Cable y Sistema Eléctrico",
         "El cable se seleccionó por capacidad de corriente y temperatura de pozo. La "
         "caída de tensión se calculó a partir de las curvas del fabricante y la "
-        "longitud del cable (Brown, 1980, Sección 4.5325).",
+        "longitud del cable (Brown, 1980, Sección 4.5325, pág. 64).",
         None,
         f"Cable #{dr.cable_awg} {dr.cable_type}&nbsp;&nbsp;|&nbsp;&nbsp;"
         f"V<sub>caída</sub> = {_num(dr.cable_voltage_drop, '.0f')} V&nbsp;&nbsp;|&nbsp;&nbsp;"
@@ -1027,7 +1027,7 @@ def generate_design_report(
         story.append(_method_block(
             "3.9  Manejo de Gas",
             "Dado el contenido de gas libre en la admisión, se aplicó el método de "
-            "incrementos de presión (Brown, 1980, Sección 4.53102), que evalúa la "
+            "incrementos de presión (Brown, 1980, Sección 4.53102, pág. 74), que evalúa la "
             "densidad y el gradiente de la mezcla en incrementos discretos de presión "
             "y corrige el desempeño de la bomba.",
             None,
@@ -1123,14 +1123,15 @@ def generate_design_report(
     story.append(HRFlowable(width="100%", thickness=0.5, color=_GRAY, spaceAfter=6))
     refs = [
         "Brown, K.E. (1980). <i>The Technology of Artificial Lift Methods, Vol. 2b</i>. "
-        "PennWell Books.",
-        "Vogel, J.V. (1968). Inflow Performance Relationships for Solution-Gas Drive "
-        "Wells. <i>Journal of Petroleum Technology</i>, 20(1), 83–92. SPE-1476.",
-        "Standing, M.B. (1947). A Pressure-Volume-Temperature Correlation for Mixtures "
-        "of California Oils and Gases. <i>API Drilling and Production Practice</i>.",
-        "Hagedorn, A.R. &amp; Brown, K.E. (1965). Experimental Study of Pressure "
-        "Gradients Occurring During Continuous Two-Phase Flow in Small-Diameter "
-        "Vertical Conduits. <i>Journal of Petroleum Technology</i>, 17(4), 475–484.",
+        "PennWell Publishing Company.",
+        "Brown, K.E. <i>The Technology of Artificial Lift Methods, Vol. 4</i>. "
+        "PennWell Publishing Company.",
+        "Takács, G. (2018). <i>Electrical Submersible Pumps Manual</i>, 2ª ed. "
+        "Gulf Professional Publishing.",
+        "Beggs, H.D. (2003). <i>Production Optimization Using NODAL Analysis</i>, 2ª ed. "
+        "OGCI and PetroSkills Publications.",
+        "Ahmed, T. (2010). <i>Reservoir Engineering Handbook</i>, 4ª ed. "
+        "Gulf Professional Publishing.",
     ]
     ref_s = ParagraphStyle("ref", fontName="Times-Roman", fontSize=10,
                           leftIndent=14, firstLineIndent=-14, spaceAfter=6, leading=14)

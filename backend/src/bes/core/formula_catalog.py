@@ -163,7 +163,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Pr": "Presión estática del reservorio [psia]",
             "Pwf": "Presión de fondo fluyente durante el ensayo [psia]",
         },
-        reference="Brown Vol. 2b §4.522", module="bes.core.ipr",
+        reference="Brown Vol. 4, ec. 2.31 (pág. 15): el denominador P_r − P_wf", module="bes.core.ipr",
     ),
     FormulaSpec(
         key="ajuste_j_lineal", topic="ipr", step="indice_productividad",
@@ -174,7 +174,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Pr": "Presión estática del reservorio [psia]",
             "Pwf": "Presión de fondo fluyente del ensayo [psia]",
         },
-        reference="Brown Vol. 2b §4.522", module="bes.core.ipr",
+        reference="Brown Vol. 4, ec. 2.31 (pág. 15)", module="bes.core.ipr",
         note="Válido con el reservorio sobre la presión de burbuja: el caudal "
              "crece en línea recta con la caída de presión.",
     ),
@@ -186,7 +186,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "J": "Índice de productividad [STB/d/psi]",
             "Pr": "Presión estática del reservorio [psia]",
         },
-        reference="Brown Vol. 2b §4.522", module="bes.core.ipr",
+        reference="Brown Vol. 4, ec. 2.31 (pág. 15), evaluada en P_wf = 0", module="bes.core.ipr",
     ),
     FormulaSpec(
         key="ajuste_j_vogel_saturado", topic="ipr", step="indice_productividad",
@@ -196,7 +196,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "q_max": "Caudal máximo de Vogel [STB/d]",
             "Pr": "Presión estática del reservorio [psia]",
         },
-        reference="Vogel, JPT (1968); Brown Vol. 2b §4.522",
+        reference="Brown Vol. 4, ecs. 2.25 y 2.26 (pág. 15), con Pb = Pr",
         module="bes.core.ipr",
         note="Con el reservorio saturado (Pb ≥ Pr) la IPR compuesta se reduce "
              "sola a Vogel puro y no hay tramo recto.",
@@ -213,7 +213,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Pb": "Presión de burbuja [psia]",
             "Pwf": "Presión de fondo fluyente del ensayo [psia]",
         },
-        reference="Beggs, «Production Optimization», §2, Ej. 2-5B",
+        reference="Brown Vol. 4, ec. 2.30 (pág. 15); Ejemplo #8 (pág. 16)",
         module="bes.core.ipr",
         note="El ensayo cayó en el tramo curvo, así que hay que invertir la "
              "ecuación compuesta para despejar J.",
@@ -227,7 +227,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Pr": "Presión estática del reservorio [psia]",
             "Pwf": "Presión de fondo fluyente del ensayo [psia]",
         },
-        reference="Beggs, «Production Optimization», §2, «Case 1 Procedure»",
+        reference="Brown Vol. 4, ec. 2.31 (pág. 15)",
         module="bes.core.ipr",
         note="El ensayo cayó en el tramo recto: J sale de la recta de Darcy, "
              "igual que en el método lineal.",
@@ -241,7 +241,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Pr": "Presión estática del reservorio [psia]",
             "Pb": "Presión de burbuja [psia]",
         },
-        reference="Beggs, «Production Optimization», §2", module="bes.core.ipr",
+        reference="Brown Vol. 4, ec. 2.27 (pág. 15)",
+        module="bes.core.ipr",
         note="Hasta acá la IPR es una RECTA: el flujo en el reservorio es "
              "monofásico. De acá para abajo se libera gas y la curva se dobla.",
     ),
@@ -254,7 +255,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Pr": "Presión estática del reservorio [psia]",
             "Pb": "Presión de burbuja [psia]",
         },
-        reference="Beggs, «Production Optimization», §2", module="bes.core.ipr",
+        reference="Brown Vol. 4, ec. 2.28 (pág. 15)",
+        module="bes.core.ipr",
         note="El primer término es lo que aporta el tramo recto; el segundo, lo "
              "que agrega el tramo de Vogel de Pb hasta cero.",
     ),
@@ -268,7 +270,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Pwf": "Presión de fondo fluyente del ensayo [psia]",
             "n": "Exponente de entregabilidad, entre 0.5 y 1.0 [-]",
         },
-        reference="Fetkovich, SPE 4529 (1973)", module="bes.core.ipr",
+        reference="Beggs (2003), ec. 2-54 (pág. 31)",
+        module="bes.core.ipr",
         note="Un solo punto de ensayo no alcanza para ajustar C y n a la vez: "
              "n viene del ensayo isocronal, o se asume 1.0 (flujo laminar).",
     ),
@@ -281,7 +284,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Pr": "Presión estática del reservorio [psia]",
             "n": "Exponente de entregabilidad [-]",
         },
-        reference="Fetkovich, SPE 4529 (1973)", module="bes.core.ipr",
+        reference="Beggs (2003), ec. 2-54 (pág. 31), evaluada en P_wf = 0",
+        module="bes.core.ipr",
     ),
 
     # 2) Pwf de diseño: el caudal objetivo, al revés.
@@ -294,7 +298,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "q": "Caudal objetivo de diseño [STB/d]",
             "J": "Índice de productividad [STB/d/psi]",
         },
-        reference="Darcy; Brown Vol. 2b §4.522", module="bes.core.ipr",
+        reference="Brown Vol. 4, ec. 2.31 (pág. 15)", module="bes.core.ipr",
         note="La recta de Darcy tiene despeje directo. Vale con flujo "
              "monofásico, o sea con Pwf por encima de la presión de burbuja.",
     ),
@@ -308,7 +312,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Pr": "Presión estática del reservorio [psia]",
             "Pwf": "Presión de fondo fluyente resultante [psia]",
         },
-        reference="Beggs, «Production Optimization», §2", module="bes.core.ipr",
+        reference="Brown Vol. 4, ec. 2.27 (pág. 15)",
+        module="bes.core.ipr",
         note="Arriba de la burbuja la IPR compuesta es una recta y el flujo en "
              "el reservorio sigue siendo monofásico.",
     ),
@@ -321,7 +326,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Pr": "Presión estática del reservorio [psia]",
             "Pb": "Presión de burbuja [psia]",
         },
-        reference="Beggs, «Production Optimization», §2", module="bes.core.ipr",
+        reference="Brown Vol. 4, ec. 2.27 (pág. 15)",
+        module="bes.core.ipr",
         note="Marca dónde se dobla la curva. Decide cuál de los dos tramos "
              "aplica al caudal de diseño.",
     ),
@@ -337,10 +343,15 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Pb": "Presión de burbuja [psia]",
             "Pwf": "Presión de fondo fluyente resultante [psia]",
         },
-        reference="Vogel, JPT (1968); Beggs §2, ec. 2-53", module="bes.core.ipr",
+        reference="Brown Vol. 4, ec. 2.29 (pág. 15)",
+        module="bes.core.ipr",
         note="Debajo de la burbuja se libera gas, el flujo se hace bifásico y "
-             "la curva se dobla. Los dos tramos empalman con la misma pendiente "
-             "en Pb: la IPR no tiene quiebre.",
+             "la curva se dobla. El 1.8 del denominador es literalmente "
+             "0.2 + 1.6, la derivada del corchete evaluada en Pwf = Pb (Beggs "
+             "ec. 2-36 y 2-37): con él, dq/dPwf en la burbuja vale exactamente "
+             "−J, así que la parábola sale TANGENTE a la recta de arriba y la "
+             "IPR no tiene quiebre. Con Pb ≥ Pr el primer término se anula y la "
+             "expresión se reduce sola al Vogel puro con q_max = J·Pr/1.8.",
     ),
     FormulaSpec(
         key="pwf_fetkovich", topic="ipr", step="pwf_diseno",
@@ -353,7 +364,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Pwf": "Presión de fondo fluyente resultante [psia]",
             "n": "Exponente de entregabilidad [-]",
         },
-        reference="Fetkovich, SPE 4529 (1973); Beggs §2, ec. 2-54",
+        reference="Beggs (2003), ec. 2-54 (pág. 31)",
         module="bes.core.ipr",
         note="Fetkovich NO se parte en la presión de burbuja: el ajuste de C y "
              "n ya absorbe el comportamiento bifásico del reservorio.",
@@ -366,7 +377,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Pr": "Presión estática del reservorio [psia]",
             "Pwf": "Presión de fondo fluyente de diseño [psia]",
         },
-        reference="Brown Vol. 2b §4.522", module="bes.core.ipr",
+        reference="Brown Vol. 4, ec. 2.31 (pág. 15)", module="bes.core.ipr",
         note="Es lo que hay que quitarle al reservorio para que entregue el "
              "caudal objetivo. De la Pwf sale el PIP, y de ahí el TDH.",
     ),
@@ -381,7 +392,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "WC": "Corte de agua, en fracción [-]",
             "SG_w": "Gravedad específica del agua de formación [-]",
         },
-        reference="Brown Vol. 2b §4.5324", module="bes.core.tdh",
+        reference="Brown Vol. 2b, Sección 4.5324 (pág. 63)",
+        module="bes.core.tdh",
         note="Ponderación por corte de agua. El catálogo publica la potencia "
              "para agua (SG = 1), por eso después se corrige por este valor.",
     ),
@@ -393,7 +405,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "PIP": "Presión en la admisión de la bomba [psia]",
             "SG": "Gravedad específica del líquido producido [-]",
         },
-        reference="Brown Vol. 2b §4.5324", module="bes.core.tdh",
+        reference="Brown Vol. 2b, Sección 4.5324 (pág. 63)",
+        module="bes.core.tdh",
         note="2.31 ft/psi es la columna de agua dulce; dividir por SG la lleva "
              "al fluido real. Es la altura que la bomba NO tiene que levantar.",
     ),
@@ -405,7 +418,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "D_bomba": "Profundidad de asentamiento de la bomba [ft TVD]",
             "H_pip": "Sumergencia [ft]",
         },
-        reference="Brown Vol. 2b §4.5324", module="bes.core.tdh",
+        reference="Brown Vol. 2b, Sección 4.5324 (págs. 62 a 64)",
+        module="bes.core.tdh",
         note="Si el nivel de fluido queda por encima de la bomba, H_pip supera "
              "la profundidad y este término se vuelve negativo: la sumergencia "
              "ayuda en vez de estorbar.",
@@ -421,7 +435,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "d": "Diámetro interno del tubing [in]",
             "L": "Longitud de tubería [ft]",
         },
-        reference="Brown Vol. 2b §4.5324", module="bes.core.tdh",
+        reference="Brown Vol. 2b, Sección 4.5324, Fig. 4.53 (pág. 63)",
+        module="bes.core.tdh",
         note="Correlación MONOFÁSICA. Se usa cuando la fracción de gas libre "
              "en la admisión no supera el umbral —el flujo en el tubing se "
              "puede tratar como líquido— **y** el líquido tiene menos de 5 cp. "
@@ -441,8 +456,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "v": "Velocidad media del líquido [ft/s]",
             "g": "Aceleración de la gravedad [ft/s²]",
         },
-        reference="Darcy-Weisbach; factor turbulento por Swamee y Jain (1976), "
-                  "ajuste explícito de Colebrook-White",
+        reference="Criterio del proyecto",
         module="bes.core.tdh",
         note="La otra MONOFÁSICA, y la única de las dos que contempla la "
              "viscosidad. El factor depende del régimen: f = 64/Re en laminar "
@@ -461,7 +475,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "L": "Longitud de tubería [ft]",
             "SG": "Gravedad específica del líquido producido [-]",
         },
-        reference="Poettmann & Carpenter (1952); Brown Vol. 2b §4.5324",
+        reference="Poettmann y Carpenter, descrito en Beggs (2003), pág. 84",
         module="bes.core.tdh",
         note="Se toma SOLO el término de fricción: la elevación vertical ya "
              "representa la columna, y sumar el término de gravedad de P&C la "
@@ -476,7 +490,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "P_wh": "Presión requerida en boca de pozo [psi]",
             "SG": "Gravedad específica del líquido producido [-]",
         },
-        reference="Brown Vol. 2b §4.5324", module="bes.core.tdh",
+        reference="Brown Vol. 2b, Sección 4.5324 (pág. 63)",
+        module="bes.core.tdh",
     ),
     FormulaSpec(
         key="tdh", topic="tdh", step="tdh",
@@ -487,7 +502,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "H_fric": "Pérdida por fricción en el tubing [ft]",
             "H_wh": "Altura equivalente a la presión de boca de pozo [ft]",
         },
-        reference="Brown Vol. 2b §4.5324", module="bes.core.tdh",
+        reference="Brown Vol. 2b, Sección 4.5324 (págs. 62 a 64)",
+        module="bes.core.tdh",
         note="Es la altura total que la bomba tiene que desarrollar.",
     ),
 
@@ -501,7 +517,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "H_etapa": "Altura por etapa de la curva de catálogo, al caudal de "
                        "operación y a la frecuencia de trabajo [ft/etapa]",
         },
-        reference="Brown Vol. 2b §4.5325", module="bes.core.pump_design",
+        reference="Brown Vol. 2b, Sección 4.5323 (pág. 61)",
+        module="bes.core.pump_design",
         note="H_etapa sale de la curva YA escalada a la frecuencia de "
              "operación: a 50 Hz una bomba da menos altura por etapa que a 60.",
     ),
@@ -514,7 +531,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "HP_etapa": "Potencia por etapa de la curva de catálogo [hp/etapa]",
             "SG": "Gravedad específica del líquido producido [-]",
         },
-        reference="Brown Vol. 2b §4.5325", module="bes.core.pump_design",
+        reference="Brown Vol. 2b, Sección 4.5323 (pág. 62)",
+        module="bes.core.pump_design",
         note="HP_etapa del catálogo está calibrada para agua (SG = 1); "
              "multiplicar por el SG del fluido da la potencia real.",
     ),
@@ -532,7 +550,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "T": "Temperatura de evaluación [°F]",
             "μ_od": "Viscosidad del crudo muerto [cp]",
         },
-        reference="Brown Vol. 2b, Apéndice 4L, Fig. 4L(2)",
+        reference="Brown Vol. 2b, Apéndice 4L, Fig. 4L(2); Sección 4.53113, paso 2 (pág. 91)",
         module="bes.core.viscosity",
         note="Riling dice «de ensayos o de la Fig. 4L», y ése es el orden: un "
              "dato medido a la temperatura correcta manda sobre la lámina. "
@@ -549,7 +567,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Rs": "Gas DISUELTO en la admisión [scf/STB]",
             "μ_ob": "Viscosidad del crudo saturado de gas [cp]",
         },
-        reference="Brown Vol. 2b, Apéndice 4L, Fig. 4L(1)",
+        reference="Brown Vol. 2b, Apéndice 4L, Fig. 4L(1); Sección 4.53113, paso 3 (pág. 91)",
         module="bes.core.viscosity",
         note="Entra el gas DISUELTO, no el GOR total: el gas ya liberado está "
              "al lado, libre, y no adelgaza al petróleo. La lámina se titula "
@@ -563,7 +581,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "μ_ob": "Viscosidad dinámica del crudo saturado [cp]",
             "γ_o": "Densidad relativa del petróleo [-]",
         },
-        reference="Brown Vol. 2b §4.53112", module="bes.core.viscosity",
+        reference="Brown Vol. 2b, Sección 4.53112, paso 4 (pág. 90)",
+        module="bes.core.viscosity",
         note="La conversión a SSU se indexa por viscosidad CINEMÁTICA, así que "
              "hay que dividir por la densidad relativa antes de convertir.",
     ),
@@ -579,7 +598,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "C_HP": "Factor de potencia [%]",
             "η_visc": "Rendimiento degradado [%]",
         },
-        reference="Brown Vol. 2b §4.53112, Tablas 4.520 y 4.521 (Riling)",
+        reference="Brown Vol. 2b, Tablas 4.520 y 4.521 (pág. 91)",
         module="bes.core.viscosity",
         note="Dos tablas según el rendimiento máximo de la bomba —4.520 para "
              "60 % y 4.521 para 70 %—, interpoladas entre ambas. Fuera del "
@@ -592,8 +611,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
         expression="SSU = 2.273 · ( ν + sqrt( ν² + 158.4 ) )", units="SSU",
         symbols={"ν": "Viscosidad cinemática de la mezcla a temperatura de "
                       "bombeo, μ/γ_o [cSt]"},
-        reference="Takács, «Electrical Submersible Pumps Manual», 2ª ed. "
-                  "(2018), cap. 4, ec. 4.14, pág. 159",
+        reference="Takács (2018), ec. 4.14 (pág. 159)",
         module="bes.core.viscosity",
         note="Es el paso 4 de Riling: las Tablas 4.520 y 4.521 se indexan por "
              "SSU, así que sin esta conversión no se puede entrar. Reemplaza a "
@@ -609,7 +627,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Q_pedido": "Caudal que se le pide a la bomba con el crudo [STB/d]",
             "C_Q": "Factor de corrección de caudal, en fracción [-]",
         },
-        reference="Brown Vol. 2b §4.53112 (Riling), Tabla 4.52x",
+        reference="Brown Vol. 2b, Sección 4.53112, paso 6 (pág. 90); Tablas 4.520 y 4.521 (pág. 91)",
         module="bes.core.pump_design",
         note="Se DIVIDE, no se multiplica: la curva del catálogo está levantada "
              "con agua, así que para entregar el caudal pedido con crudo hay "
@@ -623,7 +641,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "TDH_pedido": "Altura que tiene que desarrollar con el crudo [ft]",
             "C_H": "Factor de corrección de altura, en fracción [-]",
         },
-        reference="Brown Vol. 2b §4.53112 (Riling), Tabla 4.52x",
+        reference="Brown Vol. 2b, Sección 4.53112, paso 6 (pág. 90); Tablas 4.520 y 4.521 (pág. 91)",
         module="bes.core.pump_design",
         note="Mismo criterio que el caudal: la bomba desarrolla menos altura "
              "con el crudo que con agua.",
@@ -636,7 +654,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "HP_agua": "Potencia al eje con la curva de agua [hp]",
             "C_HP": "Factor de corrección de potencia [-]",
         },
-        reference="Brown Vol. 2b §4.53112 (Riling), Tabla 4.52x",
+        reference="Brown Vol. 2b, Sección 4.53112, paso 6 (pág. 90); Tablas 4.520 y 4.521 (pág. 91)",
         module="bes.core.pump_design",
         note="Acá SÍ se multiplica: el rendimiento cae con el crudo viscoso y "
              "la potencia sube. C_HP es mayor que 1.",
@@ -657,7 +675,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "WC": "Corte de agua [fracción 0–1]",
             "Bo": "Factor volumétrico del petróleo a P y T de admisión [bbl/STB]",
         },
-        reference="Brown Vol. 2b §4.532", module="bes.core.gas_handling",
+        reference="Brown Vol. 2b, Sección 4.53103, paso 1, ec. 4.52 (pág. 74)",
+        module="bes.core.gas_handling",
         note="Sobre la base de UN barril de líquido de superficie. El petróleo "
              "se dilata al bajar la presión y al tomar gas en solución, y por "
              "eso Bo es mayor que 1.",
@@ -670,7 +689,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "WC": "Corte de agua [fracción 0–1]",
             "Bw": "Factor volumétrico del agua a P y T de admisión [bbl/STB]",
         },
-        reference="Brown Vol. 2b §4.532", module="bes.core.gas_handling",
+        reference="Brown Vol. 2b, Sección 4.53103, paso 1, ec. 4.52 (pág. 74)",
+        module="bes.core.gas_handling",
     ),
     FormulaSpec(
         key="gas_volumen_libre", topic="gas", step="balance_gas_libre",
@@ -682,7 +702,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Rs": "Gas que sigue DISUELTO a P y T de admisión [scf/STB]",
             "Bg": "Factor volumétrico del gas [bbl/scf]",
         },
-        reference="Brown Vol. 2b §4.532", module="bes.core.gas_handling",
+        reference="Brown Vol. 2b, Sección 4.53103, paso 1, ec. 4.52 (pág. 74)",
+        module="bes.core.gas_handling",
         note="El gas libre es la diferencia entre el que el pozo produce y el "
              "que sigue disuelto. Rs se acota al GOR: no puede liberarse más "
              "gas del que el pozo produce. Multiplica por (1 − WC) porque el "
@@ -697,7 +718,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "V_w": "Volumen de agua [bbl]",
             "V_g": "Volumen de gas libre [bbl]",
         },
-        reference="Brown Vol. 2b §4.532; Takács (2018) §4.4.3",
+        reference="Takács (2018), Sección 4.4.2, ecs. 4.15, 4.22 y 4.23 (págs. 165 a 168)",
         module="bes.core.gas_handling",
         note="Es una FRACCIÓN sobre el volumen total, no una relación "
              "gas/líquido. Gobierna la correlación de fricción, la escalera de "
@@ -708,7 +729,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
         label="Relación gas/líquido en la admisión",
         expression="r = f / (1 − f)", units="bbl gas / bbl líquido",
         symbols={"f": "Fracción volumétrica de gas libre [0–1]"},
-        reference="Brown Vol. 2b §4.523, pág. 59",
+        reference="Brown Vol. 2b, Sección 4.523 (pág. 59)",
         module="bes.core.gas_handling",
         note="La misma cantidad de gas, expresada de la otra manera. Hace falta "
              "porque el criterio de Brown —la bomba pierde altura por encima de "
@@ -728,7 +749,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "capacidad": "Fracción de vacío que admite esa configuración de "
                          "aparejo [0–1]",
         },
-        reference="Takács (2018), Fig. 4.25, pág. 195",
+        reference="Takács (2018), Fig. 4.25 (pág. 195)",
         module="bes.core.gas_handling",
         note="Es una propiedad de la TECNOLOGÍA: 20 % sin separador, 80 % con "
              "uno, 95 % en tándem. Se mide en la admisión —la figura dice «at "
@@ -762,7 +783,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "η": "Eficiencia de separación [0–1]",
             "r'": "Relación gas/líquido después del separador [-]",
         },
-        reference="Brown Vol. 2b §4.524", module="bes.core.gas_handling",
+        reference="Takács (2018), ecs. 5.36 y 5.37 (pág. 274)",
+        module="bes.core.gas_handling",
         note="La reducción se aplica sobre la RELACIÓN, no sobre la fracción: "
              "el separador saca gas y deja el líquido. Un separador del 75 % NO "
              "deja f × 0.25; con f = 65 % deja 31.6 % y no 16.2 %.",
@@ -775,38 +797,42 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
     FormulaSpec(
         key="gas_turpin_f", topic="gas", step="verificacion_turpin",
         label="Factor de estabilidad de Turpin",
-        expression="F = 2000 · r_bomba³ / PIP", units="adimensional",
+        expression="Φ = 2000 · r_bomba / (3 · PIP)", units="adimensional",
         symbols={
             "r_bomba": "Relación gas libre / líquido a la entrada de la bomba, "
                        "en condiciones de admisión [-]",
             "PIP": "Presión en la admisión de la bomba [psia]",
         },
-        reference="Takács (2018), *Electrical Submersible Pumps Manual*, "
-                  "§4.4.3.2, ec. 4.30, págs. 175-177 (correlación de Turpin)",
+        reference="Takács (2018), ec. 4.30 (pág. 175); Fig. 4.9 (pág. 176)",
         module="bes.core.gas_handling",
-        note="Entra la RELACIÓN gas/líquido, no la fracción: pasarle la "
-             "fracción directamente da un F equivocado, que es el mismo error "
-             "que la reducción del separador. F < 1 es operación estable; "
-             "F > 1, interferencia severa por gas. Es VERIFICACIÓN PARALELA: "
-             "no decide la viabilidad del pozo, que la resuelve la condición 2 "
-             "de la escalera contra max_gip.",
+        note="El 3 va en el DENOMINADOR, junto a la PIP; no es un exponente "
+             "sobre la relación. La forma correcta reproduce la Fig. 4.9 punto "
+             "por punto (60.0 % de gas a 1000 psia contra 60 % leídos); la "
+             "forma con exponente da 44.3 % y ni se acerca. Entra la RELACIÓN "
+             "gas/líquido, no la fracción: pasarle la fracción directamente da "
+             "un Φ equivocado, que es el mismo error que la reducción del "
+             "separador. Φ < 1 es operación estable; Φ > 1, interferencia "
+             "severa por gas. Es VERIFICACIÓN PARALELA: no decide la "
+             "viabilidad del pozo, que la resuelve la condición 2 de la "
+             "escalera contra max_gip.",
     ),
     FormulaSpec(
         key="gas_turpin_limite", topic="gas", step="verificacion_turpin",
         label="Fracción de gas que Turpin admite a esta presión",
-        expression="r_lím = (PIP / 2000)^(1/3)   →   f_lím = r_lím / (1 + r_lím)",
+        expression="r_lím = 3 · PIP / 2000   →   f_lím = r_lím / (1 + r_lím)",
         units="fracción",
         symbols={
             "PIP": "Presión en la admisión de la bomba [psia]",
-            "r_lím": "Relación gas/líquido que hace F = 1 [-]",
+            "r_lím": "Relación gas/líquido que hace Φ = 1 [-]",
         },
-        reference="Takács (2018), §4.4.3.2, ec. 4.30, despejada para F = 1",
+        reference="Takács (2018), ec. 4.30 (pág. 175) con Φ = 1; Fig. 4.9 (pág. 176)",
         module="bes.core.gas_handling",
         note="Es la ec. 4.30 leída al revés: en qué fracción de gas se agota el "
              "margen a esta presión. Muestra que el límite DEPENDE de la PIP —"
-             "del orden de 27 % a 100 psia y 44 % a 1000 psia—, mientras que la "
-             "herramienta adopta un 10 % fijo. En ese rango Turpin es más "
-             "permisivo que el criterio propio.",
+             "13.0 % a 100 psia, 60.0 % a 1000 psia, 70.6 % a 1600 psia—, "
+             "mientras que la herramienta adopta un 10 % fijo. Turpin es más "
+             "EXIGENTE que el criterio propio por debajo de unos 74 psia de "
+             "admisión, y más permisivo por encima.",
     ),
 
     FormulaSpec(
@@ -817,7 +843,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "P_desc": "Presión de descarga de la bomba [psia]",
             "P_adm": "Presión en la admisión (PIP) [psia]",
         },
-        reference="Brown Vol. 2b §4.53103", module="bes.core.gas_handling",
+        reference="Brown Vol. 2b, Sección 4.53102, paso 3 (pág. 74)",
+        module="bes.core.gas_handling",
         note="Es lo que se divide en escalones. Con gas libre el caudal "
              "volumétrico NO es constante a lo largo de la bomba —el gas se "
              "comprime y parte pasa a solución—, así que no se puede resolver "
@@ -831,7 +858,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "ΔP": "Salto total de presión de la bomba [psi]",
             "escalón": "Tamaño del incremento elegido [psi]",
         },
-        reference="Brown Vol. 2b §4.53103", module="bes.core.gas_handling",
+        reference="Brown Vol. 2b, Sección 4.53102, paso 4 (pág. 74)",
+        module="bes.core.gas_handling",
         note="Lleva TECHO: el último escalón se queda con el resto de la "
              "división y por eso puede ser más corto que los demás.",
     ),
@@ -843,7 +871,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Q_ent": "Caudal volumétrico de mezcla al entrar al tramo [b/d]",
             "Q_sal": "Caudal volumétrico de mezcla al salir del tramo [b/d]",
         },
-        reference="Brown Vol. 2b §4.53103 paso 5",
+        reference="Brown Vol. 2b, Sección 4.53102, paso 10 (pág. 74)",
         module="bes.core.gas_handling",
         note="Se evalúa en los DOS extremos y se promedia, que es lo que hace "
              "el libro. No en el punto medio: Bg va con 1/P, así que el valor "
@@ -857,7 +885,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "grad_ent": "Gradiente de la mezcla al entrar al tramo [psi/ft]",
             "grad_sal": "Gradiente de la mezcla al salir del tramo [psi/ft]",
         },
-        reference="Brown Vol. 2b §4.53103 paso 4",
+        reference="Brown Vol. 2b, Sección 4.53102, paso 7 (pág. 74)",
         module="bes.core.gas_handling",
         note="Gradiente de la mezcla completa: petróleo, agua y gas libre a la "
              "presión y temperatura del tramo.",
@@ -871,11 +899,11 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "C_Q": "Factor de corrección de caudal del tramo [-]",
             "C_H": "Factor de corrección de altura del tramo [-]",
         },
-        reference="Brown Vol. 2b §4.53112 (Riling)",
+        reference="Brown Vol. 2b, Sección 4.53112, paso 6 (pág. 90)",
         module="bes.core.gas_handling",
         note="Se evalúa POR TRAMO: el gas en solución cambia con la presión y "
              "la viscosidad del crudo vivo con él, así que cada tramo ve un "
-             "fluido distinto. Crudo ≥ 28 °API no se corrige.",
+             "fluido distinto. Con menos de 100 SSU no se corrige.",
     ),
     FormulaSpec(
         key="gas_deterioro", topic="gas", step="deterioro_gas",
@@ -885,7 +913,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "H_etapa": "Altura por etapa según la curva corregida [ft/etapa]",
             "f_det": "Factor de deterioro por gas libre [-]",
         },
-        reference="Brown Vol. 2b §4.53102", module="bes.core.gas_handling",
+        reference="Criterio del proyecto",
+        module="bes.core.gas_handling",
         note="Con gas libre la bomba entrega menos altura que su curva de agua.",
     ),
     FormulaSpec(
@@ -896,7 +925,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "H_efec": "Altura efectiva por etapa [ft/etapa]",
             "grad": "Gradiente promedio de la mezcla del tramo [psi/ft]",
         },
-        reference="Brown Vol. 2b §4.53103 paso 7",
+        reference="Brown Vol. 2b, Sección 4.53102, paso 12 (pág. 74)",
         module="bes.core.gas_handling",
         note="Una etapa da una ALTURA fija en pies; cuántos psi son esos pies "
              "depende de la densidad de la mezcla, que cambia tramo a tramo.",
@@ -909,7 +938,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "ΔP_tramo": "Salto de presión del tramo [psi]",
             "Δp_etapa": "Presión que aporta cada etapa en el tramo [psi/etapa]",
         },
-        reference="Brown Vol. 2b §4.53103 paso 8",
+        reference="Brown Vol. 2b, Sección 4.53102, paso 13 (pág. 74)",
         module="bes.core.gas_handling",
         note="NO se redondea acá. Redondear cada tramo cuesta hasta media etapa "
              "cada vez y el error se acumula con la cantidad de tramos.",
@@ -924,7 +953,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "SG_mezcla": "Gravedad específica de la mezcla del tramo [-]",
             "C_HP": "Factor de corrección por viscosidad [-]",
         },
-        reference="Brown Vol. 2b §4.5325", module="bes.core.gas_handling",
+        reference="Brown Vol. 2b, Sección 4.53102, pasos 15 y 16 (pág. 74)",
+        module="bes.core.gas_handling",
         note="HP_etapa del catálogo está calibrada para agua (SG = 1).",
     ),
     FormulaSpec(
@@ -935,7 +965,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Q_prom,i": "Caudal de mezcla promedio de cada tramo [b/d]",
             "n": "Cantidad de tramos [-]",
         },
-        reference="Brown Vol. 2b §4.53103 paso 6",
+        reference="Criterio del proyecto",
         module="bes.core.gas_handling",
         note="Con este caudal se elige UNA bomba para toda la sarta. "
              "Re-seleccionar por tramo daba sartas de 3-4 modelos distintos "
@@ -946,7 +976,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
         label="Etapas totales de la sarta",
         expression="N = ⌈Σ N_tramo⌉", units="etapas",
         symbols={"N_tramo": "Etapas de cada tramo, en fracción [-]"},
-        reference="Brown Vol. 2b §4.53103", module="bes.core.gas_handling",
+        reference="Brown Vol. 2b, Sección 4.53102, paso 14 (pág. 74)",
+        module="bes.core.gas_handling",
         note="Se suman las fracciones y se redondea UNA sola vez al final.",
     ),
     FormulaSpec(
@@ -954,7 +985,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
         label="Potencia total al eje",
         expression="HP = Σ HP_tramo", units="hp",
         symbols={"HP_tramo": "Potencia de cada tramo [hp]"},
-        reference="Brown Vol. 2b §4.5325", module="bes.core.gas_handling",
+        reference="Brown Vol. 2b, Sección 4.53102, paso 16 (pág. 74)",
+        module="bes.core.gas_handling",
         note="Cada tramo aporta según sus propias etapas y el SG de su mezcla, "
              "que no son iguales entre tramos.",
     ),
@@ -966,7 +998,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "ΔP_tramo": "Salto de presión de cada tramo [psi]",
             "grad_tramo": "Gradiente promedio de cada tramo [psi/ft]",
         },
-        reference="Identidad del conteo de etapas",
+        reference="Criterio del proyecto",
         module="bes.core.gas_handling",
         note="No es una correlación nueva: es la misma identidad del conteo de "
              "etapas despejada al revés, y por eso es coherente con él. El TDH "
@@ -983,7 +1015,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "5.615": "Conversión de bbl a ft³",
             "q_STB": "Caudal de petróleo en superficie [STB/d]",
         },
-        reference="Conservación de masa", module="bes.core.gas_handling",
+        reference="Brown Vol. 2b, Sección 4.53102, paso 5 (pág. 74)",
+        module="bes.core.gas_handling",
         note="Es el invariante de control del método: la masa NO cambia a lo "
              "largo de la bomba aunque el volumen sí. El test lo verifica "
              "entre los dos extremos.",
@@ -1011,7 +1044,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "q_w": "Caudal de agua en superficie [STB/d]",
             "Bw": "Factor volumétrico del agua [bbl/STB]",
         },
-        reference="Brown Vol. 2b §4.532", module="bes.core.multiphase",
+        reference="Takács (2018), ec. 4.22 (pág. 168)",
+        module="bes.core.multiphase",
         note="Los caudales de superficie se llevan a las condiciones del punto "
              "con los factores volumétricos del PVT: el fluido ocupa otro "
              "volumen ahí abajo.",
@@ -1026,7 +1060,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Rs": "Gas en solución a la presión del punto [scf/STB]",
             "Bg": "Factor volumétrico del gas [bbl/scf]",
         },
-        reference="Brown Vol. 2b §4.532", module="bes.core.multiphase",
+        reference="Takács (2018), ec. 4.15 (pág. 166)",
+        module="bes.core.multiphase",
         note="Sólo el gas LIBRE ocupa volumen aparte: el que está en solución "
              "ya viaja dentro del petróleo y lo cuenta Bo. Por eso la resta, "
              "acotada a cero.",
@@ -1041,7 +1076,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "86400": "Segundos en un día",
             "A": "Área de flujo de la cañería [ft²]",
         },
-        reference="Poettmann & Carpenter (1952)", module="bes.core.multiphase",
+        reference="Takács (2018), ec. 4.17 (pág. 167)",
+        module="bes.core.multiphase",
         note="«Superficial» quiere decir: la velocidad que tendría esa fase si "
              "ocupara ella sola toda la sección de la cañería.",
     ),
@@ -1053,7 +1089,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "v_sl": "Velocidad superficial del líquido [ft/s]",
             "v_m": "Velocidad de la mezcla, v_sl + v_sg [ft/s]",
         },
-        reference="Poettmann & Carpenter (1952)", module="bes.core.multiphase",
+        reference="Poettmann y Carpenter, descrito en Beggs (2003), pág. 84",
+        module="bes.core.multiphase",
         note="P&C supone mezcla HOMOGÉNEA: las dos fases viajan a la misma "
              "velocidad, sin deslizamiento entre ellas. Por eso la fracción de "
              "líquido se pondera por caudal y no hace falta un modelo de "
@@ -1068,22 +1105,40 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "λ_l": "Fracción de líquido sin deslizamiento [-]",
             "ρ_g": "Densidad del gas in-situ [lb/ft³]",
         },
-        reference="Poettmann & Carpenter (1952)", module="bes.core.multiphase",
+        reference="Poettmann y Carpenter, descrito en Beggs (2003), pág. 84",
+        module="bes.core.multiphase",
     ),
     FormulaSpec(
         key="pc_factor_friccion", topic="multifasico", step="factor_friccion",
         label="Factor de fricción de Poettmann & Carpenter",
-        expression="f = 0.030 · (ρ_m · v_m · d)^(−0.19)", units="-",
+        expression="f = Fig. 2.36 (Brown Vol. 1) leída con Dρv = ρ_m · v_m · d", units="-",
         symbols={
             "ρ_m": "Densidad de la mezcla [lb/ft³]",
             "v_m": "Velocidad de la mezcla [ft/s]",
             "d": "Diámetro interno de la cañería [ft]",
         },
-        reference="Brown (1977) Vol. 1, Tabla 4-7", module="bes.core.multiphase",
-        note="Ajuste log-log a la carta original de P&C. NO es el factor de "
-             "Moody: el número de correlación ρ_m·v_m·d no es un Reynolds, no "
-             "lleva viscosidad. Se acota a [0.005, 0.065], que es el rango que "
-             "cubre la carta impresa.",
+        reference="Brown y Beggs (1977), Sección 2.3322, Fig. 2.36 (pág. 106)",
+        module="bes.core.multiphase",
+        note="Curva de la Fig. 2.36 digitalizada e interpolada en escala "
+             "log-log. Es el factor tipo Fanning de la ec. 2.34 (el que va con "
+             "7,413×10¹⁰). Dρv no es un Reynolds: no lleva viscosidad. Fuera "
+             "del rango impreso (0,853 a 100 lb/(ft·s)) se toma el valor del "
+             "extremo y se avisa: criterio del proyecto.",
+    ),
+    FormulaSpec(
+        key="pc_caudal_masico", topic="multifasico", step="gradiente",
+        label="Caudal másico de la mezcla",
+        expression="w = ρ_m · v_m · A · 86400", units="lb/d",
+        symbols={
+            "ρ_m": "Densidad de la mezcla [lb/ft³]",
+            "v_m": "Velocidad de la mezcla [ft/s]",
+            "A": "Área de flujo [ft²]",
+            "86400": "Segundos por día",
+        },
+        reference="Brown y Beggs (1977), Sección 2.3322, ec. 2.34 (pág. 106)",
+        module="bes.core.multiphase",
+        note="Es la masa de petróleo, agua y gas que pasa por día; no cambia "
+             "a lo largo del tubing (Brown, Apéndice C.12, paso 4).",
     ),
     FormulaSpec(
         key="pc_rgl", topic="multifasico", step="envelope",
@@ -1110,24 +1165,25 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "θ": "Ángulo de la cañería respecto de la horizontal [°]",
             "144": "Conversión de lb/ft² a psi",
         },
-        reference="Poettmann & Carpenter (1952)", module="bes.core.multiphase",
+        reference="Brown y Beggs (1977), Sección 2.3322, ec. 2.34 (pág. 106)",
+        module="bes.core.multiphase",
         note="Es el peso de la columna. **Nunca sumarlo al TDH**: la elevación "
              "vertical ya representa esa columna y se contaría dos veces.",
     ),
     FormulaSpec(
         key="pc_gradiente_friccion", topic="multifasico", step="gradiente",
         label="Gradiente por fricción",
-        expression="(dP/dz)_fric = f · ρ_m · v_m² / (2 · g_c · d · 144)",
+        expression="(dP/dz)_fric = f · w² / (7.413×10¹⁰ · ρ_m · d⁵ · 144)",
         units="psi/ft",
         symbols={
-            "f": "Factor de fricción de P&C [-]",
+            "f": "Factor de Poettmann & Carpenter, Fig. 2.36 [-]",
+            "w": "Caudal másico de la mezcla [lb/d]",
             "ρ_m": "Densidad de la mezcla [lb/ft³]",
-            "v_m": "Velocidad de la mezcla [ft/s]",
-            "g_c": "Constante gravitacional, 32.174 lbm·ft/(lbf·s²)",
             "d": "Diámetro interno de la cañería [ft]",
             "144": "Conversión de lb/ft² a psi",
         },
-        reference="Poettmann & Carpenter (1952)", module="bes.core.multiphase",
+        reference="Brown y Beggs (1977), Sección 2.3322, ec. 2.34 (pág. 106)",
+        module="bes.core.multiphase",
         note="Éste es el único término que entra al TDH cuando hay gas libre, "
              "y se integra en tramos desde el cabezal hacia abajo porque el gas "
              "se expande y carga la fricción hacia el tope.",
@@ -1140,51 +1196,62 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "(dP/dz)_grav": "Gradiente por gravedad [psi/ft]",
             "(dP/dz)_fric": "Gradiente por fricción [psi/ft]",
         },
-        reference="Poettmann & Carpenter (1952)", module="bes.core.multiphase",
+        reference="Poettmann y Carpenter, descrito en Beggs (2003), pág. 84",
+        module="bes.core.multiphase",
         note="Es el gradiente que se integra a lo largo del pozo para obtener "
              "el PIP y la presión de descarga. En un pozo vertical la gravedad "
              "aporta casi todo: la fricción rara vez pasa del 5 %.",
     ),
     FormulaSpec(
-        key="pip_recorrido", topic="multifasico", step="pip",
-        label="Caída de presión en el anular, de las perforaciones a la bomba",
-        expression="Δp_anular = Σᵢ (dP/dz)ᵢ · Δz", units="psi",
+        key="pip_sg_fondo", topic="multifasico", step="pip",
+        label="Gravedad específica de la mezcla en el fondo",
+        expression="SG = m / (V · 5,615 · 62,4)", units="-",
         symbols={
-            "(dP/dz)ᵢ": "Gradiente total de P&C en el tramo i [psi/ft]",
-            "Δz": "Largo de cada tramo de integración [ft]",
+            "m": "Caudal másico de la mezcla [lb/d]",
+            "V": "Volumen de la mezcla a Pwf y temperatura de reservorio [bbl/d]",
         },
-        reference="Brown Vol. 2b §4.532", module="bes.core.tdh",
-        note="El gradiente NO es constante: depende de la presión, que es "
-             "justamente lo que se busca. Por eso el recorrido se parte en "
-             "tramos y en cada uno se itera hasta que la presión del PVT sea "
-             "consistente con la que sale. El anular usa el ID del casing.",
-    ),
-    FormulaSpec(
-        key="pip_admision", topic="multifasico", step="pip",
-        label="PIP — presión en la admisión de la bomba",
-        expression="PIP = Pwf − Δp_anular", units="psia",
-        symbols={
-            "Pwf": "Presión de fondo fluyente en las perforaciones [psia]",
-            "Δp_anular": "Caída de presión en el anular hasta la bomba [psi]",
-        },
-        reference="Brown Vol. 2b §4.532", module="bes.core.tdh",
-        note="La Pwf sale del IPR y el fluido sube por el anular hasta la "
-             "admisión perdiendo peso de columna y fricción. El PIP es el dato "
-             "que después fija la sumergencia y, con ella, el TDH.",
+        reference="Brown Vol. 2b, Sección 4.53102, paso 5 (pág. 74)",
+        module="bes.core.multiphase",
+        note="Es la SG con que el fluido llega a la columna punzados-bomba: "
+             "con los factores volumétricos del fondo, no la de superficie.",
     ),
     FormulaSpec(
         key="pip_gradiente_promedio", topic="multifasico", step="pip",
         label="Gradiente promedio del recorrido anular",
-        expression="grad_prom = Δp_anular / (D_perf − D_bomba)", units="psi/ft",
+        expression="grad = 0,433 · SG", units="psi/ft",
         symbols={
-            "Δp_anular": "Caída de presión en el anular hasta la bomba [psi]",
-            "D_perf": "Profundidad de las perforaciones [ft TVD]",
-            "D_bomba": "Profundidad de asentamiento de la bomba [ft TVD]",
+            "0,433": "Gradiente del agua dulce [psi/ft]",
+            "SG": "Gravedad específica de la mezcla en el fondo [-]",
         },
-        reference="Brown Vol. 2b §4.532", module="bes.core.tdh",
-        note="No es un paso del método: es el control de mano. Se compara "
-             "contra el gradiente del líquido (≈0.43 psi/ft para agua) — si da "
-             "mucho menos, hay gas libre aligerando la columna del anular.",
+        reference="Brown Vol. 2b, Ejemplo #1C (pág. 68)",
+        module="bes.core.multiphase",
+        note="Gradiente constante en toda la columna; la fricción en el casing "
+             "se desprecia (menos del 0,3 % del gradiente en los casos de la tesis).",
+    ),
+    FormulaSpec(
+        key="pip_recorrido", topic="multifasico", step="pip",
+        label="Caída de presión en el anular, de las perforaciones a la bomba",
+        expression="Δp_anular = grad · (D_perf − D_bomba)", units="psi",
+        symbols={
+            "grad": "Gradiente de la mezcla en el fondo [psi/ft]",
+            "D_perf": "Profundidad de la base de los punzados [ft]",
+            "D_bomba": "Profundidad de la admisión [ft]",
+        },
+        reference="Brown Vol. 2b, Ejemplo #1C (pág. 68)",
+        module="bes.core.multiphase",
+    ),
+    FormulaSpec(
+        key="pip_admision", topic="multifasico", step="pip",
+        label="PIP — presión en la admisión de la bomba",
+        expression="PIP = Pwf − Δp_anular", units="psi",
+        symbols={
+            "Pwf": "Presión de fondo fluyente en la base de los punzados [psi]",
+            "Δp_anular": "Caída de presión en el anular hasta la bomba [psi]",
+        },
+        reference="Brown Vol. 2b, Sección 4.5324 (pág. 63)",
+        module="bes.core.multiphase",
+        note="Un solo método en toda la herramienta: el mismo del método para "
+             "pozos con gas (Brown, Ejemplo #1C).",
     ),
 
     # ---------------------------------------------------------- AFINIDAD --
@@ -1197,7 +1264,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "N₂/N₁": "Relación de velocidades, igual a f₂/f₁ [-]",
             "D₂/D₁": "Relación de diámetros del impulsor [-]",
         },
-        reference="Brown Vol. 2b, Tabla 4.21", module="bes.core.affinity",
+        reference="Brown Vol. 2b, Tabla 4.21 (pág. 24)",
+        module="bes.core.affinity",
         note="El caudal va LINEAL con la velocidad. Es la ley que se invierte "
              "para preguntar «a qué frecuencia obtengo el caudal que quiero».",
     ),
@@ -1210,7 +1278,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "N₂/N₁": "Relación de velocidades [-]",
             "D₂/D₁": "Relación de diámetros del impulsor [-]",
         },
-        reference="Brown Vol. 2b, Tabla 4.21", module="bes.core.affinity",
+        reference="Brown Vol. 2b, Tabla 4.21 (pág. 24)",
+        module="bes.core.affinity",
         note="Va con el CUADRADO, y **no lleva término de SG**: un impulsor a "
              "una velocidad dada desarrolla la misma altura en pies bombee agua "
              "o salmuera. Lo que cambia con la densidad es la presión, no la "
@@ -1226,7 +1295,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "D₂/D₁": "Relación de diámetros del impulsor [-]",
             "SG₂/SG₁": "Relación de gravedades específicas del fluido [-]",
         },
-        reference="Brown Vol. 2b, Tabla 4.21", module="bes.core.affinity",
+        reference="Brown Vol. 2b, Tabla 4.21 (pág. 24)",
+        module="bes.core.affinity",
         note="Va con el CUBO, y acá sí entra la densidad: mover un fluido más "
              "pesado a la misma altura cuesta proporcionalmente más. Las curvas "
              "de catálogo son de agua, así que SG₂/SG₁ es el SG del fluido "
@@ -1241,7 +1311,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Q₂": "Caudal deseado [b/d]",
             "Q₁": "Caudal conocido a la frecuencia de referencia [b/d]",
         },
-        reference="Brown Vol. 2b, Tabla 4.21", module="bes.core.affinity",
+        reference="Brown Vol. 2b, Tabla 4.21 (pág. 24); Sección 4.534 (pág. 67)",
+        module="bes.core.affinity",
         note="Es la ley del caudal invertida, y es la pregunta que realmente "
              "hace un diseño con VSD.",
     ),
@@ -1289,7 +1360,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "N": "Cantidad de etapas [-]",
             "Pem": "Gravedad específica media del fluido bombeado [-]",
         },
-        reference="Apunte de cátedra, Unidad N°9 (pág. 140)",
+        reference="Brown Vol. 2b, Sección 4.5323 (pág. 62)",
         module="bes.core.mechanical",
         note="Pasar el límite del eje estándar obliga a eje de alta "
              "resistencia; pasar el de alta resistencia descarta la bomba.",
@@ -1303,7 +1374,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "f_ref": "Frecuencia a la que el fabricante publica el límite [Hz]",
             "f": "Frecuencia de operación del diseño [Hz]",
         },
-        reference="Wood Group ESP, hoja ENGINEERING DATA TD1750 50Hz",
+        reference="Takács (2018), ec. 5.12 (pág. 250)",
         module="bes.core.mechanical",
         note="Lo que aguanta un eje es un TORQUE, no una potencia, y potencia = "
              "torque × velocidad: por eso el límite escala lineal con la "
@@ -1342,7 +1413,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "Pem": "Gravedad específica media del fluido bombeado [-]",
             "2.31": "ft de columna de agua por psi",
         },
-        reference="Brown Vol. 2b §4.5451", module="bes.core.housing",
+        reference="Takács (2018), ec. 5.13 (pág. 250)",
+        module="bes.core.housing",
         note="El peor caso para el recipiente es caudal cero: ahí la altura por "
              "etapa es máxima y todo el diferencial presiona la carcasa. Se "
              "acumula desde la admisión, así que **la carcasa de arriba es la "
@@ -1378,7 +1450,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "I": "Corriente del motor a plena carga [A]",
             "L": "Longitud de cable, hasta la profundidad de la bomba [ft]",
         },
-        reference="Brown Vol. 2b §4.5332", module="bes.core.electrical",
+        reference="Brown Vol. 2b, Sección 4.5325, Fig. 4.54 (pág. 64)",
+        module="bes.core.electrical",
         note="La caída por amper sale del catálogo interpolada a la temperatura "
              "de fondo: un conductor caliente resiste más.",
     ),
@@ -1391,7 +1464,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "√3": "Factor de sistema trifásico",
             "L": "Longitud de cable [ft]",
         },
-        reference="Brown Vol. 2b §4.5332", module="bes.core.electrical",
+        reference="Criterio del proyecto",
+        module="bes.core.electrical",
         note="La caída de catálogo es de línea a línea; dividir por √3 la lleva "
              "a resistencia por fase.",
     ),
@@ -1404,23 +1478,10 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "I": "Corriente del motor [A]",
             "R": "Resistencia por fase [ohm]",
         },
-        reference="Brown Vol. 2b §4.5332", module="bes.core.electrical",
+        reference="Takács (2018), ec. 5.25 (pág. 258)",
+        module="bes.core.electrical",
         note="Es plata quemada en el pozo: entra en el costo operativo y en el "
              "criterio para no elegir el conductor más chico que aguante.",
-    ),
-    FormulaSpec(
-        key="elec_tension_arranque", topic="electrico", step="arranque",
-        label="Tensión disponible en el arranque",
-        expression="r = (V_motor − k · ΔV) / V_motor", units="-",
-        symbols={
-            "V_motor": "Tensión nominal del motor [V]",
-            "k": "Múltiplo de corriente de arranque respecto de la nominal [-]",
-            "ΔV": "Caída de tensión del cable a plena carga [V]",
-        },
-        reference="Brown Vol. 2b §4.5332", module="bes.core.electrical",
-        note="En el arranque la corriente es varias veces la nominal y la caída "
-             "escala con ella: si la tensión que le llega al motor cae demasiado "
-             "no desarrolla par y **no arranca**, aunque en régimen anduviera.",
     ),
     FormulaSpec(
         key="elec_tension_superficie", topic="electrico", step="tension_superficie",
@@ -1431,7 +1492,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "ΔV": "Caída de tensión del cable [V]",
             "pérdida": "Pérdida del transformador [%]",
         },
-        reference="Brown Vol. 2b §4.5332", module="bes.core.electrical",
+        reference="Brown Vol. 2b, Sección 4.5325 (pág. 65)",
+        module="bes.core.electrical",
     ),
     FormulaSpec(
         key="elec_kva", topic="electrico", step="transformador",
@@ -1442,7 +1504,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "I": "Corriente del motor [A]",
             "√3": "Factor de sistema trifásico",
         },
-        reference="Brown Vol. 2b §4.5332", module="bes.core.electrical",
+        reference="Brown Vol. 2b, Sección 4.5326, ec. 4.51 (pág. 65)",
+        module="bes.core.electrical",
     ),
     FormulaSpec(
         key="elec_empuje_axial", topic="electrico", step="empuje_protector",
@@ -1453,7 +1516,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "A_eje": "Sección transversal del eje [in²]",
             "margen": "Margen de seguridad sobre la estimación [-]",
         },
-        reference="Takács, «Electrical Submersible Pumps Manual»",
+        reference="Takács (2018), Sección 2.3.2.5 (págs. 32 y 33). Margen 1,20: Criterio del proyecto",
         module="bes.core.electrical",
         note="Estimación para verificar que el sello elegido banca la carga. "
              "Es la misma magnitud que calcula la verificación mecánica por "
@@ -1482,7 +1545,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "A_anular": "Área entre el motor y el casing [in²]",
             "144": "Conversión de in² a ft²",
         },
-        reference="Takács, «Electrical Submersible Pumps Manual»",
+        reference="Takács (2018), Sección 3.3.1.4 (pág. 88)",
         module="bes.core.electrical",
         note="El motor se refrigera con el fluido que lo pasa: si va demasiado "
              "lento se recalienta. Brown y Takács recomiendan v ≥ 1 ft/s; por "
@@ -1509,7 +1572,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "API": "Gravedad del petróleo [°API]",
             "T": "Temperatura [°F]",
         },
-        reference="Standing (1947)", module="bes.core.pvt",
+        reference="Ahmed (2010), ec. 2-69 (pág. 79)",
+        module="bes.core.pvt",
         note="Se evalúa con mín(P, Pb): por encima de la burbuja ya está todo "
              "el gas disuelto y Rs no sigue creciendo. El exponente 1.2048 es "
              "1/0.83.",
@@ -1525,7 +1589,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "T": "Temperatura [°F]",
             "API": "Gravedad del petróleo [°API]",
         },
-        reference="Standing (1947)", module="bes.core.pvt",
+        reference="Ahmed (2010), ec. 2-76 (pág. 87)",
+        module="bes.core.pvt",
         note="Es la misma correlación de Rs despejada al revés, así que las dos "
              "son consistentes por construcción.",
     ),
@@ -1536,7 +1601,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
         symbols={
             "F": "Grupo de correlación, Rs·(γ_g/γ_o)^0.5 + 1.25·T [-]",
         },
-        reference="Standing (1947)", module="bes.core.pvt",
+        reference="Ahmed (2010), correlación de Standing para Bo (pág. 94)",
+        module="bes.core.pvt",
         note="Cuánto se expande un barril de petróleo de tanque al bajar al "
              "pozo, por el gas que lleva disuelto y la temperatura.",
     ),
@@ -1545,8 +1611,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
         label="Presión pseudo-crítica del gas (Standing)",
         expression="P_pc = 677 + 15·γ_g − 37.5·γ_g²", units="psia",
         symbols={"γ_g": "Gravedad específica del gas (aire = 1) [-]"},
-        reference="Standing (1977), citado en Ahmed, «Reservoir Engineering "
-                  "Handbook»",
+        reference="Ahmed (2010), ec. 2-19 (pág. 42)",
         module="bes.core.pvt",
         note="Un gas natural es una mezcla y no tiene punto crítico propio: se "
              "usan valores «pseudo» a partir de su gravedad específica. "
@@ -1559,8 +1624,7 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
         label="Temperatura pseudo-crítica del gas (Standing)",
         expression="T_pc = 168 + 325·γ_g − 12.5·γ_g²", units="°R",
         symbols={"γ_g": "Gravedad específica del gas (aire = 1) [-]"},
-        reference="Standing (1977), citado en Ahmed, «Reservoir Engineering "
-                  "Handbook»",
+        reference="Ahmed (2010), ec. 2-18 (pág. 42)",
         module="bes.core.pvt",
         note="Misma correlación y mismo rango de validez que P_pc: las dos "
              "salen juntas de la gravedad específica del gas.",
@@ -1592,22 +1656,16 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
     ),
     FormulaSpec(
         key="pvt_z", topic="pvt", step="factor_z",
-        label="Factor de compresibilidad del gas (Dranchuk–Abou-Kassem)",
-        expression="z = 1 + C₁·ρ_r + C₂·ρ_r² − C₃·ρ_r⁵ + C₄", units="-",
+        label="Factor de compresibilidad del gas (Papay)",
+        expression="z = 1 − 3,52·P_pr / 10^(0,9813·T_pr) + 0,274·P_pr² / 10^(0,8157·T_pr)", units="-",
         symbols={
-            "ρ_r": "Densidad reducida, 0.27·P_pr/(z·T_pr), con P_pr y T_pr la "
-                   "presión y la temperatura pseudo-reducidas [-]",
-            "C₁": "A₁ + A₂/T_pr + A₃/T_pr³ + A₄/T_pr⁴ + A₅/T_pr⁵",
-            "C₂": "A₆ + A₇/T_pr + A₈/T_pr²",
-            "C₃": "A₉ · (A₇/T_pr + A₈/T_pr²)",
-            "C₄": "A₁₀ · (1 + A₁₁·ρ_r²) · ρ_r²/T_pr³ · e^(−A₁₁·ρ_r²)",
+            "P_pr": "Presión pseudorreducida, P/P_pc [-]",
+            "T_pr": "Temperatura pseudorreducida, (T + 460)/T_pc [-]",
         },
-        reference="Dranchuk & Abou-Kassem, JCPT (1975)", module="bes.core.pvt",
-        note="Ecuación de estado de 11 constantes. Es IMPLÍCITA —z aparece a "
-             "los dos lados a través de ρ_r— así que se resuelve iterando, con "
-             "la correlación de Papay como semilla. Las pseudo-críticas salen "
-             "de Standing (ver P_pc y T_pc). Rango declarado por los autores: "
-             "1.05 ≤ T_pr ≤ 3.0 y 0.2 ≤ P_pr ≤ 30.",
+        reference="Papay, en Takács (2018), ec. 4.26 (pág. 169)",
+        module="bes.core.pvt",
+        note="Ecuación explícita: una sola cuenta, sin iterar. Las "
+             "pseudocríticas salen de Standing (ver P_pc y T_pc).",
     ),
     FormulaSpec(
         key="pvt_bg", topic="pvt", step="factor_volumetrico_gas",
@@ -1623,14 +1681,15 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "460": "Conversión de °F a °R",
             "P": "Presión [psia]",
         },
-        reference="Ley de gases reales", module="bes.core.pvt",
+        reference="Ahmed (2010), ec. 2-54 (pág. 66)",
+        module="bes.core.pvt",
         note="Va con **1/P**, y ésa es la razón de fondo del método de "
              "incrementos: el gas cambia de volumen a lo largo de la bomba, así "
              "que el promedio de los extremos no es el valor del punto medio.",
     ),
     FormulaSpec(
         key="pvt_bw", topic="pvt", step="factor_volumetrico_agua",
-        label="Factor volumétrico del agua (McCain)",
+        label="Factor volumétrico del agua (Ahmed ec. 2-125)",
         # La expresión declarada era OTRA correlación —una forma lineal en ΔT
         # con un solo término en P— y no la que ejecuta `pvt.water_bw()`, que
         # es la ec. 2-125 de Ahmed: cuadrática en presión y con los tres
@@ -1645,45 +1704,13 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "a₂ᵢ": "Término lineal en temperatura del coeficiente Aᵢ [tabulado]",
             "a₃ᵢ": "Término cuadrático en temperatura del coeficiente Aᵢ [tabulado]",
         },
-        reference="McCain (1990), «The Properties of Petroleum Fluids», 2ª ed.; "
-                  "reproducida en Ahmed (2010), ec. 2-125",
+        reference="Ahmed (2010), ec. 2-125 (pág. 124)",
         module="bes.core.pvt",
         note="El agua se expande con la temperatura y se comprime con la "
              "presión; los dos efectos son chicos y se compensan en parte. Los "
              "coeficientes son los de agua **libre de gas**: el agua de "
              "formación disuelve muy poco, y la corrección por salinidad no se "
              "aplica porque el modelo de fluido no lleva composición del agua.",
-    ),
-    FormulaSpec(
-        key="pvt_mu_muerta", topic="pvt", step="viscosidad_muerta",
-        label="Viscosidad del crudo muerto (Beggs–Robinson)",
-        expression="μ_od = 10^X − 1,  X = T^(−1.163) · e^(6.9824 − 0.04658·API)",
-        units="cp",
-        symbols={
-            "T": "Temperatura [°F]",
-            "API": "Gravedad del petróleo [°API]",
-        },
-        reference="Beggs & Robinson (1975)", module="bes.core.pvt",
-        note="**No la usa el procedimiento de crudos viscosos**: ahí manda la "
-             "Fig. 4L(2) del libro, que en crudos pesados da bastante más (150 "
-             "cp contra 59 para 16 °API a 130 °F). Ésta queda para el PVT "
-             "general.",
-    ),
-    FormulaSpec(
-        key="pvt_mu_viva", topic="pvt", step="viscosidad_viva",
-        label="Viscosidad del crudo saturado (Beggs–Robinson)",
-        expression="μ_ob = a · μ_od^b,  a = 10.715·(Rs+100)^(−0.515),  "
-                   "b = 5.44·(Rs+150)^(−0.338)",
-        units="cp",
-        symbols={
-            "μ_od": "Viscosidad del crudo muerto [cp]",
-            "Rs": "Gas en solución [scf/STB]",
-        },
-        reference="Beggs & Robinson (1975)", module="bes.core.pvt",
-        note="Misma forma funcional que propuso Chew & Connally (1959) pero con "
-             "otros coeficientes: son correlaciones distintas y no hay que "
-             "citar una por la otra. **No la usa el procedimiento de crudos "
-             "viscosos**, que lee la Fig. 4L(1).",
     ),
     FormulaSpec(
         key="pvt_densidad_petroleo", topic="pvt", step="densidades",
@@ -1697,7 +1724,8 @@ _ENTRIES: tuple[FormulaSpec, ...] = (
             "γ_g": "Gravedad específica del gas [-]",
             "Bo": "Factor volumétrico del petróleo [bbl/STB]",
         },
-        reference="Balance de masa sobre 1 STB", module="bes.core.pvt",
+        reference="Ahmed (2010), ec. 2-92 (pág. 97)",
+        module="bes.core.pvt",
         note="El numerador es la masa que hay en un barril de tanque —petróleo "
              "más el gas que lleva disuelto— y Bo es el volumen que ocupa ahí "
              "abajo.",

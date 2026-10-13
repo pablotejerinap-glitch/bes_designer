@@ -60,8 +60,7 @@ Referencias
 Standing, M.B. (1947). "A Pressure-Volume-Temperature Correlation for Mixtures
     of California Oils and Gases". API Drilling and Production Practice.
     — Rs, Pb y Bo.
-Dranchuk, P.M. & Abou-Kassem, H. (1975). "Calculation of Z Factors for Natural
-    Gases Using Equations of State". J. Can. Pet. Tech. — factor z del gas.
+Papay, J., en Takács (2018), ec. 4.26 — factor z del gas.
 Beggs, H.D. & Robinson, J.R. (1975). "Estimating the Viscosity of Crude Oil
     Systems". JPT — viscosidades.
 McCain, W.D. (1990). "The Properties of Petroleum Fluids", 2ª ed., PennWell
@@ -75,7 +74,6 @@ from __future__ import annotations
 import math
 
 import numpy as np
-from scipy.optimize import fsolve
 
 from bes.core.models import Fluid
 
@@ -222,6 +220,26 @@ def standing_pb(rs: float, t: float, api: float, gas_sg: float) -> float:
         )
     return pb
 
+def pb_para_pvt(pb_dato: float, gor: float, t: float, api: float, gas_sg: float) -> float:
+    """Presión de burbuja con que se evalúa el PVT [psia].
+
+    Si el usuario cargó la Pb, manda el dato. Si la dejó en 0 (vacía) y el pozo
+    produce gas, se estima con Standing a partir del GOR (Ahmed ec. 2-76): una
+    Pb nula con GOR > 0 no tiene sentido físico, y tratarla como «todo el gas
+    disuelto» daba 0 % de gas libre a cualquier presión. Devuelve 0 cuando no
+    hay gas (GOR = 0) o cuando Standing da Pb <= 0 (GOR tan bajo que el gas
+    queda disuelto a cualquier presión).
+    """
+    if pb_dato and pb_dato > 0:
+        return pb_dato
+    if gor <= 0:
+        return 0.0
+    try:
+        return standing_pb(gor, t, api, gas_sg)
+    except ValueError:
+        return 0.0
+
+
 
 def standing_bo(rs: float, t: float, api: float, gas_sg: float) -> float:
     """Factor de volumen del petróleo (Bo) — Standing (1947).
@@ -271,59 +289,28 @@ def standing_bo(rs: float, t: float, api: float, gas_sg: float) -> float:
 # ===========================================================================
 
 def gas_z_factor(p: float, t: float, gas_sg: float) -> float:
-    """Factor de compresibilidad del gas (z) — Dranchuk-Abou-Kassem (1975).
+    """Factor de compresibilidad del gas (z) — Papay, explícito.
 
-    Un gas ideal cumple P·V = n·R·T. Uno real no, y el factor z mide cuánto se
-    aparta: z = 1 sería ideal, y a presiones de reservorio anda entre 0.8 y 1.1.
-    Sin él, el volumen de gas calculado sale mal.
+    z mide cuánto se aparta el gas real del ideal (z = 1). Se entra con la
+    presión y la temperatura pseudorreducidas, calculadas con las
+    pseudocríticas de Standing (:func:`_pseudo_critical_standing`)::
 
-    Las propiedades pseudo-críticas salen de Standing
-    (:func:`_pseudo_critical_standing`). La ecuación de estado DAK no se despeja
-    a mano, así que se resuelve numéricamente con ``fsolve``, arrancando desde
-    la correlación explícita de Papay como primera aproximación.
+        z = 1 − 3,52·Ppr / 10^(0,9813·Tpr) + 0,274·Ppr² / 10^(0,8157·Tpr)
 
-    Rango de validez: 1.05 <= Tpr <= 3.0 y 0.2 <= Ppr <= 30, donde Tpr y Ppr son
-    la temperatura y la presión divididas por las pseudo-críticas.
-
-    Args:
-        p: Presión [psia]. Debe ser > 0.
-        t: Temperatura [°F]. Debe ser > 0.
-        gas_sg: Gravedad específica del gas (aire = 1.0). Debe ser > 0.
-
-    Returns:
-        Factor de compresibilidad z [-]. Siempre > 0.
-
-    Raises:
-        ValueError: Si p <= 0 o gas_sg <= 0.
+    Es una sola cuenta, sin iteración.
 
     Referencia:
-        Dranchuk & Abou-Kassem (1975), J. Can. Pet. Tech.
+        Papay, en Takács (2018), ec. 4.26 (pág. 169).
     """
     if p <= 0:
         raise ValueError(f"p must be > 0 for z-factor calculation, got {p}")
     if gas_sg <= 0:
         raise ValueError(f"gas_sg must be > 0, got {gas_sg}")
-
     ppc, tpc = _pseudo_critical_standing(gas_sg)
     ppr = p / ppc
     tpr = (t + 460.0) / tpc
-
-    # DAK constants — Table 1, Dranchuk & Abou-Kassem (1975)
-    A = [0.3265, -1.0700, -0.5339, 0.01569, -0.05165,
-         0.5475, -0.7361,  0.1844,  0.1056,  0.6134,  0.7210]
-
-    def _dak(z_val: float) -> float:
-        rhor = 0.27 * ppr / (z_val * tpr)
-        c1 = A[0] + A[1]/tpr + A[2]/tpr**3 + A[3]/tpr**4 + A[4]/tpr**5
-        c2 = A[5] + A[6]/tpr + A[7]/tpr**2
-        c3 = A[8] * (A[6]/tpr + A[7]/tpr**2)
-        c4 = A[9] * (1.0 + A[10]*rhor**2) * (rhor**2/tpr**3) * np.exp(-A[10]*rhor**2)
-        return 1.0 + c1*rhor + c2*rhor**2 - c3*rhor**5 + c4 - z_val
-
-    # Papay explicit correlation as initial guess
-    z0 = max(0.3, 1.0 - 3.52*ppr / 10.0**(0.9813*tpr) + 0.274*ppr**2 / 10.0**(0.8157*tpr))
-    z_sol = float(fsolve(_dak, z0)[0])
-    return max(0.05, z_sol)
+    z = 1.0 - 3.52 * ppr / 10.0 ** (0.9813 * tpr) + 0.274 * ppr ** 2 / 10.0 ** (0.8157 * tpr)
+    return max(0.05, z)
 
 
 def gas_bg(p: float, t: float, z: float) -> float:
@@ -405,7 +392,7 @@ def water_bw(p: float, t: float) -> float:
 
 
 def water_viscosity(t: float) -> float:
-    """Viscosidad del agua de formación — van Wingen (1950).
+    """Viscosidad del agua de formación — Brill y Beggs (1978).
 
     Depende casi por completo de la temperatura; la presión y la salinidad la
     mueven poco frente a esa dependencia::
@@ -436,9 +423,8 @@ def water_viscosity(t: float) -> float:
         ValueError: Si t <= 0.
 
     Referencia:
-        van Wingen, N. (1950), «Viscosity of Air, Water, Natural Gas, Crude Oil
-        and Its Associated Gases», API Secondary Recovery of Oil in the United
-        States; forma publicada en Ahmed (2010), ec. 2-119.
+        Brill y Beggs (1978); forma publicada en Ahmed (2010), ec. 2-127
+        (pág. 125).
     """
     if t <= 0:
         raise ValueError(f"t must be > 0 °F, got {t}")
@@ -453,71 +439,41 @@ def water_viscosity(t: float) -> float:
 # viscosos de Riling NO las usa: lee las láminas 4L(1) y 4L(2) del libro, que
 # están digitalizadas en `viscosity.py`. Ver .claude/rules/domain.md.
 
-def oil_viscosity_dead(api: float, t: float) -> float:
-    """Viscosidad del crudo MUERTO (sin gas) — Beggs-Robinson (1975).
+def oil_viscosity_brown(fluid, t: float, rs: float) -> tuple[float, float, str]:
+    """Viscosidad del crudo muerto y saturado con las láminas de Brown.
 
-    «Crudo muerto» quiere decir crudo sin gas disuelto: el que queda en el
-    tanque. Es el más viscoso de los dos, porque el gas disuelto adelgaza el
-    petróleo::
+    Es la **única** fuente de viscosidad del crudo de la herramienta: la misma
+    que usa el procedimiento de Riling (Brown, 1980, Apéndice 4L). Antes el PVT
+    general usaba Beggs-Robinson, que no vale por debajo de 16 °API, y la
+    herramienta tenía dos valores distintos para la misma propiedad.
 
-        X  = T^(−1.163) · exp(6.9824 − 0.04658·API)
-        μ  = 10^X − 1   [cp]
-
-    Rango de la correlación: 16 <= API <= 58 y 70 <= T <= 295 °F. Fuera de ahí
-    extrapola y pierde precisión.
+    Crudo muerto: el dato de ensayo si se midió a menos de
+    ``VISCOSITY_TEMP_TOLERANCE_F`` de ``t``; si no, la Fig. 4L(2). Crudo
+    saturado: la Fig. 4L(1) con el gas en solución.
 
     Args:
-        api: Gravedad del petróleo [°API].
-        t: Temperatura [°F]. Debe ser > 0.
+        fluid: Fluido producido (°API y viscosidad medida opcional).
+        t: Temperatura de evaluación [°F].
+        rs: Gas en solución a esa condición [scf/STB].
 
     Returns:
-        Viscosidad del crudo sin gas [cp].
-
-    Raises:
-        ValueError: Si t <= 0.
-
-    Referencia:
-        Beggs & Robinson (1975), "Estimating the Viscosity of Crude Oil
-        Systems", JPT.
+        (μ_od [cp], μ_ob [cp], origen del crudo muerto: "medido" o "lamina").
     """
+    from bes.core.viscosity import (
+        VISCOSITY_TEMP_TOLERANCE_F,
+        dead_oil_viscosity_chart,
+        gas_saturated_viscosity_chart,
+    )
     if t <= 0:
         raise ValueError(f"t must be > 0 °F, got {t}")
-    x = t ** (-1.163) * np.exp(6.9824 - 0.04658 * api)
-    return 10.0 ** x - 1.0
-
-
-def oil_viscosity_live(mu_dead: float, rs: float) -> float:
-    """Viscosidad del crudo VIVO (saturado con gas) — Beggs-Robinson (1975).
-
-    «Crudo vivo» es el que está abajo, con gas disuelto adentro. El gas actúa
-    como diluyente, así que el crudo vivo siempre es **menos** viscoso que el
-    muerto::
-
-        a = 10.715 · (Rs + 100)^(−0.515)
-        b = 5.44   · (Rs + 150)^(−0.338)
-        μ_vivo = a · μ_muerto^b   [cp]
-
-    Args:
-        mu_dead: Viscosidad del crudo sin gas, a la misma temperatura [cp].
-            Debe ser > 0.
-        rs: Gas en solución en la condición de interés [scf/STB]. Debe ser >= 0.
-
-    Returns:
-        Viscosidad del crudo saturado [cp].
-
-    Raises:
-        ValueError: Si mu_dead <= 0 o rs < 0.
-
-    Referencia:
-        Beggs & Robinson (1975), JPT.
-    """
-    if mu_dead <= 0:
-        raise ValueError(f"mu_dead must be > 0, got {mu_dead}")
-    if rs < 0:
-        raise ValueError(f"rs must be >= 0, got {rs}")
-    a = 10.715 * (rs + 100.0) ** (-0.515)
-    b = 5.44 * (rs + 150.0) ** (-0.338)
-    return a * mu_dead ** b
+    medida = getattr(fluid, "oil_viscosity_dead", None)
+    t_ref = getattr(fluid, "viscosity_temp_ref", None)
+    if medida is not None and t_ref is not None and abs(t_ref - t) <= VISCOSITY_TEMP_TOLERANCE_F:
+        mu_od, origen = float(medida), "medido"
+    else:
+        mu_od, origen = dead_oil_viscosity_chart(fluid.oil_api, t)["mu_cp"], "lamina"
+    mu_ob = gas_saturated_viscosity_chart(mu_od, max(rs, 0.0))["mu_cp"]
+    return mu_od, mu_ob, origen
 
 
 # ===========================================================================
@@ -568,7 +524,7 @@ def fluid_properties_at_conditions(fluid: Fluid, p: float, t: float) -> dict:
     if t <= 0:
         raise ValueError(f"t must be > 0 °F, got {t}")
 
-    pb = fluid.bubble_point_pressure
+    pb = pb_para_pvt(fluid.bubble_point_pressure, fluid.gor, t, fluid.oil_api, fluid.gas_sg)
     oil_sg = _oil_sg(fluid.oil_api)
     wc = fluid.water_cut
 
@@ -589,8 +545,7 @@ def fluid_properties_at_conditions(fluid: Fluid, p: float, t: float) -> dict:
     z = gas_z_factor(p, t, fluid.gas_sg)
     bg = gas_bg(p, t, z)
 
-    mu_dead = oil_viscosity_dead(fluid.oil_api, t)
-    mu_live = oil_viscosity_live(mu_dead, rs)
+    mu_dead, mu_live, _ = oil_viscosity_brown(fluid, t, rs)
 
     # --- Densidades en el fondo [lb/ft³] ------------------------------------
     # Petróleo + su gas disuelto, por barril de reservorio. Se divide por Bo
@@ -672,7 +627,7 @@ def mixture_specific_gravity(fluid: Fluid, p: float, t: float) -> float:
 # tesis hay que poder decir de dónde salió cada número. Los tres orígenes son:
 #
 #     "pvt"          interpolado de la tabla de laboratorio
-#     "correlacion"  calculado con Standing / DAK / Beggs-Robinson / McCain
+#     "correlacion"  calculado con Standing / Papay / láminas 4L de Brown
 #     "supuesto"     valor fijado a mano, sin respaldo experimental
 # ---------------------------------------------------------------------------
 
@@ -868,7 +823,7 @@ def resolve_pvt(
         origenes[campo] = PVT_SOURCE_CORRELATION
         return calcular()
 
-    pb = fluid.bubble_point_pressure
+    pb = pb_para_pvt(fluid.bubble_point_pressure, fluid.gor, t, fluid.oil_api, fluid.gas_sg)
     gor = fluid.gor
 
     rs = _tomar(
@@ -920,16 +875,15 @@ def pvt_trace(fluid: Fluid, p: float, t: float) -> list[dict]:
 
     api, gas_sg = fluid.oil_api, fluid.gas_sg
     sg_o = _oil_sg(api)
-    pb = fluid.bubble_point_pressure or standing_pb(fluid.gor, t, api, gas_sg)
-    rs = standing_rs(p, t, api, gas_sg, pb)
+    pb = pb_para_pvt(fluid.bubble_point_pressure, fluid.gor, t, api, gas_sg)
+    rs = min(standing_rs(p, t, api, gas_sg, pb), fluid.gor) if pb > 0 else fluid.gor
     bo = standing_bo(rs, t, api, gas_sg)
     ppc, tpc = _pseudo_critical_standing(gas_sg)
     ppr, tpr = p / ppc, (t + 460.0) / tpc
     z = gas_z_factor(p, t, gas_sg)
     bg = gas_bg(p, t, z)
     bw = water_bw(p, t)
-    mu_od = oil_viscosity_dead(api, t)
-    mu_ob = oil_viscosity_live(mu_od, rs)
+    mu_od, mu_ob, origen_mu = oil_viscosity_brown(fluid, t, rs)
     props = fluid_properties_at_conditions(fluid, p, t)
 
     trace = FormulaTrace()
@@ -964,22 +918,20 @@ def pvt_trace(fluid: Fluid, p: float, t: float) -> list[dict]:
     trace.add("pvt_tpc", {"γ_g": gas_sg}, tpc)
     trace.add("pvt_ppr", {"P": p, "P_pc": ppc}, ppr)
     trace.add("pvt_tpr", {"T": t, "T_pc": tpc}, tpr)
-    fuera_dak = not (1.05 <= tpr <= 3.0 and 0.2 <= ppr <= 30.0)
     trace.add(
-        "pvt_z", {"ρ_r": 0.27 * ppr / (max(z, 1e-9) * tpr), "P_pr": ppr,
-                  "T_pr": tpr}, z,
-        substitute=False,
-        context=f"Resuelta por iteración (es implícita en z). Da {z:.4f}, o sea "
-                f"un {abs(1 - z) * 100:.0f} % de apartamiento del gas ideal."
-                + (f" ATENCIÓN: P_pr = {ppr:.2f} y T_pr = {tpr:.2f} caen fuera "
-                   f"del rango declarado por Dranchuk y Abou-Kassem."
-                   if fuera_dak else ""),
+        "pvt_z", {"P_pr": ppr, "T_pr": tpr}, z,
+        context=f"Da {z:.4f}, o sea un {abs(1 - z) * 100:.0f} % de apartamiento "
+                f"del gas ideal.",
     )
     trace.add("pvt_bg", {"z": z, "T": t, "P": p}, bg)
     trace.add("pvt_bw", {"ΔT": t - 60.0, "P": p}, bw)
-    trace.add("pvt_mu_muerta", {"T": t, "API": api}, mu_od)
     trace.add(
-        "pvt_mu_viva", {"μ_od": mu_od, "Rs": rs}, mu_ob,
+        "visc_mu_muerta", {"°API": api, "T": t}, mu_od, substitute=False,
+        context=("Dato de ensayo de laboratorio." if origen_mu == "medido"
+                 else "Leída de la Fig. 4L(2) de Brown."),
+    )
+    trace.add(
+        "visc_mu_viva", {"μ_od": mu_od, "Rs": rs}, mu_ob,
         context=f"El gas disuelto baja la viscosidad de {mu_od:.1f} a "
                 f"{mu_ob:.1f} cp.",
     )

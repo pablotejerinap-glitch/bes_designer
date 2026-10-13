@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from bes.core.pump_design import operating_frequency
 from bes.core.gas_handling import (
     GAS_FRACTION_NEGLIGIBLE,
     SEPARATOR_DEFAULT_EFFICIENCY,
@@ -165,6 +166,11 @@ def run_gas_increment_design(
         casing_id=well.casing_id,
         apply_viscosity=apply_viscosity,
         pvt_table=pvt_table,
+        # Las curvas del catálogo están a 60 Hz. Sin esto la escalera leía la
+        # curva publicada con el caudal real y devolvía las MISMAS etapas a 50
+        # que a 60 Hz. El camino completo (``run_gas_design_complete``) ya la
+        # pasaba; éste no, y por eso los dos endpoints no coincidían.
+        frequency=operating_frequency(surface, objectives),
     )
 
     # --- Gas: riesgo y separador -----------------------------------------
@@ -239,7 +245,8 @@ def gas_method_applies(
     El criterio **no es nuevo**: es el mismo umbral de gas libre en la admisión
     que el proyecto ya usa para decidir si la pérdida de carga se calcula con
     gradiente constante (Hazen-Williams) o con un modelo multifásico
-    (``DesignObjectives.gas_fraction_pc_threshold``, 1 % por defecto, alineado
+    (``DesignObjectives.gas_fraction_pc_threshold``, 5 % por defecto según
+    Takács (2018), Sección 1.3.2, alineado
     con ``gas_handling.GAS_FRACTION_NEGLIGIBLE``). La lógica es la misma en los
     dos casos: por encima de ese punto, suponer un fluido de volumen constante
     deja de valer — y el método convencional supone exactamente eso al diseñar
@@ -269,22 +276,13 @@ def gas_method_applies(
     )
     aplica = f_g > threshold
 
+    pct = lambda x: f"{x * 100:.2f}".replace(".", ",") + " %"
     if aplica:
-        motivo = (
-            f"Gas libre en la admisión {f_g:.2%}, por encima del umbral "
-            f"{threshold:.2%} de gas despreciable: el volumen de mezcla cambia "
-            f"con la presión a lo largo de la bomba, así que se diseña por "
-            f"incrementos de presión (Brown Vol. 2b §4.53103) en vez de con un "
-            f"caudal único. Este umbral decide únicamente el MÉTODO de cálculo; "
-            f"si el pozo es viable con bombeo electrosumergible lo resuelve la "
-            f"escalera de manejo de gas, que es otra verificación."
-        )
+        motivo = (f"Gas libre en la admisión: {pct(f_g)} > {pct(threshold)}. "
+                  f"Se diseña por incrementos de presión.")
     else:
-        motivo = (
-            f"Gas libre en la admisión {f_g:.2%}, por debajo del umbral "
-            f"{threshold:.2%}: el volumen se puede tratar como constante y "
-            f"vale el diseño convencional con un solo caudal."
-        )
+        motivo = (f"Gas libre en la admisión: {pct(f_g)} < {pct(threshold)}. "
+                  f"Se diseña con un caudal único.")
 
     return {
         "applies": aplica,

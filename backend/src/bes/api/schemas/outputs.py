@@ -209,6 +209,9 @@ class DesignResultSchema(BaseModel):
     cable_voltage_drop: float
     surface_voltage_required: float
     transformer_kva: float
+    transformer_model: str = ""
+    transformer_connection: str = ""
+    transformer_secondary_range_v: str = ""
     # System
     system_efficiency: float
     flow_rate_achieved: float
@@ -265,7 +268,7 @@ class DesignResultSchema(BaseModel):
     )
     viscosity_correction: dict | None = Field(
         None,
-        description="Corrección por viscosidad de Riling (Brown §4.53112) tal "
+        description="Corrección por viscosidad de Riling (Brown Vol. 2b, Sección 4.53112, pág. 90) tal "
                     "como se aplicó: factores C_Q, C_H y C_hp, SSU de diseño y "
                     "procedencia de la viscosidad. La corrección se calculaba y "
                     "se aplicaba a la curva, pero no se publicaba: el reporte "

@@ -611,57 +611,100 @@ class TestLasDosPreguntasDeCadaEscalon:
 class TestVerificacionParalelaDeTurpin:
     """La correlación de Turpin, que contrasta el criterio propio sin decidir.
 
-    Takács (2018) §4.4.3.2, ec. 4.30, págs. 175-177::
+    Takács (2018) §4.4.3.2, ec. 4.30, pág. 175::
 
-        F = 2000 · (q'_g / q'_l)³ / PIP      F < 1 → operación estable
+                2000 · (q'_g / q'_l)
+        Φ  =  ------------------------          Φ < 1 → operación estable
+                     3 · PIP
 
-    Entra la RELACIÓN gas/líquido, no la fracción. Es el mismo error que ya
-    estaba corregido en el separador y en el diagnóstico de riesgo, y acá
-    volvería a morder porque el cubo lo amplifica.
+    Dos formas de leer mal esta ecuación, y las dos estuvieron en el código:
+
+    1. **El 3 como exponente** sobre la relación (``2000·r³/PIP``) en vez de
+       como factor del denominador. El impreso lo tiene en la línea de abajo,
+       al lado de PIP, y el extractor de texto del PDF lo deja ambiguo. Lo
+       dirime la **Fig. 4.9** (pág. 176), que grafica la curva ``Φ = 1``:
+       ver :meth:`test_reproduce_la_curva_impresa_de_la_fig_4_9`.
+    2. **Pasarle la fracción en vez de la relación.** El cociente de caudales
+       volumétricos ``q'_g/q'_l`` es una relación; la fracción es
+       ``r/(1+r)``. Es el mismo error que ya estaba corregido en el separador
+       y en el diagnóstico de riesgo.
     """
 
-    def test_ejemplo_4_4_del_libro(self):
-        """Takács, Ejemplo 4.4, págs. 176-177.
+    #: Puntos leídos de la curva Φ = 1 de la Fig. 4.9, pág. 176.
+    FIG_4_9 = {200: 23.0, 400: 37.5, 600: 47.5, 800: 54.5,
+               1000: 60.0, 1200: 64.0, 1400: 67.5, 1600: 70.5}
 
-        Con q'_g = 274 bpd, q'_l = 3096 bpd y PIP = 1000 psia el factor da
-        0.0014 y la operación es estable, que es lo que concluye el libro.
+    def test_reproduce_la_curva_impresa_de_la_fig_4_9(self):
+        """El ancla de toda la corrección: la curva publicada, punto por punto.
+
+        La forma correcta la reproduce con 0.11 pt de error medio. La forma con
+        el 3 como exponente da 31.7 / 44.3 / 48.1 % donde el libro tiene
+        23 / 60 / 70.5 %, o sea 12.49 pt de error medio: no es un ajuste fino,
+        es otra curva. **Si este test se rompe, la ecuación volvió a estar
+        mal.**
         """
-        q_gas, q_liq, pip = 274.0, 3096.0, 1000.0
-        f_pump = q_gas / (q_gas + q_liq)
+        for pip, esperado_pct in self.FIG_4_9.items():
+            f_lim = turpin_stability(0.0, float(pip))["limit_fraction"] * 100.0
+            assert f_lim == pytest.approx(esperado_pct, abs=0.35), f"{pip} psia"
+
+    def test_ejemplo_4_4_del_libro(self):
+        """Takács, Ejemplo 4.4, pág. 176.
+
+        El libro escribe, literal: «void = 274/3,096 = 8.8%». Como llama a eso
+        *gas void fraction* —gas sobre el TOTAL—, los 3096 bpd son la mezcla
+        entera y el líquido son 3096 − 274 = 2822 bpd::
+
+            f = 274/3096 = 0.0885            (fracción, la del libro)
+            r = 274/2822 = 0.09709           (relación, la que pide la ec. 4.30)
+            Φ = 2000 · 0.09709 / (3 · 1000) = 0.0647   ->   estable
+
+        El libro no calcula Φ: grafica el 8.8 % a 1000 psia en la Fig. 4.9 y
+        concluye que cae en zona segura. Coincide — a esa presión el límite es
+        60 % de gas libre, o sea que sobra muchísimo margen.
+        """
+        q_gas, q_total, pip = 274.0, 3096.0, 1000.0
+        f_pump = q_gas / q_total                      # el 8.8 % del libro
 
         t = turpin_stability(f_pump, pip)
 
-        assert t["ratio"] == pytest.approx(q_gas / q_liq, rel=1e-9)
-        assert t["f"] == pytest.approx(0.0014, abs=5e-5)
+        assert t["fraction"] == pytest.approx(0.088, abs=0.001)
+        assert t["ratio"] == pytest.approx(q_gas / (q_total - q_gas), rel=1e-9)
+        assert t["f"] == pytest.approx(0.0647, abs=5e-4)
         assert t["stable"] is True
+        # El margen que la Fig. 4.9 le da a esa PIP.
+        assert t["limit_fraction"] == pytest.approx(0.600, abs=0.001)
 
     def test_entra_la_relacion_y_no_la_fraccion(self):
-        """Pasarle la fracción da un F más chico: el cubo amplifica el error.
+        """Pasarle la fracción subestima Φ en un factor (1 + r).
 
-        Con 50 % de gas la relación vale 1.0 y la fracción 0.5, y 0.5³ es la
-        octava parte de 1.0³. Un F ocho veces menor puede convertir un pozo
-        inestable en uno declarado estable.
+        Con 75 % de gas la relación vale 3.0 y la fracción 0.75: un Φ cuatro
+        veces menor convierte un pozo inestable en uno declarado estable, que
+        es la dirección peligrosa del error.
         """
-        t = turpin_stability(0.50, 1000.0)
+        t = turpin_stability(0.75, 1000.0)
 
-        assert t["ratio"] == pytest.approx(1.0)
-        assert t["f"] == pytest.approx(2000.0 * 1.0 ** 3 / 1000.0)
-        ingenuo = 2000.0 * 0.50 ** 3 / 1000.0
-        assert t["f"] == pytest.approx(8.0 * ingenuo)
+        assert t["ratio"] == pytest.approx(3.0)
+        assert t["f"] == pytest.approx(2000.0 * 3.0 / (3.0 * 1000.0))   # = 2.0
+        ingenuo = 2000.0 * 0.75 / (3.0 * 1000.0)                        # = 0.5
+        assert t["f"] == pytest.approx(4.0 * ingenuo)
         assert t["stable"] is False
 
     def test_el_limite_depende_de_la_presion_de_admision(self):
-        """La ec. 4.30 despejada para F = 1: del orden de 27 % a 100 psia y
-        44 % a 1000 psia, contra el 10 % fijo que adopta la herramienta."""
+        """La ec. 4.30 despejada para Φ = 1.
+
+        13.0 % a 100 psia y 60.0 % a 1000 psia, contra el 10 % fijo que adopta
+        la herramienta. O sea que Turpin es más EXIGENTE que el criterio propio
+        en pozos de admisión muy baja, y bastante más permisivo por encima.
+        """
         assert turpin_stability(0.0, 100.0)["limit_fraction"] == pytest.approx(
-            0.269, abs=0.005
+            0.1304, abs=0.0005
         )
         assert turpin_stability(0.0, 1000.0)["limit_fraction"] == pytest.approx(
-            0.443, abs=0.005
+            0.6000, abs=0.0005
         )
 
     def test_el_limite_hace_F_igual_a_uno(self):
-        """Control de coherencia: evaluado en su propio límite, F vale 1."""
+        """Control de coherencia: evaluado en su propio límite, Φ vale 1."""
         for pip in (100.0, 500.0, 1000.0, 3000.0):
             f_lim = turpin_stability(0.0, pip)["limit_fraction"]
             assert turpin_stability(f_lim, pip)["f"] == pytest.approx(1.0)
@@ -691,13 +734,15 @@ class TestVerificacionParalelaDeTurpin:
         de Turpin queda muy por encima—, y ésa es en sí una conclusión útil.
         Aparece cuando ``max_gip`` se afloja: con el 70 % del modo ejemplo, que
         reproduce los enunciados del libro que bombean todo el gas, un pozo con
-        50 % de gas en la bomba a 1000 psia pasa el criterio propio y da F = 2.
+        70 % de gas en la bomba a 1000 psia pasa el criterio propio (justo, es
+        el tope) y da Φ = 1.56, porque a esa presión Turpin corta en 60 %.
         """
-        r = turpin_cross_check(0.50, 1000.0, max_gip=0.70)
+        r = turpin_cross_check(0.70, 1000.0, max_gip=0.70)
 
         assert r["propio_viable"] is True
         assert r["stable"] is False
-        assert r["f"] == pytest.approx(2.0)
+        assert r["f"] == pytest.approx(2000.0 * (0.70 / 0.30) / 3000.0)
+        assert r["f"] == pytest.approx(1.5556, abs=5e-4)
         assert r["agree"] is False
         assert len(r["warnings"]) == 1
         aviso = r["warnings"][0]

@@ -41,8 +41,14 @@ class TestSeriesCatalog:
         )
 
     def test_unknown_series_returns_none(self):
-        """Sin ficha no se inventa nada: la verificación queda sin hacer."""
-        assert CatalogManager().get_pump_series("513") is None
+        """Sin ficha no se inventa nada: la verificación queda sin hacer.
+
+        387, 540, 725 y 1000 no tienen carcasa equivalente en el catálogo de
+        Wood Group, que es de donde salen los límites de eje. Quedan a
+        propósito sin ficha en vez de extrapolarles un eje.
+        """
+        assert CatalogManager().get_pump_series("387") is None
+        assert CatalogManager().get_pump_series("540") is None
 
 
 class TestShaftPower:

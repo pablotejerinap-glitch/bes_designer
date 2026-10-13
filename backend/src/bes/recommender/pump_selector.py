@@ -129,6 +129,8 @@ def _build_design_result(
     if elec.get("cooling_warning"):
         warnings.append(elec["cooling_warning"])
     warnings.extend(elec.get("cable_warnings") or [])
+    if elec.get("transformer_warning"):
+        warnings.append(elec["transformer_warning"])
     if elec.get("controller_warning"):
         warnings.append(elec["controller_warning"])
     if gas_strategy:
@@ -170,6 +172,11 @@ def _build_design_result(
         cable_voltage_drop=elec["cable_voltage_drop_v"],
         surface_voltage_required=elec["surface_voltage_v"],
         transformer_kva=float(elec["transformer"]["total_kva"]),
+        transformer_model=str(elec["transformer"].get("model", "")),
+        transformer_connection=str(elec["transformer"].get("connection", "")),
+        transformer_secondary_range_v=str(
+            elec["transformer"].get("secondary_range_v", "")
+        ),
         system_efficiency=system_eff,
         flow_rate_achieved=target_rate,
         operating_frequency=float(
@@ -292,7 +299,7 @@ def select_top_n_pumps(
 
     if not pump_candidates:
         raise ValueError(
-            "No qualifying pump candidates found for the given well conditions."
+            "Ninguna bomba del catálogo entra en el casing y trabaja en su rango a este caudal."
         )
 
     # Order all candidates by the strict engineering key:
@@ -306,8 +313,12 @@ def select_top_n_pumps(
         pump_obj = cand.get("pump_curve")
         if pump_obj is None:
             continue
+        # Con crudo viscoso la bomba trabaja sobre su curva de agua al caudal
+        # equivalente Q/C_Q (Riling): ése es el caudal que se compara con el BEP.
+        visc = cand.get("viscosity_correction") or {}
+        q_op = float(visc.get("q_water") or objectives.target_flow_rate)
         key = ranking_key(
-            bep_dist=bep_distance(pump_obj, objectives.target_flow_rate),
+            bep_dist=bep_distance(pump_obj, q_op),
             efficiency=cand["efficiency"],
             total_pump_hp=cand["total_pump_hp"],
         )

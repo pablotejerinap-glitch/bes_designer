@@ -347,6 +347,15 @@ def pump_at_frequency(
         housing_pressure_limit_psi=pump.housing_pressure_limit_psi,
         housings=list(pump.housings),
         catalog_frequency_hz=frequency_hz,
+        # Los límites quedan referidos a la frecuencia del catálogo: el eje se
+        # lleva a otra frecuencia con Takács ec. 5.12, no con la afinidad.
+        shaft_hp_limit_std=pump.shaft_hp_limit_std,
+        shaft_hp_limit_high_strength=pump.shaft_hp_limit_high_strength,
+        housing_burst_psi=dict(pump.housing_burst_psi),
+        shaft_area_in2=pump.shaft_area_in2,
+        fuente_mecanica=pump.fuente_mecanica,
+        fuente_carcasas=pump.fuente_carcasas,
+        tandem=dict(pump.tandem),
     )
 
 

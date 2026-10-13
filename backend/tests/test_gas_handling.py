@@ -152,12 +152,12 @@ class TestCheckGasLockRisk:
         """f ≤ 1 %: vale el diseño monofásico con gradiente constante."""
         assert check_gas_lock_risk(0.005)["risk"] == "none"
 
-    def test_apenas_sobre_el_uno_por_ciento_pide_multifasico(self):
-        """f > 1 %: hay que calcular la pérdida de carga como multifásica."""
-        r = check_gas_lock_risk(0.03)
-        assert r["risk"] == "low"
+    def test_hasta_cinco_por_ciento_vale_el_convencional(self):
+        """f ≤ 5 %: diseño convencional (Takács, 2018, Sección 1.3.2)."""
+        r = check_gas_lock_risk(0.045)
+        assert r["risk"] == "none"
         assert not r["needs_separator"]
-        assert "multifásico" in r["recommendation"]
+        assert "Takács" in r["recommendation"]
 
     def test_sobre_cinco_por_ciento_exige_separador(self):
         """f > 5 %: separador o manejador de gas obligatorio."""
@@ -369,10 +369,10 @@ class TestPressureIncrementDesign:
         re-selects the pump per increment by reservoir-condition rate, so with a
         multi-pump catalog the gassier (higher-volume) case can land on a
         higher-rate, higher-head pump and need fewer stages — masking the effect.
-        We pin the catalog to a single pump (D-20) to test the underlying physics.
+        We pin the catalog to a single real pump (REDA DN1100) to test the underlying physics.
         """
         single = copy.copy(manager)
-        single._pumps = [p for p in manager.get_all_pumps() if p.model == "D-20"]
+        single._pumps = [p for p in manager.get_all_pumps() if p.model == "DN1100"]
 
         r_100 = pressure_increment_design(
             reservoir_3a, fluid_3a, 500.0, 2300.0, 500.0,
@@ -983,21 +983,21 @@ class TestUmbralAutomaticoDePoettmannCarpenter:
 
         campo = next(f for f in dataclasses.fields(DesignObjectives)
                      if f.name == "gas_fraction_pc_threshold")
-        assert campo.default == GAS_FRACTION_NEGLIGIBLE == 0.01
+        assert campo.default == GAS_FRACTION_NEGLIGIBLE == 0.05
 
     def test_la_api_no_pide_el_umbral(self):
         """Si vuelve al request, vuelve a poder pisar el default del dominio."""
         from bes.api.schemas.inputs import ObjectivesSchema
         assert "gas_fraction_pc_threshold" not in ObjectivesSchema.model_fields
 
-    def test_un_objetivo_armado_sin_tocarlo_usa_el_1_por_ciento(self):
+    def test_un_objetivo_armado_sin_tocarlo_usa_el_5_por_ciento(self):
         from bes.core.models import DesignObjectives
         o = DesignObjectives(
             target_flow_rate=1500.0, safety_margin_depth=200.0,
             allow_gas_venting=True, max_gip=0.10, design_life_years=5.0,
             use_vsd=False,
         )
-        assert o.gas_fraction_pc_threshold == 0.01
+        assert o.gas_fraction_pc_threshold == 0.05
 
     def test_con_10_por_ciento_de_gas_libre_manda_poettmann_carpenter(self):
         """El caso concreto que el umbral viejo dejaba pasar como monofásico."""
@@ -1088,3 +1088,149 @@ class TestTrazaDeFormulasDelMetodo:
         """El orden es el de ejecución: lo primero que hace el método es partir
         el ΔP de la bomba en escalones."""
         assert resultado["formulas"][0]["key"] == "gas_delta_p"
+
+
+# ===========================================================================
+# Regresiones: dos bugs que destapó el pozo "Facultad 01" (tesis Inv_83338)
+# ===========================================================================
+
+class TestLaEscaleraRespetaLaFrecuencia:
+    """Las curvas del catálogo están a 60 Hz; el pozo puede girar a otra.
+
+    Antes, ``run_gas_increment_design`` no le pasaba la frecuencia a
+    ``pressure_increment_design``, así que la escalera leía la curva publicada
+    con el caudal real y devolvía las MISMAS etapas a 50 que a 60 Hz. El camino
+    completo sí la pasaba, y por eso los dos endpoints no coincidían.
+
+    Leyes de afinidad (Brown Vol. 2b §4.534): Q ∝ N, H ∝ N², hp ∝ N³. Bajar de
+    60 a 50 Hz recorta la altura por etapa un (50/60)² = 69 %, así que hacen
+    falta MÁS etapas para el mismo salto de presión.
+    """
+
+    @staticmethod
+    def _correr(manager, hz: float) -> dict:
+        from bes.core.models import SurfaceConditions
+        from bes.services.gas_service import run_gas_increment_design
+        return run_gas_increment_design(
+            reservoir=Reservoir(
+                static_pressure=888.617, bubble_point=1863.26, test_pwf=842.053,
+                test_rate=691.82, ipr_method=IPRMethod.VOGEL,
+                reservoir_temp=197.6,
+                drive_mechanism=DriveMechanism.SOLUTION_GAS,
+            ),
+            fluid=Fluid(
+                oil_api=21.0, water_cut=0.89, gor=67.4, gas_sg=0.65,
+                water_sg=1.012, oil_viscosity_dead=None, viscosity_temp_ref=None,
+                bubble_point_pressure=1863.26,
+                h2s_content=0.0, co2_content=0.0, sand_production=False,
+            ),
+            well=WellGeometry(
+                total_depth=7391.71, casing_od=5.5, casing_weight=17.0,
+                casing_id=4.892, tubing_od=2.875, tubing_id=2.441,
+                perforations_top=7341.71, perforations_bottom=7391.71,
+                deviation_max=0.0, wellhead_temp=60.0,
+                pump_setting_depth=6686.332,
+            ),
+            surface=SurfaceConditions(
+                wellhead_pressure_required=100.0, flowline_length=1000.0,
+                flowline_id=4.0, flowline_elevation_change=0.0,
+                separator_pressure=100.0, power_supply_voltage=4160.0,
+                frequency=hz,
+            ),
+            objectives=DesignObjectives(
+                target_flow_rate=4070.70, safety_margin_depth=0.0,
+                allow_gas_venting=False, max_gip=1.0, design_life_years=5.0,
+                use_vsd=False, design_frequency_hz=None,
+            ),
+            catalog_manager=manager,
+            increment_psi=93.605,
+            p_intake=285.3876, p_discharge=3280.747,
+            apply_viscosity=False,
+            fixed_pump_model="D5800N",
+        )
+
+    def test_a_50_hz_hacen_falta_mas_etapas_que_a_60(self, manager):
+        a50 = self._correr(manager, 50.0)["summary"]["total_stages_exact"]
+        a60 = self._correr(manager, 60.0)["summary"]["total_stages_exact"]
+        assert a50 > a60, (
+            f"la escalera ignora la frecuencia: {a50} etapas a 50 Hz y "
+            f"{a60} a 60 Hz"
+        )
+
+    def test_la_relacion_de_etapas_sigue_la_ley_de_afinidad(self, manager):
+        a50 = self._correr(manager, 50.0)["summary"]["total_stages_exact"]
+        a60 = self._correr(manager, 60.0)["summary"]["total_stages_exact"]
+        # H ∝ N²  ->  N_etapas ∝ 1/(f/60)².  El caudal también se corre, así
+        # que no es exacto: se pide el orden de magnitud correcto.
+        esperado = a60 / (50.0 / 60.0) ** 2
+        assert esperado * 0.9 <= a50 <= esperado * 1.1
+
+    def test_la_potencia_baja_al_bajar_la_frecuencia(self, manager):
+        hp50 = self._correr(manager, 50.0)["summary"]["total_hp"]
+        hp60 = self._correr(manager, 60.0)["summary"]["total_hp"]
+        assert hp50 < hp60
+
+
+class TestLaCorreccionPorViscosidadUsaElRendimientoMaximo:
+    """Las Tablas 4.520/4.521 se indexan por el rendimiento MÁXIMO de la bomba.
+
+    Se titulan «60 % / 70 % **maximum efficiency** pumps» y la cabecera de
+    columna dice «all at maximum efficiency» (Brown, 1984, pág. 91). El ejemplo
+    de §4.53113 lo confirma: «assume a 70 % efficient pump and use Table 4.521».
+
+    Antes se les pasaba el rendimiento DEL PUNTO de operación. Una candidata
+    que cayera en el extremo de su curva (la DN3100 da 3.48 % a 5000 bpd)
+    mandaba a la tabla un número imposible, ``viscosity`` levantaba ValueError
+    y se caía el diseño ENTERO con un 422.
+    """
+
+    def test_el_rendimiento_del_punto_ya_no_llega_a_la_tabla(self, manager):
+        """Una bomba leída en el extremo de su curva no rompe el diseño."""
+        from bes.core.gas_handling import pressure_increment_design
+        pesado = Fluid(
+            oil_api=21.0, water_cut=0.89, gor=67.4, gas_sg=0.65,
+            water_sg=1.012, oil_viscosity_dead=None, viscosity_temp_ref=None,
+            bubble_point_pressure=1863.26,
+            h2s_content=0.0, co2_content=0.0, sand_production=False,
+        )
+        res = pressure_increment_design(
+            reservoir=Reservoir(
+                static_pressure=888.617, bubble_point=1863.26, test_pwf=842.053,
+                test_rate=691.82, ipr_method=IPRMethod.VOGEL,
+                reservoir_temp=197.6,
+                drive_mechanism=DriveMechanism.SOLUTION_GAS,
+            ),
+            fluid=pesado,
+            p_intake=285.3876, p_discharge=3280.747,
+            target_rate=4070.70, catalog_manager=manager,
+            gip=1.0, water_cut=0.89, increment_psi=500.0,
+            casing_id=4.892, apply_viscosity=True,
+            fixed_pump_model="DN3100",
+        )
+        assert res["total_stages"] > 0
+
+    def test_la_tabla_recibe_el_maximo_y_no_el_punto(self, manager):
+        """El rendimiento que indexa la tabla es el pico de la curva."""
+        pump = next(p for p in manager.get_all_pumps() if p.model == "DN3100")
+        maximo = max(pt.efficiency for pt in pump.points) * 100.0
+        peor = min(pt.efficiency for pt in pump.points) * 100.0
+        assert peor <= 5.0, "la DN3100 debe tener un punto por debajo del 5 %"
+        assert maximo > 50.0, "su rendimiento máximo sí es el de una bomba real"
+
+
+def test_pb_cero_con_gor_estima_la_burbuja_con_standing():
+    """Pb = 0 (vacía) con GOR > 0 no puede dar 0 % de gas: se estima Pb con Standing.
+
+    Brown #2B con GOR 100 scf/STB: a ~115 psia y ~185 °F, Standing da Pb ≈ 528 psia
+    y el gas libre en la admisión es del orden del 60 % del volumen.
+    """
+    from bes.core.gas_handling import free_gas_fraction_at_intake
+    from bes.core.models import Fluid
+    from bes.core.pvt import pb_para_pvt, standing_pb
+    f = Fluid(oil_api=40, water_cut=0.3, gor=100, gas_sg=0.65, water_sg=1.05,
+              bubble_point_pressure=0.0, oil_viscosity_dead=None, viscosity_temp_ref=None,
+              h2s_content=0.0, co2_content=0.0, sand_production=False)
+    assert pb_para_pvt(0.0, 100, 184.5, 40, 0.65) == pytest.approx(standing_pb(100, 184.5, 40, 0.65))
+    assert pb_para_pvt(0.0, 0.0, 184.5, 40, 0.65) == 0.0
+    assert pb_para_pvt(1500.0, 100, 184.5, 40, 0.65) == 1500.0
+    assert free_gas_fraction_at_intake(f, 114.56, 184.5) > 0.5

@@ -1,11 +1,24 @@
 {
-  "_comment": "Datos mecánicos por SERIE de bomba: eje, límites de potencia, presión de carcasa y capacidad de los cojinetes. Son propiedades del hardware de la serie, no del modelo hidráulico, por eso viven acá y no en pumps.json. Una serie sin entrada en este archivo queda SIN VERIFICAR (la app lo reporta como tal; nunca la da por aprobada). NO agregar series con valores estimados: cada entrada debe salir de una hoja de engineering data del fabricante.",
+  "_comment": "Datos mecánicos por SERIE de bomba: eje, límites de potencia, presión de carcasa y capacidad de los cojinetes. Son propiedades del hardware de la serie, no del modelo hidráulico, por eso viven acá y no en pumps.json. Una serie sin entrada en este archivo queda SIN VERIFICAR (la app lo reporta como tal; nunca la da por aprobada). NO agregar series con valores estimados: cada entrada debe salir de una hoja de engineering data del fabricante. Series SIN datos (387, 540, 725, 1000): no tienen carcasa equivalente en el catalogo de Wood Group y quedan SIN VERIFICAR a proposito; no se extrapolan.",
   "series": [
+    {
+      "series": "338",
+      "manufacturer": "Wood Group",
+      "housing_diameter_in": 3.375,
+      "min_casing_size_in": 4.5,
+      "shaft_diameter_in": 0.625,
+      "shaft_area_in2": 0.3068,
+      "reference_frequency_hz": 60.0,
+      "shaft_hp_limit_std": 94.0,
+      "shaft_hp_limit_high_strength": 150.0,
+      "shaft_hp_limit_ultra_high_strength": 192.0,
+      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Aplicado a todas las marcas por decision de diseno: el limite lo fija la seccion del eje, no el logo del fabricante. Modelos de esta carcasa: TA-400, TA-550, TA-900, TA-1200 (5/8\"); TA-1500 usa 11/16\"."
+    },
     {
       "series": "400",
       "manufacturer": "Wood Group",
-      "housing_diameter_in": 4.000,
-      "min_casing_size_in": 5.500,
+      "housing_diameter_in": 4.0,
+      "min_casing_size_in": 5.5,
       "rotational_direction": "CCW",
       "shaft_diameter_in": 0.6875,
       "shaft_area_in2": 0.37124,
@@ -23,6 +36,84 @@
       "max_staging_bearing_high_load": 1529,
       "max_staging_bearing_high_load_bht_max_f": 250.0,
       "_source": "Wood Group ESP, hoja 'ENGINEERING DATA TD1750 50Hz'. Valores transcritos sin conversión de criterio: 101.6 mm = 4.000 in, 139.7 mm = 5.500 in, 17.463 mm = 0.6875 in (11/16\"), 239.51 mm² = 0.37124 in² (= π/4·0.6875², consistente con el diámetro). Los límites de HP del eje son a 50 Hz, según el encabezado de la hoja. Los topes de etapas por cojinete son para bombas FLOATER. Nota al pie del fabricante: 'Maximum staging may be limited by housing pressure limit, shaft capacity or thrust loading'."
+    },
+    {
+      "series": "513",
+      "manufacturer": "Wood Group",
+      "housing_diameter_in": 5.13,
+      "min_casing_size_in": 6.625,
+      "shaft_diameter_in": 1.0,
+      "shaft_area_in2": 0.7854,
+      "reference_frequency_hz": 60.0,
+      "shaft_hp_limit_std": 375.0,
+      "shaft_hp_limit_high_strength": 600.0,
+      "shaft_hp_limit_ultra_high_strength": 765.0,
+      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Aplicado a todas las marcas por decision de diseno: el limite lo fija la seccion del eje, no el logo del fabricante. Modelos de esta carcasa: TG-4000."
+    },
+    {
+      "series": "538",
+      "manufacturer": "Wood Group",
+      "housing_diameter_in": 5.375,
+      "min_casing_size_in": 7.0,
+      "shaft_diameter_in": 0.875,
+      "shaft_area_in2": 0.60132,
+      "reference_frequency_hz": 60.0,
+      "shaft_hp_limit_std": 256.0,
+      "shaft_hp_limit_high_strength": 410.0,
+      "shaft_hp_limit_ultra_high_strength": 522.0,
+      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Aplicado a todas las marcas por decision de diseno: el limite lo fija la seccion del eje, no el logo del fabricante. Modelos de esta carcasa: TE-1500, TE-2700, TE-3300 (7/8\"); TE-4200/7000/7200 usan 1\"."
+    },
+    {
+      "series": "563",
+      "manufacturer": "Wood Group",
+      "housing_diameter_in": 5.625,
+      "min_casing_size_in": 7.0,
+      "shaft_diameter_in": 1.1875,
+      "shaft_area_in2": 1.10753,
+      "reference_frequency_hz": 60.0,
+      "shaft_hp_limit_std": 637.0,
+      "shaft_hp_limit_high_strength": 1019.0,
+      "shaft_hp_limit_ultra_high_strength": 1300.0,
+      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Aplicado a todas las marcas por decision de diseno: el limite lo fija la seccion del eje, no el logo del fabricante. Modelos de esta carcasa: TH-15000, TH-20000."
+    },
+    {
+      "series": "675",
+      "manufacturer": "Wood Group",
+      "housing_diameter_in": 6.75,
+      "min_casing_size_in": 8.625,
+      "shaft_diameter_in": 1.1875,
+      "shaft_area_in2": 1.10753,
+      "reference_frequency_hz": 60.0,
+      "shaft_hp_limit_std": 637.0,
+      "shaft_hp_limit_high_strength": 1019.0,
+      "shaft_hp_limit_ultra_high_strength": 1300.0,
+      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Aplicado a todas las marcas por decision de diseno: el limite lo fija la seccion del eje, no el logo del fabricante. Modelos de esta carcasa: TJ-7500, TJ-9000, TJ-12000, TJ-20000."
+    },
+    {
+      "series": "863",
+      "manufacturer": "Wood Group",
+      "housing_diameter_in": 8.625,
+      "min_casing_size_in": 10.75,
+      "shaft_diameter_in": 1.2,
+      "shaft_area_in2": 1.13097,
+      "reference_frequency_hz": 60.0,
+      "shaft_hp_limit_std": 637.0,
+      "shaft_hp_limit_high_strength": 1019.0,
+      "shaft_hp_limit_ultra_high_strength": 1300.0,
+      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Aplicado a todas las marcas por decision de diseno: el limite lo fija la seccion del eje, no el logo del fabricante. Modelos de esta carcasa: TM-19000A, TM-19000B, TM-19000C."
+    },
+    {
+      "series": "950",
+      "manufacturer": "Wood Group",
+      "housing_diameter_in": 9.5,
+      "min_casing_size_in": 11.75,
+      "shaft_diameter_in": 1.5,
+      "shaft_area_in2": 1.76715,
+      "reference_frequency_hz": 60.0,
+      "shaft_hp_limit_std": 1000.0,
+      "shaft_hp_limit_high_strength": 1600.0,
+      "shaft_hp_limit_ultra_high_strength": 2040.0,
+      "_source": "Wood Group ESP Catalogue, bloques 'ENGINEERING DATA · SHAFT POWER LIMIT' (STANDARD / HIGH STRENGTH / ULTRA HIGH STRENGTH, 60 y 50 Hz). Los limites son los publicados a 60 Hz. Cuando la carcasa agrupa modelos con ejes distintos se toma el eje MAS CHICO publicado (criterio conservador). Aplicado a todas las marcas por decision de diseno: el limite lo fija la seccion del eje, no el logo del fabricante. Modelos de esta carcasa: TN-35000A."
     }
   ]
 }

@@ -143,6 +143,11 @@ def test_outflow_curve_j_shape(fluid, well, surface, reservoir):
     q_arr, pwf_arr = outflow_curve_natural(
         fluid, well, surface, reservoir.reservoir_temp, n_points=20
     )
+    # El primer punto con caudal (q ≈ 1 STB/d) queda fuera de la Fig. 2.36 de
+    # Brown (Dρv < 0,853): el factor se toma del extremo y la fricción es nula,
+    # así que ese punto no representa a la correlación. Se busca el mínimo
+    # desde el siguiente caudal.
+    q_arr, pwf_arr = q_arr[2:], pwf_arr[2:]
     i_min = int(np.argmin(pwf_arr))
 
     # A friction-dominated branch must exist (minimum not at the right edge)

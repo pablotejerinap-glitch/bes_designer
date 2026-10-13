@@ -33,7 +33,7 @@ from bes.core.viscosity import (
     HI_Q_STAR_MAX,
     HI_RATE_RANGE_BPD,
     HI_VISCOSITY_RANGE_CST,
-    VISCOUS_CRUDE_API_THRESHOLD,
+    VISCOUS_SSU_THRESHOLD,
     _CHARTS_PATH,
     _TABLES_PATH,
     brake_horsepower,
@@ -43,7 +43,6 @@ from bes.core.viscosity import (
     evaluate_viscosity,
     hi_corrected_curve,
     hydraulic_institute_factors,
-    is_viscous_crude,
     crude_viscosity_ssu,
     cst_to_ssu,
     ssu_to_cst,
@@ -533,31 +532,26 @@ class TestEquivalenteEnAgua:
 
 
 # ---------------------------------------------------------------------------
-# 6. La regla de los 28 °API
+# 6. El umbral de 100 SSU
 # ---------------------------------------------------------------------------
 
 class TestUmbralDeCrudoViscoso:
-    """De 28 °API para arriba el crudo es liviano y no se corrige nada.
+    """Se corrige por viscosidad sólo desde 100 SSU de viscosidad de diseño.
 
-    El corte tiene respaldo numérico: evaluando la cadena completa en el
-    umbral, los factores dan ≥ 99.6 %, o sea que la corrección ya es menor
-    que el error de leer la viscosidad de un gráfico.
+    El criterio es de viscosidad, no de densidad (°API). Criterio del proyecto.
     """
 
-    def test_el_umbral_es_28(self):
-        assert VISCOUS_CRUDE_API_THRESHOLD == 28.0
+    def test_el_umbral_es_100_ssu(self):
+        assert VISCOUS_SSU_THRESHOLD == 100.0
 
-    def test_liviano_no_es_viscoso(self):
-        assert not is_viscous_crude(28.0)
-        assert not is_viscous_crude(35.0)
+    def test_crudo_pesado_pero_poco_viscoso_no_se_corrige(self):
+        """El °API ya no decide: un crudo de 25 °API caliente puede quedar bajo 100 SSU."""
+        r = evaluate_viscosity(25.0, 250.0, 300.0, pump_efficiency_pct=70.0)
+        assert r["design_ssu"] < 100.0 and r["is_viscous"] is False
 
-    def test_pesado_si_es_viscoso(self):
-        assert is_viscous_crude(27.9)
-        assert is_viscous_crude(16.0)
-
-    def test_justo_en_el_umbral_cuenta_como_liviano(self):
-        """28.0 exactos es liviano: el criterio es «28 para arriba»."""
-        assert not is_viscous_crude(28.0)
+    def test_crudo_viscoso_se_corrige(self):
+        r = evaluate_viscosity(14.0, 160.0, 0.0, pump_efficiency_pct=67.73)
+        assert r["design_ssu"] >= 100.0 and r["is_viscous"] is True
 
     def test_liviano_devuelve_factores_unitarios(self):
         r = evaluate_viscosity(30.0, 180.0, 200.0, pump_efficiency_pct=70.0)
@@ -565,8 +559,9 @@ class TestUmbralDeCrudoViscoso:
         assert r["capacity_factor"] == 100.0
         assert r["head_factor"] == 100.0
         assert r["hp_factor"] == 100.0
-        assert r["viscosity"] is None
-        assert "liviano" in r["reason"]
+        # Con 100 SSU como umbral se calcula la viscosidad igual y se informa.
+        assert r["design_ssu"] < 100.0
+        assert "100 SSU" in r["reason"]
 
     def test_liviano_conserva_el_rendimiento_de_la_bomba(self):
         r = evaluate_viscosity(35.0, 180.0, 200.0, pump_efficiency_pct=68.0)
@@ -1280,7 +1275,7 @@ class TestElGasQueEntraALaLaminaEsElDISUELTO:
             oil_api=self.API, temp_f=self.T, rs_scf_bbl=self.GOR,
             pump_efficiency_pct=64.6, dead_oil_cp=None,
         )
-        assert con_gor["clamped_ssu"] is True          # cae bajo el piso
+        assert con_gor["is_viscous"] is False          # < 100 SSU: no se corrige
         assert con_gor["capacity_factor"] == pytest.approx(100.0, abs=0.1)
         assert con_gor["head_factor"] == pytest.approx(100.0, abs=0.1)
 

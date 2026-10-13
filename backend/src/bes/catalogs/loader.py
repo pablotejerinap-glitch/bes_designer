@@ -73,6 +73,13 @@ def _parse_pumps(raw: list[dict]) -> list[PumpCurve]:
                 housing_pressure_limit_psi=entry.get("housing_pressure_limit_psi", 0.0),
                 housings=housings,
                 catalog_frequency_hz=entry.get("catalog_frequency_hz", 60.0),
+                shaft_hp_limit_std=float(entry.get("shaft_hp_limit_std") or 0.0),
+                shaft_hp_limit_high_strength=float(entry.get("shaft_hp_limit_high_strength") or 0.0),
+                housing_burst_psi=dict(entry.get("housing_burst_psi") or {}),
+                shaft_area_in2=float(entry.get("shaft_area_in2") or 0.0),
+                fuente_mecanica=str(entry.get("fuente_mecanica", "")),
+                fuente_carcasas=str(entry.get("fuente_carcasas", "")),
+                tandem=dict(entry.get("tandem") or {}),
             )
         )
     return pumps
@@ -111,10 +118,14 @@ class CatalogManager:
         self._motors: list[dict] = _load_json(base / "motors.json")["motors"]
         self._cables: list[dict] = _load_json(base / "cables.json")["cables"]
         self._seals: list[dict] = _load_json(base / "seals.json")["seals"]
+        self._elastomers: list[dict] = _load_optional(base / "elastomers.json", "elastomers")
         # Optional catalogs (added later; load defensively so older deployments
         # without these files still construct a working manager).
         self._gas_handlers: list[dict] = _load_optional(
             base / "gas_handlers.json", "gas_handlers"
+        )
+        self._transformers: list[dict] = _load_optional(
+            base / "transformers.json", "transformers"
         )
         self._sensors: list[dict] = _load_optional(
             base / "sensors.json", "sensors"
@@ -244,6 +255,10 @@ class CatalogManager:
     # Motor queries
     # ------------------------------------------------------------------
 
+    def get_all_motors(self) -> list[dict]:
+        """Todos los motores del catálogo, tal como están en motors.json."""
+        return list(self._motors)
+
     def get_motor(self, hp: float, voltage: float, series: str) -> dict:
         """Devuelve el motor que mejor calza con los requisitos dados.
 
@@ -352,6 +367,10 @@ class CatalogManager:
     def get_all_seals(self) -> list[dict]:
         """Return every seal/protector in the catalog."""
         return list(self._seals)
+
+    def get_all_elastomers(self) -> list[dict]:
+        """Guía de elastómeros de REDA (pág. 404): límite de temperatura y resistencia."""
+        return list(self._elastomers)
 
     def get_seal(
         self,
@@ -531,6 +550,57 @@ class CatalogManager:
             La ficha de la serie, o ``None`` si no está en el catálogo.
         """
         return self._pump_series.get(str(series))
+
+    def get_all_transformers(self) -> list[dict]:
+        """Todos los transformadores del catálogo."""
+        return list(self._transformers)
+
+    def select_transformer(
+        self, kva_required: float, secondary_voltage: float
+    ) -> Optional[dict]:
+        """Elige el transformador más chico que cubra potencia **y** tensión.
+
+        Dos condiciones, y las dos son duras:
+
+            1. ``kva`` >= la potencia aparente que pide el aparejo.
+            2. la tensión que hace falta en superficie cae dentro del rango de
+               secundario, en conexión DELTA **o** en WYE.
+
+        La segunda es la que el chequeo por kVA solo no ve: un transformador
+        puede tener potencia de sobra y no llegar a la tensión, o al revés. La
+        WYE entrega √3 veces la tensión de línea de la DELTA para el mismo
+        bobinado, así que su rango siempre está más arriba; se prueban las dos
+        y se informa cuál sirve.
+
+        Entre los que califican se toma el de **menor kVA** —el más barato— y,
+        a igualdad, el más liviano.
+
+        Args:
+            kva_required: Potencia aparente que pide el aparejo [kVA].
+            secondary_voltage: Tensión necesaria en el secundario [V], o sea la
+                que hay que entregarle al cable.
+
+        Returns:
+            El transformador elegido con ``connection`` (``"delta"`` o
+            ``"wye"``) agregado, o ``None`` si ninguno califica.
+        """
+        def conexion(t: dict) -> Optional[str]:
+            if t["secondary_delta_min"] <= secondary_voltage <= t["secondary_delta_max"]:
+                return "delta"
+            if t["secondary_wye_min"] <= secondary_voltage <= t["secondary_wye_max"]:
+                return "wye"
+            return None
+
+        candidatos = []
+        for t in self._transformers:
+            if t["kva"] < kva_required:
+                continue
+            c = conexion(t)
+            if c is not None:
+                candidatos.append({**t, "connection": c})
+        if not candidatos:
+            return None
+        return min(candidatos, key=lambda t: (t["kva"], t["weight_lbs"]))
 
     def get_controller(
         self, voltage: float, kva: float, amps: float, prefer_vsd: bool = False

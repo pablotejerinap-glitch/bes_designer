@@ -1,0 +1,301 @@
+{
+ "A2700N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 94 (60 Hz) y pág. 96 (50 Hz)",
+  "60": "A2700N_60.jpg",
+  "50": "A2700N_50.jpg"
+ },
+ "AN1200": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 82 (60 Hz) y pág. 84 (50 Hz)",
+  "60": "AN1200_60.jpg",
+  "50": "AN1200_50.jpg"
+ },
+ "AN550": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 70 (60 Hz) y pág. 72 (50 Hz)",
+  "60": "AN550_60.jpg",
+  "50": "AN550_50.jpg"
+ },
+ "AN900": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 76 (60 Hz) y pág. 78 (50 Hz)",
+  "60": "AN900_60.jpg",
+  "50": "AN900_50.jpg"
+ },
+ "D1400N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 136 (60 Hz) y pág. 138 (50 Hz)",
+  "60": "D1400N_60.jpg",
+  "50": "D1400N_50.jpg"
+ },
+ "D2400N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 160 (60 Hz) y pág. 162 (50 Hz)",
+  "60": "D2400N_60.jpg",
+  "50": "D2400N_50.jpg"
+ },
+ "D3050N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 100 (60 Hz) y pág. 102 (50 Hz)",
+  "60": "D3050N_60.jpg",
+  "50": "D3050N_50.jpg"
+ },
+ "D475N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 118 (60 Hz) y pág. 120 (50 Hz)",
+  "60": "D475N_60.jpg",
+  "50": "D475N_50.jpg"
+ },
+ "DN1100": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 130 (60 Hz) y pág. 132 (50 Hz)",
+  "60": "DN1100_60.jpg",
+  "50": "DN1100_50.jpg"
+ },
+ "DN1800": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 148 (60 Hz) y pág. 150 (50 Hz)",
+  "60": "DN1800_60.jpg",
+  "50": "DN1800_50.jpg"
+ },
+ "DN2150": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 154 (60 Hz) y pág. 156 (50 Hz)",
+  "60": "DN2150_60.jpg",
+  "50": "DN2150_50.jpg"
+ },
+ "DN3000": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 166 (60 Hz) y pág. 168 (50 Hz)",
+  "60": "DN3000_60.jpg",
+  "50": "DN3000_50.jpg"
+ },
+ "DN3100": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 172 (60 Hz) y pág. 174 (50 Hz)",
+  "60": "DN3100_60.jpg",
+  "50": "DN3100_50.jpg"
+ },
+ "G6200N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 220 (60 Hz) y pág. 222 (50 Hz)",
+  "60": "G6200N_60.jpg",
+  "50": "G6200N_50.jpg"
+ },
+ "GN10000": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 232 (60 Hz) y pág. 234 (50 Hz)",
+  "60": "GN10000_60.jpg",
+  "50": "GN10000_50.jpg"
+ },
+ "GN1600": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 190 (60 Hz) y pág. 192 (50 Hz)",
+  "60": "GN1600_60.jpg",
+  "50": "GN1600_50.jpg"
+ },
+ "GN2100": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 196 (60 Hz) y pág. 198 (50 Hz)",
+  "60": "GN2100_60.jpg",
+  "50": "GN2100_50.jpg"
+ },
+ "GN3200": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 202 (60 Hz) y pág. 204 (50 Hz)",
+  "60": "GN3200_60.jpg",
+  "50": "GN3200_50.jpg"
+ },
+ "GN4000": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 208 (60 Hz) y pág. 210 (50 Hz)",
+  "60": "GN4000_60.jpg",
+  "50": "GN4000_50.jpg"
+ },
+ "GN7000": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 226 (60 Hz) y pág. 228 (50 Hz)",
+  "60": "GN7000_60.jpg",
+  "50": "GN7000_50.jpg"
+ },
+ "H15500N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 286 (60 Hz) y pág. 288 (50 Hz)",
+  "60": "H15500N_60.jpg",
+  "50": "H15500N_50.jpg"
+ },
+ "H21500N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 292 (60 Hz) y pág. 294 (50 Hz)",
+  "60": "H21500N_60.jpg",
+  "50": "H21500N_50.jpg"
+ },
+ "H28000N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 298 (60 Hz) y pág. 300 (50 Hz)",
+  "60": "H28000N_60.jpg",
+  "50": "H28000N_50.jpg"
+ },
+ "HN15000": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 280 (60 Hz) y pág. 282 (50 Hz)",
+  "60": "HN15000_60.jpg",
+  "50": "HN15000_50.jpg"
+ },
+ "J12000N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 310 (60 Hz) y pág. 312 (50 Hz)",
+  "60": "J12000N_60.jpg",
+  "50": "J12000N_50.jpg"
+ },
+ "JN16000": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 316 (60 Hz) y pág. 318 (50 Hz)",
+  "60": "JN16000_60.jpg",
+  "50": "JN16000_50.jpg"
+ },
+ "JN21000": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 322 (60 Hz) y pág. 324 (50 Hz)",
+  "60": "JN21000_60.jpg",
+  "50": "JN21000_50.jpg"
+ },
+ "L16000N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 328 (60 Hz) y pág. 330 (50 Hz)",
+  "60": "L16000N_60.jpg",
+  "50": "L16000N_50.jpg"
+ },
+ "L43000N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 334 (60 Hz) y pág. 336 (50 Hz)",
+  "60": "L43000N_60.jpg",
+  "50": "L43000N_50.jpg"
+ },
+ "S5000N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 250 (60 Hz) y pág. 252 (50 Hz)",
+  "60": "S5000N_60.jpg",
+  "50": "S5000N_50.jpg"
+ },
+ "SN2600": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 238 (60 Hz) y pág. 240 (50 Hz)",
+  "60": "SN2600_60.jpg",
+  "50": "SN2600_50.jpg"
+ },
+ "SN3600": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 244 (60 Hz) y pág. 246 (50 Hz)",
+  "60": "SN3600_60.jpg",
+  "50": "SN3600_50.jpg"
+ },
+ "TD-1200": {
+  "fuente": "Curvas BOMBAS Woodgroup.pdf, pág. 21 (60 Hz) y pág. 22 (50 Hz)",
+  "60": "TD-1200_60.jpg",
+  "50": "TD-1200_50.jpg"
+ },
+ "TD-150": {
+  "fuente": "Curvas BOMBAS Woodgroup.pdf, pág. 1 (60 Hz) y pág. 2 (50 Hz)",
+  "60": "TD-150_60.jpg",
+  "50": "TD-150_50.jpg"
+ },
+ "TD-300": {
+  "fuente": "Curvas BOMBAS Woodgroup.pdf, pág. 5 (60 Hz) y pág. 6 (50 Hz)",
+  "60": "TD-300_60.jpg",
+  "50": "TD-300_50.jpg"
+ },
+ "TD-4300": {
+  "fuente": "Curvas BOMBAS Woodgroup.pdf, pág. 37 (60 Hz) y pág. 38 (50 Hz)",
+  "60": "TD-4300_60.jpg",
+  "50": "TD-4300_50.jpg"
+ },
+ "TD-460": {
+  "fuente": "Curvas BOMBAS Woodgroup.pdf, pág. 9 (60 Hz) y pág. 10 (50 Hz)",
+  "60": "TD-460_60.jpg",
+  "50": "TD-460_50.jpg"
+ },
+ "TD-650": {
+  "fuente": "Curvas BOMBAS Woodgroup.pdf, pág. 13 (60 Hz) y pág. 14 (50 Hz)",
+  "60": "TD-650_60.jpg",
+  "50": "TD-650_50.jpg"
+ },
+ "TD-850": {
+  "fuente": "Curvas BOMBAS Woodgroup.pdf, pág. 17 (60 Hz) y pág. 18 (50 Hz)",
+  "60": "TD-850_60.jpg",
+  "50": "TD-850_50.jpg"
+ },
+ "AN1500": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 88 (60 Hz) y pág. 90 (50 Hz)",
+  "60": "AN1500_60.jpg",
+  "50": "AN1500_50.jpg"
+ },
+ "D3400N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 106 (60 Hz) y pág. 108 (50 Hz)",
+  "60": "D3400N_60.jpg",
+  "50": "D3400N_50.jpg"
+ },
+ "D5850N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 112 (60 Hz) y pág. 114 (50 Hz)",
+  "60": "D5850N_60.jpg",
+  "50": "D5850N_50.jpg"
+ },
+ "D725N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 124 (60 Hz)",
+  "60": "D725N_60.jpg"
+ },
+ "DN1750": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 142 (60 Hz) y pág. 144 (50 Hz)",
+  "60": "DN1750_60.jpg",
+  "50": "DN1750_50.jpg"
+ },
+ "D5800N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 184 (60 Hz) y pág. 186 (50 Hz)",
+  "60": "D5800N_60.jpg",
+  "50": "D5800N_50.jpg"
+ },
+ "S6000N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 256 (60 Hz) y pág. 258 (50 Hz)",
+  "60": "S6000N_60.jpg",
+  "50": "S6000N_50.jpg"
+ },
+ "SN8500": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 262 (60 Hz) y pág. 264 (50 Hz)",
+  "60": "SN8500_60.jpg",
+  "50": "SN8500_50.jpg"
+ },
+ "S8900N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 268 (60 Hz) y pág. 270 (50 Hz)",
+  "60": "S8900N_60.jpg",
+  "50": "S8900N_50.jpg"
+ },
+ "J7000N": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 304 (60 Hz) y pág. 306 (50 Hz)",
+  "60": "J7000N_60.jpg",
+  "50": "J7000N_50.jpg"
+ },
+ "M520A": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 341 (60 Hz) y pág. 343 (50 Hz)",
+  "60": "M520A_60.jpg",
+  "50": "M520A_50.jpg"
+ },
+ "M520B": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 345 (60 Hz) y pág. 347 (50 Hz)",
+  "60": "M520B_60.jpg",
+  "50": "M520B_50.jpg"
+ },
+ "M520C": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 349 (60 Hz) y pág. 351 (50 Hz)",
+  "60": "M520C_60.jpg",
+  "50": "M520C_50.jpg"
+ },
+ "M675A": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 356 (60 Hz) y pág. 358 (50 Hz)",
+  "60": "M675A_60.jpg",
+  "50": "M675A_50.jpg"
+ },
+ "M675B": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 360 (60 Hz) y pág. 362 (50 Hz)",
+  "60": "M675B_60.jpg",
+  "50": "M675B_50.jpg"
+ },
+ "M675C": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 364 (60 Hz) y pág. 366 (50 Hz)",
+  "60": "M675C_60.jpg",
+  "50": "M675C_50.jpg"
+ },
+ "N1050A": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 369 (60 Hz) y pág. 371 (50 Hz)",
+  "60": "N1050A_60.jpg",
+  "50": "N1050A_50.jpg"
+ },
+ "N1050B": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 373 (60 Hz) y pág. 375 (50 Hz)",
+  "60": "N1050B_60.jpg",
+  "50": "N1050B_50.jpg"
+ },
+ "N1400A": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 378 (60 Hz) y pág. 380 (50 Hz)",
+  "60": "N1400A_60.jpg",
+  "50": "N1400A_50.jpg"
+ },
+ "N1400B": {
+  "fuente": "REDA_ESP_Catalog.pdf, pág. 382 (60 Hz) y pág. 384 (50 Hz)",
+  "60": "N1400B_60.jpg",
+  "50": "N1400B_50.jpg"
+ },
+ "TD-1750": {
+  "fuente": "Curvas BOMBAS Woodgroup.pdf, pág. 25 (60 Hz) y pág. 26 (50 Hz)",
+  "60": "TD-1750_60.jpg",
+  "50": "TD-1750_50.jpg"
+ }
+}

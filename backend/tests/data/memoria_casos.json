@@ -1,0 +1,235 @@
+{
+  "A": {
+    "gas": false,
+    "inc": 200.0,
+    "pozo": {
+      "reservoir": {
+        "static_pressure": 1250.0,
+        "bubble_point": 0.0,
+        "test_pwf": 1000.0,
+        "test_rate": 2500.0,
+        "ipr_method": "linear",
+        "reservoir_temp": 120.0,
+        "drive_mechanism": "water_drive"
+      },
+      "fluid": {
+        "oil_api": 35.0,
+        "water_cut": 1.0,
+        "gor": 0.0,
+        "gas_sg": 0.65,
+        "water_sg": 1.1,
+        "oil_viscosity_dead": 1.0,
+        "viscosity_temp_ref": 100.0,
+        "bubble_point_pressure": 0.0,
+        "h2s_content": 0.0,
+        "co2_content": 0.0,
+        "sand_production": false
+      },
+      "well": {
+        "total_depth": 2200.0,
+        "casing_od": 8.625,
+        "casing_weight": 24.0,
+        "casing_id": 8.097,
+        "tubing_od": 5.5,
+        "tubing_id": 4.778,
+        "perforations_top": 1900.0,
+        "perforations_bottom": 2200.0,
+        "deviation_max": 0.0,
+        "wellhead_temp": 75.0
+      },
+      "surface": {
+        "wellhead_pressure_required": 0.0,
+        "flowline_length": 2000.0,
+        "flowline_id": 4.0,
+        "flowline_elevation_change": 30.0,
+        "separator_pressure": 50.0,
+        "power_supply_voltage": 4160.0,
+        "frequency": 60.0
+      },
+      "objectives": {
+        "target_flow_rate": 10000.0,
+        "safety_margin_depth": 100.0,
+        "allow_gas_venting": false,
+        "max_gip": 0.1,
+        "design_life_years": 5.0,
+        "use_vsd": false,
+        "design_frequency_hz": null
+      }
+    }
+  },
+  "B": {
+    "gas": false,
+    "inc": 200.0,
+    "pozo": {
+      "reservoir": {
+        "static_pressure": 2900.0,
+        "bubble_point": 0.0,
+        "test_pwf": 2540.0,
+        "test_rate": 1000.0,
+        "ipr_method": "linear",
+        "reservoir_temp": 225.0,
+        "drive_mechanism": "water_drive"
+      },
+      "fluid": {
+        "oil_api": 40.0,
+        "water_cut": 0.3,
+        "gor": 0.0,
+        "gas_sg": 0.65,
+        "water_sg": 1.05,
+        "oil_viscosity_dead": 1.6,
+        "viscosity_temp_ref": 200.0,
+        "bubble_point_pressure": 0.0,
+        "h2s_content": 0.0,
+        "co2_content": 0.0,
+        "sand_production": false
+      },
+      "well": {
+        "total_depth": 11000.0,
+        "casing_od": 7.0,
+        "casing_weight": 23.0,
+        "casing_id": 6.366,
+        "tubing_od": 2.875,
+        "tubing_id": 2.441,
+        "perforations_top": 9950.0,
+        "perforations_bottom": 10000.0,
+        "deviation_max": 0.0,
+        "wellhead_temp": 160.0,
+        "pump_setting_depth": 4000.0
+      },
+      "surface": {
+        "wellhead_pressure_required": 200.0,
+        "flowline_length": 1000.0,
+        "flowline_id": 4.0,
+        "flowline_elevation_change": 0.0,
+        "separator_pressure": 100.0,
+        "power_supply_voltage": 4160.0,
+        "frequency": 60.0
+      },
+      "objectives": {
+        "target_flow_rate": 1600.0,
+        "safety_margin_depth": 0.0,
+        "allow_gas_venting": false,
+        "max_gip": 0.1,
+        "design_life_years": 5.0,
+        "use_vsd": false,
+        "design_frequency_hz": null
+      }
+    }
+  },
+  "C": {
+    "gas": true,
+    "inc": 200.0,
+    "pozo": {
+      "reservoir": {
+        "static_pressure": 1200.0,
+        "bubble_point": 2000.0,
+        "test_pwf": 400.0,
+        "test_rate": 800.0,
+        "ipr_method": "vogel",
+        "reservoir_temp": 170.0,
+        "drive_mechanism": "solution_gas"
+      },
+      "fluid": {
+        "oil_api": 36.0,
+        "water_cut": 0.0,
+        "gor": 600.0,
+        "gas_sg": 0.7,
+        "water_sg": 1.12,
+        "oil_viscosity_dead": 5.0,
+        "viscosity_temp_ref": 100.0,
+        "bubble_point_pressure": 2000.0,
+        "h2s_content": 0.0,
+        "co2_content": 0.0,
+        "sand_production": false
+      },
+      "well": {
+        "total_depth": 8000.0,
+        "casing_od": 5.5,
+        "casing_weight": 17.0,
+        "casing_id": 4.892,
+        "tubing_od": 2.375,
+        "tubing_id": 1.995,
+        "perforations_top": 7950.0,
+        "perforations_bottom": 8000.0,
+        "deviation_max": 0.0,
+        "wellhead_temp": 120.0
+      },
+      "surface": {
+        "wellhead_pressure_required": 180.0,
+        "flowline_length": 1000.0,
+        "flowline_id": 3.0,
+        "flowline_elevation_change": 0.0,
+        "separator_pressure": 100.0,
+        "power_supply_voltage": 4160.0,
+        "frequency": 60.0
+      },
+      "objectives": {
+        "target_flow_rate": 800.0,
+        "safety_margin_depth": 50.0,
+        "allow_gas_venting": false,
+        "max_gip": 1.0,
+        "design_life_years": 5.0,
+        "use_vsd": false,
+        "design_frequency_hz": null
+      }
+    }
+  },
+  "D": {
+    "gas": false,
+    "inc": 200.0,
+    "pozo": {
+      "reservoir": {
+        "static_pressure": 1750.0,
+        "bubble_point": 0.0,
+        "test_pwf": 1550.0,
+        "test_rate": 1000.0,
+        "ipr_method": "linear",
+        "reservoir_temp": 160.0,
+        "drive_mechanism": "water_drive"
+      },
+      "fluid": {
+        "oil_api": 14.0,
+        "water_cut": 0.5,
+        "gor": 0.0,
+        "gas_sg": 0.65,
+        "water_sg": 1.07,
+        "oil_viscosity_dead": 250.0,
+        "viscosity_temp_ref": 100.0,
+        "bubble_point_pressure": 0.0,
+        "h2s_content": 0.0,
+        "co2_content": 0.0,
+        "sand_production": false
+      },
+      "well": {
+        "total_depth": 6450.0,
+        "casing_od": 5.5,
+        "casing_weight": 17.0,
+        "casing_id": 4.892,
+        "tubing_od": 2.375,
+        "tubing_id": 1.995,
+        "perforations_top": 6400.0,
+        "perforations_bottom": 6450.0,
+        "deviation_max": 0.0,
+        "wellhead_temp": 100.0
+      },
+      "surface": {
+        "wellhead_pressure_required": 120.0,
+        "flowline_length": 1000.0,
+        "flowline_id": 3.0,
+        "flowline_elevation_change": 0.0,
+        "separator_pressure": 100.0,
+        "power_supply_voltage": 4160.0,
+        "frequency": 60.0
+      },
+      "objectives": {
+        "target_flow_rate": 1500.0,
+        "safety_margin_depth": 100.0,
+        "allow_gas_venting": true,
+        "max_gip": 0.1,
+        "design_life_years": 5.0,
+        "use_vsd": false,
+        "design_frequency_hz": null
+      }
+    }
+  }
+}

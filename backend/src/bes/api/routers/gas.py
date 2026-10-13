@@ -181,3 +181,114 @@ def post_gas_complete_design(
         warnings=resultado["warnings"],
         ladder_figure=_ladder(inc["increment_table"], resumen),
     )
+
+
+class GasPasoAPasoRequest(GasCompleteDesignRequest):
+    eta_separador: float = 0.75
+
+
+@router.post("/paso-a-paso")
+def post_gas_paso_a_paso(req: GasPasoAPasoRequest, catalog=Depends(get_catalog)) -> dict:
+    """Método nuevo de gas, paso a paso (bes.core.gas_paso_a_paso).
+
+    Devuelve cada bloque de cuentas (fórmula, sustitución, resultado y cita),
+    la tabla de evolución del fluido en el pozo y la tabla de escalones.
+    """
+    return _paso_a_paso(req, catalog)[0]
+
+
+class GasMemoriaRequest(GasPasoAPasoRequest):
+    titulo: str | None = None
+
+
+@router.post("/memoria")
+def post_gas_memoria(req: GasMemoriaRequest, formato: str = "html", catalog=Depends(get_catalog)):
+    """Memoria de cálculo del método de gas paso a paso (HTML imprimible o PDF)."""
+    from fastapi import HTTPException
+    from fastapi.responses import Response
+
+    from bes.reports.memoria import PDFNoDisponible, html_a_pdf
+    from bes.reports.memoria.gas_nuevo import memoria_gas_html
+
+    calculo, datos = _paso_a_paso(req, catalog)
+    html = memoria_gas_html(calculo, datos, (req.titulo or "").strip())
+    if formato == "html":
+        return Response(content=html, media_type="text/html; charset=utf-8")
+    if formato != "pdf":
+        raise HTTPException(status_code=404, detail=f"Formato '{formato}' no soportado (html|pdf)")
+    try:
+        data = html_a_pdf(html)
+    except PDFNoDisponible as exc:
+        raise HTTPException(status_code=501, detail=str(exc)) from exc
+    return Response(content=data, media_type="application/pdf",
+                    headers={"Content-Disposition": 'attachment; filename="memoria_de_calculo_gas.pdf"'})
+
+
+def _paso_a_paso(req: GasPasoAPasoRequest, catalog) -> tuple[dict, dict]:
+    """Corre el método y devuelve (respuesta, datos de entrada con los nombres de calcular)."""
+    from dataclasses import asdict
+
+    from fastapi import HTTPException
+
+    from bes.core import gas_paso_a_paso as G
+
+    r, f, w, s, o = req.reservoir, req.fluid, req.well, req.surface, req.objectives
+    # Mismas validaciones de datos que el diseño normal (punzados, tubing, etc.).
+    try:
+        to_reservoir(r); to_fluid(f); to_well(w); to_surface(s); to_objectives(o)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    # Misma convención que el diseño normal: si no se carga, la bomba va en el
+    # tope de los punzados menos el margen de seguridad.
+    d_bomba = (req.pump_depth or w.pump_setting_depth
+               or max(w.perforations_top - (o.safety_margin_depth or 0.0), 100.0))
+    hz = o.design_frequency_hz or s.frequency
+    datos = dict(
+        pr=r.static_pressure, pb=r.bubble_point, pwf_ensayo=r.test_pwf, q_ensayo=r.test_rate,
+        q_objetivo=o.target_flow_rate, api=f.oil_api or 0.0, wc=f.water_cut, gor=f.gor,
+        gas_sg=f.gas_sg, water_sg=f.water_sg, t_boca=w.wellhead_temp, t_fondo=r.reservoir_temp,
+        d_pwf=w.perforations_bottom, d_bomba=d_bomba, p_boca=s.wellhead_pressure_required,
+        d_tubing_in=w.tubing_id, eta_sep=req.eta_separador, casing_id=w.casing_id,
+        frecuencia_hz=hz, incremento_psi=req.increment_psi,
+        desviacion_max=w.deviation_max or 0.0, usa_vsd=bool(o.use_vsd))
+    try:
+        res, bloques = G.calcular(catalog_manager=catalog, **datos)
+    except (NotImplementedError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    tabla = G.tabla_evolucion(res, o.target_flow_rate, f.water_cut, f.gor, f.oil_api or 0.0,
+                              f.gas_sg, f.water_sg, r.reservoir_temp, w.wellhead_temp)
+    inc = res.get("incrementos") or {}
+    sel = res.get("seleccion") or {}
+    mec = res.get("mecanica") or {}
+    pro = res.get("protector") or {}
+    mot = res.get("motor") or {}
+    cab = res.get("cable") or {}
+    sup = res.get("superficie") or {}
+    return ({
+        "bloques": [{"titulo": t, "pasos": [asdict(p) for p in ps]} for t, ps in bloques],
+        "tabla_evolucion": tabla,
+        "escalones": inc.get("tramos", []),
+        "resumen": {
+            "pwf": res["pwf"], "pip": res["pip"], "t_admision": res["t_adm"],
+            "gor_bomba": res["succion"]["gor_bomba"], "gas_libre_bomba": res["succion"]["f_bomba"],
+            "p_descarga": (res.get("descarga") or {}).get("p_descarga"),
+            "bomba": f"{sel.get('fabricante', '')} {sel.get('modelo', '')}".strip(),
+            "frecuencia_hz": hz, "etapas": inc.get("etapas"), "etapas_exactas": inc.get("etapas_exactas"),
+            "hp": inc.get("hp"),
+            "eje": mec.get("eje"), "carcasa": mec.get("carcasa"), "p_max_carcasa": mec.get("p_max"),
+            "carcasas": mec.get("carcasas"), "etapas_ciegas": mec.get("etapas_ciegas"),
+            "largo_bomba_ft": mec.get("largo_ft"),
+            "protector": pro.get("protector"), "protector_pn": pro.get("part_number"),
+            "protector_largo_ft": pro.get("largo_ft"), "elastomero": pro.get("elastomero"),
+            "serie_motor": ", ".join(pro.get("serie_motor") or []) or None,
+            "motor": mot.get("motor"), "motor_n": mot.get("n"), "motor_arreglo": mot.get("arreglo"),
+            "motor_hp": mot.get("hp_placa"), "motor_voltaje": mot.get("voltaje"),
+            "motor_corriente": mot.get("corriente"), "bhp_sistema": mot.get("bhp_sistema"),
+            "v_anular": mot.get("v_anular"),
+            "cable": (f"{cab['fabricante']} {cab['tipo']} {cab['calibre']} AWG {cab['conductor']}" if cab else None),
+            "cable_largo_ft": cab.get("largo_ft"), "cable_caida_v": cab.get("caida"),
+            "mle_largo_ft": cab.get("mle_ft"), "u_superficie": sup.get("u_superficie"),
+            "kva": sup.get("kva"), "tablero": sup.get("tablero"),
+            "transformador_kva": sup.get("transformador_kva"), "transformador_pn": sup.get("transformador_pn"),
+        },
+    }, datos)

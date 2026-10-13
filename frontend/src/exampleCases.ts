@@ -14,7 +14,7 @@ import type { DesignInputs } from "./api/types";
  *     neuquina. No es un pozo real y no debe citarse como tal.
  *   - **Acuífero / Gas en bomba** — escenarios propios del proyecto, ya
  *     verificados contra el backend.
- *   - **Pozo real MA-102** — datos de un informe de diseño de SLB, con el
+ *   - **Pozo real UNC-1** — datos de un informe de diseño de SLB, con el
  *     aparejo de referencia anotado. Es el único caso que sale de un pozo que
  *     existe, así que la trazabilidad de cada dato está escrita en su
  *     docstring: qué vino del informe, qué se derivó y qué es supuesto.
@@ -22,7 +22,7 @@ import type { DesignInputs } from "./api/types";
  * En los casos inventados y en los del libro, la presión de burbuja es la que
  * Standing devuelve para el GOR, °API y temperatura del caso. Poner una Pb
  * arbitraria haría que el PVT se contradijera consigo mismo. **La excepción es
- * el MA-102**, donde hay un dato medido de laboratorio y ése manda sobre la
+ * el UNC-1**, donde hay un dato medido de laboratorio y ése manda sobre la
  * correlación; la diferencia queda anotada en su docstring.
  *
  * Si el usuario guarda un caso con el mismo nombre, el suyo gana: estos sólo
@@ -260,6 +260,11 @@ const BROWN_1A: DesignInputs = {
  * SUPUESTOS (el enunciado no los da): γg = 0.65; tensión de red 4 160 V; línea
  * de conducción irrelevante para este cálculo —el TDH del libro usa la presión
  * de cabeza de 200 psig y no las pérdidas de la línea—.
+ *  - Punzados cargados como 9 950-10 000 ft. Las presiones del libro están
+ *    referidas a 10 000 ft (no a los punzados reales, 10 600-10 650 ft), y la
+ *    app toma la Pwf en la base de los punzados. Con 10 650 ft la columna
+ *    hasta la bomba (4 000 ft) pesa más que la Pwf y la admisión quedaría por
+ *    encima del nivel dinámico.
  *
  * Referencia impresa: TDH = 4 258 ft, Centrilift I-42B (serie 513), 112 etapas,
  * ≈65 hp al eje, motor 75 hp (serie 544, 1 350 V, 35 A), cable #4 CU de
@@ -299,8 +304,8 @@ const BROWN_2B: DesignInputs = {
     casing_weight: 23.0,
     casing_id: 6.366,
     ...TUBING_2_875,
-    perforations_top: 10600.0,
-    perforations_bottom: 10650.0,
+    perforations_top: 9950.0,   // SUPUESTO, ver comentario
+    perforations_bottom: 10000.0,
     deviation_max: 0.0,
     wellhead_temp: 160.0,
     pump_setting_depth: 4000.0,
@@ -503,9 +508,9 @@ const BROWN_3B: DesignInputs = {
 // ===========================================================================
 
 /**
- * Crudo de 14 °API con 50 % de agua. Por debajo de los 28 °API la corrección
- * por viscosidad de Riling (§4.53112) muerde de verdad, y es lo que este caso
- * viene a mostrar.
+ * Crudo de 14 °API con 50 % de agua: unos 905 SSU, muy por encima de los
+ * 100 SSU desde los que se aplica la corrección por viscosidad de Riling
+ * (§4.53112), y es lo que este caso viene a mostrar.
  *
  * Del enunciado impreso: casing 5½" × tubing 2⅜" O.D., punzados 6 400-6 450 ft,
  * longitud de tubing 6 300 ft, PI = 5, Pr = 1 750 psia, corte de agua 50 %
@@ -612,8 +617,13 @@ const BROWN_4A: DesignInputs = {
  * por encima de ese valor no hay gas libre en la bomba, que es la premisa
  * "pumping no gas" del enunciado.
  *
- * Verificado contra el backend: REDA DN1800, 257 etapas, TDH 4 725 ft, motor de
- * 105 hp, 0,00 % de gas libre en la admisión — la premisa se cumple sola.
+ * Verificado contra el backend (criterio de viscosidad de 100 SSU, Darcy-Weisbach
+ * para μ > 5 cP): REDA DN1800, 303 etapas, TDH 4 776 ft (5 105 ft en agua),
+ * 116,2 hp, motor REDA RK de 144 hp, 0,00 % de gas libre en la admisión — la
+ * premisa se cumple sola. La viscosidad cargada (400 cp a 100 °F) se descarta
+ * por estar a otra temperatura y se lee la Fig. 4L(2) a 200 °F: 239 cp, que el
+ * gas disuelto baja a 72,7 cp (337,5 SSU). Desarrollado paso a paso en el anexo
+ * de la tesis.
  *
  * Levanta un aviso propio de este caso: el libro publica tablas de corrección
  * para bombas de 60 % y 70 % de rendimiento máximo, y ésta da 73,6 %, así que
@@ -626,7 +636,7 @@ const BROWN_4B: DesignInputs = {
     bubble_point: 1255.0,
     test_pwf: 2100.0,
     test_rate: 1000.0,
-    ipr_method: "linear",
+    ipr_method: "vogel", // compuesta: Pb 1255 < Pr 2600; el diseño cae en el tramo recto
     reservoir_temp: 200.0,
     drive_mechanism: "water_drive",
     fetkovich_n: null,
@@ -800,11 +810,13 @@ const CON_GAS: DesignInputs = {
 
 
 // ===========================================================================
-// d) Pozo real MA-102 — Meseta Alta, Rincón de los Sauces, Neuquén
+// d) Pozo UNC-1 — Yacimiento Unco (nombre de fantasía; datos reales)
 // ===========================================================================
 
 /**
- * **MA-102 — pozo REAL.** Campo Meseta Alta, Rincón de los Sauces, Neuquén.
+ * **UNC-1 — pozo REAL, nombre de fantasía.** Yacimiento Unco, Provincia del
+ * Neuquén. El pozo, la operadora y el campo se anonimizaron a pedido de la
+ * cotutoría; los DATOS son los del informe original y no se tocaron.
  *
  * Fuente: informe de diseño de SLB «20260309 - MA 0102_ecd_General_Case»,
  * 9-mar-2026, ing. Tamara Lobianco, para PSA (`TESIS/Casos reales/`). Es el
@@ -907,7 +919,7 @@ const CON_GAS: DesignInputs = {
  *   gradiente de mezcla 0,448 psi/ft · sumergencia 774,3 ft (236 m)
  * ```
  */
-const MA_102: DesignInputs = {
+const UNC_1: DesignInputs = {
   reservoir: {
     // 52,0 kgf/cm² abs — arranque de la curva «Inflow Performance» de la carta
     // de la pág. 5 del informe. Ver el docstring: lectura verificada por tres
@@ -976,10 +988,252 @@ const MA_102: DesignInputs = {
   },
 };
 
+// ===========================================================================
+// j) Externo — pozo "Facultad 01", yacimiento Universidad (tesis UNCo, 2017)
+// ===========================================================================
+
+/**
+ * Caso tomado de una tesis externa de la Facultad de Ingeniería (repositorio
+ * institucional, Inv_83338, junio 2017), para contrastar la herramienta contra
+ * un diseño ajeno al proyecto. **No es una fuente validada**: se carga para
+ * comparar, no para validar.
+ *
+ * Datos del enunciado (Sección 5.2, pág. 37 impresa) y del Anexo 9.1:
+ * casing 5½" 17 lb/ft (el anexo declara ID 124.3 mm = 4.894"), tubing 2⅞",
+ * PBD actual 2253 m = 7391.71 ft, admisión de bomba 2038 m = 6686.33 ft,
+ * base de motor 2055 m = 6742 ft, punzados 1646-2219 m = 5400-7280 ft,
+ * Pwh 100 psi, T de superficie 60 °F, T de fondo 197.6 °F, Pb 1863.26 psi,
+ * 21 °API, γw 1.012, γg 0.65, GOR 67.4 scf/STB, WOR 8.09 (89 % de agua),
+ * 50 Hz. Ensayos: 691.82 BPD con 1263.12 ft de sumergencia y 798.74 BPD con
+ * 1223.75 ft, que el autor convierte a Pwf = 842.053 y 834.652 psi.
+ *
+ * DIFERENCIA DE AJUSTE DEL IPR: el autor resuelve Ps y qAOF con los DOS puntos
+ * de ensayo a la vez y obtiene Ps = 888.617 psi y qAOF = 7509.6179 BPD. Acá se
+ * carga esa Ps como estática y UN solo punto de ensayo; la herramienta devuelve
+ * qmax = 7509.6366 y Pwf = 570.3511 psi para el caudal objetivo, contra los
+ * 570.35 psi del impreso. Coinciden a la cuarta cifra.
+ *
+ * SUPUESTOS (el enunciado no los da):
+ *  - Punzados cargados como 7341.71-7391.71 ft. El intervalo REAL es
+ *    5400-7280 ft, con la bomba adentro, que la herramienta no admite. El
+ *    autor calcula el PIP con la columna PBD → bomba (7391.71 − 6686.332 =
+ *    705.378 ft), así que este intervalo de 50 ft al fondo reproduce esa
+ *    misma longitud de columna.
+ *  - Tensión de red 4160 V; línea de conducción 1000 ft de 4".
+ *  - `max_gip = 1.0`: el autor bombea el gas con un separador del 70 % y no
+ *    verifica el gas remanente contra ningún límite.
+ *
+ * RESULTADOS PUBLICADOS, para contrastar (Tabla 5 y Sección 5.3):
+ * PIP 285.3876 psi · P descarga 3280.747 psi · masa 1 431 587 lb/d ·
+ * bomba REDA D5800N serie 400 a 50 Hz · 433 etapas · 311.17 hp ·
+ * 2 motores 456 en tándem de 160 hp / 2114 V / 48.5 A · cable #4 Cu ·
+ * 4418.73 V en superficie · 371.2 kVA → transformador de 400 kVA.
+ *
+ * OJO al comparar las etapas: la curva de la D5800N del catálogo está a 60 Hz
+ * y el camino de incrementos NO aplica las leyes de afinidad (ver tarea
+ * abierta). A 60 Hz salen 296 etapas; corregidas por (50/60)² dan 426.2,
+ * contra las 432.91 del impreso (−1.54 %).
+ */
+const FACULTAD_01: DesignInputs = {
+  reservoir: {
+    static_pressure: 888.617,    // psi — Ps que el autor despeja del IPR
+    bubble_point: 1863.26,       // psi — dato del pozo
+    test_pwf: 842.053,           // psi — primer punto de ensayo
+    test_rate: 691.82,           // BPD
+    ipr_method: "vogel",
+    reservoir_temp: 197.6,       // °F
+    drive_mechanism: "solution_gas",
+    fetkovich_n: null,
+  },
+  fluid: {
+    oil_api: 21.0,
+    water_cut: 0.89,             // WOR 8.09
+    gor: 67.4,                   // scf/STB
+    gas_sg: 0.65,
+    water_sg: 1.012,
+    oil_viscosity_dead: null,    // el enunciado no da ensayo de viscosidad
+    viscosity_temp_ref: null,
+    bubble_point_pressure: 1863.26,
+    ...SIN_ACIDOS,
+  },
+  well: {
+    total_depth: 7391.71,        // ft — PBD actual, 2253 m
+    ...CASING_5_5,
+    ...TUBING_2_875,
+    perforations_top: 7341.71,   // SUPUESTO, ver comentario
+    perforations_bottom: 7391.71,
+    deviation_max: 0.0,
+    wellhead_temp: 60.0,         // °F
+    pump_setting_depth: 6686.332, // ft — 2038 m, admisión del anexo
+  },
+  surface: {
+    wellhead_pressure_required: 100.0,
+    flowline_length: 1000.0,     // SUPUESTO
+    flowline_id: 4.0,            // SUPUESTO
+    flowline_elevation_change: 0.0,
+    separator_pressure: 100.0,   // SUPUESTO
+    power_supply_voltage: 4160.0, // SUPUESTO
+    frequency: 50.0,
+  },
+  objectives: {
+    target_flow_rate: 4070.70,   // BPD — caudal operativo del autor
+    safety_margin_depth: 0.0,
+    allow_gas_venting: false,
+    max_gip: 1.0,                // el autor no verifica el gas remanente
+    design_life_years: 5.0,
+    use_vsd: false,
+    design_frequency_hz: null,
+  },
+};
+
+// ===========================================================================
+// k) Ejercicio de cátedra — pozo con gas, sumergencia 220 m
+// ===========================================================================
+
+/**
+ * Enunciado: casing 5½", tubing 2⅞", Prof 7300 ft, Pr 1900 psi, Pb 1883 psi,
+ * Pwf 600 psi con ql 700 bl/d (50 % petróleo, 50 % agua), GOR 7000 scf/bl,
+ * γw 1.03, γg 0.65, 28 °API, T fondo 190 °F, T superficie 70 °F, Pth 110 psi.
+ * Dejar la bomba con una sumergencia de 220 m.
+ *
+ * Caudal objetivo: 700 bl/d, el del enunciado (el pozo produce eso a 600 psi).
+ * Pr > Pb, así que la IPR es la compuesta de Brown Vol. 4 (ecs. 2.27 a 2.31).
+ *
+ * SUPUESTOS (el enunciado no los da):
+ *  - Punzados 7100-7299 ft, como se cargaron en la app.
+ *  - Succión a 6576 ft: nivel dinámico con el gradiente del líquido
+ *    (0.433 × 0.959 = 0.415 psi/ft → 600 / 0.415 = 1445.5 ft sobre 7300 ft,
+ *    nivel a 5854.5 ft) más 220 m = 721.8 ft de sumergencia.
+ *  - Sin línea de conducción (largo 0) ni presión de separador.
+ */
+const CATEDRA_GAS_220M: DesignInputs = {
+  reservoir: {
+    static_pressure: 1900.0,
+    bubble_point: 1883.0,
+    test_pwf: 600.0,
+    test_rate: 700.0,
+    ipr_method: "vogel",
+    reservoir_temp: 190.0,
+    drive_mechanism: "solution_gas",
+    fetkovich_n: null,
+  },
+  fluid: {
+    oil_api: 28.0,
+    water_cut: 0.5,
+    gor: 7000.0,
+    gas_sg: 0.65,
+    water_sg: 1.03,
+    oil_viscosity_dead: null,
+    viscosity_temp_ref: null,
+    bubble_point_pressure: 1883.0,
+    ...SIN_ACIDOS,
+  },
+  well: {
+    total_depth: 7300.0,
+    ...CASING_5_5,
+    tubing_od: 2.875,
+    tubing_id: 2.441,
+    perforations_top: 7100.0,   // SUPUESTO
+    perforations_bottom: 7299.0, // SUPUESTO
+    deviation_max: 0.0,
+    wellhead_temp: 70.0,
+    pump_setting_depth: 6576.0, // sumergencia 220 m, ver comentario
+  },
+  surface: {
+    wellhead_pressure_required: 110.0,
+    flowline_length: 0.0,
+    flowline_id: 3.0,
+    flowline_elevation_change: 0.0,
+    separator_pressure: 0.0,
+    power_supply_voltage: 4160.0, // SUPUESTO
+    frequency: 50.0,
+  },
+  objectives: {
+    target_flow_rate: 700.0,
+    safety_margin_depth: 0.0,
+    allow_gas_venting: false,
+    max_gip: 1.0,
+    design_life_years: 5.0,
+    use_vsd: false,
+    design_frequency_hz: null,
+  },
+};
+
+// ===========================================================================
+// l) Tesis · Caso 2 (PG-1) — pozo de petróleo, agua y gas
+// ===========================================================================
+
+/**
+ * Caso 2 de la tesis (Sección 3.4.2), el caso de aplicación acordado con el
+ * tutor y desarrollado paso a paso en el capítulo 3. Pr 2045 psi; Pb 1883 psi
+ * del PVT (menor que Pr: IPR compuesta); ensayo 800 STB/d a 600 psig, que es
+ * también el caudal objetivo; 30 °API; WC 45 %; GOR 820 scf/STB; γg 0.65;
+ * γw 1.019; T 185 °F en el fondo y 70 °F en boca; punzados 7299-7300 ft;
+ * bomba a 7000 ft; Pth 100 psi; 50 Hz.
+ *
+ * En la pestaña del método paso a paso cargar **eficiencia del separador
+ * 94 %** y escalón de 200 psi. Resultado: PIP 557.64 psig (180.27 °F), 67.2 %
+ * de gas libre en la admisión y 10.96 % en la bomba, descarga 2760.50 psig,
+ * REDA DN1100 de 349 etapas y 52.77 hp, motor REDA RX de 60 hp a 50 Hz.
+ * Con dos separadores en tándem el gas en la bomba baja a 0.73 %.
+ */
+const TESIS_CASO_2: DesignInputs = {
+  reservoir: {
+    static_pressure: 2045.0,
+    bubble_point: 1883.0,
+    test_pwf: 600.0,
+    test_rate: 800.0,
+    ipr_method: "vogel",
+    reservoir_temp: 185.0,
+    drive_mechanism: "solution_gas",
+    fetkovich_n: null,
+  },
+  fluid: {
+    oil_api: 30.0,
+    water_cut: 0.45,
+    gor: 820.0,
+    gas_sg: 0.65,
+    water_sg: 1.019,
+    oil_viscosity_dead: null,
+    viscosity_temp_ref: null,
+    bubble_point_pressure: 1883.0,
+    ...SIN_ACIDOS,
+  },
+  well: {
+    total_depth: 7300.0,
+    ...CASING_5_5,
+    ...TUBING_2_875,
+    perforations_top: 7299.0,
+    perforations_bottom: 7300.0,
+    deviation_max: 0.0,
+    wellhead_temp: 70.0,
+    pump_setting_depth: 7000.0,
+  },
+  surface: {
+    wellhead_pressure_required: 100.0,
+    flowline_length: 0.0,
+    flowline_id: 4.0,
+    flowline_elevation_change: 0.0,
+    separator_pressure: 100.0,
+    power_supply_voltage: 4160.0,
+    frequency: 50.0,
+  },
+  objectives: {
+    target_flow_rate: 800.0,
+    safety_margin_depth: 0.0,
+    allow_gas_venting: false,
+    max_gip: 1.0,
+    design_life_years: 5.0,
+    use_vsd: false,
+    design_frequency_hz: null,
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Registro. El orden es el del menú: primero el genérico, después los seis
 // ejemplos del libro en el orden del capítulo, después los propios y al final
 // el pozo real.
+
 // ---------------------------------------------------------------------------
 
 export const EXAMPLE_CASES: Record<string, DesignInputs> = {
@@ -990,9 +1244,12 @@ export const EXAMPLE_CASES: Record<string, DesignInputs> = {
   "Brown #3B · Con gas — diseño completo": BROWN_3B,
   "Brown #4A · Crudo viscoso 14 °API": BROWN_4A,
   "Brown #4B · Crudo viscoso 12 °API": BROWN_4B,
-  "Propio · Acuífero (sin gas)": ACUIFERO,
+  "Propio · Acuífero (sin gas libre)": ACUIFERO,
   "Propio · Gas en bomba (5,9 %)": CON_GAS,
-  "Real · MA-102 Meseta Alta": MA_102,
+  "Real · UNC-1 Yacimiento Unco": UNC_1,
+  "Caso con gas externo": FACULTAD_01,
+  "Cátedra · Gas, sumergencia 220 m": CATEDRA_GAS_220M,
+  "Tesis · Caso 2 (gas, GOR 820)": TESIS_CASO_2,
 };
 
 /** Orden de presentación en el menú (los `Record` no garantizan orden estable

@@ -6,45 +6,45 @@
       "type": "Redalene",
       "conductor": "CU",
       "size": "#1",
-      "max_amps": 100,
-      "max_temp_f": 450,
+      "max_amps": 115,
+      "max_temp_f": 180,
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.235,
         "150": 0.257,
         "180": 0.27,
         "200": 0.281
       },
-      "_source": "Kermit Brown, Vol. 2b, Tabla 4.52 y API RP 11S6 / NEMA (ampacidad y caída de tensión por calibre estándar; ver _note del catálogo)"
+      "_source": "Ampacidad: Brown (1980), Vol. 2b, Tabla 4.52, p. 64. Brown (1980), Vol. 2b, p. 67 (temperatura: Redalene 180 °F). Caída de tensión: lectura de la Fig. 4.54 de Brown (1980, p. 64), banda de 100 a 200 °F."
     },
     {
       "manufacturer": "REDA",
       "type": "Redalene",
       "conductor": "CU",
       "size": "#2",
-      "max_amps": 88,
-      "max_temp_f": 450,
+      "max_amps": 95,
+      "max_temp_f": 180,
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.297,
         "150": 0.324,
         "180": 0.341,
         "200": 0.354
       },
-      "_source": "Kermit Brown, Vol. 2b, Tabla 4.52 y API RP 11S6 / NEMA (ampacidad y caída de tensión por calibre estándar; ver _note del catálogo)"
+      "_source": "Ampacidad: Brown (1980), Vol. 2b, Tabla 4.52, p. 64. Brown (1980), Vol. 2b, p. 67 (temperatura: Redalene 180 °F). Caída de tensión: lectura de la Fig. 4.54 de Brown (1980, p. 64), banda de 100 a 200 °F."
     },
     {
       "manufacturer": "REDA",
       "type": "Redalene",
       "conductor": "CU",
       "size": "#4",
-      "max_amps": 69,
-      "max_temp_f": 450,
+      "max_amps": 70,
+      "max_temp_f": 180,
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.473,
         "150": 0.516,
         "180": 0.543,
         "200": 0.562
       },
-      "_source": "Kermit Brown, Vol. 2b, Tabla 4.52 y API RP 11S6 / NEMA (ampacidad y caída de tensión por calibre estándar; ver _note del catálogo)"
+      "_source": "Ampacidad: Brown (1980), Vol. 2b, Tabla 4.52, p. 64. Brown (1980), Vol. 2b, p. 67 (temperatura: Redalene 180 °F). Caída de tensión: lectura de la Fig. 4.54 de Brown (1980, p. 64), banda de 100 a 200 °F."
     },
     {
       "manufacturer": "REDA",
@@ -52,179 +52,179 @@
       "conductor": "CU",
       "size": "#6",
       "max_amps": 55,
-      "max_temp_f": 450,
+      "max_temp_f": 180,
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.752,
         "150": 0.82,
         "180": 0.863,
         "200": 0.894
       },
-      "_source": "Kermit Brown, Vol. 2b, Tabla 4.52 y API RP 11S6 / NEMA (ampacidad y caída de tensión por calibre estándar; ver _note del catálogo)"
+      "_source": "Ampacidad: Brown (1980), Vol. 2b, Tabla 4.52, p. 64. Brown (1980), Vol. 2b, p. 67 (temperatura: Redalene 180 °F). Caída de tensión: lectura de la Fig. 4.54 de Brown (1980, p. 64), banda de 100 a 200 °F."
     },
     {
       "manufacturer": "REDA",
       "type": "Redared",
       "conductor": "CU",
       "size": "#1",
-      "max_amps": 100,
-      "max_temp_f": 400,
+      "max_amps": 115,
+      "max_temp_f": 300,
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.235,
         "150": 0.257,
         "180": 0.27,
         "200": 0.281
       },
-      "_source": "Kermit Brown, Vol. 2b, Tabla 4.52 y API RP 11S6 / NEMA (ampacidad y caída de tensión por calibre estándar; ver _note del catálogo)"
+      "_source": "Ampacidad: Brown (1980), Vol. 2b, Tabla 4.52, p. 64. Brown (1980), Vol. 2b, p. 67 (temperatura: Redared 300 °F). Caída de tensión: lectura de la Fig. 4.54 de Brown (1980, p. 64), banda de 100 a 200 °F."
     },
     {
       "manufacturer": "REDA",
       "type": "Redared",
       "conductor": "CU",
       "size": "#2",
-      "max_amps": 88,
-      "max_temp_f": 400,
-      "voltage_drop_v_per_amp_per_1000ft": {
-        "100": 0.297,
-        "150": 0.324,
-        "180": 0.341,
-        "200": 0.354
-      },
-      "_source": "Kermit Brown, Vol. 2b, Tabla 4.52 y API RP 11S6 / NEMA (ampacidad y caída de tensión por calibre estándar; ver _note del catálogo)"
-    },
-    {
-      "manufacturer": "Centrilift",
-      "type": "Polyethylene",
-      "conductor": "CU",
-      "size": "#1",
       "max_amps": 95,
       "max_temp_f": 300,
       "voltage_drop_v_per_amp_per_1000ft": {
+        "100": 0.297,
+        "150": 0.324,
+        "180": 0.341,
+        "200": 0.354
+      },
+      "_source": "Ampacidad: Brown (1980), Vol. 2b, Tabla 4.52, p. 64. Brown (1980), Vol. 2b, p. 67 (temperatura: Redared 300 °F). Caída de tensión: lectura de la Fig. 4.54 de Brown (1980, p. 64), banda de 100 a 200 °F."
+    },
+    {
+      "manufacturer": "REDA",
+      "type": "Polyethylene",
+      "conductor": "CU",
+      "size": "#1",
+      "max_amps": 115,
+      "max_temp_f": 140,
+      "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.235,
         "150": 0.257,
         "180": 0.27,
         "200": 0.281
       },
-      "_source": "Kermit Brown, Vol. 2b, Tabla 4.52 y API RP 11S6 / NEMA (ampacidad y caída de tensión por calibre estándar; ver _note del catálogo)"
+      "_source": "Ampacidad: Brown (1980), Vol. 2b, Tabla 4.52, p. 64. Brown (1980), Vol. 2b, p. 67 (temperatura: Polyethelene 140 °F). Caída de tensión: lectura de la Fig. 4.54 de Brown (1980, p. 64), banda de 100 a 200 °F."
     },
     {
-      "manufacturer": "Centrilift",
+      "manufacturer": "REDA",
       "type": "Polyethylene",
       "conductor": "CU",
       "size": "#2",
-      "max_amps": 83,
-      "max_temp_f": 300,
+      "max_amps": 95,
+      "max_temp_f": 140,
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.297,
         "150": 0.324,
         "180": 0.341,
         "200": 0.354
       },
-      "_source": "Kermit Brown, Vol. 2b, Tabla 4.52 y API RP 11S6 / NEMA (ampacidad y caída de tensión por calibre estándar; ver _note del catálogo)"
+      "_source": "Ampacidad: Brown (1980), Vol. 2b, Tabla 4.52, p. 64. Brown (1980), Vol. 2b, p. 67 (temperatura: Polyethelene 140 °F). Caída de tensión: lectura de la Fig. 4.54 de Brown (1980, p. 64), banda de 100 a 200 °F."
     },
     {
-      "manufacturer": "Centrilift",
+      "manufacturer": "REDA",
       "type": "Polyethylene",
       "conductor": "CU",
       "size": "#4",
-      "max_amps": 65,
-      "max_temp_f": 300,
+      "max_amps": 70,
+      "max_temp_f": 140,
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.473,
         "150": 0.516,
         "180": 0.543,
         "200": 0.562
       },
-      "_source": "Kermit Brown, Vol. 2b, Tabla 4.52 y API RP 11S6 / NEMA (ampacidad y caída de tensión por calibre estándar; ver _note del catálogo)"
+      "_source": "Ampacidad: Brown (1980), Vol. 2b, Tabla 4.52, p. 64. Brown (1980), Vol. 2b, p. 67 (temperatura: Polyethelene 140 °F). Caída de tensión: lectura de la Fig. 4.54 de Brown (1980, p. 64), banda de 100 a 200 °F."
     },
     {
-      "manufacturer": "Centrilift",
+      "manufacturer": "Genérico",
       "type": "EPDM",
       "conductor": "CU",
       "size": "#1",
-      "max_amps": 100,
-      "max_temp_f": 500,
+      "max_amps": 115,
+      "max_temp_f": 400,
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.235,
         "150": 0.257,
         "180": 0.27,
         "200": 0.281
       },
-      "_source": "Kermit Brown, Vol. 2b, Tabla 4.52 y API RP 11S6 / NEMA (ampacidad y caída de tensión por calibre estándar; ver _note del catálogo)"
+      "_source": "Ampacidad: Brown (1980), Vol. 2b, Tabla 4.52, p. 64. Takács (2018), Sección 5.3.6.2, p. 256 (temperatura: EPDM 400 °F). Caída de tensión: lectura de la Fig. 4.54 de Brown (1980, p. 64), banda de 100 a 200 °F."
     },
     {
-      "manufacturer": "Centrilift",
+      "manufacturer": "Genérico",
       "type": "EPDM",
       "conductor": "CU",
       "size": "#2",
-      "max_amps": 88,
-      "max_temp_f": 500,
+      "max_amps": 95,
+      "max_temp_f": 400,
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.297,
         "150": 0.324,
         "180": 0.341,
         "200": 0.354
       },
-      "_source": "Kermit Brown, Vol. 2b, Tabla 4.52 y API RP 11S6 / NEMA (ampacidad y caída de tensión por calibre estándar; ver _note del catálogo)"
+      "_source": "Ampacidad: Brown (1980), Vol. 2b, Tabla 4.52, p. 64. Takács (2018), Sección 5.3.6.2, p. 256 (temperatura: EPDM 400 °F). Caída de tensión: lectura de la Fig. 4.54 de Brown (1980, p. 64), banda de 100 a 200 °F."
     },
     {
-      "manufacturer": "Centrilift",
+      "manufacturer": "Genérico",
       "type": "EPDM",
       "conductor": "CU",
       "size": "#4",
-      "max_amps": 69,
-      "max_temp_f": 500,
+      "max_amps": 70,
+      "max_temp_f": 400,
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.473,
         "150": 0.516,
         "180": 0.543,
         "200": 0.562
       },
-      "_source": "Kermit Brown, Vol. 2b, Tabla 4.52 y API RP 11S6 / NEMA (ampacidad y caída de tensión por calibre estándar; ver _note del catálogo)"
+      "_source": "Ampacidad: Brown (1980), Vol. 2b, Tabla 4.52, p. 64. Takács (2018), Sección 5.3.6.2, p. 256 (temperatura: EPDM 400 °F). Caída de tensión: lectura de la Fig. 4.54 de Brown (1980, p. 64), banda de 100 a 200 °F."
     },
     {
       "manufacturer": "REDA",
       "type": "Redalene",
       "conductor": "AL",
       "size": "#1",
-      "max_amps": 78,
-      "max_temp_f": 450,
+      "max_amps": null,
+      "max_temp_f": 180,
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.388,
         "150": 0.424,
         "180": 0.446,
         "200": 0.462
       },
-      "_source": "Kermit Brown, Vol. 2b, Tabla 4.52 y API RP 11S6 / NEMA (ampacidad y caída de tensión por calibre estándar; ver _note del catálogo)"
+      "_source": "Ampacidad: Brown (1980), Vol. 2b, Tabla 4.52, p. 64 (calibre no tabulado: sin ampacidad, no se selecciona). Brown (1980), Vol. 2b, p. 67 (temperatura: Redalene 180 °F). Caída de tensión: lectura de la Fig. 4.54 de Brown (1980, p. 64), banda de 100 a 200 °F."
     },
     {
       "manufacturer": "REDA",
       "type": "Redalene",
       "conductor": "AL",
       "size": "#2",
-      "max_amps": 69,
-      "max_temp_f": 450,
+      "max_amps": 70,
+      "max_temp_f": 180,
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.49,
         "150": 0.535,
         "180": 0.563,
         "200": 0.583
       },
-      "_source": "Kermit Brown, Vol. 2b, Tabla 4.52 y API RP 11S6 / NEMA (ampacidad y caída de tensión por calibre estándar; ver _note del catálogo)"
+      "_source": "Ampacidad: Brown (1980), Vol. 2b, Tabla 4.52, p. 64. Brown (1980), Vol. 2b, p. 67 (temperatura: Redalene 180 °F). Caída de tensión: lectura de la Fig. 4.54 de Brown (1980, p. 64), banda de 100 a 200 °F."
     },
     {
       "manufacturer": "REDA",
       "type": "Redalene",
       "conductor": "AL",
       "size": "#4",
-      "max_amps": 54,
-      "max_temp_f": 450,
+      "max_amps": 55,
+      "max_temp_f": 180,
       "voltage_drop_v_per_amp_per_1000ft": {
         "100": 0.779,
         "150": 0.85,
         "180": 0.895,
         "200": 0.927
       },
-      "_source": "Kermit Brown, Vol. 2b, Tabla 4.52 y API RP 11S6 / NEMA (ampacidad y caída de tensión por calibre estándar; ver _note del catálogo)"
+      "_source": "Ampacidad: Brown (1980), Vol. 2b, Tabla 4.52, p. 64. Brown (1980), Vol. 2b, p. 67 (temperatura: Redalene 180 °F). Caída de tensión: lectura de la Fig. 4.54 de Brown (1980, p. 64), banda de 100 a 200 °F."
     },
     {
       "manufacturer": "Wood Group ESP",
@@ -682,5 +682,6 @@
     "agregados": 25,
     "limitacion": "El catalogo publica calibre, dimensiones, peso y part number, pero NO ampacidad, temperatura maxima ni caida de tension. Sin esos tres datos el cable no puede verificarse, asi que select_cable los excluye de la seleccion automatica: entran como referencia de catalogo."
   },
-  "_purga_proveedores_2026_08": "El proyecto trabaja con tres proveedores: REDA, Centrilift y Wood Group ESP. Todo registro de otro fabricante se elimino. Ademas se normalizo la escritura del fabricante a una sola forma por proveedor: convivian «Reda» y «REDA», que con la regla de aparejo de un solo fabricante contarian como dos distintos. Las 3 bombas «Brown (libro)» (I-300, I-42B, M-34) se conservan: no son un proveedor sino los ejemplos numerados de Kermit Brown Vol. 2b que anclan la validacion del motor de calculo."
+  "_purga_proveedores_2026_08": "El proyecto trabaja con tres proveedores: REDA, Centrilift y Wood Group ESP. Todo registro de otro fabricante se elimino. Ademas se normalizo la escritura del fabricante a una sola forma por proveedor: convivian «Reda» y «REDA», que con la regla de aparejo de un solo fabricante contarian como dos distintos. Las 3 bombas «Brown (libro)» (I-300, I-42B, M-34) se conservan: no son un proveedor sino los ejemplos numerados de Kermit Brown Vol. 2b que anclan la validacion del motor de calculo.",
+  "_correccion_2026_10": "Ampacidades y temperaturas máximas corregidas a los valores impresos en Brown (1980), Tabla 4.52 y p. 67, y Takács (2018), p. 256. Los valores anteriores no coincidían con la fuente declarada."
 }
