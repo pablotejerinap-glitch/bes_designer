@@ -38,13 +38,22 @@ import { IconDownload, IconFolderOpen, IconMoon, IconSave, IconSun } from "./com
 // Pestaña de leyes de afinidad oculta por el momento.
 const MOSTRAR_AFINIDAD = false;
 
-type Health = "checking" | "ok" | "error";
+type Health = "checking" | "waking" | "ok" | "error";
 
 const HEALTH_LABEL: Record<Health, string> = {
   checking: "Verificando backend…",
+  waking: "Despertando el servidor…",
   ok: "Backend conectado",
   error: "Backend sin conexión",
 };
+
+// El backend duerme por inactividad y su arranque en frío tarda: la imagen
+// importa numpy, scipy, pandas y matplotlib. Con un solo intento la app
+// quedaba en «Backend sin conexión» y el botón de calcular desactivado hasta
+// recargar a mano, aunque el servidor despertara dos segundos después. Se
+// reintenta en una ventana acotada; pasada la ventana sí se declara el error.
+const HEALTH_RETRY_MS = 5_000;
+const HEALTH_WINDOW_MS = 120_000;
 
 // Guardar/cargar casos: persistencia local del navegador (localStorage).
 // El backend tiene case_bundle.py para persistencia real cuando llegue la DB.
@@ -200,13 +209,42 @@ export function App() {
   } | null>(null);
 
   useEffect(() => {
-    (async () => {
+    // `cancelado` corta el ciclo si el componente se desmonta: sin eso el
+    // timer sigue vivo y escribe estado sobre un componente que ya no está.
+    let cancelado = false;
+    let timer: number | undefined;
+    const vence = Date.now() + HEALTH_WINDOW_MS;
+
+    const intentar = async () => {
+      if (cancelado) return;
       try {
         await api.health();
-        setHealth("ok");
-        const cat = await api.catalogs();
-        setCatalogPumps(cat.pumps);
       } catch (e) {
+        if (cancelado) return;
+        // Todavía dentro de la ventana: el servidor puede estar despertando.
+        if (Date.now() < vence) {
+          setHealth("waking");
+          timer = window.setTimeout(intentar, HEALTH_RETRY_MS);
+          return;
+        }
+        setHealth("error");
+        notifications.show({
+          color: "red",
+          title: "Backend no disponible",
+          message: e instanceof ApiError ? e.message : String(e),
+        });
+        return;
+      }
+      // El backend respondió: el botón de calcular se habilita acá y sólo acá.
+      if (cancelado) return;
+      setHealth("ok");
+      // Si los catálogos fallan, la app se declara sin conexión igual que
+      // antes: el reintento es sólo para el backend dormido, no cambia esto.
+      try {
+        const cat = await api.catalogs();
+        if (!cancelado) setCatalogPumps(cat.pumps);
+      } catch (e) {
+        if (cancelado) return;
         setHealth("error");
         notifications.show({
           color: "red",
@@ -214,7 +252,13 @@ export function App() {
           message: e instanceof ApiError ? e.message : String(e),
         });
       }
-    })();
+    };
+
+    void intentar();
+    return () => {
+      cancelado = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
   }, []);
 
   async function calculate() {
@@ -439,6 +483,8 @@ export function App() {
         <Group gap={6} wrap="nowrap">
           <span
             className={`status-dot status-dot--${
+              // "waking" comparte el punto de "checking": las dos son espera,
+              // no error, y no hace falta un color nuevo en styles.css.
               health === "ok" ? "ok" : health === "error" ? "error" : "checking"
             }`}
           />
